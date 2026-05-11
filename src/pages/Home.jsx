@@ -9,6 +9,15 @@ export default function Home() {
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
+          to="/locations"
+          className="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow"
+        >
+          <h2 className="text-lg font-semibold">Locations</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Save your hotels and training sites — set up once, reuse forever.
+          </p>
+        </Link>
+        <Link
           to="/manager"
           className="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow"
         >
@@ -17,10 +26,10 @@ export default function Home() {
             Create a new training class and add trainees.
           </p>
         </Link>
-        <div className="block rounded-lg border border-dashed border-slate-200 bg-white p-6 opacity-60">
+        <div className="block rounded-lg border border-dashed border-slate-200 bg-white p-6 opacity-60 sm:col-span-2">
           <h2 className="text-lg font-semibold">Trainee Registration</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Coming in Stage 2 — trainees will receive a personal link via text.
+            Coming in Stage 2 — trainees will receive a personal link via text from GoHighLevel.
           </p>
         </div>
       </div>

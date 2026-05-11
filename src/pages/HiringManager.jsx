@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
 const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '' })
@@ -7,30 +8,47 @@ export default function HiringManager() {
   const [classData, setClassData] = useState({
     week_start_date: '',
     week_end_date: '',
-    location_name: '',
-    location_address: '',
+    location_id: '',
     schedule_details: '',
   })
   const [trainees, setTrainees] = useState([blankTrainee()])
+  const [locations, setLocations] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState(null)
   const [recentClasses, setRecentClasses] = useState([])
 
   useEffect(() => {
+    loadLocations()
     loadRecentClasses()
   }, [])
+
+  async function loadLocations() {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('id, name, address, schedule_template')
+      .order('name', { ascending: true })
+    if (!error) setLocations(data || [])
+  }
 
   async function loadRecentClasses() {
     const { data, error } = await supabase
       .from('classes')
-      .select('id, week_start_date, location_name, trainees(count)')
+      .select('id, week_start_date, locations(name), trainees(count)')
       .order('week_start_date', { ascending: false })
       .limit(5)
     if (!error) setRecentClasses(data || [])
   }
 
   function updateClass(field, value) {
-    setClassData((prev) => ({ ...prev, [field]: value }))
+    setClassData((prev) => {
+      const next = { ...prev, [field]: value }
+      // When location changes, pre-fill schedule from its template (only if user hasn't typed anything yet)
+      if (field === 'location_id' && !prev.schedule_details) {
+        const loc = locations.find((l) => l.id === value)
+        if (loc?.schedule_template) next.schedule_details = loc.schedule_template
+      }
+      return next
+    })
   }
 
   function updateTrainee(index, field, value) {
@@ -51,6 +69,11 @@ export default function HiringManager() {
     e.preventDefault()
     setMessage(null)
 
+    if (!classData.location_id) {
+      setMessage({ type: 'error', text: 'Pick a location for this class.' })
+      return
+    }
+
     const validTrainees = trainees.filter(
       (t) => t.first_name.trim() && t.last_name.trim() && t.phone.trim(),
     )
@@ -66,8 +89,7 @@ export default function HiringManager() {
         .insert({
           week_start_date: classData.week_start_date,
           week_end_date: classData.week_end_date,
-          location_name: classData.location_name,
-          location_address: classData.location_address,
+          location_id: classData.location_id,
           schedule_details: classData.schedule_details || null,
         })
         .select()
@@ -91,8 +113,7 @@ export default function HiringManager() {
       setClassData({
         week_start_date: '',
         week_end_date: '',
-        location_name: '',
-        location_address: '',
+        location_id: '',
         schedule_details: '',
       })
       setTrainees([blankTrainee()])
@@ -103,6 +124,8 @@ export default function HiringManager() {
       setSubmitting(false)
     }
   }
+
+  const noLocations = locations.length === 0
 
   return (
     <div className="space-y-10">
@@ -136,25 +159,38 @@ export default function HiringManager() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Location name" className="sm:col-span-2">
-              <input
-                type="text"
-                required
-                placeholder="e.g. Hartford Training Center"
-                value={classData.location_name}
-                onChange={(e) => updateClass('location_name', e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Location address" className="sm:col-span-2">
-              <input
-                type="text"
-                required
-                placeholder="123 Main St, Hartford, CT 06103"
-                value={classData.location_address}
-                onChange={(e) => updateClass('location_address', e.target.value)}
-                className={inputCls}
-              />
+            <Field label="Location" className="sm:col-span-2">
+              {noLocations ? (
+                <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  No locations saved yet.{' '}
+                  <Link to="/locations" className="font-semibold underline">
+                    Add your first location
+                  </Link>{' '}
+                  before creating a class.
+                </div>
+              ) : (
+                <>
+                  <select
+                    required
+                    value={classData.location_id}
+                    onChange={(e) => updateClass('location_id', e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">— Select a location —</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} — {loc.address}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Need a new one?{' '}
+                    <Link to="/locations" className="underline hover:text-slate-700">
+                      Manage locations
+                    </Link>
+                  </div>
+                </>
+              )}
             </Field>
             <Field label="Schedule details (optional)" className="sm:col-span-2">
               <textarea
@@ -164,6 +200,9 @@ export default function HiringManager() {
                 onChange={(e) => updateClass('schedule_details', e.target.value)}
                 className={inputCls}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Auto-fills from the location's default schedule, but you can override per class.
+              </p>
             </Field>
           </div>
         </section>
@@ -247,7 +286,7 @@ export default function HiringManager() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || noLocations}
             className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
           >
             {submitting ? 'Saving…' : 'Create class'}
@@ -265,7 +304,7 @@ export default function HiringManager() {
             {recentClasses.map((c) => (
               <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
                 <div>
-                  <div className="font-medium text-slate-900">{c.location_name}</div>
+                  <div className="font-medium text-slate-900">{c.locations?.name ?? 'Unknown location'}</div>
                   <div className="text-slate-500">Week of {c.week_start_date}</div>
                 </div>
                 <div className="text-slate-500">

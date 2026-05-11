@@ -1,6 +1,7 @@
-import { Routes, Route, Link } from 'react-router-dom'
+import { Routes, Route, NavLink, Link } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import HiringManager from './pages/HiringManager.jsx'
+import Locations from './pages/Locations.jsx'
 
 export default function App() {
   return (
@@ -11,8 +12,9 @@ export default function App() {
             Training Management
           </Link>
           <nav className="flex gap-6 text-sm">
-            <Link to="/" className="text-slate-600 hover:text-slate-900">Home</Link>
-            <Link to="/manager" className="text-slate-600 hover:text-slate-900">Hiring Manager</Link>
+            <NavItem to="/" end>Home</NavItem>
+            <NavItem to="/manager">Hiring Manager</NavItem>
+            <NavItem to="/locations">Locations</NavItem>
           </nav>
         </div>
       </header>
@@ -20,8 +22,25 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/manager" element={<HiringManager />} />
+          <Route path="/locations" element={<Locations />} />
         </Routes>
       </main>
     </div>
+  )
+}
+
+function NavItem({ to, end, children }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        isActive
+          ? 'font-medium text-slate-900'
+          : 'text-slate-600 hover:text-slate-900'
+      }
+    >
+      {children}
+    </NavLink>
   )
 }

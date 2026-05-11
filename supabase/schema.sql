@@ -1,20 +1,44 @@
--- Training Management System schema
--- Run this in Supabase Dashboard → SQL Editor → New query → paste → Run
+-- Training Management System schema (v2 — Locations Library added)
+-- Run this in Supabase Dashboard → SQL Editor → New query → paste → Run.
+-- Safe to re-run — idempotent.
 
 -- ============================================================
 -- TABLES
 -- ============================================================
 
+-- Saved hotels / training sites — picked from a dropdown when creating a class
+create table if not exists locations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  address text not null,
+  parking_info text,
+  contact_info text,
+  schedule_template text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists classes (
   id uuid primary key default gen_random_uuid(),
+  location_id uuid references locations(id) on delete restrict,
   week_start_date date not null,
   week_end_date date not null,
-  location_name text not null,
-  location_address text not null,
   schedule_details text,
   status text not null default 'upcoming',
   created_at timestamptz not null default now()
 );
+
+-- Upgrade path from earlier schema (v1 had location_name/location_address as required columns on classes).
+-- Relax those if present and ensure location_id exists.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name='classes' and column_name='location_name') then
+    execute 'alter table classes alter column location_name drop not null';
+  end if;
+  if exists (select 1 from information_schema.columns where table_name='classes' and column_name='location_address') then
+    execute 'alter table classes alter column location_address drop not null';
+  end if;
+end $$;
+alter table classes add column if not exists location_id uuid references locations(id) on delete restrict;
 
 create table if not exists trainees (
   id uuid primary key default gen_random_uuid(),
@@ -42,10 +66,13 @@ create table if not exists attendance (
   unique (trainee_id, attendance_date)
 );
 
--- Useful indexes
+-- ============================================================
+-- INDEXES
+-- ============================================================
 create index if not exists trainees_class_id_idx on trainees(class_id);
 create index if not exists trainees_token_idx on trainees(registration_token);
 create index if not exists attendance_class_date_idx on attendance(class_id, attendance_date);
+create index if not exists classes_location_idx on classes(location_id);
 
 -- ============================================================
 -- ROW LEVEL SECURITY
@@ -53,30 +80,47 @@ create index if not exists attendance_class_date_idx on attendance(class_id, att
 -- Stage 1: permissive policies so the app works without auth.
 -- Stage 3 will add Supabase Auth and tighten these to authenticated users only.
 
+alter table locations enable row level security;
 alter table classes enable row level security;
 alter table trainees enable row level security;
 alter table attendance enable row level security;
 
--- Classes: public read/write (will tighten later)
+-- Locations
+drop policy if exists "locations_public_select" on locations;
+drop policy if exists "locations_public_insert" on locations;
+drop policy if exists "locations_public_update" on locations;
+drop policy if exists "locations_public_delete" on locations;
+create policy "locations_public_select" on locations for select using (true);
+create policy "locations_public_insert" on locations for insert with check (true);
+create policy "locations_public_update" on locations for update using (true);
+create policy "locations_public_delete" on locations for delete using (true);
+
+-- Classes
 drop policy if exists "classes_public_select" on classes;
 drop policy if exists "classes_public_insert" on classes;
 drop policy if exists "classes_public_update" on classes;
+drop policy if exists "classes_public_delete" on classes;
 create policy "classes_public_select" on classes for select using (true);
 create policy "classes_public_insert" on classes for insert with check (true);
 create policy "classes_public_update" on classes for update using (true);
+create policy "classes_public_delete" on classes for delete using (true);
 
--- Trainees: public read/write
+-- Trainees
 drop policy if exists "trainees_public_select" on trainees;
 drop policy if exists "trainees_public_insert" on trainees;
 drop policy if exists "trainees_public_update" on trainees;
+drop policy if exists "trainees_public_delete" on trainees;
 create policy "trainees_public_select" on trainees for select using (true);
 create policy "trainees_public_insert" on trainees for insert with check (true);
 create policy "trainees_public_update" on trainees for update using (true);
+create policy "trainees_public_delete" on trainees for delete using (true);
 
--- Attendance: public read/write
+-- Attendance
 drop policy if exists "attendance_public_select" on attendance;
 drop policy if exists "attendance_public_insert" on attendance;
 drop policy if exists "attendance_public_update" on attendance;
+drop policy if exists "attendance_public_delete" on attendance;
 create policy "attendance_public_select" on attendance for select using (true);
 create policy "attendance_public_insert" on attendance for insert with check (true);
 create policy "attendance_public_update" on attendance for update using (true);
+create policy "attendance_public_delete" on attendance for delete using (true);
