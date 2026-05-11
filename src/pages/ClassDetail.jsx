@@ -227,6 +227,8 @@ export default function ClassDetail() {
   const isTBD = !cls.locations
   const unsentIds = trainees.filter((t) => !t.registered).map((t) => t.id)
 
+  const summary = computeSummary(trainees)
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -275,6 +277,8 @@ export default function ClassDetail() {
           {message.text}
         </div>
       )}
+
+      <RosterSummary summary={summary} />
 
       {/* Region + training location controls */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
@@ -485,6 +489,21 @@ function TraineeGroup({
                           Registered: {new Date(t.registered_at).toLocaleString()}
                         </div>
                       )}
+                      {t.confirmation_status === 'confirmed' && (
+                        <div className="mt-0.5 text-xs font-semibold text-green-700">
+                          ✅ Confirmed for tomorrow
+                        </div>
+                      )}
+                      {t.confirmation_status === 'declined' && (
+                        <div className="mt-0.5 text-xs font-semibold text-red-700">
+                          ❌ Declined — can't make it
+                        </div>
+                      )}
+                      {!t.confirmation_status && t.last_reminder_sent_at && (
+                        <div className="mt-0.5 text-xs font-semibold text-amber-700">
+                          ⏳ Confirmation reminder sent, awaiting reply
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <a
@@ -583,6 +602,77 @@ function byName(a, b) {
   const an = `${a.first_name} ${a.last_name}`.toLowerCase()
   const bn = `${b.first_name} ${b.last_name}`.toLowerCase()
   return an < bn ? -1 : an > bn ? 1 : 0
+}
+
+function computeSummary(trainees) {
+  const total = trainees.length
+  const registered = trainees.filter((t) => t.registered).length
+  const confirmed = trainees.filter((t) => t.confirmation_status === 'confirmed').length
+  const declined = trainees.filter((t) => t.confirmation_status === 'declined').length
+  const reminderSentNoResponse = trainees.filter(
+    (t) => t.last_reminder_sent_at && !t.confirmation_status,
+  ).length
+  return { total, registered, confirmed, declined, reminderSentNoResponse }
+}
+
+function pct(numerator, denominator) {
+  if (!denominator) return null
+  return Math.round((numerator / denominator) * 100)
+}
+
+function RosterSummary({ summary }) {
+  if (summary.total === 0) return null
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold">Roster summary</h2>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Scheduled" value={summary.total} />
+        <Stat
+          label="Registered"
+          value={summary.registered}
+          pct={pct(summary.registered, summary.total)}
+          tone="green"
+        />
+        <Stat
+          label="Confirmed"
+          value={summary.confirmed}
+          pct={pct(summary.confirmed, summary.total)}
+          tone="green"
+        />
+        <Stat
+          label="Declined"
+          value={summary.declined}
+          tone={summary.declined > 0 ? 'red' : 'slate'}
+        />
+      </div>
+      {summary.reminderSentNoResponse > 0 && (
+        <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          ⏳ <strong>{summary.reminderSentNoResponse}</strong>{' '}
+          trainee{summary.reminderSentNoResponse === 1 ? '' : 's'} got the 24-hour confirmation link
+          but hasn't tapped it yet.
+        </p>
+      )}
+    </section>
+  )
+}
+
+function Stat({ label, value, pct, tone = 'slate' }) {
+  const valueColor = {
+    green: 'text-green-700',
+    red: 'text-red-700',
+    slate: 'text-slate-900',
+  }[tone] || 'text-slate-900'
+  return (
+    <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+      <div className={`text-2xl font-bold ${valueColor}`}>
+        {value}
+        {pct !== null && pct !== undefined && (
+          <span className="ml-1 text-sm font-medium text-slate-500">({pct}%)</span>
+        )}
+      </div>
+      <div className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+    </div>
+  )
 }
 
 function blankTrainee() {

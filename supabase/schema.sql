@@ -104,6 +104,11 @@ alter table trainees add column if not exists last_sms_sent_at timestamptz;
 -- Migration: track when the 24hr confirmation reminder was last sent (Phase 4)
 alter table trainees add column if not exists last_reminder_sent_at timestamptz;
 
+-- Migration: trainee response to the confirmation link in the 24hr reminder.
+-- confirmation_status: null (no response), 'confirmed' (tapped Yes), 'declined' (tapped No)
+alter table trainees add column if not exists confirmation_status text;
+alter table trainees add column if not exists confirmation_at timestamptz;
+
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   trainee_id uuid not null references trainees(id) on delete cascade,

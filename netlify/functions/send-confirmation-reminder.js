@@ -47,6 +47,8 @@ export const handler = async (event) => {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
+  const siteUrl = (process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '')
+
   // Compute target date in America/New_York time zone (FL business hours)
   const targetDate = computeFloridaDateAhead(daysAhead)
 
@@ -54,7 +56,7 @@ export const handler = async (event) => {
   const { data: classes, error: clsErr } = await supabase
     .from('classes')
     .select(
-      'id, week_start_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, phone, registered, last_reminder_sent_at)',
+      'id, week_start_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, phone, registered, registration_token, last_reminder_sent_at)',
     )
     .eq('week_start_date', targetDate)
 
@@ -86,7 +88,8 @@ export const handler = async (event) => {
         continue
       }
 
-      const message = `Hi ${t.first_name || 'there'}, reminder: your U.S. Shingle & Metal training starts tomorrow at ${locationName} (${address}). Reply YES to confirm or NO if you can't make it.`
+      const confirmLink = `${siteUrl}/confirm/${t.registration_token}`
+      const message = `Hi ${t.first_name || 'there'}, U.S. Shingle & Metal training starts tomorrow at ${locationName} (${address}). Please tap to confirm your attendance: ${confirmLink}`
 
       if (dryRun) {
         details.push({ trainee_id: t.id, action: 'dry-run', phone, message })

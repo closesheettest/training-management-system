@@ -7,12 +7,16 @@ import Calendar from './pages/Calendar.jsx'
 import ClassDetail from './pages/ClassDetail.jsx'
 import Kiosk from './pages/Kiosk.jsx'
 import Attendance from './pages/Attendance.jsx'
+import Confirm from './pages/Confirm.jsx'
 
 export default function App() {
   return (
     <Routes>
       {/* Public trainee-facing registration — minimal chrome */}
       <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
+
+      {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
+      <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
 
       {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
       <Route path="/kiosk/:class_id" element={<Kiosk />} />

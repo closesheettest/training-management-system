@@ -25,7 +25,7 @@ export default function Attendance() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, registered), attendance(trainee_id, attendance_date, confirmed, confirmed_at)',
+        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, registered, confirmation_status), attendance(trainee_id, attendance_date, confirmed, confirmed_at)',
       )
       .lte('week_start_date', date)
       .gte('week_end_date', date)
@@ -205,6 +205,12 @@ function ClassAttendanceCard({ cls, date }) {
                     </div>
                     {!t.registered && (
                       <div className="text-xs text-amber-700">Not registered</div>
+                    )}
+                    {t.confirmation_status === 'confirmed' && (
+                      <div className="text-xs text-green-700">✓ Confirmed</div>
+                    )}
+                    {t.confirmation_status === 'declined' && (
+                      <div className="text-xs text-red-700">✗ Declined</div>
                     )}
                   </div>
                 </div>
