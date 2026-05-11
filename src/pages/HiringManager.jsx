@@ -354,6 +354,52 @@ function Field({ label, children, className = '' }) {
 
 function LastCreatedCard({ data, onDismiss }) {
   const { class: cls, location, trainees } = data
+  const [sending, setSending] = useState(null) // null | 'all' | trainee_id
+  const [statusByTrainee, setStatusByTrainee] = useState({}) // { [id]: { sent: bool, error?: string } }
+
+  async function sendSms(traineeIds, label) {
+    setSending(label)
+    try {
+      const res = await fetch('/.netlify/functions/send-registration-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_ids: traineeIds }),
+      })
+      const body = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        const message =
+          res.status === 404
+            ? "SMS endpoint not found. This only works on the deployed Netlify site — it won't work in 'npm run dev'."
+            : body.error || `Request failed: ${res.status}`
+        setStatusByTrainee((prev) => {
+          const next = { ...prev }
+          for (const id of traineeIds) next[id] = { sent: false, error: message }
+          return next
+        })
+        return
+      }
+
+      const updates = {}
+      for (const r of body.results || []) {
+        updates[r.trainee_id] = { sent: r.success, error: r.success ? undefined : r.error }
+      }
+      setStatusByTrainee((prev) => ({ ...prev, ...updates }))
+    } catch (err) {
+      const message = err.message || 'Network error'
+      setStatusByTrainee((prev) => {
+        const next = { ...prev }
+        for (const id of traineeIds) next[id] = { sent: false, error: message }
+        return next
+      })
+    } finally {
+      setSending(null)
+    }
+  }
+
+  const unsentIds = trainees.filter((t) => !statusByTrainee[t.id]?.sent).map((t) => t.id)
+  const anyUnsent = unsentIds.length > 0
+
   return (
     <section
       id="last-created"
@@ -368,8 +414,8 @@ function LastCreatedCard({ data, onDismiss }) {
             {location?.name} · Week of {cls.week_start_date}
           </p>
           <p className="mt-3 text-sm text-green-900">
-            Copy each trainee's personal registration link below and send it via text. Once Stage 2B is
-            wired up, this will happen automatically.
+            Send each trainee their personal registration link via SMS (GoHighLevel). You can also copy
+            a link to share manually.
           </p>
         </div>
         <button
@@ -380,18 +426,54 @@ function LastCreatedCard({ data, onDismiss }) {
         </button>
       </div>
 
+      {anyUnsent && (
+        <div className="mt-4">
+          <button
+            onClick={() => sendSms(unsentIds, 'all')}
+            disabled={sending !== null}
+            className="rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-800 disabled:opacity-50"
+          >
+            {sending === 'all' ? 'Sending…' : `Send text to ${unsentIds.length === trainees.length ? 'all' : 'remaining'} ${unsentIds.length}`}
+          </button>
+        </div>
+      )}
+
       <ul className="mt-5 divide-y divide-green-200 rounded-md border border-green-200 bg-white">
-        {trainees.map((t) => (
-          <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-            <div className="min-w-0">
-              <div className="font-medium text-slate-900">
-                {t.first_name} {t.last_name}
+        {trainees.map((t) => {
+          const s = statusByTrainee[t.id]
+          return (
+            <li key={t.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="font-medium text-slate-900">
+                  {t.first_name} {t.last_name}
+                </div>
+                <div className="truncate text-slate-500">{t.phone}</div>
+                {s?.sent && <div className="mt-0.5 text-xs text-green-700">✓ Text sent</div>}
+                {s && !s.sent && s.error && (
+                  <div className="mt-0.5 break-words text-xs text-red-700">✗ {s.error}</div>
+                )}
               </div>
-              <div className="truncate text-slate-500">{t.phone}</div>
-            </div>
-            <CopyLinkButton token={t.registration_token} />
-          </li>
-        ))}
+              <div className="flex shrink-0 items-center gap-2">
+                <a
+                  href={`${window.location.origin}/register/${t.registration_token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                >
+                  Preview
+                </a>
+                <CopyLinkButton token={t.registration_token} />
+                <button
+                  onClick={() => sendSms([t.id], t.id)}
+                  disabled={sending !== null}
+                  className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {sending === t.id ? 'Sending…' : s?.sent ? 'Resend text' : 'Send text'}
+                </button>
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )
@@ -407,27 +489,16 @@ function CopyLinkButton({ token }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Fallback for older browsers: prompt
       window.prompt('Copy this link:', url)
     }
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
-      >
-        Preview
-      </a>
-      <button
-        onClick={copy}
-        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-      >
-        {copied ? 'Copied!' : 'Copy link'}
-      </button>
-    </div>
+    <button
+      onClick={copy}
+      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+    >
+      {copied ? 'Copied!' : 'Copy link'}
+    </button>
   )
 }

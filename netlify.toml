@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# SPA routing: any path that's not a real file goes to index.html
+# so React Router can handle it (otherwise /register/:token would 404 on a hard refresh).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
