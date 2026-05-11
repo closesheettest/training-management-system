@@ -101,6 +101,9 @@ alter table trainees add column if not exists registered_at timestamptz;
 -- Migration: track when the last registration SMS was sent (for "sent / no response" status)
 alter table trainees add column if not exists last_sms_sent_at timestamptz;
 
+-- Migration: track when the 24hr confirmation reminder was last sent (Phase 4)
+alter table trainees add column if not exists last_reminder_sent_at timestamptz;
+
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   trainee_id uuid not null references trainees(id) on delete cascade,

@@ -229,7 +229,17 @@ export default function ClassDetail() {
 
   return (
     <div className="space-y-8">
-      <BackLink />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <BackLink />
+        <Link
+          to={`/kiosk/${cls.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-brand-navy bg-white px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
+        >
+          Open kiosk →
+        </Link>
+      </div>
 
       {/* Header */}
       <header>

@@ -5,6 +5,8 @@ import Locations from './pages/Locations.jsx'
 import Register from './pages/Register.jsx'
 import Calendar from './pages/Calendar.jsx'
 import ClassDetail from './pages/ClassDetail.jsx'
+import Kiosk from './pages/Kiosk.jsx'
+import Attendance from './pages/Attendance.jsx'
 
 export default function App() {
   return (
@@ -12,11 +14,15 @@ export default function App() {
       {/* Public trainee-facing registration — minimal chrome */}
       <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
 
+      {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
+      <Route path="/kiosk/:class_id" element={<Kiosk />} />
+
       {/* Internal admin routes — full chrome */}
       <Route element={<AdminLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/class/:id" element={<ClassDetail />} />
+        <Route path="/attendance" element={<Attendance />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
       </Route>
@@ -44,6 +50,7 @@ function AdminLayout() {
           <nav className="flex gap-5 text-sm sm:gap-6">
             <NavItem to="/" end>Home</NavItem>
             <NavItem to="/calendar">Schedule</NavItem>
+            <NavItem to="/attendance">Attendance</NavItem>
             <NavItem to="/manager">Hiring Manager</NavItem>
             <NavItem to="/locations">Locations</NavItem>
           </nav>

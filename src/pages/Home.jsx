@@ -11,9 +11,9 @@ export default function Home() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Tile to="/calendar" title="Schedule" desc="See every training week. Click a week to see who's coming and manage SMS." />
+        <Tile to="/attendance" title="Daily Attendance" desc="HR view: who signed in today, every class, every region." />
         <Tile to="/manager" title="Hiring Manager Portal" desc="Create a new training class and add trainees." />
         <Tile to="/locations" title="Locations" desc="Manage your training locations — hotels, offices, training sites — by region." />
-        <Disabled title="Trainee Registration" desc="Public page trainees reach via the SMS link (Phase 1 ✅)." />
       </div>
     </div>
   )
