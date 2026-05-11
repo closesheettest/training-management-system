@@ -13,8 +13,8 @@ export default function ClassDetail() {
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
   const [sending, setSending] = useState(null) // null | 'all' | trainee_id
-  const [editingHotel, setEditingHotel] = useState(false)
-  const [hotelDraft, setHotelDraft] = useState('')
+  const [editingLocation, setEditingLocation] = useState(false)
+  const [locationDraft, setLocationDraft] = useState('')
   const [editingTraineeId, setEditingTraineeId] = useState(null)
   const [traineeDraft, setTraineeDraft] = useState(null)
   const [addingTrainee, setAddingTrainee] = useState(false)
@@ -42,7 +42,7 @@ export default function ClassDetail() {
     } else {
       setCls(data)
       setTrainees((data.trainees || []).sort(byName))
-      setHotelDraft(data.location_id || '')
+      setLocationDraft(data.location_id || '')
     }
     setLoading(false)
   }
@@ -55,17 +55,17 @@ export default function ClassDetail() {
     setLocations(data || [])
   }
 
-  async function saveHotel() {
+  async function saveLocation() {
     setMessage(null)
     const { error: err } = await supabase
       .from('classes')
-      .update({ location_id: hotelDraft || null })
+      .update({ location_id: locationDraft || null })
       .eq('id', id)
     if (err) {
       setMessage({ type: 'error', text: err.message })
       return
     }
-    setEditingHotel(false)
+    setEditingLocation(false)
     load()
   }
 
@@ -244,7 +244,7 @@ export default function ClassDetail() {
           )}
           {isTBD && (
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-              Hotel TBD
+              Location TBD
             </span>
           )}
         </div>
@@ -266,7 +266,7 @@ export default function ClassDetail() {
         </div>
       )}
 
-      {/* Region + hotel controls */}
+      {/* Region + training location controls */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         <h2 className="text-lg font-semibold">Location</h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -282,29 +282,29 @@ export default function ClassDetail() {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-slate-500">Changing the region clears the hotel.</p>
+            <p className="mt-1 text-xs text-slate-500">Changing the region clears the training location.</p>
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700">Hotel</label>
-              {!editingHotel && (
+              <label className="text-sm font-medium text-slate-700">Training location</label>
+              {!editingLocation && (
                 <button
                   type="button"
-                  onClick={() => setEditingHotel(true)}
+                  onClick={() => setEditingLocation(true)}
                   className="text-xs font-medium text-slate-600 underline hover:text-slate-900"
                 >
-                  {isTBD ? 'Assign hotel' : 'Change'}
+                  {isTBD ? 'Assign location' : 'Change'}
                 </button>
               )}
             </div>
-            {editingHotel ? (
+            {editingLocation ? (
               <div className="mt-1 space-y-2">
                 <select
-                  value={hotelDraft}
-                  onChange={(e) => setHotelDraft(e.target.value)}
+                  value={locationDraft}
+                  onChange={(e) => setLocationDraft(e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">TBD (no specific hotel yet)</option>
+                  <option value="">TBD (location not assigned yet)</option>
                   {locations
                     .filter((l) => !cls.region || l.region === cls.region)
                     .map((loc) => (
@@ -317,8 +317,8 @@ export default function ClassDetail() {
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingHotel(false)
-                      setHotelDraft(cls.location_id || '')
+                      setEditingLocation(false)
+                      setLocationDraft(cls.location_id || '')
                     }}
                     className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
@@ -326,7 +326,7 @@ export default function ClassDetail() {
                   </button>
                   <button
                     type="button"
-                    onClick={saveHotel}
+                    onClick={saveLocation}
                     className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
                   >
                     Save

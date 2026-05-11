@@ -136,7 +136,7 @@ export default function Locations() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Locations</h1>
           <p className="mt-2 text-slate-600">
-            Save your hotels and training sites once. When you create a class, pick from this list instead of re-typing.
+            Save your training locations (hotels, offices, training sites) once. When you create a class, pick from this list instead of re-typing.
           </p>
         </div>
         {editingId === null && (
@@ -296,7 +296,7 @@ export default function Locations() {
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-slate-600">No locations yet.</p>
           <p className="mt-1 text-sm text-slate-500">
-            Add your first hotel or training site to get started.
+            Add your first training location (hotel, office, or other site) to get started.
           </p>
         </div>
       ) : (

@@ -148,7 +148,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
   function update(field, value) {
     setForm((prev) => {
       const next = { ...prev, [field]: value }
-      // When region changes, clear hotel if it doesn't belong to that region
+      // When region changes, clear training location if it doesn't belong to that region
       if (field === 'region') {
         const currentLoc = locations.find((l) => l.id === prev.location_id)
         if (currentLoc && currentLoc.region !== value) next.location_id = ''
@@ -201,7 +201,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
       <div>
         <h2 className="text-lg font-semibold">Add a training week</h2>
         <p className="text-xs text-slate-500">
-          Block a week on the schedule. Hotel and trainees are optional — you can add them later.
+          Block a week on the schedule. Training location and trainees are optional — you can add them later.
         </p>
       </div>
 
@@ -241,7 +241,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Hotel (optional)
+          Training location (optional)
           <select
             value={form.location_id}
             onChange={(e) => update('location_id', e.target.value)}
@@ -252,8 +252,8 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
               {!form.region
                 ? 'Pick a region first'
                 : filteredLocations.length === 0
-                  ? `No saved hotels in ${form.region} — leave blank for TBD`
-                  : `${form.region} — TBD (no specific hotel yet)`}
+                  ? `No saved locations in ${form.region} — leave blank for TBD`
+                  : `${form.region} — TBD (location not assigned yet)`}
             </option>
             {filteredLocations.map((loc) => (
               <option key={loc.id} value={loc.id}>
@@ -266,7 +266,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
           Schedule details (optional)
           <textarea
             rows={3}
-            placeholder="Auto-fills from the hotel's default schedule if one is set."
+            placeholder="Auto-fills from the location's default schedule if one is set."
             value={form.schedule_details}
             onChange={(e) => update('schedule_details', e.target.value)}
             className={inputCls}
@@ -352,7 +352,7 @@ function ClassRow({ cls }) {
             )}
             {isTBD && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                Hotel TBD
+                Location TBD
               </span>
             )}
           </div>

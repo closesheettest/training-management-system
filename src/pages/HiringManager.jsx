@@ -50,7 +50,7 @@ export default function HiringManager() {
         const loc = locations.find((l) => l.id === value)
         if (loc?.schedule_template) next.schedule_details = loc.schedule_template
       }
-      // When region changes, clear location_id if the previously-selected hotel isn't in this region
+      // When region changes, clear location_id if the previously-selected training location isn't in this region
       if (field === 'region') {
         const currentLoc = locations.find((l) => l.id === prev.location_id)
         if (currentLoc && currentLoc.region !== value) next.location_id = ''
@@ -213,7 +213,7 @@ export default function HiringManager() {
                 ))}
               </select>
             </Field>
-            <Field label="Hotel (optional — leave blank for TBD)" className="sm:col-span-2">
+            <Field label="Training location (optional — leave blank for TBD)" className="sm:col-span-2">
               {(() => {
                 const filtered = classData.region
                   ? locations.filter((l) => l.region === classData.region)
@@ -230,8 +230,8 @@ export default function HiringManager() {
                         {!classData.region
                           ? 'Pick a region first'
                           : filtered.length === 0
-                            ? `No saved hotels in ${classData.region} yet — leave blank for TBD`
-                            : `${classData.region} — TBD (no specific hotel yet)`}
+                            ? `No saved locations in ${classData.region} yet — leave blank for TBD`
+                            : `${classData.region} — TBD (location not assigned yet)`}
                       </option>
                       {filtered.map((loc) => (
                         <option key={loc.id} value={loc.id}>
@@ -241,9 +241,9 @@ export default function HiringManager() {
                     </select>
                     <div className="mt-1 text-xs text-slate-500">
                       <Link to="/locations" className="underline hover:text-slate-700">
-                        Manage hotels
+                        Manage training locations
                       </Link>
-                      {' · '}You can leave this blank and assign a hotel later.
+                      {' · '}You can leave this blank and assign a location later.
                     </div>
                   </>
                 )
