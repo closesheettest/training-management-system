@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { US_STATES, formatAddress, ZIP_PATTERN } from '../lib/locations.js'
+import { US_STATES, formatAddress, ZIP_PATTERN, DEFAULT_SCHEDULE } from '../lib/locations.js'
 
 const blankLocation = () => ({
   name: '',
@@ -8,9 +8,9 @@ const blankLocation = () => ({
   city: '',
   state: '',
   zip: '',
-  parking_info: '',
+  phone: '',
   contact_info: '',
-  schedule_template: '',
+  schedule_template: DEFAULT_SCHEDULE,
 })
 
 export default function Locations() {
@@ -52,7 +52,7 @@ export default function Locations() {
       city: loc.city || '',
       state: loc.state || '',
       zip: loc.zip || '',
-      parking_info: loc.parking_info || '',
+      phone: loc.phone || '',
       contact_info: loc.contact_info || '',
       schedule_template: loc.schedule_template || '',
     })
@@ -73,10 +73,10 @@ export default function Locations() {
     e.preventDefault()
     setMessage(null)
 
-    const required = ['name', 'street_address', 'city', 'state', 'zip']
+    const required = ['name', 'street_address', 'city', 'state', 'zip', 'phone']
     for (const field of required) {
       if (!form[field].trim()) {
-        setMessage({ type: 'error', text: 'Name, street, city, state, and zip are required.' })
+        setMessage({ type: 'error', text: 'Name, street, city, state, zip, and phone are required.' })
         return
       }
     }
@@ -89,7 +89,7 @@ export default function Locations() {
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
         zip: form.zip.trim(),
-        parking_info: form.parking_info.trim() || null,
+        phone: form.phone.trim(),
         contact_info: form.contact_info.trim() || null,
         schedule_template: form.schedule_template.trim() || null,
       }
@@ -223,32 +223,36 @@ export default function Locations() {
                 title="5-digit zip, optionally followed by -4 digits"
               />
             </Field>
-            <Field label="Parking info (optional)" className="sm:col-span-3">
+            <Field label="Phone" className="sm:col-span-3">
               <input
-                type="text"
-                placeholder="Valet $25/day or self-park garage"
-                value={form.parking_info}
-                onChange={(e) => updateForm('parking_info', e.target.value)}
+                type="tel"
+                required
+                placeholder="727-349-3584"
+                value={form.phone}
+                onChange={(e) => updateForm('phone', e.target.value)}
                 className={inputCls}
               />
             </Field>
             <Field label="Contact info (optional)" className="sm:col-span-3">
               <input
                 type="text"
-                placeholder="Brent, 860-555-1234"
+                placeholder="Ask for Brent at the front desk"
                 value={form.contact_info}
                 onChange={(e) => updateForm('contact_info', e.target.value)}
                 className={inputCls}
               />
             </Field>
-            <Field label="Default schedule (optional)" className="sm:col-span-6">
+            <Field label="Default schedule" className="sm:col-span-6">
               <textarea
-                rows={2}
-                placeholder="Mon–Fri 9am–5pm. Lunch provided. Bring laptop and ID."
+                rows={4}
                 value={form.schedule_template}
                 onChange={(e) => updateForm('schedule_template', e.target.value)}
                 className={inputCls}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Pre-filled with the standard training schedule. Edit if this location runs different
+                hours.
+              </p>
             </Field>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -303,12 +307,12 @@ export default function Locations() {
                   </button>
                 </div>
               </div>
-              {(loc.parking_info || loc.contact_info || loc.schedule_template) && (
+              {(loc.phone || loc.contact_info || loc.schedule_template) && (
                 <dl className="mt-4 space-y-1.5 border-t border-slate-100 pt-3 text-sm">
-                  {loc.parking_info && (
+                  {loc.phone && (
                     <div>
-                      <dt className="inline font-medium text-slate-700">Parking: </dt>
-                      <dd className="inline text-slate-600">{loc.parking_info}</dd>
+                      <dt className="inline font-medium text-slate-700">Phone: </dt>
+                      <dd className="inline text-slate-600">{loc.phone}</dd>
                     </div>
                   )}
                   {loc.contact_info && (
@@ -320,7 +324,7 @@ export default function Locations() {
                   {loc.schedule_template && (
                     <div>
                       <dt className="inline font-medium text-slate-700">Schedule: </dt>
-                      <dd className="inline text-slate-600">{loc.schedule_template}</dd>
+                      <dd className="inline whitespace-pre-line text-slate-600">{loc.schedule_template}</dd>
                     </div>
                   )}
                 </dl>

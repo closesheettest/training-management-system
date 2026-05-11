@@ -67,3 +67,9 @@ export function formatAddress(loc) {
 
 // Simple zip validation: 5 digits, optionally followed by -4 digits.
 export const ZIP_PATTERN = '\\d{5}(-\\d{4})?'
+
+// Default training schedule — pre-filled when adding a new location.
+// User can override per-location.
+export const DEFAULT_SCHEDULE = `Mon: 12:00pm – 4:00pm
+Tues – Thurs: 10:00am – 2:00pm
+Fri: 9:00am – 12:00pm`

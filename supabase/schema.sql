@@ -14,7 +14,7 @@ create table if not exists locations (
   city text not null,
   state text not null,
   zip text not null,
-  parking_info text,
+  phone text not null,
   contact_info text,
   schedule_template text,
   created_at timestamptz not null default now()
@@ -31,6 +31,10 @@ begin
     execute 'alter table locations alter column address drop not null';
   end if;
 end $$;
+
+-- Migration: add phone column, drop parking_info (no longer used)
+alter table locations add column if not exists phone text;
+alter table locations drop column if exists parking_info;
 
 create table if not exists classes (
   id uuid primary key default gen_random_uuid(),

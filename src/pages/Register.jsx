@@ -33,7 +33,7 @@ export default function Register() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, email, phone, street_address, city, state, zip, registered, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, parking_info, contact_info, schedule_template))',
+        'id, first_name, last_name, email, phone, street_address, city, state, zip, registered, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
       )
       .eq('registration_token', token)
       .maybeSingle()
@@ -150,10 +150,10 @@ export default function Register() {
               </Row>
               {(classInfo.schedule_details || location?.schedule_template) && (
                 <Row label="Schedule">
-                  <span>{classInfo.schedule_details || location.schedule_template}</span>
+                  <span className="whitespace-pre-line">{classInfo.schedule_details || location.schedule_template}</span>
                 </Row>
               )}
-              {location?.parking_info && <Row label="Parking">{location.parking_info}</Row>}
+              {location?.phone && <Row label="Phone">{location.phone}</Row>}
               {location?.contact_info && <Row label="Contact">{location.contact_info}</Row>}
             </dl>
           </div>
