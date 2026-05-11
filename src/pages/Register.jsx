@@ -10,6 +10,8 @@ export default function Register() {
   const [classInfo, setClassInfo] = useState(null)
   const [location, setLocation] = useState(null)
   const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
     email: '',
     street_address: '',
     city: '',
@@ -45,6 +47,8 @@ export default function Register() {
     setClassInfo(data.classes || null)
     setLocation(data.classes?.locations || null)
     setForm({
+      first_name: data.first_name || '',
+      last_name: data.last_name || '',
       email: data.email || '',
       street_address: data.street_address || '',
       city: data.city || '',
@@ -62,8 +66,12 @@ export default function Register() {
     e.preventDefault()
     setErrorMsg(null)
 
-    const required = ['street_address', 'city', 'state', 'zip']
-    for (const f of required) {
+    if (!form.first_name.trim() || !form.last_name.trim()) {
+      setErrorMsg('Please confirm your first and last name.')
+      return
+    }
+    const requiredAddress = ['street_address', 'city', 'state', 'zip']
+    for (const f of requiredAddress) {
       if (!form[f].trim()) {
         setErrorMsg('Please fill in your full home address.')
         return
@@ -74,6 +82,8 @@ export default function Register() {
     const { error } = await supabase
       .from('trainees')
       .update({
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
         email: form.email.trim() || null,
         street_address: form.street_address.trim(),
         city: form.city.trim(),
@@ -115,7 +125,7 @@ export default function Register() {
       <div className="space-y-8">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            Welcome{trainee?.first_name ? `, ${trainee.first_name}` : ''}!
+            Welcome{form.first_name ? `, ${form.first_name}` : ''}!
           </h1>
           <p className="mt-2 text-slate-600">
             {status === 'done'
@@ -161,12 +171,43 @@ export default function Register() {
             <h2 className="text-lg font-semibold">Your details</h2>
 
             <div className="grid gap-4 sm:grid-cols-6">
+              <div className="sm:col-span-6">
+                <h3 className="text-sm font-semibold text-slate-800">Confirm the spelling of your name</h3>
+                <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <strong>Important:</strong> Your name will be used to set up your work email, CRM
+                  access, and other company accounts. Please make sure it's spelled exactly the way you
+                  want it to appear on official records.
+                </p>
+              </div>
+
+              <Field label="First name" className="sm:col-span-3">
+                <input
+                  type="text"
+                  required
+                  value={form.first_name}
+                  onChange={(e) => updateField('first_name', e.target.value)}
+                  className={inputCls}
+                  autoComplete="given-name"
+                />
+              </Field>
+              <Field label="Last name" className="sm:col-span-3">
+                <input
+                  type="text"
+                  required
+                  value={form.last_name}
+                  onChange={(e) => updateField('last_name', e.target.value)}
+                  className={inputCls}
+                  autoComplete="family-name"
+                />
+              </Field>
+
               <Field label="Email (optional but recommended)" className="sm:col-span-6">
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
                   className={inputCls}
+                  autoComplete="email"
                 />
               </Field>
 
