@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { formatAddress, groupByRegion } from '../lib/locations.js'
+import { formatAddress, FL_REGIONS } from '../lib/locations.js'
 
 const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '' })
 
@@ -9,6 +9,7 @@ export default function HiringManager() {
   const [classData, setClassData] = useState({
     week_start_date: '',
     week_end_date: '',
+    region: '',
     location_id: '',
     schedule_details: '',
   })
@@ -35,7 +36,7 @@ export default function HiringManager() {
   async function loadRecentClasses() {
     const { data, error } = await supabase
       .from('classes')
-      .select('id, week_start_date, locations(name), trainees(count)')
+      .select('id, week_start_date, region, locations(name), trainees(count)')
       .order('week_start_date', { ascending: false })
       .limit(5)
     if (!error) setRecentClasses(data || [])
@@ -45,9 +46,14 @@ export default function HiringManager() {
     setClassData((prev) => {
       const next = { ...prev, [field]: value }
       // When location changes, pre-fill schedule from its template (only if user hasn't typed anything yet)
-      if (field === 'location_id' && !prev.schedule_details) {
+      if (field === 'location_id' && value && !prev.schedule_details) {
         const loc = locations.find((l) => l.id === value)
         if (loc?.schedule_template) next.schedule_details = loc.schedule_template
+      }
+      // When region changes, clear location_id if the previously-selected hotel isn't in this region
+      if (field === 'region') {
+        const currentLoc = locations.find((l) => l.id === prev.location_id)
+        if (currentLoc && currentLoc.region !== value) next.location_id = ''
       }
       return next
     })
@@ -71,8 +77,8 @@ export default function HiringManager() {
     e.preventDefault()
     setMessage(null)
 
-    if (!classData.location_id) {
-      setMessage({ type: 'error', text: 'Pick a location for this class.' })
+    if (!classData.region) {
+      setMessage({ type: 'error', text: 'Pick a region for this class.' })
       return
     }
 
@@ -91,7 +97,8 @@ export default function HiringManager() {
         .insert({
           week_start_date: classData.week_start_date,
           week_end_date: classData.week_end_date,
-          location_id: classData.location_id,
+          region: classData.region,
+          location_id: classData.location_id || null,
           schedule_details: classData.schedule_details || null,
         })
         .select()
@@ -122,6 +129,7 @@ export default function HiringManager() {
       setClassData({
         week_start_date: '',
         week_end_date: '',
+        region: '',
         location_id: '',
         schedule_details: '',
       })
@@ -137,8 +145,6 @@ export default function HiringManager() {
       setSubmitting(false)
     }
   }
-
-  const noLocations = locations.length === 0
 
   return (
     <div className="space-y-10">
@@ -180,42 +186,54 @@ export default function HiringManager() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Location" className="sm:col-span-2">
-              {noLocations ? (
-                <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  No locations saved yet.{' '}
-                  <Link to="/locations" className="font-semibold underline">
-                    Add your first location
-                  </Link>{' '}
-                  before creating a class.
-                </div>
-              ) : (
-                <>
-                  <select
-                    required
-                    value={classData.location_id}
-                    onChange={(e) => updateClass('location_id', e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">— Select a location —</option>
-                    {groupByRegion(locations).map(([region, items]) => (
-                      <optgroup key={region} label={region}>
-                        {items.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.name} — {formatAddress(loc)}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  <div className="mt-1 text-xs text-slate-500">
-                    Need a new one?{' '}
-                    <Link to="/locations" className="underline hover:text-slate-700">
-                      Manage locations
-                    </Link>
-                  </div>
-                </>
-              )}
+            <Field label="Region" className="sm:col-span-2">
+              <select
+                required
+                value={classData.region}
+                onChange={(e) => updateClass('region', e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Select a region —</option>
+                {FL_REGIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Hotel (optional — leave blank for TBD)" className="sm:col-span-2">
+              {(() => {
+                const filtered = classData.region
+                  ? locations.filter((l) => l.region === classData.region)
+                  : []
+                return (
+                  <>
+                    <select
+                      value={classData.location_id}
+                      onChange={(e) => updateClass('location_id', e.target.value)}
+                      disabled={!classData.region}
+                      className={inputCls}
+                    >
+                      <option value="">
+                        {!classData.region
+                          ? 'Pick a region first'
+                          : filtered.length === 0
+                            ? `No saved hotels in ${classData.region} yet — leave blank for TBD`
+                            : `${classData.region} — TBD (no specific hotel yet)`}
+                      </option>
+                      {filtered.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name} — {formatAddress(loc)}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-1 text-xs text-slate-500">
+                      <Link to="/locations" className="underline hover:text-slate-700">
+                        Manage hotels
+                      </Link>
+                      {' · '}You can leave this blank and assign a hotel later.
+                    </div>
+                  </>
+                )
+              })()}
             </Field>
             <Field label="Schedule details (optional)" className="sm:col-span-2">
               <textarea
@@ -311,7 +329,7 @@ export default function HiringManager() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={submitting || noLocations}
+            disabled={submitting}
             className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
           >
             {submitting ? 'Saving…' : 'Create class'}
@@ -327,14 +345,18 @@ export default function HiringManager() {
         ) : (
           <ul className="mt-3 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
             {recentClasses.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <div>
-                  <div className="font-medium text-slate-900">{c.locations?.name ?? 'Unknown location'}</div>
-                  <div className="text-slate-500">Week of {c.week_start_date}</div>
-                </div>
-                <div className="text-slate-500">
-                  {c.trainees?.[0]?.count ?? 0} trainee{(c.trainees?.[0]?.count ?? 0) === 1 ? '' : 's'}
-                </div>
+              <li key={c.id} className="text-sm">
+                <Link to={`/class/${c.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+                  <div>
+                    <div className="font-medium text-slate-900">
+                      {c.locations?.name ?? `${c.region || 'Region'} — TBD`}
+                    </div>
+                    <div className="text-slate-500">Week of {c.week_start_date}</div>
+                  </div>
+                  <div className="text-slate-500">
+                    {c.trainees?.[0]?.count ?? 0} trainee{(c.trainees?.[0]?.count ?? 0) === 1 ? '' : 's'}
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

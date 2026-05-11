@@ -3,6 +3,8 @@ import Home from './pages/Home.jsx'
 import HiringManager from './pages/HiringManager.jsx'
 import Locations from './pages/Locations.jsx'
 import Register from './pages/Register.jsx'
+import Calendar from './pages/Calendar.jsx'
+import ClassDetail from './pages/ClassDetail.jsx'
 
 export default function App() {
   return (
@@ -13,6 +15,8 @@ export default function App() {
       {/* Internal admin routes — full chrome */}
       <Route element={<AdminLayout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/class/:id" element={<ClassDetail />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
       </Route>
@@ -30,6 +34,7 @@ function AdminLayout() {
           </Link>
           <nav className="flex gap-6 text-sm">
             <NavItem to="/" end>Home</NavItem>
+            <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/manager">Hiring Manager</NavItem>
             <NavItem to="/locations">Locations</NavItem>
           </nav>

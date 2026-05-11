@@ -44,6 +44,7 @@ create index if not exists locations_region_idx on locations(region);
 
 create table if not exists classes (
   id uuid primary key default gen_random_uuid(),
+  region text not null,
   location_id uuid references locations(id) on delete restrict,
   week_start_date date not null,
   week_end_date date not null,
@@ -51,6 +52,9 @@ create table if not exists classes (
   status text not null default 'upcoming',
   created_at timestamptz not null default now()
 );
+
+-- Migration: ensure region column exists on classes (nullable on upgrade; app enforces required)
+alter table classes add column if not exists region text;
 
 -- Upgrade path from earlier schema (v1 had location_name/location_address as required columns on classes).
 -- Relax those if present and ensure location_id exists.
@@ -93,6 +97,9 @@ end $$;
 
 -- Migration: add registered_at if missing
 alter table trainees add column if not exists registered_at timestamptz;
+
+-- Migration: track when the last registration SMS was sent (for "sent / no response" status)
+alter table trainees add column if not exists last_sms_sent_at timestamptz;
 
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),

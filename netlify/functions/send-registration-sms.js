@@ -125,6 +125,13 @@ export const handler = async (event) => {
         continue
       }
 
+      // Stamp the trainee row so the UI can show "Sent, no response" state across refreshes.
+      // Best-effort: failure here doesn't fail the overall send.
+      await supabase
+        .from('trainees')
+        .update({ last_sms_sent_at: new Date().toISOString() })
+        .eq('id', t.id)
+
       results.push({ trainee_id: t.id, success: true })
     } catch (err) {
       results.push({ trainee_id: t.id, success: false, error: err.message || 'Unknown error' })

@@ -8,31 +8,32 @@ export default function Home() {
         This is the Training Management System. Pick where you want to go:
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link
-          to="/locations"
-          className="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow"
-        >
-          <h2 className="text-lg font-semibold">Locations</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Save your hotels and training sites — set up once, reuse forever.
-          </p>
-        </Link>
-        <Link
-          to="/manager"
-          className="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow"
-        >
-          <h2 className="text-lg font-semibold">Hiring Manager Portal</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Create a new training class and add trainees.
-          </p>
-        </Link>
-        <div className="block rounded-lg border border-dashed border-slate-200 bg-white p-6 opacity-60 sm:col-span-2">
-          <h2 className="text-lg font-semibold">Trainee Registration</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Coming in Stage 2 — trainees will receive a personal link via text from GoHighLevel.
-          </p>
-        </div>
+        <Tile to="/calendar" title="Schedule" desc="See every training week. Click a week to see who's coming and manage SMS." />
+        <Tile to="/manager" title="Hiring Manager Portal" desc="Create a new training class and add trainees." />
+        <Tile to="/locations" title="Locations" desc="Manage your hotels and training sites by region." />
+        <Disabled title="Trainee Registration" desc="Public page trainees reach via the SMS link (Phase 1 ✅)." />
       </div>
+    </div>
+  )
+}
+
+function Tile({ to, title, desc }) {
+  return (
+    <Link
+      to={to}
+      className="block rounded-lg border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow"
+    >
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-slate-600">{desc}</p>
+    </Link>
+  )
+}
+
+function Disabled({ title, desc }) {
+  return (
+    <div className="block rounded-lg border border-dashed border-slate-200 bg-white p-6 opacity-60">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-slate-600">{desc}</p>
     </div>
   )
 }
