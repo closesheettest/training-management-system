@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { formatAddress } from '../lib/locations.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
-const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '' })
+const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '', needs_hotel: false })
 
 export default function HiringManager() {
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -83,6 +83,7 @@ export default function HiringManager() {
         last_name: t.last_name.trim(),
         phone: t.phone.trim(),
         email: t.email.trim() || null,
+        needs_hotel: !!t.needs_hotel,
       }))
       const { data: createdTrainees, error: traineeError } = await supabase
         .from('trainees')
@@ -221,8 +222,17 @@ export default function HiringManager() {
                       className={inputCls}
                     />
                   </Field>
-                  {trainees.length > 1 && (
-                    <div className="sm:col-span-12 flex justify-end">
+                  <div className="sm:col-span-12 flex items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={!!t.needs_hotel}
+                        onChange={(e) => updateTrainee(i, 'needs_hotel', e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+                      />
+                      🏨 Needs hotel accommodation (out-of-town)
+                    </label>
+                    {trainees.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeTrainee(i)}
@@ -230,8 +240,8 @@ export default function HiringManager() {
                       >
                         Remove
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

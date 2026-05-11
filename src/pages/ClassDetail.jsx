@@ -89,6 +89,7 @@ export default function ClassDetail() {
       last_name: t.last_name || '',
       phone: t.phone || '',
       email: t.email || '',
+      needs_hotel: !!t.needs_hotel,
     })
     setMessage(null)
   }
@@ -112,6 +113,7 @@ export default function ClassDetail() {
         last_name: traineeDraft.last_name.trim(),
         phone: traineeDraft.phone.trim(),
         email: traineeDraft.email.trim() || null,
+        needs_hotel: !!traineeDraft.needs_hotel,
       })
       .eq('id', editingTraineeId)
     if (err) {
@@ -162,6 +164,7 @@ export default function ClassDetail() {
       last_name: newTraineeDraft.last_name.trim(),
       phone: newTraineeDraft.phone.trim(),
       email: newTraineeDraft.email.trim() || null,
+      needs_hotel: !!newTraineeDraft.needs_hotel,
     })
     if (err) {
       setMessage({ type: 'error', text: err.message })
@@ -504,6 +507,11 @@ function TraineeGroup({
                           ⏳ Confirmation reminder sent, awaiting reply
                         </div>
                       )}
+                      {t.needs_hotel && (
+                        <div className="mt-0.5 text-xs font-semibold text-sky-700">
+                          🏨 Needs hotel accommodation
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <a
@@ -570,6 +578,15 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
           <input type="email" value={value.email} onChange={set('email')} className={inputCls} autoComplete="off" />
         </label>
       </div>
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <input
+          type="checkbox"
+          checked={!!value.needs_hotel}
+          onChange={(e) => onChange({ ...value, needs_hotel: e.target.checked })}
+          className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+        />
+        🏨 Needs hotel accommodation (out-of-town)
+      </label>
       <div className="flex justify-end gap-2">
         <button
           type="button"
@@ -612,7 +629,8 @@ function computeSummary(trainees) {
   const reminderSentNoResponse = trainees.filter(
     (t) => t.last_reminder_sent_at && !t.confirmation_status,
   ).length
-  return { total, registered, confirmed, declined, reminderSentNoResponse }
+  const needsHotel = trainees.filter((t) => t.needs_hotel).length
+  return { total, registered, confirmed, declined, reminderSentNoResponse, needsHotel }
 }
 
 function pct(numerator, denominator) {
@@ -652,6 +670,12 @@ function RosterSummary({ summary }) {
           but hasn't tapped it yet.
         </p>
       )}
+      {summary.needsHotel > 0 && (
+        <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          🏨 <strong>{summary.needsHotel}</strong> of {summary.total} trainee{summary.needsHotel === 1 ? '' : 's'}{' '}
+          need{summary.needsHotel === 1 ? 's' : ''} hotel accommodation — book that many rooms.
+        </p>
+      )}
     </section>
   )
 }
@@ -676,7 +700,7 @@ function Stat({ label, value, pct, tone = 'slate' }) {
 }
 
 function blankTrainee() {
-  return { first_name: '', last_name: '', phone: '', email: '' }
+  return { first_name: '', last_name: '', phone: '', email: '', needs_hotel: false }
 }
 
 const inputCls =

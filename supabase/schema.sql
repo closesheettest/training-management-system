@@ -109,6 +109,10 @@ alter table trainees add column if not exists last_reminder_sent_at timestamptz;
 alter table trainees add column if not exists confirmation_status text;
 alter table trainees add column if not exists confirmation_at timestamptz;
 
+-- Migration: per-trainee flag for whether they need hotel accommodation
+-- (out-of-town trainees need lodging; local hires don't).
+alter table trainees add column if not exists needs_hotel boolean not null default false;
+
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   trainee_id uuid not null references trainees(id) on delete cascade,
