@@ -82,11 +82,21 @@ export default function HiringManager() {
       return
     }
 
+    // Trainees are optional — user can block a week first and add people later.
+    // Any partially-filled trainee rows are silently dropped if they don't have a complete name + phone.
     const validTrainees = trainees.filter(
       (t) => t.first_name.trim() && t.last_name.trim() && t.phone.trim(),
     )
-    if (validTrainees.length === 0) {
-      setMessage({ type: 'error', text: 'Add at least one trainee with name + phone.' })
+    const hasPartialTrainee = trainees.some(
+      (t) =>
+        (t.first_name.trim() || t.last_name.trim() || t.phone.trim() || t.email.trim()) &&
+        !(t.first_name.trim() && t.last_name.trim() && t.phone.trim()),
+    )
+    if (hasPartialTrainee) {
+      setMessage({
+        type: 'error',
+        text: 'Each trainee needs first name, last name, and phone. Fill them in or clear the row to continue.',
+      })
       return
     }
 
@@ -105,18 +115,22 @@ export default function HiringManager() {
         .single()
       if (classError) throw classError
 
-      const traineeRows = validTrainees.map((t) => ({
-        class_id: cls.id,
-        first_name: t.first_name.trim(),
-        last_name: t.last_name.trim(),
-        phone: t.phone.trim(),
-        email: t.email.trim() || null,
-      }))
-      const { data: createdTrainees, error: traineeError } = await supabase
-        .from('trainees')
-        .insert(traineeRows)
-        .select('id, first_name, last_name, phone, registration_token')
-      if (traineeError) throw traineeError
+      let createdTrainees = []
+      if (validTrainees.length > 0) {
+        const traineeRows = validTrainees.map((t) => ({
+          class_id: cls.id,
+          first_name: t.first_name.trim(),
+          last_name: t.last_name.trim(),
+          phone: t.phone.trim(),
+          email: t.email.trim() || null,
+        }))
+        const { data, error: traineeError } = await supabase
+          .from('trainees')
+          .insert(traineeRows)
+          .select('id, first_name, last_name, phone, registration_token')
+        if (traineeError) throw traineeError
+        createdTrainees = data || []
+      }
 
       const chosenLocation = locations.find((l) => l.id === classData.location_id)
       setLastCreated({
@@ -151,8 +165,8 @@ export default function HiringManager() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Hiring Manager Portal</h1>
         <p className="mt-2 text-slate-600">
-          Create a new training class and add trainees. After saving, copy each trainee's personal
-          registration link to send manually (automatic SMS coming next).
+          Create a new training class. You can add trainees now, or save the week first and add
+          people later from the class detail page.
         </p>
       </div>
 
@@ -253,7 +267,10 @@ export default function HiringManager() {
         {/* Trainees */}
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Trainees</h2>
+            <div>
+              <h2 className="text-lg font-semibold">Trainees</h2>
+              <p className="text-xs text-slate-500">Optional — leave blank to just block the week.</p>
+            </div>
             <button
               type="button"
               onClick={addTrainee}
@@ -380,6 +397,7 @@ function Field({ label, children, className = '' }) {
 
 function LastCreatedCard({ data, onDismiss }) {
   const { class: cls, location, trainees } = data
+  const hasTrainees = trainees.length > 0
   const [sending, setSending] = useState(null) // null | 'all' | trainee_id
   const [statusByTrainee, setStatusByTrainee] = useState({}) // { [id]: { sent: bool, error?: string } }
 
@@ -434,14 +452,25 @@ function LastCreatedCard({ data, onDismiss }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-green-900">
-            Class created — {trainees.length} trainee{trainees.length === 1 ? '' : 's'} added
+            {hasTrainees
+              ? `Class created — ${trainees.length} trainee${trainees.length === 1 ? '' : 's'} added`
+              : 'Week blocked on the schedule'}
           </h2>
           <p className="mt-1 text-sm text-green-800">
-            {location?.name} · Week of {cls.week_start_date}
+            {location?.name || `${cls.region || 'Region'} — TBD`} · Week of {cls.week_start_date}
           </p>
           <p className="mt-3 text-sm text-green-900">
-            Send each trainee their personal registration link via SMS (GoHighLevel). You can also copy
-            a link to share manually.
+            {hasTrainees ? (
+              <>Send each trainee their personal registration link via SMS (GoHighLevel). You can also copy a link to share manually.</>
+            ) : (
+              <>
+                No trainees added yet — that's fine. {' '}
+                <Link to={`/class/${cls.id}`} className="font-semibold underline">
+                  Open this class
+                </Link>{' '}
+                anytime to add people, or use the form on this page again.
+              </>
+            )}
           </p>
         </div>
         <button
