@@ -1,9 +1,26 @@
-import { Routes, Route, NavLink, Link } from 'react-router-dom'
+import { Routes, Route, NavLink, Link, Outlet } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import HiringManager from './pages/HiringManager.jsx'
 import Locations from './pages/Locations.jsx'
+import Register from './pages/Register.jsx'
 
 export default function App() {
+  return (
+    <Routes>
+      {/* Public trainee-facing registration — minimal chrome */}
+      <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
+
+      {/* Internal admin routes — full chrome */}
+      <Route element={<AdminLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/manager" element={<HiringManager />} />
+        <Route path="/locations" element={<Locations />} />
+      </Route>
+    </Routes>
+  )
+}
+
+function AdminLayout() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
@@ -19,12 +36,21 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/manager" element={<HiringManager />} />
-          <Route path="/locations" element={<Locations />} />
-        </Routes>
+        <Outlet />
       </main>
+    </div>
+  )
+}
+
+function MinimalLayout({ children }) {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-2xl px-6 py-4">
+          <span className="text-lg font-semibold tracking-tight">Training Registration</span>
+        </div>
+      </header>
+      <main className="mx-auto max-w-2xl px-6 py-10">{children}</main>
     </div>
   )
 }
@@ -35,9 +61,7 @@ function NavItem({ to, end, children }) {
       to={to}
       end={end}
       className={({ isActive }) =>
-        isActive
-          ? 'font-medium text-slate-900'
-          : 'text-slate-600 hover:text-slate-900'
+        isActive ? 'font-medium text-slate-900' : 'text-slate-600 hover:text-slate-900'
       }
     >
       {children}

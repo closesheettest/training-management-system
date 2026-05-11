@@ -62,14 +62,27 @@ create table if not exists trainees (
   last_name text not null,
   email text,
   phone text not null,
-  address text,
+  street_address text,
   city text,
   state text,
   zip text,
   registered boolean not null default false,
+  registered_at timestamptz,
   registration_token uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now()
 );
+
+-- Migration: rename legacy 'address' column to 'street_address' for consistency with locations table
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name='trainees' and column_name='address')
+     and not exists (select 1 from information_schema.columns where table_name='trainees' and column_name='street_address') then
+    execute 'alter table trainees rename column address to street_address';
+  end if;
+end $$;
+
+-- Migration: add registered_at if missing
+alter table trainees add column if not exists registered_at timestamptz;
 
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),

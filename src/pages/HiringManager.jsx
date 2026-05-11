@@ -17,6 +17,7 @@ export default function HiringManager() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState(null)
   const [recentClasses, setRecentClasses] = useState([])
+  const [lastCreated, setLastCreated] = useState(null) // { class, location, trainees: [] }
 
   useEffect(() => {
     loadLocations()
@@ -104,13 +105,20 @@ export default function HiringManager() {
         phone: t.phone.trim(),
         email: t.email.trim() || null,
       }))
-      const { error: traineeError } = await supabase.from('trainees').insert(traineeRows)
+      const { data: createdTrainees, error: traineeError } = await supabase
+        .from('trainees')
+        .insert(traineeRows)
+        .select('id, first_name, last_name, phone, registration_token')
       if (traineeError) throw traineeError
 
-      setMessage({
-        type: 'success',
-        text: `Class created with ${traineeRows.length} trainee${traineeRows.length === 1 ? '' : 's'}.`,
+      const chosenLocation = locations.find((l) => l.id === classData.location_id)
+      setLastCreated({
+        class: cls,
+        location: chosenLocation,
+        trainees: createdTrainees || [],
       })
+
+      setMessage(null)
       setClassData({
         week_start_date: '',
         week_end_date: '',
@@ -119,6 +127,10 @@ export default function HiringManager() {
       })
       setTrainees([blankTrainee()])
       loadRecentClasses()
+      // Scroll the success card into view
+      setTimeout(() => {
+        document.getElementById('last-created')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
     } finally {
@@ -133,9 +145,17 @@ export default function HiringManager() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Hiring Manager Portal</h1>
         <p className="mt-2 text-slate-600">
-          Create a new training class and add trainees. They'll get a registration link via text in Stage 2.
+          Create a new training class and add trainees. After saving, copy each trainee's personal
+          registration link to send manually (automatic SMS coming next).
         </p>
       </div>
+
+      {lastCreated && (
+        <LastCreatedCard
+          data={lastCreated}
+          onDismiss={() => setLastCreated(null)}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Class details */}
@@ -329,5 +349,85 @@ function Field({ label, children, className = '' }) {
       {label}
       {children}
     </label>
+  )
+}
+
+function LastCreatedCard({ data, onDismiss }) {
+  const { class: cls, location, trainees } = data
+  return (
+    <section
+      id="last-created"
+      className="rounded-lg border border-green-200 bg-green-50 p-6 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-green-900">
+            Class created — {trainees.length} trainee{trainees.length === 1 ? '' : 's'} added
+          </h2>
+          <p className="mt-1 text-sm text-green-800">
+            {location?.name} · Week of {cls.week_start_date}
+          </p>
+          <p className="mt-3 text-sm text-green-900">
+            Copy each trainee's personal registration link below and send it via text. Once Stage 2B is
+            wired up, this will happen automatically.
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="shrink-0 rounded-md border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-100"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <ul className="mt-5 divide-y divide-green-200 rounded-md border border-green-200 bg-white">
+        {trainees.map((t) => (
+          <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+            <div className="min-w-0">
+              <div className="font-medium text-slate-900">
+                {t.first_name} {t.last_name}
+              </div>
+              <div className="truncate text-slate-500">{t.phone}</div>
+            </div>
+            <CopyLinkButton token={t.registration_token} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function CopyLinkButton({ token }) {
+  const [copied, setCopied] = useState(false)
+  const url = `${window.location.origin}/register/${token}`
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Fallback for older browsers: prompt
+      window.prompt('Copy this link:', url)
+    }
+  }
+
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+      >
+        Preview
+      </a>
+      <button
+        onClick={copy}
+        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+      >
+        {copied ? 'Copied!' : 'Copy link'}
+      </button>
+    </div>
   )
 }
