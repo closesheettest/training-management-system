@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { US_STATES, formatAddress, ZIP_PATTERN } from '../lib/locations.js'
 
 const blankLocation = () => ({
   name: '',
-  address: '',
+  street_address: '',
+  city: '',
+  state: '',
+  zip: '',
   parking_info: '',
   contact_info: '',
   schedule_template: '',
@@ -27,7 +31,11 @@ export default function Locations() {
       .from('locations')
       .select('*')
       .order('name', { ascending: true })
-    if (!error) setLocations(data || [])
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+    } else {
+      setLocations(data || [])
+    }
     setLoading(false)
   }
 
@@ -40,7 +48,10 @@ export default function Locations() {
   function startEdit(loc) {
     setForm({
       name: loc.name || '',
-      address: loc.address || '',
+      street_address: loc.street_address || '',
+      city: loc.city || '',
+      state: loc.state || '',
+      zip: loc.zip || '',
       parking_info: loc.parking_info || '',
       contact_info: loc.contact_info || '',
       schedule_template: loc.schedule_template || '',
@@ -61,15 +72,23 @@ export default function Locations() {
   async function save(e) {
     e.preventDefault()
     setMessage(null)
-    if (!form.name.trim() || !form.address.trim()) {
-      setMessage({ type: 'error', text: 'Name and address are required.' })
-      return
+
+    const required = ['name', 'street_address', 'city', 'state', 'zip']
+    for (const field of required) {
+      if (!form[field].trim()) {
+        setMessage({ type: 'error', text: 'Name, street, city, state, and zip are required.' })
+        return
+      }
     }
+
     setSubmitting(true)
     try {
       const payload = {
         name: form.name.trim(),
-        address: form.address.trim(),
+        street_address: form.street_address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim().toUpperCase(),
+        zip: form.zip.trim(),
         parking_info: form.parking_info.trim() || null,
         contact_info: form.contact_info.trim() || null,
         schedule_template: form.schedule_template.trim() || null,
@@ -97,7 +116,6 @@ export default function Locations() {
     setMessage(null)
     const { error } = await supabase.from('locations').delete().eq('id', loc.id)
     if (error) {
-      // Most likely cause: a class is using this location (foreign key restrict)
       const text =
         error.code === '23503'
           ? `Can't delete "${loc.name}" — it's being used by an existing class. Delete those classes first.`
@@ -145,8 +163,8 @@ export default function Locations() {
           <h2 className="text-lg font-semibold">
             {editingId === 'new' ? 'Add new location' : 'Edit location'}
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name" className="sm:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-6">
+            <Field label="Name" className="sm:col-span-6">
               <input
                 type="text"
                 required
@@ -156,35 +174,74 @@ export default function Locations() {
                 className={inputCls}
               />
             </Field>
-            <Field label="Address" className="sm:col-span-2">
+            <Field label="Street address" className="sm:col-span-6">
               <input
                 type="text"
                 required
-                placeholder="315 Trumbull St, Hartford, CT 06103"
-                value={form.address}
-                onChange={(e) => updateForm('address', e.target.value)}
+                placeholder="3845 Gateway Centre Blvd"
+                value={form.street_address}
+                onChange={(e) => updateForm('street_address', e.target.value)}
                 className={inputCls}
               />
             </Field>
-            <Field label="Parking info (optional)">
+            <Field label="City" className="sm:col-span-3">
               <input
                 type="text"
-                placeholder="Valet $25/day or self-park garage on 5th floor"
+                required
+                placeholder="Saint Petersburg"
+                value={form.city}
+                onChange={(e) => updateForm('city', e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+            <Field label="State" className="sm:col-span-2">
+              <select
+                required
+                value={form.state}
+                onChange={(e) => updateForm('state', e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Select —</option>
+                {US_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.code} — {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Zip" className="sm:col-span-1">
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                pattern={ZIP_PATTERN}
+                maxLength={10}
+                placeholder="33782"
+                value={form.zip}
+                onChange={(e) => updateForm('zip', e.target.value)}
+                className={inputCls}
+                title="5-digit zip, optionally followed by -4 digits"
+              />
+            </Field>
+            <Field label="Parking info (optional)" className="sm:col-span-3">
+              <input
+                type="text"
+                placeholder="Valet $25/day or self-park garage"
                 value={form.parking_info}
                 onChange={(e) => updateForm('parking_info', e.target.value)}
                 className={inputCls}
               />
             </Field>
-            <Field label="Contact info (optional)">
+            <Field label="Contact info (optional)" className="sm:col-span-3">
               <input
                 type="text"
-                placeholder="Sarah at front desk, 860-555-1234"
+                placeholder="Brent, 860-555-1234"
                 value={form.contact_info}
                 onChange={(e) => updateForm('contact_info', e.target.value)}
                 className={inputCls}
               />
             </Field>
-            <Field label="Default schedule (optional)" className="sm:col-span-2">
+            <Field label="Default schedule (optional)" className="sm:col-span-6">
               <textarea
                 rows={2}
                 placeholder="Mon–Fri 9am–5pm. Lunch provided. Bring laptop and ID."
@@ -229,7 +286,7 @@ export default function Locations() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-semibold text-slate-900">{loc.name}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{loc.address}</p>
+                  <p className="mt-1 text-sm text-slate-600">{formatAddress(loc)}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button

@@ -10,12 +10,27 @@
 create table if not exists locations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  address text not null,
+  street_address text not null,
+  city text not null,
+  state text not null,
+  zip text not null,
   parking_info text,
   contact_info text,
   schedule_template text,
   created_at timestamptz not null default now()
 );
+
+-- Migration: ensure structured address columns exist if table was created with earlier schema (single `address` column).
+alter table locations add column if not exists street_address text;
+alter table locations add column if not exists city text;
+alter table locations add column if not exists state text;
+alter table locations add column if not exists zip text;
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name='locations' and column_name='address') then
+    execute 'alter table locations alter column address drop not null';
+  end if;
+end $$;
 
 create table if not exists classes (
   id uuid primary key default gen_random_uuid(),
