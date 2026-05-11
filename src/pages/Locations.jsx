@@ -142,7 +142,7 @@ export default function Locations() {
         {editingId === null && (
           <button
             onClick={startAdd}
-            className="shrink-0 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+            className="shrink-0 rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark"
           >
             + Add location
           </button>
@@ -282,7 +282,7 @@ export default function Locations() {
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
             >
               {submitting ? 'Saving…' : editingId === 'new' ? 'Add location' : 'Save changes'}
             </button>

@@ -274,7 +274,7 @@ export default function Register() {
               <button
                 type="submit"
                 disabled={status === 'submitting'}
-                className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
               >
                 {status === 'submitting' ? 'Submitting…' : 'Confirm registration'}
               </button>

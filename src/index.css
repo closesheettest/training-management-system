@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* U.S. Shingle & Metal brand colors */
+@theme {
+  --color-brand-navy: #1a3a5e;
+  --color-brand-navy-dark: #122845;
+  --color-brand-navy-light: #2c5384;
+  --color-brand-navy-50: #f0f4f9;
+  --color-brand-red: #d8302a;
+  --color-brand-red-dark: #b8221c;
+  --color-brand-red-light: #e85a52;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

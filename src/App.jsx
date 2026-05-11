@@ -27,12 +27,21 @@ export default function App() {
 function AdminLayout() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <BrandStripe />
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-lg font-semibold tracking-tight">
-            Training Management
+          <Link to="/" className="flex items-center gap-3">
+            <BrandMark />
+            <div className="flex flex-col leading-tight">
+              <span className="text-base font-bold tracking-tight text-brand-navy sm:text-lg">
+                U.S. Shingle &amp; Metal
+              </span>
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Training Management
+              </span>
+            </div>
           </Link>
-          <nav className="flex gap-6 text-sm">
+          <nav className="flex gap-5 text-sm sm:gap-6">
             <NavItem to="/" end>Home</NavItem>
             <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/manager">Hiring Manager</NavItem>
@@ -50,9 +59,18 @@ function AdminLayout() {
 function MinimalLayout({ children }) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <BrandStripe />
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-2xl px-6 py-4">
-          <span className="text-lg font-semibold tracking-tight">Training Registration</span>
+        <div className="mx-auto flex max-w-2xl items-center gap-3 px-6 py-4">
+          <BrandMark />
+          <div className="flex flex-col leading-tight">
+            <span className="text-base font-bold tracking-tight text-brand-navy sm:text-lg">
+              U.S. Shingle &amp; Metal
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Training Registration
+            </span>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-6 py-10">{children}</main>
@@ -66,10 +84,30 @@ function NavItem({ to, end, children }) {
       to={to}
       end={end}
       className={({ isActive }) =>
-        isActive ? 'font-medium text-slate-900' : 'text-slate-600 hover:text-slate-900'
+        isActive
+          ? 'border-b-2 border-brand-red pb-3 -mb-3 font-semibold text-brand-navy'
+          : 'pb-3 -mb-3 text-slate-600 hover:text-brand-navy'
       }
     >
       {children}
     </NavLink>
+  )
+}
+
+// Thin red stripe across the top of every page — mirrors the red chevron in the logo.
+function BrandStripe() {
+  return <div className="h-1 w-full bg-brand-red" />
+}
+
+// Logo placeholder: stacked chevrons mirroring the rooftop logo (navy + red).
+// Once the user drops public/logo.png in place, swap this for <img src="/logo.png" />.
+function BrandMark() {
+  return (
+    <svg viewBox="0 0 64 40" className="h-9 w-14" aria-hidden="true">
+      {/* Outer red chevron */}
+      <path d="M2 32 L32 6 L62 32" fill="none" stroke="var(--color-brand-red)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Inner navy chevron */}
+      <path d="M14 32 L32 18 L50 32" fill="none" stroke="var(--color-brand-navy)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }

@@ -327,7 +327,7 @@ export default function ClassDetail() {
                   <button
                     type="button"
                     onClick={saveHotel}
-                    className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                    className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
                   >
                     Save
                   </button>
@@ -362,7 +362,7 @@ export default function ClassDetail() {
           <button
             onClick={() => sendSms(unsentIds, 'all')}
             disabled={sending !== null}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
           >
             {sending === 'all' ? 'Sending…' : `Send / resend to all ${unsentIds.length}`}
           </button>
@@ -502,7 +502,7 @@ function TraineeGroup({
                       <button
                         onClick={() => onSend(t.id)}
                         disabled={sending !== null || editingTraineeId !== null}
-                        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                        className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-navy-dark disabled:opacity-50"
                       >
                         {sending === t.id ? 'Sending…' : showResend ? 'Resend text' : 'Send text'}
                       </button>
@@ -552,7 +552,7 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
         <button
           type="button"
           onClick={onSave}
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
         >
           {saveLabel}
         </button>

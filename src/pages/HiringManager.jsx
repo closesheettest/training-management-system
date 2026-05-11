@@ -330,7 +330,7 @@ export default function HiringManager() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
           >
             {submitting ? 'Saving…' : 'Create class'}
           </button>
@@ -492,7 +492,7 @@ function LastCreatedCard({ data, onDismiss }) {
                 <button
                   onClick={() => sendSms([t.id], t.id)}
                   disabled={sending !== null}
-                  className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-navy-dark disabled:opacity-50"
                 >
                   {sending === t.id ? 'Sending…' : s?.sent ? 'Resend text' : 'Send text'}
                 </button>
