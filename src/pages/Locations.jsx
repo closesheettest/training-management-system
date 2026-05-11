@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { US_STATES, formatAddress, ZIP_PATTERN, DEFAULT_SCHEDULE } from '../lib/locations.js'
+import { US_STATES, formatAddress, ZIP_PATTERN, DEFAULT_SCHEDULE, FL_REGIONS, groupByRegion } from '../lib/locations.js'
 
 const blankLocation = () => ({
   name: '',
+  region: '',
   street_address: '',
   city: '',
   state: '',
@@ -48,6 +49,7 @@ export default function Locations() {
   function startEdit(loc) {
     setForm({
       name: loc.name || '',
+      region: loc.region || '',
       street_address: loc.street_address || '',
       city: loc.city || '',
       state: loc.state || '',
@@ -73,10 +75,10 @@ export default function Locations() {
     e.preventDefault()
     setMessage(null)
 
-    const required = ['name', 'street_address', 'city', 'state', 'zip', 'phone']
+    const required = ['name', 'region', 'street_address', 'city', 'state', 'zip', 'phone']
     for (const field of required) {
       if (!form[field].trim()) {
-        setMessage({ type: 'error', text: 'Name, street, city, state, zip, and phone are required.' })
+        setMessage({ type: 'error', text: 'Name, region, street, city, state, zip, and phone are required.' })
         return
       }
     }
@@ -85,6 +87,7 @@ export default function Locations() {
     try {
       const payload = {
         name: form.name.trim(),
+        region: form.region.trim(),
         street_address: form.street_address.trim(),
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
@@ -173,6 +176,19 @@ export default function Locations() {
                 onChange={(e) => updateForm('name', e.target.value)}
                 className={inputCls}
               />
+            </Field>
+            <Field label="Florida training region" className="sm:col-span-6">
+              <select
+                required
+                value={form.region}
+                onChange={(e) => updateForm('region', e.target.value)}
+                className={inputCls}
+              >
+                <option value="">— Select a region —</option>
+                {FL_REGIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </Field>
             <Field label="Street address" className="sm:col-span-6">
               <input
@@ -284,12 +300,25 @@ export default function Locations() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {locations.map((loc) => (
+        <div className="space-y-8">
+          {groupByRegion(locations).map(([region, items]) => (
+            <section key={region}>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                {region} <span className="ml-1 font-normal text-slate-400">({items.length})</span>
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {items.map((loc) => (
             <div key={loc.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="truncate text-base font-semibold text-slate-900">{loc.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-base font-semibold text-slate-900">{loc.name}</h3>
+                    {loc.region && (
+                      <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
+                        {loc.region}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-sm text-slate-600">{formatAddress(loc)}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -330,6 +359,9 @@ export default function Locations() {
                 </dl>
               )}
             </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}

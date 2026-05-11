@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { formatAddress } from '../lib/locations.js'
+import { formatAddress, groupByRegion } from '../lib/locations.js'
 
 const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '' })
 
@@ -27,7 +27,7 @@ export default function HiringManager() {
   async function loadLocations() {
     const { data, error } = await supabase
       .from('locations')
-      .select('id, name, street_address, city, state, zip, schedule_template')
+      .select('id, name, region, street_address, city, state, zip, schedule_template')
       .order('name', { ascending: true })
     if (!error) setLocations(data || [])
   }
@@ -198,10 +198,14 @@ export default function HiringManager() {
                     className={inputCls}
                   >
                     <option value="">— Select a location —</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} — {formatAddress(loc)}
-                      </option>
+                    {groupByRegion(locations).map(([region, items]) => (
+                      <optgroup key={region} label={region}>
+                        {items.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name} — {formatAddress(loc)}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                   <div className="mt-1 text-xs text-slate-500">

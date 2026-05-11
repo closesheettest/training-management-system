@@ -10,6 +10,7 @@
 create table if not exists locations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  region text not null,
   street_address text not null,
   city text not null,
   state text not null,
@@ -35,6 +36,11 @@ end $$;
 -- Migration: add phone column, drop parking_info (no longer used)
 alter table locations add column if not exists phone text;
 alter table locations drop column if exists parking_info;
+
+-- Migration: add region column (FL training area: St Pete, Jacksonville, Orlando, Miami)
+-- Nullable on upgrade so existing rows aren't blocked; app enforces required.
+alter table locations add column if not exists region text;
+create index if not exists locations_region_idx on locations(region);
 
 create table if not exists classes (
   id uuid primary key default gen_random_uuid(),

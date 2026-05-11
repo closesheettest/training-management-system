@@ -73,3 +73,20 @@ export const ZIP_PATTERN = '\\d{5}(-\\d{4})?'
 export const DEFAULT_SCHEDULE = `Mon: 12:00pm – 4:00pm
 Tues – Thurs: 10:00am – 2:00pm
 Fri: 9:00am – 12:00pm`
+
+// Florida training regions. Keep in display order — used both in dropdowns and for grouping.
+export const FL_REGIONS = ['St Pete', 'Jacksonville', 'Orlando', 'Miami']
+
+// Group an array of locations by region. Locations with no region land under "Other".
+export function groupByRegion(locations) {
+  const groups = new Map()
+  // Seed in canonical order so dropdown groups always appear in the same sequence
+  for (const r of FL_REGIONS) groups.set(r, [])
+  for (const loc of locations) {
+    const key = loc.region && FL_REGIONS.includes(loc.region) ? loc.region : 'Other'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(loc)
+  }
+  // Drop empty groups
+  return [...groups.entries()].filter(([, items]) => items.length > 0)
+}
