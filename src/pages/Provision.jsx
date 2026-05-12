@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase.js'
 import { formatAddress } from '../lib/locations.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
+// Default initial password assigned to every newly-provisioned company email.
+// Trainees are prompted to change it on first login. Change here if your IT
+// policy changes.
+const DEFAULT_INITIAL_PASSWORD = 'BlueCat12!'
+
 function todayIso() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -51,7 +56,8 @@ export default function Provision() {
       eligible.map((t) => ({
         trainee: t,
         email: t.company_email || '',
-        password: t.company_email_password || '',
+        // Auto-fill the standard initial password; IT can still override per row.
+        password: t.company_email_password || DEFAULT_INITIAL_PASSWORD,
       })),
     )
     setLoading(false)
@@ -204,7 +210,12 @@ export default function Provision() {
         </p>
         <p className="text-sm text-slate-500">
           Shows enrolled trainees who checked in today ({todayIso()}). Fill in each one's company
-          email + initial password, then submit to send their credentials via SMS.
+          email, then submit to send their credentials via SMS.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          🔑 Initial password auto-fills with{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{DEFAULT_INITIAL_PASSWORD}</code>.{' '}
+          Override per row if needed.
         </p>
       </header>
 
