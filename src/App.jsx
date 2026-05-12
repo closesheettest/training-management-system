@@ -10,6 +10,7 @@ import Attendance from './pages/Attendance.jsx'
 import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
 import Credentials from './pages/Credentials.jsx'
+import Questions from './pages/Questions.jsx'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/class/:id" element={<ClassDetail />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/provision/:class_id" element={<Provision />} />
+        <Route path="/questions" element={<Questions />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
       </Route>
@@ -57,12 +59,13 @@ function AdminLayout() {
               </span>
             </div>
           </Link>
-          <nav className="flex gap-5 text-sm sm:gap-6">
+          <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:gap-x-6">
             <NavItem to="/" end>Home</NavItem>
             <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/attendance">Attendance</NavItem>
             <NavItem to="/manager">Hiring Manager</NavItem>
             <NavItem to="/locations">Locations</NavItem>
+            <NavItem to="/questions">Questions</NavItem>
           </nav>
         </div>
       </header>

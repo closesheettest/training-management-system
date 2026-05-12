@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { US_STATES, formatAddress, ZIP_PATTERN } from '../lib/locations.js'
+import { US_STATES, formatAddress, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 
 export default function Register() {
   const { token } = useParams()
@@ -13,6 +13,7 @@ export default function Register() {
     first_name: '',
     last_name: '',
     email: '',
+    years_in_sales: '',
     street_address: '',
     city: '',
     state: '',
@@ -33,7 +34,7 @@ export default function Register() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, email, phone, street_address, city, state, zip, registered, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
+        'id, first_name, last_name, email, phone, years_in_sales, street_address, city, state, zip, registered, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
       )
       .eq('registration_token', token)
       .maybeSingle()
@@ -50,6 +51,7 @@ export default function Register() {
       first_name: data.first_name || '',
       last_name: data.last_name || '',
       email: data.email || '',
+      years_in_sales: data.years_in_sales || '',
       street_address: data.street_address || '',
       city: data.city || '',
       state: data.state || '',
@@ -70,6 +72,10 @@ export default function Register() {
       setErrorMsg('Please confirm your first and last name.')
       return
     }
+    if (!form.years_in_sales) {
+      setErrorMsg('Please pick your years in sales.')
+      return
+    }
     const requiredAddress = ['street_address', 'city', 'state', 'zip']
     for (const f of requiredAddress) {
       if (!form[f].trim()) {
@@ -85,6 +91,7 @@ export default function Register() {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim() || null,
+        years_in_sales: form.years_in_sales,
         street_address: form.street_address.trim(),
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
@@ -209,6 +216,20 @@ export default function Register() {
                   className={inputCls}
                   autoComplete="email"
                 />
+              </Field>
+
+              <Field label="How many years have you been in sales?" className="sm:col-span-6">
+                <select
+                  required
+                  value={form.years_in_sales}
+                  onChange={(e) => updateField('years_in_sales', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— Select —</option>
+                  {YEARS_IN_SALES_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </Field>
 
               <div className="sm:col-span-6">

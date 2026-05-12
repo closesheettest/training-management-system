@@ -129,6 +129,96 @@ alter table trainees add column if not exists enrolled boolean not null default 
 alter table trainees add column if not exists unenrolled_at timestamptz;
 alter table trainees add column if not exists unenrolled_reason text;
 
+-- Migration: years in sales tag, shown on website testimonials.
+-- Values match the buckets used in the registration form / testimonial display:
+-- 'New to sales', '1-4 yrs', '5-9 yrs', '10-19 yrs', '20+ yrs'
+alter table trainees add column if not exists years_in_sales text;
+
+-- ============================================================
+-- TEST / QUIZ TABLES (end-of-training assessment)
+-- ============================================================
+
+-- Question bank — global, all classes use the active set
+create table if not exists questions (
+  id uuid primary key default gen_random_uuid(),
+  prompt text not null,
+  question_type text not null check (question_type in ('multiple_choice', 'essay')),
+  choices jsonb,                 -- ['option a', 'option b', ...] for multiple_choice
+  correct_choice text,           -- the correct value (matches one of `choices`) for multiple_choice
+  use_for_testimonial boolean not null default false,  -- essay-only: surface on /testimonials and website JSON feed
+  order_index integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- One attempt per trainee per class (uniqueness enforced)
+create table if not exists test_attempts (
+  id uuid primary key default gen_random_uuid(),
+  trainee_id uuid not null references trainees(id) on delete cascade,
+  class_id uuid not null references classes(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  submitted_at timestamptz,
+  correct_count integer,
+  total_mc integer,
+  retention_pct numeric,
+  unique (trainee_id, class_id)
+);
+
+-- One row per question per attempt. Snapshots the question prompt/type/
+-- use_for_testimonial flag at submission so later edits to the question bank
+-- don't change historical testimonials.
+create table if not exists test_responses (
+  id uuid primary key default gen_random_uuid(),
+  attempt_id uuid not null references test_attempts(id) on delete cascade,
+  question_id uuid not null references questions(id) on delete restrict,
+  question_prompt text not null,
+  question_type text not null,
+  selected_choice text,
+  is_correct boolean,
+  essay_response text,
+  use_for_testimonial boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Indexes
+create index if not exists questions_active_order_idx on questions(active, order_index);
+create index if not exists test_attempts_class_idx on test_attempts(class_id);
+create index if not exists test_responses_attempt_idx on test_responses(attempt_id);
+create index if not exists test_responses_question_idx on test_responses(question_id);
+
+-- RLS
+alter table questions enable row level security;
+alter table test_attempts enable row level security;
+alter table test_responses enable row level security;
+
+drop policy if exists "questions_public_select" on questions;
+drop policy if exists "questions_public_insert" on questions;
+drop policy if exists "questions_public_update" on questions;
+drop policy if exists "questions_public_delete" on questions;
+create policy "questions_public_select" on questions for select using (true);
+create policy "questions_public_insert" on questions for insert with check (true);
+create policy "questions_public_update" on questions for update using (true);
+create policy "questions_public_delete" on questions for delete using (true);
+
+drop policy if exists "test_attempts_public_select" on test_attempts;
+drop policy if exists "test_attempts_public_insert" on test_attempts;
+drop policy if exists "test_attempts_public_update" on test_attempts;
+drop policy if exists "test_attempts_public_delete" on test_attempts;
+create policy "test_attempts_public_select" on test_attempts for select using (true);
+create policy "test_attempts_public_insert" on test_attempts for insert with check (true);
+create policy "test_attempts_public_update" on test_attempts for update using (true);
+create policy "test_attempts_public_delete" on test_attempts for delete using (true);
+
+drop policy if exists "test_responses_public_select" on test_responses;
+drop policy if exists "test_responses_public_insert" on test_responses;
+drop policy if exists "test_responses_public_update" on test_responses;
+drop policy if exists "test_responses_public_delete" on test_responses;
+create policy "test_responses_public_select" on test_responses for select using (true);
+create policy "test_responses_public_insert" on test_responses for insert with check (true);
+create policy "test_responses_public_update" on test_responses for update using (true);
+create policy "test_responses_public_delete" on test_responses for delete using (true);
+
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   trainee_id uuid not null references trainees(id) on delete cascade,

@@ -68,6 +68,15 @@ export function formatAddress(loc) {
 // Simple zip validation: 5 digits, optionally followed by -4 digits.
 export const ZIP_PATTERN = '\\d{5}(-\\d{4})?'
 
+// Years-in-sales buckets shown on testimonials.
+export const YEARS_IN_SALES_OPTIONS = [
+  'New to sales',
+  '1-4 yrs',
+  '5-9 yrs',
+  '10-19 yrs',
+  '20+ yrs',
+]
+
 // Default training schedule — pre-filled when adding a new location.
 // User can override per-location.
 export const DEFAULT_SCHEDULE = `Mon: 12:00pm – 4:00pm
