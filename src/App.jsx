@@ -8,6 +8,8 @@ import ClassDetail from './pages/ClassDetail.jsx'
 import Kiosk from './pages/Kiosk.jsx'
 import Attendance from './pages/Attendance.jsx'
 import Confirm from './pages/Confirm.jsx'
+import Provision from './pages/Provision.jsx'
+import Credentials from './pages/Credentials.jsx'
 
 export default function App() {
   return (
@@ -18,6 +20,9 @@ export default function App() {
       {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
       <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
 
+      {/* Public credentials: trainee taps the link from the day-2 SMS */}
+      <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />
+
       {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
       <Route path="/kiosk/:class_id" element={<Kiosk />} />
 
@@ -27,6 +32,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/class/:id" element={<ClassDetail />} />
         <Route path="/attendance" element={<Attendance />} />
+        <Route path="/provision/:class_id" element={<Provision />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
       </Route>

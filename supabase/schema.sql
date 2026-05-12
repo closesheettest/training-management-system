@@ -113,6 +113,22 @@ alter table trainees add column if not exists confirmation_at timestamptz;
 -- (out-of-town trainees need lodging; local hires don't).
 alter table trainees add column if not exists needs_hotel boolean not null default false;
 
+-- Migration: Day-2 company email provisioning.
+-- IT enters the email + initial password; trainee sees them on /credentials/:token
+-- and follows phone setup instructions.
+alter table trainees add column if not exists company_email text;
+alter table trainees add column if not exists company_email_password text;
+alter table trainees add column if not exists email_assigned_at timestamptz;
+alter table trainees add column if not exists credentials_sent_at timestamptz;
+alter table trainees add column if not exists credentials_viewed_at timestamptz;
+
+-- Migration: enrollment status. Trainer can unenroll trainees on day 2
+-- if they don't pass the early assessment. Unenrolled trainees don't appear
+-- on the provisioning roster and don't get further SMS.
+alter table trainees add column if not exists enrolled boolean not null default true;
+alter table trainees add column if not exists unenrolled_at timestamptz;
+alter table trainees add column if not exists unenrolled_reason text;
+
 create table if not exists attendance (
   id uuid primary key default gen_random_uuid(),
   trainee_id uuid not null references trainees(id) on delete cascade,

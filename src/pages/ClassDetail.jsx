@@ -141,6 +141,44 @@ export default function ClassDetail() {
     load()
   }
 
+  async function unenrollTrainee(t) {
+    const reason = prompt(
+      `Unenroll ${t.first_name} ${t.last_name}? They'll be hidden from the active roster and won't receive further texts. Reason (optional):`,
+      '',
+    )
+    if (reason === null) return // cancelled
+    setMessage(null)
+    const { error: err } = await supabase
+      .from('trainees')
+      .update({
+        enrolled: false,
+        unenrolled_at: new Date().toISOString(),
+        unenrolled_reason: reason.trim() || null,
+      })
+      .eq('id', t.id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({ type: 'success', text: `Unenrolled ${t.first_name} ${t.last_name}.` })
+    load()
+  }
+
+  async function reenrollTrainee(t) {
+    if (!confirm(`Re-enroll ${t.first_name} ${t.last_name}?`)) return
+    setMessage(null)
+    const { error: err } = await supabase
+      .from('trainees')
+      .update({ enrolled: true, unenrolled_at: null, unenrolled_reason: null })
+      .eq('id', t.id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({ type: 'success', text: `${t.first_name} ${t.last_name} is back in the class.` })
+    load()
+  }
+
   function startAddTrainee() {
     setAddingTrainee(true)
     setNewTraineeDraft(blankTrainee())
@@ -224,26 +262,36 @@ export default function ClassDetail() {
     )
   if (!cls) return null
 
-  const registered = trainees.filter((t) => t.registered)
-  const sentNoResponse = trainees.filter((t) => !t.registered && t.last_sms_sent_at)
-  const notSent = trainees.filter((t) => !t.registered && !t.last_sms_sent_at)
+  const enrolled = trainees.filter((t) => t.enrolled !== false)
+  const unenrolled = trainees.filter((t) => t.enrolled === false)
+  const registered = enrolled.filter((t) => t.registered)
+  const sentNoResponse = enrolled.filter((t) => !t.registered && t.last_sms_sent_at)
+  const notSent = enrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
   const isTBD = !cls.locations
-  const unsentIds = trainees.filter((t) => !t.registered).map((t) => t.id)
+  const unsentIds = enrolled.filter((t) => !t.registered).map((t) => t.id)
 
-  const summary = computeSummary(trainees)
+  const summary = computeSummary(enrolled)
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink />
-        <Link
-          to={`/kiosk/${cls.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-md border border-brand-navy bg-white px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
-        >
-          Open kiosk →
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={`/provision/${cls.id}`}
+            className="rounded-md border border-brand-navy bg-white px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
+          >
+            Provision emails →
+          </Link>
+          <Link
+            to={`/kiosk/${cls.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-md border border-brand-navy bg-white px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
+          >
+            Open kiosk →
+          </Link>
+        </div>
       </div>
 
       {/* Header */}
@@ -422,8 +470,58 @@ export default function ClassDetail() {
           onSaveEdit={saveEditTrainee}
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
+          onUnenroll={unenrollTrainee}
         />
       ))}
+
+      {unenrolled.length > 0 && (
+        <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-700">
+            🚫 Unenrolled <span className="font-normal text-slate-500">({unenrolled.length})</span>
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Removed from active roster — won't get further texts or appear on the provisioning page.
+            Re-enroll if needed.
+          </p>
+          <ul className="mt-4 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+            {unenrolled.map((t) => (
+              <li key={t.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900 line-through opacity-70">
+                    {t.first_name} {t.last_name}
+                  </div>
+                  <div className="text-slate-500">
+                    {t.phone}
+                    {t.email && ` · ${t.email}`}
+                  </div>
+                  {t.unenrolled_reason && (
+                    <div className="mt-0.5 text-xs text-slate-600">Reason: {t.unenrolled_reason}</div>
+                  )}
+                  {t.unenrolled_at && (
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      Unenrolled: {new Date(t.unenrolled_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => reenrollTrainee(t)}
+                    className="rounded-md border border-green-300 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                  >
+                    Re-enroll
+                  </button>
+                  <button
+                    onClick={() => deleteTrainee(t)}
+                    className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }
@@ -444,6 +542,7 @@ function TraineeGroup({
   onSaveEdit,
   onDraftChange,
   onDelete,
+  onUnenroll,
 }) {
   const palette = {
     green: 'border-green-200 bg-green-50',
@@ -528,6 +627,14 @@ function TraineeGroup({
                         className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={() => onUnenroll(t)}
+                        disabled={editingTraineeId !== null}
+                        className="rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                        title="Remove from active roster"
+                      >
+                        Unenroll
                       </button>
                       <button
                         onClick={() => onDelete(t)}
