@@ -116,8 +116,11 @@ export const handler = async (event) => {
 
   // Send SMS to each recipient
   let sentCount = 0
+  const sendErrors = []
   for (const phone of phones) {
-    if (await sendOneSms(phone, message)) sentCount++
+    const result = await sendOneSms(phone, message)
+    if (result.ok) sentCount++
+    else sendErrors.push({ phone: maskPhone(phone), step: result.step, error: result.error })
   }
 
   // Stamp hotel_alert_sent_at on each absentee
@@ -133,7 +136,13 @@ export const handler = async (event) => {
     recipient_count: phones.length,
     role_used: roleUsed,
     absentees: absentees.map((t) => `${t.first_name} ${t.last_name} (${t.classes?.region || 'Region'})`),
+    ...(sendErrors.length > 0 ? { send_errors: sendErrors } : {}),
   })
+}
+
+function maskPhone(p) {
+  if (!p) return p
+  return p.length > 4 ? p.slice(0, -7) + 'xxxxxx' + p.slice(-1) : p
 }
 
 function buildMessage(absentees, dateIso) {
@@ -194,17 +203,37 @@ async function sendOneSms(phone, message) {
       }),
     })
     const cJson = await cRes.json().catch(() => ({}))
-    if (!cRes.ok) return false
+    if (!cRes.ok) {
+      return {
+        ok: false,
+        step: 'contact_upsert',
+        error: `${cRes.status}: ${cJson.message || cJson.error || JSON.stringify(cJson)}`,
+      }
+    }
     const cId = cJson.contact?.id || cJson.id
-    if (!cId) return false
+    if (!cId) {
+      return {
+        ok: false,
+        step: 'contact_upsert',
+        error: 'No contact id returned from GHL',
+      }
+    }
     const sRes = await fetch(`${GHL_BASE}/conversations/messages`, {
       method: 'POST',
       headers: ghlHeaders(),
       body: JSON.stringify({ type: 'SMS', contactId: cId, message }),
     })
-    return sRes.ok
-  } catch {
-    return false
+    if (!sRes.ok) {
+      const sJson = await sRes.json().catch(() => ({}))
+      return {
+        ok: false,
+        step: 'sms_send',
+        error: `${sRes.status}: ${sJson.message || sJson.error || JSON.stringify(sJson)}`,
+      }
+    }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, step: 'exception', error: err.message || 'Unknown' }
   }
 }
 
