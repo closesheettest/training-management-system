@@ -11,6 +11,11 @@ const ROLES = [
 
 const EVENT_ROUTING = [
   { event: 'Day-2 email provisioning complete', roles: ['admin'] },
+  {
+    event: 'Hotel-needing trainee absent at 10:30 AM (cancel their room)',
+    roles: ['hr'],
+    fallback: '→ admin → ADMIN_PHONE env var',
+  },
   // Future events will be added here as we wire them up:
   // { event: 'New class scheduled', roles: ['hr'] },
   // { event: 'Final test submitted', roles: ['admin'] },
@@ -262,13 +267,14 @@ export default function Notifications() {
         </p>
         <ul className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white">
           {EVENT_ROUTING.map((e) => (
-            <li key={e.event} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+            <li key={e.event} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-800">{e.event}</span>
-              <span className="flex gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {e.roles.map((r) => (
                   <RoleTag key={r} role={r} />
                 ))}
-              </span>
+                {e.fallback && <span className="text-xs text-slate-400">{e.fallback}</span>}
+              </div>
             </li>
           ))}
         </ul>

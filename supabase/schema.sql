@@ -113,6 +113,10 @@ alter table trainees add column if not exists confirmation_at timestamptz;
 -- (out-of-town trainees need lodging; local hires don't).
 alter table trainees add column if not exists needs_hotel boolean not null default false;
 
+-- Migration: timestamp the most recent 10:30 AM hotel-no-show alert about this
+-- trainee (so we don't double-alert on the same day if cron fires twice).
+alter table trainees add column if not exists hotel_alert_sent_at timestamptz;
+
 -- Migration: Day-2 company email provisioning.
 -- IT enters the email + initial password; trainee sees them on /credentials/:token
 -- and follows phone setup instructions.
