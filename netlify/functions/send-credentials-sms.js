@@ -116,48 +116,68 @@ export const handler = async (event) => {
     }
   }
 
-  // Admin notification — single summary SMS to ADMIN_PHONE
-  let adminNotified = false
-  const adminPhoneRaw = process.env.ADMIN_PHONE
-  if (adminPhoneRaw) {
-    const adminPhone = normalizePhone(adminPhoneRaw)
-    if (adminPhone) {
-      const successCount = results.filter((r) => r.success).length
-      const failCount = results.length - successCount
-      const locationName = cls.locations?.name || `${cls.region} — TBD`
-      const adminMessage =
-        `[Training System] Company emails provisioned for ${cls.region} · ${locationName} (week of ${cls.week_start_date}). ` +
-        `${successCount} credential text${successCount === 1 ? '' : 's'} sent` +
-        (failCount > 0 ? `, ${failCount} failed.` : '.')
+  // Admin notification — looks up active 'admin' recipients in the DB,
+  // falls back to ADMIN_PHONE env var for backwards compatibility.
+  const successCount = results.filter((r) => r.success).length
+  const failCount = results.length - successCount
+  const locationName = cls.locations?.name || `${cls.region} — TBD`
+  const adminMessage =
+    `[Training System] Company emails provisioned for ${cls.region} · ${locationName} (week of ${cls.week_start_date}). ` +
+    `${successCount} credential text${successCount === 1 ? '' : 's'} sent` +
+    (failCount > 0 ? `, ${failCount} failed.` : '.')
 
-      try {
-        const cRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
-          method: 'POST',
-          headers: ghlHeaders(),
-          body: JSON.stringify({
-            locationId: process.env.GHL_LOCATION_ID,
-            phone: adminPhone,
-            firstName: 'Admin',
-            lastName: 'Training System',
-          }),
-        })
-        const cJson = await cRes.json().catch(() => ({}))
-        const cId = cJson.contact?.id || cJson.id
-        if (cRes.ok && cId) {
-          const sRes = await fetch(`${GHL_BASE}/conversations/messages`, {
-            method: 'POST',
-            headers: ghlHeaders(),
-            body: JSON.stringify({ type: 'SMS', contactId: cId, message: adminMessage }),
-          })
-          if (sRes.ok) adminNotified = true
-        }
-      } catch {
-        // best-effort, don't fail the whole request
-      }
-    }
+  const adminPhones = await loadAdminPhones(supabase)
+  let adminNotifiedCount = 0
+  for (const phone of adminPhones) {
+    if (await sendOneSms(phone, adminMessage, 'Admin')) adminNotifiedCount++
   }
 
-  return json(200, { results, admin_notified: adminNotified })
+  return json(200, { results, admin_notified_count: adminNotifiedCount })
+}
+
+// Look up active 'admin' recipients with a phone number. Fall back to
+// ADMIN_PHONE env var if none exist in the DB (so existing deployments keep working).
+async function loadAdminPhones(supabase) {
+  const { data } = await supabase
+    .from('notification_recipients')
+    .select('phone')
+    .eq('role', 'admin')
+    .eq('active', true)
+    .not('phone', 'is', null)
+
+  const fromDb = (data || []).map((r) => normalizePhone(r.phone)).filter(Boolean)
+  if (fromDb.length > 0) return fromDb
+
+  // Fallback
+  const fallback = normalizePhone(process.env.ADMIN_PHONE)
+  return fallback ? [fallback] : []
+}
+
+// Sends one SMS via GHL. Best-effort — failures don't throw.
+async function sendOneSms(phone, message, contactLabel = 'Admin') {
+  try {
+    const cRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
+      method: 'POST',
+      headers: ghlHeaders(),
+      body: JSON.stringify({
+        locationId: process.env.GHL_LOCATION_ID,
+        phone,
+        firstName: contactLabel,
+        lastName: 'Training System',
+      }),
+    })
+    const cJson = await cRes.json().catch(() => ({}))
+    const cId = cJson.contact?.id || cJson.id
+    if (!cRes.ok || !cId) return false
+    const sRes = await fetch(`${GHL_BASE}/conversations/messages`, {
+      method: 'POST',
+      headers: ghlHeaders(),
+      body: JSON.stringify({ type: 'SMS', contactId: cId, message }),
+    })
+    return sRes.ok
+  } catch {
+    return false
+  }
 }
 
 function ghlHeaders() {

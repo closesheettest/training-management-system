@@ -135,6 +135,39 @@ alter table trainees add column if not exists unenrolled_reason text;
 alter table trainees add column if not exists years_in_sales text;
 
 -- ============================================================
+-- NOTIFICATION RECIPIENTS — who gets SMS/email when training events fire.
+-- ============================================================
+-- Replaces hard-coded ADMIN_PHONE env var with a manageable list.
+-- Each recipient has a role; functions look up recipients by role.
+-- env var ADMIN_PHONE is still respected as a fallback when no DB
+-- recipients with role='admin' exist (so nothing breaks on first deploy).
+
+create table if not exists notification_recipients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  role text not null check (role in ('admin', 'it', 'hr', 'test', 'custom')),
+  phone text,
+  email text,
+  active boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists notification_recipients_role_active_idx
+  on notification_recipients(role, active);
+
+alter table notification_recipients enable row level security;
+drop policy if exists "notification_recipients_public_select" on notification_recipients;
+drop policy if exists "notification_recipients_public_insert" on notification_recipients;
+drop policy if exists "notification_recipients_public_update" on notification_recipients;
+drop policy if exists "notification_recipients_public_delete" on notification_recipients;
+create policy "notification_recipients_public_select" on notification_recipients for select using (true);
+create policy "notification_recipients_public_insert" on notification_recipients for insert with check (true);
+create policy "notification_recipients_public_update" on notification_recipients for update using (true);
+create policy "notification_recipients_public_delete" on notification_recipients for delete using (true);
+
+-- ============================================================
 -- TEST / QUIZ TABLES (end-of-training assessment)
 -- ============================================================
 
