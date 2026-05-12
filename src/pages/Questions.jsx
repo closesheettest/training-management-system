@@ -42,6 +42,7 @@ export default function Questions() {
     })
     setEditingId('new')
     setMessage(null)
+    scrollFormIntoView()
   }
 
   function startEdit(q) {
@@ -56,6 +57,17 @@ export default function Questions() {
     })
     setEditingId(q.id)
     setMessage(null)
+    scrollFormIntoView()
+  }
+
+  function scrollFormIntoView() {
+    // Wait for the form to render, then scroll
+    setTimeout(() => {
+      document.getElementById('question-form')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 50)
   }
 
   function cancel() {
@@ -391,8 +403,8 @@ function QuestionList({ title, items, onEdit, onRemove, onToggle, onMove, dimmed
 
 function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, onSave, onCancel, submitting, isNew }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-      <h2 className="text-lg font-semibold">{isNew ? 'Add question' : 'Edit question'}</h2>
+    <section id="question-form" className="scroll-mt-4 rounded-lg border-2 border-brand-navy bg-white p-6 shadow-lg space-y-4">
+      <h2 className="text-lg font-semibold text-brand-navy">{isNew ? '✏️ Add question' : '✏️ Edit question'}</h2>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <label className="block text-sm font-medium text-slate-700">
