@@ -138,10 +138,20 @@ export default function Attendance() {
 }
 
 function ClassAttendanceCard({ cls, date }) {
-  const trainees = (cls.trainees || []).slice().sort(byName)
+  const allTrainees = (cls.trainees || []).slice().sort(byName)
   const attendanceForDay = (cls.attendance || []).filter((a) => a.attendance_date === date)
   const attendanceMap = Object.fromEntries(attendanceForDay.map((a) => [a.trainee_id, a]))
-  const present = trainees.filter((t) => attendanceMap[t.id]?.confirmed)
+
+  // Group by status: Present (sorted by sign-in time, earliest first), then Not signed in (alphabetical)
+  const present = allTrainees
+    .filter((t) => attendanceMap[t.id]?.confirmed)
+    .sort((a, b) => {
+      const ta = attendanceMap[a.id]?.confirmed_at || ''
+      const tb = attendanceMap[b.id]?.confirmed_at || ''
+      return ta.localeCompare(tb)
+    })
+  const absent = allTrainees.filter((t) => !attendanceMap[t.id]?.confirmed)
+  const trainees = allTrainees // kept for total count compatibility
   const dayNumber = computeDayNumber(date, cls.week_start_date, cls.week_end_date)
 
   return (
@@ -189,55 +199,80 @@ function ClassAttendanceCard({ cls, date }) {
           </Link>
         </p>
       ) : (
-        <ul className="divide-y divide-slate-100">
-          {trainees.map((t) => {
-            const att = attendanceMap[t.id]
-            const checked = !!att?.confirmed
-            return (
-              <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                <div className="flex items-center gap-3">
-                  <span className={checked ? 'text-green-600 text-lg' : 'text-slate-300 text-lg'}>
-                    {checked ? '✓' : '○'}
-                  </span>
-                  <div>
-                    <div className="font-medium text-slate-900">
-                      {t.first_name} {t.last_name}
-                    </div>
-                    {!t.registered && (
-                      <div className="text-xs text-amber-700">Not registered</div>
-                    )}
-                    {t.confirmation_status === 'confirmed' && (
-                      <div className="text-xs text-green-700">✓ Confirmed</div>
-                    )}
-                    {t.confirmation_status === 'declined' && (
-                      <div className="text-xs text-red-700">✗ Declined</div>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right">
-                  {checked ? (
-                    <>
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                        Present
-                      </span>
-                      {att?.confirmed_at && (
-                        <div className="mt-1 text-xs text-slate-500">
-                          {new Date(att.confirmed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                      Not signed in
-                    </span>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <>
+          {/* Present group — top */}
+          {present.length > 0 && (
+            <div>
+              <div className="bg-green-50 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-green-800">
+                ✓ Present ({present.length})
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {present.map((t) => (
+                  <AttendanceRow key={t.id} trainee={t} attendance={attendanceMap[t.id]} status="present" />
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Not signed in group — bottom */}
+          {absent.length > 0 && (
+            <div>
+              <div className="border-t border-slate-100 bg-slate-50 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                ○ Not signed in ({absent.length})
+              </div>
+              <ul className="divide-y divide-slate-100">
+                {absent.map((t) => (
+                  <AttendanceRow key={t.id} trainee={t} attendance={null} status="absent" />
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </section>
+  )
+}
+
+function AttendanceRow({ trainee: t, attendance: att, status }) {
+  const checked = status === 'present'
+  return (
+    <li className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+      <div className="flex items-center gap-3">
+        <span className={checked ? 'text-green-600 text-lg' : 'text-slate-300 text-lg'}>
+          {checked ? '✓' : '○'}
+        </span>
+        <div>
+          <div className="font-medium text-slate-900">
+            {t.first_name} {t.last_name}
+          </div>
+          {!t.registered && <div className="text-xs text-amber-700">Not registered</div>}
+          {t.confirmation_status === 'confirmed' && (
+            <div className="text-xs text-green-700">✓ Confirmed</div>
+          )}
+          {t.confirmation_status === 'declined' && (
+            <div className="text-xs text-red-700">✗ Declined</div>
+          )}
+        </div>
+      </div>
+      <div className="text-right">
+        {checked ? (
+          <>
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+              Present
+            </span>
+            {att?.confirmed_at && (
+              <div className="mt-1 text-xs text-slate-500">
+                {new Date(att.confirmed_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </div>
+            )}
+          </>
+        ) : (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            Not signed in
+          </span>
+        )}
+      </div>
+    </li>
   )
 }
 
