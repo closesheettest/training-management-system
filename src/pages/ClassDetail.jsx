@@ -19,6 +19,7 @@ export default function ClassDetail() {
   const [traineeDraft, setTraineeDraft] = useState(null)
   const [addingTrainee, setAddingTrainee] = useState(false)
   const [newTraineeDraft, setNewTraineeDraft] = useState(blankTrainee())
+  const [startingTest, setStartingTest] = useState(false)
 
   useEffect(() => {
     load()
@@ -31,7 +32,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, locations(*), trainees(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, locations(*), trainees(*), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
@@ -214,6 +215,46 @@ export default function ClassDetail() {
     load()
   }
 
+  async function startFinalTest() {
+    if (!confirm('Send the final-test link via SMS to every enrolled, registered trainee in this class?')) return
+    setMessage(null)
+    setStartingTest(true)
+    try {
+      const res = await fetch('/.netlify/functions/send-final-test-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const errMsg =
+          res.status === 404
+            ? "SMS only works on the deployed Netlify site — not in local 'npm run dev'."
+            : body.error || `Request failed: ${res.status}`
+        setMessage({ type: 'error', text: errMsg })
+        return
+      }
+      const failures = (body.results || []).filter((r) => !r.success)
+      const successes = (body.results || []).filter((r) => r.success).length
+      if (failures.length === 0) {
+        setMessage({
+          type: 'success',
+          text: `Sent ${successes} final-test text${successes === 1 ? '' : 's'}.`,
+        })
+      } else {
+        setMessage({
+          type: 'error',
+          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}`,
+        })
+      }
+      load()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setStartingTest(false)
+    }
+  }
+
   async function sendSms(traineeIds, label) {
     setMessage(null)
     setSending(label)
@@ -270,13 +311,24 @@ export default function ClassDetail() {
   const isTBD = !cls.locations
   const unsentIds = enrolled.filter((t) => !t.registered).map((t) => t.id)
 
-  const summary = computeSummary(enrolled)
+  const attemptsByTrainee = Object.fromEntries(
+    (cls.test_attempts || []).map((a) => [a.trainee_id, a]),
+  )
+  const summary = computeSummary(enrolled, attemptsByTrainee)
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink />
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={startFinalTest}
+            disabled={startingTest}
+            className="rounded-md border border-brand-red bg-white px-3 py-1.5 text-xs font-semibold text-brand-red hover:bg-brand-red hover:text-white disabled:opacity-50"
+            title="Send the final assessment SMS to every enrolled, registered trainee"
+          >
+            {startingTest ? 'Sending…' : 'Start final test →'}
+          </button>
           <Link
             to={`/provision/${cls.id}`}
             className="rounded-md border border-brand-navy bg-white px-3 py-1.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
@@ -330,6 +382,10 @@ export default function ClassDetail() {
       )}
 
       <RosterSummary summary={summary} />
+
+      {summary.testSubmitted > 0 && (
+        <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} />
+      )}
 
       {/* Region + training location controls */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
@@ -728,7 +784,7 @@ function byName(a, b) {
   return an < bn ? -1 : an > bn ? 1 : 0
 }
 
-function computeSummary(trainees) {
+function computeSummary(trainees, attemptsByTrainee = {}) {
   const total = trainees.length
   const registered = trainees.filter((t) => t.registered).length
   const confirmed = trainees.filter((t) => t.confirmation_status === 'confirmed').length
@@ -737,7 +793,29 @@ function computeSummary(trainees) {
     (t) => t.last_reminder_sent_at && !t.confirmation_status,
   ).length
   const needsHotel = trainees.filter((t) => t.needs_hotel).length
-  return { total, registered, confirmed, declined, reminderSentNoResponse, needsHotel }
+
+  // Test stats
+  const attempts = trainees.map((t) => attemptsByTrainee[t.id]).filter(Boolean)
+  const submitted = attempts.filter((a) => a.submitted_at)
+  const testSubmitted = submitted.length
+  const testNotSubmitted = total - testSubmitted
+  const retentionScores = submitted.filter((a) => a.retention_pct != null).map((a) => Number(a.retention_pct))
+  const avgRetention =
+    retentionScores.length > 0
+      ? Math.round(retentionScores.reduce((a, b) => a + b, 0) / retentionScores.length)
+      : null
+
+  return {
+    total,
+    registered,
+    confirmed,
+    declined,
+    reminderSentNoResponse,
+    needsHotel,
+    testSubmitted,
+    testNotSubmitted,
+    avgRetention,
+  }
 }
 
 function pct(numerator, denominator) {
@@ -783,26 +861,96 @@ function RosterSummary({ summary }) {
           need{summary.needsHotel === 1 ? 's' : ''} hotel accommodation — book that many rooms.
         </p>
       )}
+      {summary.testSubmitted > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat
+            label="Test submitted"
+            value={summary.testSubmitted}
+            pct={pct(summary.testSubmitted, summary.total)}
+            tone="green"
+          />
+          <Stat label="Not submitted" value={summary.testNotSubmitted} tone={summary.testNotSubmitted > 0 ? 'amber' : 'slate'} />
+          {summary.avgRetention != null && (
+            <Stat label="Avg retention" value={`${summary.avgRetention}%`} tone="navy" />
+          )}
+        </div>
+      )}
     </section>
   )
 }
 
-function Stat({ label, value, pct, tone = 'slate' }) {
+function Stat({ label, value, pct: pctValue, tone = 'slate' }) {
   const valueColor = {
     green: 'text-green-700',
     red: 'text-red-700',
+    amber: 'text-amber-700',
+    navy: 'text-brand-navy',
     slate: 'text-slate-900',
   }[tone] || 'text-slate-900'
   return (
     <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
       <div className={`text-2xl font-bold ${valueColor}`}>
         {value}
-        {pct !== null && pct !== undefined && (
-          <span className="ml-1 text-sm font-medium text-slate-500">({pct}%)</span>
+        {pctValue !== null && pctValue !== undefined && (
+          <span className="ml-1 text-sm font-medium text-slate-500">({pctValue}%)</span>
         )}
       </div>
       <div className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
     </div>
+  )
+}
+
+function TestResults({ trainees, attemptsByTrainee }) {
+  const withAttempts = trainees
+    .map((t) => ({ trainee: t, attempt: attemptsByTrainee[t.id] }))
+    .sort((a, b) => `${a.trainee.first_name} ${a.trainee.last_name}`.localeCompare(`${b.trainee.first_name} ${b.trainee.last_name}`))
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold">📝 Final test results</h2>
+      <p className="text-xs text-slate-500">
+        Retention scores from the multiple-choice section. Essay answers (used for testimonials)
+        are aggregated on the <Link to="/testimonials" className="underline">Testimonials page</Link>.
+      </p>
+      <ul className="mt-4 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
+        {withAttempts.map(({ trainee, attempt }) => (
+          <li key={trainee.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+            <div className="min-w-0">
+              <div className="font-medium text-slate-900">
+                {trainee.first_name} {trainee.last_name}
+              </div>
+              {attempt?.submitted_at ? (
+                <div className="text-xs text-slate-500">
+                  Submitted {new Date(attempt.submitted_at).toLocaleString()}
+                </div>
+              ) : (
+                <div className="text-xs text-amber-700">Not submitted yet</div>
+              )}
+            </div>
+            <div className="text-right">
+              {attempt?.submitted_at && attempt.total_mc > 0 ? (
+                <>
+                  <div className="text-xl font-bold text-brand-navy">
+                    {attempt.correct_count}<span className="text-slate-400">/{attempt.total_mc}</span>
+                  </div>
+                  {attempt.retention_pct != null && (
+                    <div className="text-xs font-medium text-slate-600">{attempt.retention_pct}% retention</div>
+                  )}
+                </>
+              ) : attempt?.submitted_at ? (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                  Submitted
+                </span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  —
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

@@ -11,6 +11,8 @@ import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
 import Credentials from './pages/Credentials.jsx'
 import Questions from './pages/Questions.jsx'
+import TakeTest from './pages/TakeTest.jsx'
+import TestDone from './pages/TestDone.jsx'
 
 export default function App() {
   return (
@@ -23,6 +25,10 @@ export default function App() {
 
       {/* Public credentials: trainee taps the link from the day-2 SMS */}
       <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />
+
+      {/* Public test taking + thank-you (last-day final assessment) */}
+      <Route path="/test/:token" element={<MinimalLayout><TakeTest /></MinimalLayout>} />
+      <Route path="/test/:token/done" element={<MinimalLayout><TestDone /></MinimalLayout>} />
 
       {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
       <Route path="/kiosk/:class_id" element={<Kiosk />} />
