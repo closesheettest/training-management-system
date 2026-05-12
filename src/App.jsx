@@ -13,6 +13,7 @@ import Credentials from './pages/Credentials.jsx'
 import Questions from './pages/Questions.jsx'
 import TakeTest from './pages/TakeTest.jsx'
 import TestDone from './pages/TestDone.jsx'
+import Testimonials from './pages/Testimonials.jsx'
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/provision/:class_id" element={<Provision />} />
         <Route path="/questions" element={<Questions />} />
+        <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
       </Route>
@@ -72,6 +74,7 @@ function AdminLayout() {
             <NavItem to="/manager">Hiring Manager</NavItem>
             <NavItem to="/locations">Locations</NavItem>
             <NavItem to="/questions">Questions</NavItem>
+            <NavItem to="/testimonials">Testimonials</NavItem>
           </nav>
         </div>
       </header>
