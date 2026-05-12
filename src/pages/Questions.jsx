@@ -114,7 +114,7 @@ export default function Questions() {
     })
   }
 
-  async function save() {
+  async function save({ andAddAnother = false } = {}) {
     setMessage(null)
     if (!draft.prompt.trim()) {
       setMessage({ type: 'error', text: 'Question text is required.' })
@@ -148,17 +148,34 @@ export default function Questions() {
         order_index: draft.order_index ?? 0,
         updated_at: new Date().toISOString(),
       }
-      if (editingId === 'new') {
+      const wasNew = editingId === 'new'
+      if (wasNew) {
         const { error: err } = await supabase.from('questions').insert(payload)
         if (err) throw err
-        setMessage({ type: 'success', text: 'Question added.' })
+        setMessage({ type: 'success', text: andAddAnother ? `Saved — ready for the next question.` : 'Question added.' })
       } else {
         const { error: err } = await supabase.from('questions').update(payload).eq('id', editingId)
         if (err) throw err
         setMessage({ type: 'success', text: 'Question updated.' })
       }
-      cancel()
-      load()
+
+      // Refresh list so order_index math is fresh
+      await load()
+
+      if (andAddAnother && wasNew) {
+        // Reset draft for a new question, keep the form open
+        setDraft({
+          ...blankQuestion(),
+          order_index: (Math.max(0, ...questions.map((q) => q.order_index), payload.order_index) || 0) + 1,
+        })
+        setEditingId('new')
+        // Smooth scroll to top of form so prompt is in view
+        setTimeout(() => {
+          document.getElementById('question-form-prompt')?.focus({ preventScroll: false })
+        }, 60)
+      } else {
+        cancel()
+      }
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
     } finally {
@@ -405,6 +422,12 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
   return (
     <section id="question-form" className="scroll-mt-4 rounded-lg border-2 border-brand-navy bg-white p-6 shadow-lg space-y-4">
       <h2 className="text-lg font-semibold text-brand-navy">{isNew ? '✏️ Add question' : '✏️ Edit question'}</h2>
+      {isNew && (
+        <p className="text-xs text-slate-500">
+          Tip: hit <strong>"Save &amp; add another"</strong> at the bottom to keep adding questions without
+          leaving this form.
+        </p>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <label className="block text-sm font-medium text-slate-700">
@@ -432,6 +455,7 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
       <label className="block text-sm font-medium text-slate-700">
         Question text
         <textarea
+          id="question-form-prompt"
           rows={3}
           required
           value={value.prompt}
@@ -513,7 +537,7 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
         </label>
       )}
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-wrap justify-end gap-2 pt-2">
         <button
           type="button"
           onClick={onCancel}
@@ -521,13 +545,23 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
         >
           Cancel
         </button>
+        {isNew && (
+          <button
+            type="button"
+            onClick={() => onSave({ andAddAnother: true })}
+            disabled={submitting}
+            className="rounded-md border-2 border-brand-navy bg-white px-4 py-2 text-sm font-semibold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
+          >
+            {submitting ? 'Saving…' : 'Save & add another'}
+          </button>
+        )}
         <button
           type="button"
-          onClick={onSave}
+          onClick={() => onSave({ andAddAnother: false })}
           disabled={submitting}
           className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
         >
-          {submitting ? 'Saving…' : isNew ? 'Add question' : 'Save changes'}
+          {submitting ? 'Saving…' : isNew ? 'Add & close' : 'Save changes'}
         </button>
       </div>
     </section>
