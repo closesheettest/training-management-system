@@ -38,10 +38,16 @@ export default function Kiosk() {
     }
     setCls(clsData)
 
+    // Kiosk only shows trainees who are enrolled AND have completed registration.
+    // Unregistered trainees (e.g. someone who never tapped the SMS link) and
+    // unenrolled trainees (removed for not passing day-2 assessment) are hidden
+    // so they can't accidentally sign in.
     const { data: traineeData } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, registered')
+      .select('id, first_name, last_name, phone, registered, enrolled')
       .eq('class_id', class_id)
+      .eq('registered', true)
+      .neq('enrolled', false)
       .order('first_name', { ascending: true })
     setTrainees(traineeData || [])
 
@@ -161,7 +167,8 @@ export default function Kiosk() {
         </h2>
         {trainees.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600">
-            No trainees have been added to this class yet. Please see your training manager.
+            No registered trainees yet. Anyone who hasn't completed their registration link won't
+            appear here. Please see your training manager.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -189,9 +196,8 @@ export default function Kiosk() {
                           Signed in at {new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                         </div>
                       )}
-                      {!checked && !t.registered && (
-                        <div className="mt-1 text-sm text-amber-700">Not registered yet</div>
-                      )}
+                      {/* Unregistered trainees are filtered out of this list,
+                          so we no longer need the inline 'Not registered' note here. */}
                     </div>
                     <div className="shrink-0 text-3xl">
                       {checked ? '✅' : signingIn === t.id ? '…' : '➜'}
