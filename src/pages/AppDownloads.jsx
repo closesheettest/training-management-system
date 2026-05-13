@@ -16,6 +16,7 @@ const APPS = [
     tagline: 'Digital business cards + follow-up automation for field sales.',
     ios: 'https://apps.apple.com/us/app/repcard-field-sales-platform/id1372990002',
     android: 'https://play.google.com/store/apps/details?id=com.rocket.repcard',
+    note: null,
   },
   {
     key: 'jobnimbus',
@@ -23,6 +24,15 @@ const APPS = [
     tagline: 'All-in-one CRM — contacts, jobs, and tasks on the go.',
     ios: 'https://apps.apple.com/us/app/jobnimbus-all-in-one-roof-app/id1571207100',
     android: 'https://play.google.com/store/apps/details?id=com.jobnimbus.leadssalesprojects',
+    note: (
+      <>
+        <strong>If the JobNimbus app says your password is wrong:</strong> tap{' '}
+        <strong>Forgot password</strong> in the app, then go back to your email and click the{' '}
+        <strong>new</strong> reset link. Set the password again (use{' '}
+        <code className="rounded bg-slate-100 px-1 font-mono text-[0.85em]">BlueCat12!</code>),
+        then come back to the app and sign in.
+      </>
+    ),
   },
 ]
 
@@ -36,9 +46,44 @@ export default function AppDownloads() {
           Install your apps
         </h1>
         <p className="mt-2 text-slate-600">
-          Download the two apps you'll be using every day. Tap the store button that matches your
-          phone.
+          You'll use <strong>RepCard</strong> and <strong>JobNimbus</strong> every day. Follow the
+          steps below carefully — the order matters.
         </p>
+      </div>
+
+      {/* CRITICAL: do the email-link sign-in first, THEN download the app */}
+      <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5">
+        <h2 className="text-base font-bold text-amber-900">
+          ⚠️ Read this first — sign in through the email link, not the app
+        </h2>
+        <p className="mt-2 text-sm text-amber-900">
+          You'll get a separate invitation email from each app. <strong>Click the link in the
+          email first</strong> to set your password in a web browser. <em>Only after that</em>{' '}
+          should you download the app and sign in. If you skip ahead and try to sign in inside the
+          app, it won't work.
+        </p>
+        <ol className="mt-4 space-y-2.5 text-sm text-amber-900">
+          <FlowStep n={1}>
+            Open the <strong>invitation email</strong> from the app (RepCard or JobNimbus).
+          </FlowStep>
+          <FlowStep n={2}>
+            Tap the <strong>sign-in / activate link</strong> in the email — it opens in your
+            phone's web browser.
+          </FlowStep>
+          <FlowStep n={3}>
+            Set your password to{' '}
+            <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[0.9em]">
+              BlueCat12!
+            </code>{' '}
+            (keep it the same as your other logins if you can). Finish signing in on the browser.
+          </FlowStep>
+          <FlowStep n={4}>
+            <strong>Now</strong> download the app below and open it.
+          </FlowStep>
+          <FlowStep n={5}>
+            Sign in to the app with the <strong>same email and password</strong> you just set.
+          </FlowStep>
+        </ol>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -105,8 +150,23 @@ function AppRow({ app, platform }) {
         On the other phone? {platform === 'android' ? 'Open App Store link' : 'Open Google Play link'}
       </a>
 
-      {/* Specific instructions for {app.name} go here — fill in once provided. */}
+      {app.note && (
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+          💡 {app.note}
+        </div>
+      )}
     </div>
+  )
+}
+
+function FlowStep({ n, children }) {
+  return (
+    <li className="flex gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-900 text-xs font-bold text-amber-50">
+        {n}
+      </span>
+      <span className="flex-1 pt-0.5">{children}</span>
+    </li>
   )
 }
 
