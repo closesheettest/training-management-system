@@ -23,7 +23,7 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name), trainees(id, registered, last_sms_sent_at)',
+        'id, region, week_start_date, week_end_date, locations(name), trainees(id, registered, last_sms_sent_at, enrolled)',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)
@@ -329,10 +329,12 @@ function Section({ title, classes, emptyText }) {
 }
 
 function ClassRow({ cls }) {
-  const total = cls.trainees?.length ?? 0
-  const registered = cls.trainees?.filter((t) => t.registered).length ?? 0
-  const sent = cls.trainees?.filter((t) => !t.registered && t.last_sms_sent_at).length ?? 0
-  const notSent = cls.trainees?.filter((t) => !t.registered && !t.last_sms_sent_at).length ?? 0
+  // Match ClassDetail: only count enrolled trainees (unenrolled people are hidden there too).
+  const enrolledTrainees = cls.trainees?.filter((t) => t.enrolled !== false) ?? []
+  const total = enrolledTrainees.length
+  const registered = enrolledTrainees.filter((t) => t.registered).length
+  const sent = enrolledTrainees.filter((t) => !t.registered && t.last_sms_sent_at).length
+  const notSent = enrolledTrainees.filter((t) => !t.registered && !t.last_sms_sent_at).length
   const locationLabel = cls.locations?.name || `${cls.region || 'Region'} — TBD`
   const isTBD = !cls.locations?.name
 
