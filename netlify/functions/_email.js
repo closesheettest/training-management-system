@@ -23,21 +23,31 @@ function client() {
   return _client
 }
 
-export async function sendEmail(toAddress, subject, body) {
+// options: { attachments?: [{ filename, content }] }
+// `content` is base64-encoded bytes — Resend accepts that format directly.
+export async function sendEmail(toAddress, subject, body, options = {}) {
   if (!toAddress) return { ok: false, step: 'precheck', error: 'No email address provided' }
   const r = client()
   if (!r) return { ok: false, step: 'precheck', error: 'RESEND_API_KEY not configured' }
 
   const from = process.env.EMAIL_FROM || 'Training System <onboarding@resend.dev>'
 
+  const payload = {
+    from,
+    to: [toAddress],
+    subject,
+    html: wrapHtml(body),
+    text: body,
+  }
+  if (Array.isArray(options.attachments) && options.attachments.length > 0) {
+    payload.attachments = options.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+    }))
+  }
+
   try {
-    const result = await r.emails.send({
-      from,
-      to: [toAddress],
-      subject,
-      html: wrapHtml(body),
-      text: body,
-    })
+    const result = await r.emails.send(payload)
     if (result.error) {
       return {
         ok: false,

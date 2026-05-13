@@ -49,6 +49,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires alongside the IT version. Subscribers usually = HR or the VA (remove the trainee from the three platforms).',
   },
+  {
+    key: 'graduation_class_report',
+    label: 'Graduating class report (PDF)',
+    desc:
+      'Fires once every enrolled trainee in a class has submitted their final test. Emails a PDF report (roster, attendance, test scores, platform setup) to subscribers. Email-only — PDFs can\'t be sent via SMS.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

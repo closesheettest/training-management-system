@@ -53,6 +53,8 @@ create table if not exists classes (
   -- Workflow timestamps for the day-2 provisioning flow.
   day_2_it_notified_at timestamptz, -- when IT was texted to start provisioning
   it_completed_at timestamptz,      -- when IT clicked "Mark provisioning complete"
+  -- End-of-week graduation report dedup (one email per class, ever).
+  graduation_report_sent_at timestamptz,
   created_at timestamptz not null default now()
 );
 
