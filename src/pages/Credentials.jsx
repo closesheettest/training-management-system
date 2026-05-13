@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
 function detectPlatform() {
@@ -121,6 +121,21 @@ export default function Credentials() {
         <div className="p-6">
           {platform === 'iphone' ? <IphoneSteps /> : <AndroidSteps />}
         </div>
+      </div>
+
+      {/* Next step: install the two apps we use every day */}
+      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-brand-navy">Next: install your apps</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Once your email is set up, install RepCard and JobNimbus — the two apps you'll use every
+          day.
+        </p>
+        <Link
+          to="/apps"
+          className="mt-4 inline-flex items-center justify-center rounded-md bg-brand-red px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+        >
+          Click here for app downloads →
+        </Link>
       </div>
 
       {/* Footer note */}

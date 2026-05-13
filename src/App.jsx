@@ -10,6 +10,7 @@ import Attendance from './pages/Attendance.jsx'
 import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
 import Credentials from './pages/Credentials.jsx'
+import AppDownloads from './pages/AppDownloads.jsx'
 import Questions from './pages/Questions.jsx'
 import TakeTest from './pages/TakeTest.jsx'
 import TestDone from './pages/TestDone.jsx'
@@ -27,6 +28,9 @@ export default function App() {
 
       {/* Public credentials: trainee taps the link from the day-2 SMS */}
       <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />
+
+      {/* Public app downloads — linked from the credentials page */}
+      <Route path="/apps" element={<MinimalLayout><AppDownloads /></MinimalLayout>} />
 
       {/* Public test taking + thank-you (last-day final assessment) */}
       <Route path="/test/:token" element={<MinimalLayout><TakeTest /></MinimalLayout>} />
