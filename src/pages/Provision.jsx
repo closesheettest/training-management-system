@@ -105,6 +105,58 @@ export default function Provision() {
     load()
   }
 
+  function downloadCsv() {
+    const toExport = rows.filter((r) => r.email.trim() && r.password.trim())
+    if (toExport.length === 0) {
+      setMessage({ type: 'error', text: 'No rows to export. Fill in at least one email + password.' })
+      return
+    }
+    // Google Workspace bulk-upload format — exact columns from
+    // admin.google.com user import template.
+    const headers = [
+      'First Name [Required]',
+      'Last Name [Required]',
+      'Email Address [Required]',
+      'Password [Required]',
+      'Password Hash Function [UPLOAD ONLY]',
+      'Change Password at Next Sign-In',
+      'New Status [UPLOAD ONLY]',
+      'Advanced Protection Program enrollment',
+    ]
+    const dataRows = toExport.map((r) =>
+      [
+        titleCase(r.trainee.first_name),
+        titleCase(r.trainee.last_name),
+        r.email.trim(),
+        r.password.trim(),
+        '',
+        'False',
+        '',
+        '',
+      ]
+        .map(csvEscape)
+        .join(','),
+    )
+    const csv = [headers.join(','), ...dataRows, ''].join('\n')
+
+    const safeRegion = (cls?.region || 'class').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const filename = `${safeRegion}-${cls?.week_start_date || 'week'}-emails.csv`
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    setMessage({
+      type: 'success',
+      text: `Downloaded ${filename} — upload it to Google Workspace → Users → Bulk upload.`,
+    })
+  }
+
   async function markProvisioningComplete() {
     setMessage(null)
     const toProvision = rows.filter((r) => r.email.trim() && r.password.trim())
@@ -218,7 +270,8 @@ export default function Provision() {
           <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">firstname.lastname@{DEFAULT_DOMAIN}</code>.{' '}
           🔑 Password auto-fills with{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{DEFAULT_INITIAL_PASSWORD}</code>.{' '}
-          Edit any row inline before clicking <strong>Mark provisioning complete</strong>.
+          Edit any row inline, then <strong>Download CSV</strong> to bulk-upload to Google Workspace, then{' '}
+          <strong>Mark provisioning complete</strong>.
         </p>
       </header>
 
@@ -309,15 +362,26 @@ export default function Provision() {
               <strong>{rows.filter((r) => r.email.trim() && r.password.trim()).length}</strong>{' '}
               of {rows.length} ready.
             </p>
-            <button
-              type="button"
-              onClick={markProvisioningComplete}
-              disabled={submitting}
-              className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
-              title="Saves credentials and texts HR + the VA(s). Trainees themselves are NOT texted yet — the corporate trainer sends those once setup is finished."
-            >
-              {submitting ? 'Working…' : '✅ Mark provisioning complete'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={downloadCsv}
+                disabled={submitting}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                title="Download a Google Workspace bulk-upload CSV (First Name, Last Name, Email, Password, etc.) — paste straight into admin.google.com → Users → Bulk upload."
+              >
+                ⬇ Download CSV
+              </button>
+              <button
+                type="button"
+                onClick={markProvisioningComplete}
+                disabled={submitting}
+                className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
+                title="Saves credentials and texts HR + the VA(s). Trainees themselves are NOT texted yet — the corporate trainer sends those once setup is finished."
+              >
+                {submitting ? 'Working…' : '✅ Mark provisioning complete'}
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -345,6 +409,22 @@ function defaultEmailFor(trainee) {
   const last = slugify(trainee.last_name)
   if (!first && !last) return ''
   return `${first}.${last}@${DEFAULT_DOMAIN}`
+}
+
+function titleCase(s) {
+  if (!s) return ''
+  return s
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
+// Wrap a value in quotes if it contains characters that need escaping per RFC 4180.
+function csvEscape(value) {
+  const s = String(value ?? '')
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
 }
 
 const inputCls =
