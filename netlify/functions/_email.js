@@ -30,7 +30,12 @@ export async function sendEmail(toAddress, subject, body, options = {}) {
   const r = client()
   if (!r) return { ok: false, step: 'precheck', error: 'RESEND_API_KEY not configured' }
 
-  const from = process.env.EMAIL_FROM || 'Training System <onboarding@resend.dev>'
+  // Support both env var names — ccg-claims-docs uses EMAIL_FROM,
+  // TMS Netlify dashboard has FROM_EMAIL. Read whichever is set.
+  const from =
+    process.env.EMAIL_FROM ||
+    process.env.FROM_EMAIL ||
+    'Training System <onboarding@resend.dev>'
 
   const payload = {
     from,
