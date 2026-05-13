@@ -32,7 +32,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, locations(*), trainees(*), test_attempts(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, locations(*), trainees(*), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
@@ -225,6 +225,53 @@ export default function ClassDetail() {
     load()
   }
 
+  async function sendDay2ItReminder() {
+    if (
+      !confirm(
+        `Send the day-2 IT reminder text now?\n\n` +
+          `This goes to every active recipient subscribed to "Day 2 reminder — IT, please create emails" in /notifications. ` +
+          `The text includes a link to this class's Provision page.`,
+      )
+    ) {
+      return
+    }
+    setMessage(null)
+    try {
+      const res = await fetch('/.netlify/functions/force-notify-it-provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
+          setMessage({
+            type: 'error',
+            text: 'SMS endpoint is only available on the deployed Netlify site — not in local npm run dev.',
+          })
+          return
+        }
+        throw new Error(body.error || `Request failed: ${res.status}`)
+      }
+      if (body.recipient_count === 0) {
+        setMessage({
+          type: 'error',
+          text:
+            body.warning ||
+            'No IT subscribers found. Go to /notifications and subscribe at least one recipient to the day-2 event.',
+        })
+        return
+      }
+      setMessage({
+        type: 'success',
+        text: `Sent day-2 IT reminder to ${body.sent_count} of ${body.recipient_count} subscriber${body.recipient_count === 1 ? '' : 's'}.`,
+      })
+      load()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
+    }
+  }
+
   async function startFinalTest() {
     if (!confirm('Send the final-test link via SMS to every enrolled, registered trainee in this class?')) return
     setMessage(null)
@@ -390,6 +437,11 @@ export default function ClassDetail() {
           {message.text}
         </div>
       )}
+
+      <ProvisioningWorkflowCard
+        cls={cls}
+        onSendDay2={sendDay2ItReminder}
+      />
 
       <RosterSummary summary={summary} />
 
@@ -908,6 +960,53 @@ function computeSummary(trainees, attemptsByTrainee = {}) {
 function pct(numerator, denominator) {
   if (!denominator) return null
   return Math.round((numerator / denominator) * 100)
+}
+
+function ProvisioningWorkflowCard({ cls, onSendDay2 }) {
+  const notifiedAt = cls.day_2_it_notified_at
+  const completedAt = cls.it_completed_at
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Email provisioning workflow</h2>
+        <button
+          type="button"
+          onClick={onSendDay2}
+          className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
+          title="Manually send the day-2 reminder text to IT subscribers right now. The cron will also stop firing for this class after you click."
+        >
+          📨 Send day-2 IT reminder text now
+        </button>
+      </div>
+      <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        <WorkflowStep
+          label="Day-2 reminder sent to IT"
+          stampedAt={notifiedAt}
+          pendingText="Cron will fire it (or click the button to force)."
+        />
+        <WorkflowStep
+          label="IT marked provisioning complete"
+          stampedAt={completedAt}
+          pendingText="Pending — IT clicks the button on the Provision page."
+        />
+      </ul>
+    </section>
+  )
+}
+
+function WorkflowStep({ label, stampedAt, pendingText }) {
+  return (
+    <li className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <div className="font-medium text-slate-800">{label}</div>
+      {stampedAt ? (
+        <div className="mt-0.5 text-xs text-emerald-700">
+          ✓ {new Date(stampedAt).toLocaleString()}
+        </div>
+      ) : (
+        <div className="mt-0.5 text-xs text-slate-500">{pendingText}</div>
+      )}
+    </li>
+  )
 }
 
 function RosterSummary({ summary }) {
