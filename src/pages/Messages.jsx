@@ -98,27 +98,28 @@ const TRAINEE_FACING = [
   {
     label: 'Registration form',
     desc: 'First text the trainee gets after enrollment. They confirm name, set sales-experience tag, fill home address. Pre-filled with whatever HR entered.',
-    url: '/register/<token>',
-    public: true,
+    url: '/register/demo',
+    linkable: true,
+    note: 'Live preview opens with a fake "Sample Attendee" — submits go nowhere.',
   },
   {
     label: 'Credentials page',
     desc: 'Day-2 link with their company email + password and step-by-step iPhone/Android Gmail setup. Auto-detects platform from user-agent.',
-    url: '/credentials/<token>',
-    public: true,
+    url: '/credentials/demo',
+    linkable: true,
+    note: 'Live preview shows a fake login (sample.attendee@shingleusa.com / BlueCat12!).',
   },
   {
     label: 'App downloads',
     desc: 'RepCard + JobNimbus install instructions. Linked from the credentials page button. Public — no token needed.',
     url: '/apps',
-    public: true,
     linkable: true,
   },
   {
     label: 'Final test',
     desc: 'Last-day assessment. Multiple-choice + essay/testimonial questions. Score and retention % are saved to test_attempts.',
     url: '/test/<token>',
-    public: true,
+    note: 'No demo mode yet — requires a real trainee. Open one from a Class detail page.',
   },
 ]
 

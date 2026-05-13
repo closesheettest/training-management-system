@@ -31,6 +31,54 @@ export default function Register() {
 
   async function load() {
     setStatus('loading')
+    // Demo mode for the /messages preview page — no DB hit, fake data so
+    // admins can see what the form looks like without a real token.
+    if (token === 'demo') {
+      const demoClass = {
+        id: 'demo',
+        week_start_date: '2026-05-11',
+        week_end_date: '2026-05-15',
+        schedule_details: null,
+        locations: {
+          name: 'U.S. Shingle and Metal LLC Corporate Office',
+          street_address: '3845 Gateway Centre Blvd Ste 300',
+          city: 'Pinellas Park',
+          state: 'FL',
+          zip: '33635',
+          phone: null,
+          contact_info: null,
+          schedule_template: null,
+        },
+      }
+      setTrainee({
+        id: 'demo',
+        first_name: 'Sample',
+        last_name: 'Attendee',
+        email: '',
+        phone: '555-555-1234',
+        years_in_sales: '',
+        street_address: '',
+        city: '',
+        state: '',
+        zip: '',
+        registered: false,
+        classes: demoClass,
+      })
+      setClassInfo(demoClass)
+      setLocation(demoClass.locations)
+      setForm({
+        first_name: 'Sample',
+        last_name: 'Attendee',
+        email: '',
+        years_in_sales: '',
+        street_address: '',
+        city: '',
+        state: '',
+        zip: '',
+      })
+      setStatus('form')
+      return
+    }
     const { data, error } = await supabase
       .from('trainees')
       .select(
@@ -85,6 +133,11 @@ export default function Register() {
     }
 
     setStatus('submitting')
+    // Demo mode short-circuit — show the "done" state without touching the DB.
+    if (token === 'demo') {
+      setStatus('done')
+      return
+    }
     const { error } = await supabase
       .from('trainees')
       .update({

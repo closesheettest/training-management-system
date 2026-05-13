@@ -27,6 +27,19 @@ export default function Credentials() {
 
   async function load() {
     setStatus('loading')
+    // Demo mode for the /messages preview page — no DB hit, fake data so
+    // admins can see what trainees experience without a real token.
+    if (token === 'demo') {
+      setTrainee({
+        first_name: 'Sample',
+        last_name: 'Attendee',
+        company_email: 'sample.attendee@shingleusa.com',
+        company_email_password: 'BlueCat12!',
+        credentials_viewed_at: null,
+      })
+      setStatus('ready')
+      return
+    }
     const { data, error } = await supabase
       .from('trainees')
       .select('id, first_name, last_name, company_email, company_email_password, email_assigned_at, credentials_viewed_at')
