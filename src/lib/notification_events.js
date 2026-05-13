@@ -37,6 +37,18 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Daily cron: if a hotel-needing trainee hasn\'t checked in by 10:30 AM, subscribers are texted so they can cancel the room.',
   },
+  {
+    key: 'trainee_dropout_delete_email',
+    label: 'Trainee dropped out — delete their company email',
+    desc:
+      'Daily cron: a provisioned trainee no-showed during their class week. Subscribers usually = IT (delete the Google Workspace account).',
+  },
+  {
+    key: 'trainee_dropout_delete_apps',
+    label: 'Trainee dropped out — remove from RepCard / JobNimbus / Sales Academy',
+    desc:
+      'Fires alongside the IT version. Subscribers usually = HR or the VA (remove the trainee from the three platforms).',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

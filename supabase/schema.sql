@@ -135,6 +135,10 @@ alter table trainees add column if not exists repcard_setup_at timestamptz;
 alter table trainees add column if not exists jobnimbus_setup_at timestamptz;
 alter table trainees add column if not exists sales_academy_setup_at timestamptz;
 
+-- Dropout-notification dedup. Stamped by the daily dropout cron when a
+-- provisioned trainee no-shows for the first time during their class week.
+alter table trainees add column if not exists dropout_notified_at timestamptz;
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.
