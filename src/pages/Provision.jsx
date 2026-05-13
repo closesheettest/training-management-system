@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { formatAddress } from '../lib/locations.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
 // Default initial password assigned to every newly-provisioned company email.
@@ -9,8 +8,10 @@ import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 // policy changes.
 const DEFAULT_INITIAL_PASSWORD = 'BlueCat12!'
 
-function todayIso() {
-  const d = new Date()
+function addDaysIso(iso, days) {
+  const base = parseLocalDate(iso)
+  if (!base) return iso
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + days)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
@@ -41,15 +42,21 @@ export default function Provision() {
     }
     setCls(clsData)
 
-    const today = todayIso()
+    // Anyone who's checked in on day 2 or later is eligible (day 1 is too early
+    // to provision — they haven't completed enough training yet).
+    // Already-provisioned trainees are included too so day-3+ revisits still show prior work.
+    const day2Iso = addDaysIso(clsData.week_start_date, 1)
     const checkedInIds = new Set(
       (clsData.attendance || [])
-        .filter((a) => a.attendance_date === today && a.confirmed)
+        .filter((a) => a.confirmed && a.attendance_date >= day2Iso)
         .map((a) => a.trainee_id),
     )
 
     const eligible = (clsData.trainees || [])
-      .filter((t) => t.enrolled !== false && checkedInIds.has(t.id))
+      .filter(
+        (t) =>
+          t.enrolled !== false && (checkedInIds.has(t.id) || t.email_assigned_at),
+      )
       .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
 
     setRows(
@@ -209,8 +216,9 @@ export default function Provision() {
           {formatDateRange(cls.week_start_date, cls.week_end_date)}
         </p>
         <p className="text-sm text-slate-500">
-          Shows enrolled trainees who checked in today ({todayIso()}). Fill in each one's company
-          email, then submit to send their credentials via SMS.
+          Shows enrolled trainees who've checked in on day 2 or later, plus anyone already
+          provisioned. Fill in each one's company email, then submit to send their credentials via
+          SMS.
         </p>
         <p className="mt-1 text-xs text-slate-500">
           🔑 Initial password auto-fills with{' '}
@@ -240,10 +248,10 @@ export default function Provision() {
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="text-slate-600">No enrolled trainees have checked in today yet.</p>
+          <p className="text-slate-600">No enrolled trainees have checked in from day 2 onward yet.</p>
           <p className="mt-1 text-sm text-slate-500">
-            Trainees need to sign in at the kiosk before they appear here. If you've unenrolled
-            people, only the ones still enrolled show up.
+            Trainees only appear here once they've signed in at the kiosk on day 2 or later. If
+            you've unenrolled people, only the ones still enrolled show up.
           </p>
         </div>
       ) : (
