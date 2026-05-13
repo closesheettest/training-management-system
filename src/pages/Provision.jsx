@@ -8,6 +8,10 @@ import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 // policy changes.
 const DEFAULT_INITIAL_PASSWORD = 'BlueCat12!'
 
+// Default company email domain. Each row's email auto-populates as
+// firstname.lastname@<DEFAULT_DOMAIN> — IT can still override per row.
+const DEFAULT_DOMAIN = 'shingleusa.com'
+
 function addDaysIso(iso, days) {
   const base = parseLocalDate(iso)
   if (!base) return iso
@@ -19,7 +23,6 @@ export default function Provision() {
   const { class_id } = useParams()
   const [cls, setCls] = useState(null)
   const [rows, setRows] = useState([]) // [{ trainee, email, password }]
-  const [domain, setDomain] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
@@ -62,8 +65,8 @@ export default function Provision() {
     setRows(
       eligible.map((t) => ({
         trainee: t,
-        email: t.company_email || '',
-        // Auto-fill the standard initial password; IT can still override per row.
+        // Auto-fill firstname.lastname@<DEFAULT_DOMAIN>; IT can still override per row.
+        email: t.company_email || defaultEmailFor(t),
         password: t.company_email_password || DEFAULT_INITIAL_PASSWORD,
       })),
     )
@@ -77,21 +80,6 @@ export default function Provision() {
   function updateRow(traineeId, field, value) {
     setRows((prev) =>
       prev.map((r) => (r.trainee.id === traineeId ? { ...r, [field]: value } : r)),
-    )
-  }
-
-  function autofillFromDomain() {
-    if (!domain.trim()) return
-    const cleanDomain = domain.trim().replace(/^@/, '').toLowerCase()
-    setRows((prev) =>
-      prev.map((r) =>
-        r.email
-          ? r
-          : {
-              ...r,
-              email: `${slugify(r.trainee.first_name)}.${slugify(r.trainee.last_name)}@${cleanDomain}`,
-            },
-      ),
     )
   }
 
@@ -357,9 +345,11 @@ export default function Provision() {
           SMS.
         </p>
         <p className="mt-1 text-xs text-slate-500">
-          🔑 Initial password auto-fills with{' '}
+          ✉️ Each email auto-fills as{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">firstname.lastname@{DEFAULT_DOMAIN}</code>.{' '}
+          🔑 Password auto-fills with{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">{DEFAULT_INITIAL_PASSWORD}</code>.{' '}
-          Override per row if needed.
+          Edit any row inline before clicking <strong>Mark provisioning complete</strong>.
         </p>
       </header>
 
@@ -409,34 +399,6 @@ export default function Provision() {
         </div>
       ) : (
         <>
-          {/* Domain auto-fill helper */}
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <label className="block text-sm font-medium text-slate-700">
-              Company email domain (optional helper)
-              <div className="mt-1 flex gap-2">
-                <input
-                  type="text"
-                  placeholder="usshingle.com"
-                  value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
-                  className={inputCls + ' max-w-xs'}
-                />
-                <button
-                  type="button"
-                  onClick={autofillFromDomain}
-                  disabled={!domain.trim()}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Auto-fill emails
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-slate-500">
-                Fills empty email fields below with firstname.lastname@yourdomain (won't overwrite
-                rows you've already typed).
-              </p>
-            </label>
-          </div>
-
           {/* Trainee rows */}
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <ul className="divide-y divide-slate-200">
@@ -460,7 +422,7 @@ export default function Provision() {
                         type="email"
                         value={r.email}
                         onChange={(e) => updateRow(r.trainee.id, 'email', e.target.value)}
-                        placeholder="firstname.lastname@usshingle.com"
+                        placeholder={`firstname.lastname@${DEFAULT_DOMAIN}`}
                         className={inputCls}
                         autoComplete="off"
                       />
@@ -554,6 +516,13 @@ function slugify(s) {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '')
+}
+
+function defaultEmailFor(trainee) {
+  const first = slugify(trainee.first_name)
+  const last = slugify(trainee.last_name)
+  if (!first && !last) return ''
+  return `${first}.${last}@${DEFAULT_DOMAIN}`
 }
 
 const inputCls =
