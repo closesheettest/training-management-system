@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { formatAddress, FL_REGIONS } from '../lib/locations.js'
+import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 import { formatDateRange } from '../lib/dates.js'
 
 export default function ClassDetail() {
@@ -91,6 +91,11 @@ export default function ClassDetail() {
       phone: t.phone || '',
       email: t.email || '',
       needs_hotel: !!t.needs_hotel,
+      years_in_sales: t.years_in_sales || '',
+      street_address: t.street_address || '',
+      city: t.city || '',
+      state: t.state || '',
+      zip: t.zip || '',
     })
     setMessage(null)
   }
@@ -115,6 +120,11 @@ export default function ClassDetail() {
         phone: traineeDraft.phone.trim(),
         email: traineeDraft.email.trim() || null,
         needs_hotel: !!traineeDraft.needs_hotel,
+        years_in_sales: traineeDraft.years_in_sales || null,
+        street_address: traineeDraft.street_address.trim() || null,
+        city: traineeDraft.city.trim() || null,
+        state: traineeDraft.state.trim().toUpperCase() || null,
+        zip: traineeDraft.zip.trim() || null,
       })
       .eq('id', editingTraineeId)
     if (err) {
@@ -637,6 +647,11 @@ function TraineeGroup({
                         {t.phone}
                         {t.email && ` · ${t.email}`}
                       </div>
+                      {(t.street_address || t.city || t.state || t.zip) && (
+                        <div className="mt-0.5 text-xs text-slate-500">
+                          📍 {formatAddress(t)}
+                        </div>
+                      )}
                       {t.last_sms_sent_at && (
                         <div className="mt-0.5 text-xs text-slate-400">
                           Last text: {new Date(t.last_sms_sent_at).toLocaleString()}
@@ -750,6 +765,78 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
         />
         🏨 Needs hotel accommodation (out-of-town)
       </label>
+      <div className="border-t border-slate-200 pt-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Registration details
+        </div>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Fix anything the attendee mistyped during self-registration.
+        </p>
+      </div>
+      <label className="block text-xs font-medium text-slate-700">
+        Years in sales
+        <select
+          value={value.years_in_sales || ''}
+          onChange={set('years_in_sales')}
+          className={inputCls}
+        >
+          <option value="">— Select —</option>
+          {YEARS_IN_SALES_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-xs font-medium text-slate-700">
+        Street address
+        <input
+          type="text"
+          value={value.street_address || ''}
+          onChange={set('street_address')}
+          className={inputCls}
+          autoComplete="off"
+        />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-6">
+        <label className="block text-xs font-medium text-slate-700 sm:col-span-3">
+          City
+          <input
+            type="text"
+            value={value.city || ''}
+            onChange={set('city')}
+            className={inputCls}
+            autoComplete="off"
+          />
+        </label>
+        <label className="block text-xs font-medium text-slate-700 sm:col-span-2">
+          State
+          <select
+            value={value.state || ''}
+            onChange={set('state')}
+            className={inputCls}
+          >
+            <option value="">— Select —</option>
+            {US_STATES.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.code} — {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-slate-700 sm:col-span-1">
+          Zip
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern={ZIP_PATTERN}
+            maxLength={10}
+            value={value.zip || ''}
+            onChange={set('zip')}
+            className={inputCls}
+            autoComplete="off"
+            title="5-digit zip, optionally followed by -4 digits"
+          />
+        </label>
+      </div>
       <div className="flex justify-end gap-2">
         <button
           type="button"
@@ -955,7 +1042,18 @@ function TestResults({ trainees, attemptsByTrainee }) {
 }
 
 function blankTrainee() {
-  return { first_name: '', last_name: '', phone: '', email: '', needs_hotel: false }
+  return {
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    needs_hotel: false,
+    years_in_sales: '',
+    street_address: '',
+    city: '',
+    state: '',
+    zip: '',
+  }
 }
 
 const inputCls =
