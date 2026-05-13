@@ -200,14 +200,21 @@ export default function Provision() {
       }
       const hr = body.hr_notified || {}
       const va = body.va_notified || {}
+      const fmt = (r) =>
+        `${(r.sms_sent || 0) + (r.email_sent || 0)} sent ` +
+        `(📱 ${r.sms_sent || 0}, ✉️ ${r.email_sent || 0}) ` +
+        `to ${r.recipient_count || 0} subscriber${(r.recipient_count || 0) === 1 ? '' : 's'}`
+      const allErrors = [...(hr.errors || []), ...(va.errors || [])]
+      const errSummary = allErrors.length
+        ? ` ⚠️ ${allErrors.length} error${allErrors.length === 1 ? '' : 's'} — first: ${allErrors[0].channel} ${allErrors[0].error}`
+        : ''
+      const zeroNote =
+        hr.recipient_count === 0 || va.recipient_count === 0
+          ? ' (Subscribe people in /notifications if recipient counts are 0.)'
+          : ''
       setMessage({
-        type: 'success',
-        text:
-          `Marked complete. HR notified: ${hr.sent_count || 0}/${hr.recipient_count || 0}. ` +
-          `VAs notified: ${va.sent_count || 0}/${va.recipient_count || 0}.` +
-          (hr.recipient_count === 0 || va.recipient_count === 0
-            ? ' (Subscribe people in /notifications if recipient counts are 0.)'
-            : ''),
+        type: allErrors.length ? 'error' : 'success',
+        text: `Marked complete. HR: ${fmt(hr)}. VAs: ${fmt(va)}.${errSummary}${zeroNote}`,
       })
       load()
     } catch (err) {
