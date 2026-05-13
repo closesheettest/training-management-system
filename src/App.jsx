@@ -11,6 +11,7 @@ import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
 import Credentials from './pages/Credentials.jsx'
 import AppDownloads from './pages/AppDownloads.jsx'
+import Setup from './pages/Setup.jsx'
 import Questions from './pages/Questions.jsx'
 import TakeTest from './pages/TakeTest.jsx'
 import TestDone from './pages/TestDone.jsx'
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/class/:id" element={<ClassDetail />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/provision/:class_id" element={<Provision />} />
+        <Route path="/setup/:class_id" element={<Setup />} />
         <Route path="/questions" element={<Questions />} />
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/notifications" element={<Notifications />} />

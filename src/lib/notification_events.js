@@ -8,10 +8,28 @@
 
 export const NOTIFICATION_EVENTS = [
   {
+    key: 'day_2_provision_due',
+    label: 'Day 2 reminder — IT, please create emails',
+    desc:
+      'Cron checks hourly between 7–11 AM Eastern. Fires the moment a trainee signs in on day 2 of the class, or at 11 AM as a fallback. Subscribers = IT.',
+  },
+  {
     key: 'day_2_provision_complete',
     label: 'IT submitted emails on Provision page',
     desc:
-      'Fires when IT clicks Save on /provision/:class_id. Subscribers usually = HR (so they can share the email list with the VA).',
+      'Fires when IT clicks Save on /provision/:class_id (legacy). Subscribers usually = admin/HR. Use the "Mark provisioning complete" button below for the full HR+VA fan-out.',
+  },
+  {
+    key: 'it_emails_provisioned',
+    label: 'IT marked provisioning complete — emails ready for HR',
+    desc:
+      'Fires when IT clicks "Mark provisioning complete" on the Provision page. Subscribers usually = HR (so they can review the list and share with VAs).',
+  },
+  {
+    key: 'va_setup_due',
+    label: 'Setup required in RepCard / JobNimbus / Sales Academy',
+    desc:
+      'Fires at the same time as the HR notification, on IT completion. Subscribers usually = the Virtual Assistant(s) who set up trainees in the three platforms.',
   },
   {
     key: 'hotel_noshow_alert',
@@ -19,20 +37,10 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Daily cron: if a hotel-needing trainee hasn\'t checked in by 10:30 AM, subscribers are texted so they can cancel the room.',
   },
-  // Future events (will be wired in subsequent phases):
-  // {
-  //   key: 'day_2_noon_provision_due',
-  //   label: 'Day 2 at noon — IT reminder to create emails',
-  //   desc: 'Daily cron at noon: if today is day 2 of a class, ping IT to provision emails.',
-  // },
-  // {
-  //   key: 'hr_shared_list_with_va',
-  //   label: 'HR shared the email list with a VA',
-  //   desc: 'Fires when HR clicks the Share button on the HR list page.',
-  // },
+  // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',
-  //   label: 'VA finished setting up all 3 platforms',
+  //   label: 'VA finished setting up the entire class',
   //   desc: 'Fires when every enrolled trainee is marked complete for RepCard, JobNimbus, and Sales Academy.',
   // },
 ]

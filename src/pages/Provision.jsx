@@ -178,6 +178,66 @@ export default function Provision() {
     }
   }
 
+  async function markProvisioningComplete() {
+    setMessage(null)
+    const toProvision = rows.filter((r) => r.email.trim() && r.password.trim())
+    if (toProvision.length === 0) {
+      setMessage({
+        type: 'error',
+        text: 'Fill in at least one row (email + password) before marking complete.',
+      })
+      return
+    }
+    if (
+      !confirm(
+        `Mark provisioning complete for ${toProvision.length} trainee${toProvision.length === 1 ? '' : 's'}?\n\n` +
+          `This will:\n` +
+          `• Save any unsaved emails/passwords\n` +
+          `• Text HR that the email list is ready\n` +
+          `• Text the VA(s) to start RepCard / JobNimbus / Sales Academy setup\n\n` +
+          `The trainees themselves are NOT texted yet — that happens when the corporate trainer is ready.`,
+      )
+    ) {
+      return
+    }
+    setSubmitting(true)
+    try {
+      await saveCredentials(toProvision)
+      const res = await fetch('/.netlify/functions/mark-provisioning-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
+          setMessage({
+            type: 'error',
+            text: 'Credentials saved, but the notification endpoint is only available on the deployed Netlify site.',
+          })
+          return
+        }
+        throw new Error(body.error || `Request failed: ${res.status}`)
+      }
+      const hr = body.hr_notified || {}
+      const va = body.va_notified || {}
+      setMessage({
+        type: 'success',
+        text:
+          `Marked complete. HR notified: ${hr.sent_count || 0}/${hr.recipient_count || 0}. ` +
+          `VAs notified: ${va.sent_count || 0}/${va.recipient_count || 0}.` +
+          (hr.recipient_count === 0 || va.recipient_count === 0
+            ? ' (Subscribe people in /notifications if recipient counts are 0.)'
+            : ''),
+      })
+      load()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function saveCredentials(toProvision) {
     for (const r of toProvision) {
       const { error: err } = await supabase
@@ -433,7 +493,7 @@ export default function Provision() {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4">
             <p className="text-sm text-slate-700">
               <strong>{rows.filter((r) => r.email.trim() && r.password.trim()).length}</strong>{' '}
-              of {rows.length} ready to send.
+              of {rows.length} ready.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -441,20 +501,40 @@ export default function Provision() {
                 onClick={() => submit({ sendSms: false })}
                 disabled={submitting}
                 className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                title="Save the email + password to each trainee's record without texting them. Useful when you want to review what they'll see before triggering the text."
+                title="Save the email + password to each trainee's record without notifying anyone. Useful for getting halfway there and coming back later."
               >
                 {submitting ? 'Saving…' : 'Save without sending'}
               </button>
               <button
                 type="button"
-                onClick={() => submit({ sendSms: true })}
+                onClick={markProvisioningComplete}
                 disabled={submitting}
                 className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
+                title="Saves credentials and texts HR + the VA(s). Trainees themselves are NOT texted yet."
               >
-                {submitting ? 'Saving + sending…' : 'Save & send credentials'}
+                {submitting ? 'Working…' : '✅ Mark provisioning complete'}
               </button>
             </div>
           </div>
+
+          <details className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+            <summary className="cursor-pointer font-medium text-slate-700">
+              Advanced: text the trainees directly (skips the HR/VA flow)
+            </summary>
+            <p className="mt-2 text-xs text-slate-500">
+              Use this if you're handling everything yourself today and don't want HR/VAs in the
+              loop. It saves credentials and texts each trainee their email + password right now.
+              Normally you want "Mark provisioning complete" instead.
+            </p>
+            <button
+              type="button"
+              onClick={() => submit({ sendSms: true })}
+              disabled={submitting}
+              className="mt-3 rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {submitting ? 'Saving + sending…' : 'Save & send credentials to trainees now'}
+            </button>
+          </details>
         </>
       )}
     </div>

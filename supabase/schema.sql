@@ -50,6 +50,9 @@ create table if not exists classes (
   week_end_date date not null,
   schedule_details text,
   status text not null default 'upcoming',
+  -- Workflow timestamps for the day-2 provisioning flow.
+  day_2_it_notified_at timestamptz, -- when IT was texted to start provisioning
+  it_completed_at timestamptz,      -- when IT clicked "Mark provisioning complete"
   created_at timestamptz not null default now()
 );
 
