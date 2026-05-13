@@ -166,6 +166,10 @@ create table if not exists notification_recipients (
   -- Per-event subscriptions: list of event keys this recipient is opted in to.
   -- The role is informational/organizational; subscriptions drive who gets which SMS.
   subscribed_events text[] not null default '{}',
+  -- Per-recipient channel preferences. A channel only fires if both the
+  -- toggle is true and the corresponding contact info (phone/email) is set.
+  notify_via_sms boolean not null default true,
+  notify_via_email boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -20,10 +20,8 @@
 // }
 
 import { createClient } from '@supabase/supabase-js'
-import { recipientPhonesForEvent } from './_recipients.js'
-
-const GHL_BASE = 'https://services.leadconnectorhq.com'
-const GHL_VERSION = '2021-07-28'
+import { recipientsForEvent } from './_recipients.js'
+import { notifyAll } from './_notify.js'
 
 export const handler = async (event) => {
   // Auth
@@ -86,17 +84,17 @@ export const handler = async (event) => {
     })
   }
 
-  // Build summary message
-  const message = buildMessage(absentees, today)
+  const smsBody = buildMessage(absentees, today)
+  const emailSubject = `Hotel no-show alert — ${absentees.length} trainee${absentees.length === 1 ? '' : 's'}`
+  const emailBody = smsBody
 
-  // Look up recipients — HR first, then admin, then env var fallback
-  const { phones, source: roleUsed } = await recipientPhonesForEvent(
+  const { recipients, source: roleUsed } = await recipientsForEvent(
     supabase,
     'hotel_noshow_alert',
     { legacyRole: 'hr' },
   )
 
-  if (phones.length === 0) {
+  if (recipients.length === 0) {
     return json(200, {
       target_date: today,
       absent_count: absentees.length,
@@ -112,23 +110,21 @@ export const handler = async (event) => {
       target_date: today,
       absent_count: absentees.length,
       role_used: roleUsed,
-      recipient_count: phones.length,
+      recipient_count: recipients.length,
       dry_run: true,
-      preview_message: message,
+      preview_sms: smsBody,
+      preview_email_subject: emailSubject,
       absentees: absentees.map((t) => `${t.first_name} ${t.last_name} (${t.classes?.region || 'Region'})`),
     })
   }
 
-  // Send SMS to each recipient
-  let sentCount = 0
-  const sendErrors = []
-  for (const phone of phones) {
-    const result = await sendOneSms(phone, message)
-    if (result.ok) sentCount++
-    else sendErrors.push({ phone: maskPhone(phone), step: result.step, error: result.error })
-  }
+  const r = await notifyAll(recipients, {
+    smsBody,
+    emailSubject,
+    emailBody,
+    contactLabel: 'HR',
+  })
 
-  // Stamp hotel_alert_sent_at on each absentee
   await supabase
     .from('trainees')
     .update({ hotel_alert_sent_at: new Date().toISOString() })
@@ -137,17 +133,14 @@ export const handler = async (event) => {
   return json(200, {
     target_date: today,
     absent_count: absentees.length,
-    sent_count: sentCount,
-    recipient_count: phones.length,
+    sent_count: r.sms_sent + r.email_sent,
+    sms_sent: r.sms_sent,
+    email_sent: r.email_sent,
+    recipient_count: recipients.length,
     role_used: roleUsed,
     absentees: absentees.map((t) => `${t.first_name} ${t.last_name} (${t.classes?.region || 'Region'})`),
-    ...(sendErrors.length > 0 ? { send_errors: sendErrors } : {}),
+    ...(r.errors.length > 0 ? { send_errors: r.errors } : {}),
   })
-}
-
-function maskPhone(p) {
-  if (!p) return p
-  return p.length > 4 ? p.slice(0, -7) + 'xxxxxx' + p.slice(-1) : p
 }
 
 function buildMessage(absentees, dateIso) {
@@ -166,62 +159,6 @@ function buildMessage(absentees, dateIso) {
     return `• ${t.first_name} ${t.last_name} (${region})`
   })
   return `[Training] ${absentees.length} hotel-needing trainees haven't checked in by 10:30 AM on ${dateLabel}:\n${lines.join('\n')}\nConsider cancelling their rooms.`
-}
-
-async function sendOneSms(phone, message) {
-  try {
-    const cRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
-      method: 'POST',
-      headers: ghlHeaders(),
-      body: JSON.stringify({
-        locationId: process.env.GHL_LOCATION_ID,
-        phone,
-        firstName: 'HR',
-        lastName: 'Training System',
-      }),
-    })
-    const cJson = await cRes.json().catch(() => ({}))
-    if (!cRes.ok) {
-      return {
-        ok: false,
-        step: 'contact_upsert',
-        error: `${cRes.status}: ${cJson.message || cJson.error || JSON.stringify(cJson)}`,
-      }
-    }
-    const cId = cJson.contact?.id || cJson.id
-    if (!cId) {
-      return {
-        ok: false,
-        step: 'contact_upsert',
-        error: 'No contact id returned from GHL',
-      }
-    }
-    const sRes = await fetch(`${GHL_BASE}/conversations/messages`, {
-      method: 'POST',
-      headers: ghlHeaders(),
-      body: JSON.stringify({ type: 'SMS', contactId: cId, message }),
-    })
-    if (!sRes.ok) {
-      const sJson = await sRes.json().catch(() => ({}))
-      return {
-        ok: false,
-        step: 'sms_send',
-        error: `${sRes.status}: ${sJson.message || sJson.error || JSON.stringify(sJson)}`,
-      }
-    }
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, step: 'exception', error: err.message || 'Unknown' }
-  }
-}
-
-function ghlHeaders() {
-  return {
-    Authorization: `Bearer ${process.env.GHL_PIT_TOKEN}`,
-    Version: GHL_VERSION,
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  }
 }
 
 function computeFloridaToday() {

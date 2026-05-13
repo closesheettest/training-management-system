@@ -20,6 +20,8 @@ const blank = () => ({
   active: true,
   notes: '',
   subscribed_events: [],
+  notify_via_sms: true,
+  notify_via_email: true,
 })
 
 export default function Notifications() {
@@ -64,6 +66,8 @@ export default function Notifications() {
       active: r.active !== false,
       notes: r.notes || '',
       subscribed_events: Array.isArray(r.subscribed_events) ? [...r.subscribed_events] : [],
+      notify_via_sms: r.notify_via_sms !== false,
+      notify_via_email: r.notify_via_email !== false,
     })
     setEditingId(r.id)
     setMessage(null)
@@ -99,6 +103,8 @@ export default function Notifications() {
         active: !!draft.active,
         notes: draft.notes.trim() || null,
         subscribed_events: Array.isArray(draft.subscribed_events) ? draft.subscribed_events : [],
+        notify_via_sms: !!draft.notify_via_sms,
+        notify_via_email: !!draft.notify_via_email,
         updated_at: new Date().toISOString(),
       }
       if (editingId === 'new') {
@@ -337,9 +343,17 @@ function RoleSection({ role, items, onEdit, onRemove, onToggle }) {
                   )}
                 </div>
                 <div className="mt-0.5 text-xs text-slate-500">
-                  {r.phone && <span>📱 {r.phone}</span>}
+                  {r.phone && (
+                    <span className={r.notify_via_sms === false ? 'text-slate-300 line-through' : ''}>
+                      📱 {r.phone}
+                    </span>
+                  )}
                   {r.phone && r.email && <span> · </span>}
-                  {r.email && <span>✉️ {r.email}</span>}
+                  {r.email && (
+                    <span className={r.notify_via_email === false ? 'text-slate-300 line-through' : ''}>
+                      ✉️ {r.email}
+                    </span>
+                  )}
                 </div>
                 {Array.isArray(r.subscribed_events) && r.subscribed_events.length > 0 ? (
                   <div className="mt-1 flex flex-wrap gap-1">
@@ -429,7 +443,7 @@ function RecipientForm({ value, onChange, onSave, onCancel, submitting, isNew })
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Email (future use)
+          Email
           <input
             type="email"
             value={value.email}
@@ -438,6 +452,35 @@ function RecipientForm({ value, onChange, onSave, onCancel, submitting, isNew })
             placeholder="neal@usshingle.com"
           />
         </label>
+        <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="text-sm font-medium text-slate-700">Send notifications via</div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Check both to send each notification both ways. A channel is skipped if the
+            corresponding field above is empty.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={!!value.notify_via_sms}
+                onChange={(e) => onChange('notify_via_sms', e.target.checked)}
+                disabled={!value.phone}
+                className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy disabled:opacity-50"
+              />
+              📱 Text {!value.phone && <span className="text-xs text-slate-400">(needs phone)</span>}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={!!value.notify_via_email}
+                onChange={(e) => onChange('notify_via_email', e.target.checked)}
+                disabled={!value.email}
+                className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy disabled:opacity-50"
+              />
+              ✉️ Email {!value.email && <span className="text-xs text-slate-400">(needs email)</span>}
+            </label>
+          </div>
+        </div>
         <label className="sm:col-span-2 block text-sm font-medium text-slate-700">
           Notes (optional)
           <input

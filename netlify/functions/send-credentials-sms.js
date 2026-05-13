@@ -15,7 +15,8 @@
 // Response: { results: [{ trainee_id, success, error? }], admin_notified: bool }
 
 import { createClient } from '@supabase/supabase-js'
-import { recipientPhonesForEvent } from './_recipients.js'
+import { recipientsForEvent } from './_recipients.js'
+import { notifyAll } from './_notify.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -127,46 +128,27 @@ export const handler = async (event) => {
     `${successCount} credential text${successCount === 1 ? '' : 's'} sent` +
     (failCount > 0 ? `, ${failCount} failed.` : '.')
 
-  // Subscribers to 'day_2_provision_complete' get this admin/HR-style summary.
-  // Falls back to role=admin then ADMIN_PHONE env var (see _recipients.js).
-  const { phones: adminPhones } = await recipientPhonesForEvent(
+  const adminEmailSubject = `Credentials texts sent — ${cls.region} (week of ${cls.week_start_date})`
+  const adminEmailBody = adminMessage
+
+  const { recipients: admins } = await recipientsForEvent(
     supabase,
     'day_2_provision_complete',
     { legacyRole: 'admin' },
   )
-  let adminNotifiedCount = 0
-  for (const phone of adminPhones) {
-    if (await sendOneSms(phone, adminMessage, 'Admin')) adminNotifiedCount++
-  }
+  const adminResult = await notifyAll(admins, {
+    smsBody: adminMessage,
+    emailSubject: adminEmailSubject,
+    emailBody: adminEmailBody,
+    contactLabel: 'Admin',
+  })
 
-  return json(200, { results, admin_notified_count: adminNotifiedCount })
-}
-
-// Sends one SMS via GHL. Best-effort — failures don't throw.
-async function sendOneSms(phone, message, contactLabel = 'Admin') {
-  try {
-    const cRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
-      method: 'POST',
-      headers: ghlHeaders(),
-      body: JSON.stringify({
-        locationId: process.env.GHL_LOCATION_ID,
-        phone,
-        firstName: contactLabel,
-        lastName: 'Training System',
-      }),
-    })
-    const cJson = await cRes.json().catch(() => ({}))
-    const cId = cJson.contact?.id || cJson.id
-    if (!cRes.ok || !cId) return false
-    const sRes = await fetch(`${GHL_BASE}/conversations/messages`, {
-      method: 'POST',
-      headers: ghlHeaders(),
-      body: JSON.stringify({ type: 'SMS', contactId: cId, message }),
-    })
-    return sRes.ok
-  } catch {
-    return false
-  }
+  return json(200, {
+    results,
+    admin_sms_sent: adminResult.sms_sent,
+    admin_email_sent: adminResult.email_sent,
+    admin_recipient_count: admins.length,
+  })
 }
 
 function ghlHeaders() {
