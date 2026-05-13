@@ -129,6 +129,12 @@ alter table trainees add column if not exists email_assigned_at timestamptz;
 alter table trainees add column if not exists credentials_sent_at timestamptz;
 alter table trainees add column if not exists credentials_viewed_at timestamptz;
 
+-- Per-platform VA setup tracking. Stamps the time the VA marked each
+-- platform set up for the trainee; NULL = not done yet.
+alter table trainees add column if not exists repcard_setup_at timestamptz;
+alter table trainees add column if not exists jobnimbus_setup_at timestamptz;
+alter table trainees add column if not exists sales_academy_setup_at timestamptz;
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.
