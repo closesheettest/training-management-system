@@ -9,6 +9,7 @@ import Kiosk from './pages/Kiosk.jsx'
 import Attendance from './pages/Attendance.jsx'
 import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
+import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
 import AppDownloads from './pages/AppDownloads.jsx'
 import Setup from './pages/Setup.jsx'
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/class/:id" element={<ClassDetail />} />
         <Route path="/attendance" element={<Attendance />} />
+        <Route path="/provisioning" element={<ProvisioningHub />} />
         <Route path="/provision/:class_id" element={<Provision />} />
         <Route path="/setup/:class_id" element={<Setup />} />
         <Route path="/questions" element={<Questions />} />
@@ -81,6 +83,7 @@ function AdminLayout() {
             <NavItem to="/" end>Home</NavItem>
             <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/attendance">Attendance</NavItem>
+            <NavItem to="/provisioning">Provisioning</NavItem>
             <NavItem to="/manager">Hiring Manager</NavItem>
             <NavItem to="/locations">Locations</NavItem>
             <NavItem to="/questions">Questions</NavItem>
