@@ -220,33 +220,22 @@ function buildReportHtml(cls) {
   const region = esc(cls.region || '')
   const weekLabel = formatDateRange(cls.week_start_date, cls.week_end_date)
 
-  // Aggregate stats
-  const total = enrolled.length
-  const tested = enrolled.filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
-  const retentionScores = tested
-    .flatMap((t) => (t.test_attempts || []).filter((a) => a.submitted_at && a.retention_pct != null).map((a) => Number(a.retention_pct)))
-  const avgRetention = retentionScores.length
-    ? Math.round(retentionScores.reduce((a, b) => a + b, 0) / retentionScores.length)
-    : null
+  // Totals only — no per-trainee scores or platform status.
+  const totalGraduates = enrolled.length
+  const totalDaysAttended = enrolled.reduce(
+    (acc, t) => acc + (t.attendance || []).filter((a) => a.confirmed).length,
+    0,
+  )
 
   const rows = enrolled
-    .map((t) => {
-      const attempt = (t.test_attempts || []).find((a) => a.submitted_at)
+    .map((t, i) => {
       const attendance = (t.attendance || []).filter((a) => a.confirmed).length
-      const score = attempt?.retention_pct != null ? `${attempt.retention_pct}%` : '—'
-      const correct =
-        attempt?.correct_count != null && attempt?.total_mc != null
-          ? `${attempt.correct_count}/${attempt.total_mc}`
-          : '—'
-      const platforms = `${t.repcard_setup_at ? '✓' : '·'} ${t.jobnimbus_setup_at ? '✓' : '·'} ${t.sales_academy_setup_at ? '✓' : '·'}`
       return `
         <tr>
+          <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
           <td>${esc(t.first_name)} ${esc(t.last_name)}</td>
           <td>${esc(t.company_email || '—')}</td>
           <td style="text-align:center;">${attendance}</td>
-          <td style="text-align:center;font-weight:600;color:${scoreColor(attempt?.retention_pct)};">${score}</td>
-          <td style="text-align:center;color:#64748b;">${correct}</td>
-          <td style="text-align:center;font-family:monospace;letter-spacing:2px;">${platforms}</td>
         </tr>
       `
     })
@@ -268,7 +257,6 @@ function buildReportHtml(cls) {
   td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
   tr:nth-child(even) td { background: #f8fafc; }
   .footer { margin-top: 18px; color: #94a3b8; font-size: 10px; }
-  .legend { color: #64748b; font-size: 11px; margin: 8px 0; }
 </style>
 </head>
 <body>
@@ -277,35 +265,24 @@ function buildReportHtml(cls) {
   <p class="subtitle">${locationName} · Week of ${esc(weekLabel)}</p>
 
   <div class="stats">
-    <div class="stat"><div class="num">${total}</div><div class="lbl">Graduates</div></div>
-    <div class="stat"><div class="num">${tested.length}</div><div class="lbl">Tests submitted</div></div>
-    <div class="stat"><div class="num">${avgRetention != null ? avgRetention + '%' : '—'}</div><div class="lbl">Avg retention</div></div>
+    <div class="stat"><div class="num">${totalGraduates}</div><div class="lbl">Graduates</div></div>
+    <div class="stat"><div class="num">${totalDaysAttended}</div><div class="lbl">Total days attended</div></div>
   </div>
 
   <table>
     <thead>
       <tr>
+        <th style="text-align:center;width:32px;">#</th>
         <th>Name</th>
         <th>Company email</th>
         <th style="text-align:center;">Days attended</th>
-        <th style="text-align:center;">Score</th>
-        <th style="text-align:center;">Correct</th>
-        <th style="text-align:center;">RC · JN · SA</th>
       </tr>
     </thead>
-    <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
+    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
   </table>
 
-  <p class="legend">RC = RepCard · JN = JobNimbus · SA = Sales Academy. ✓ means VA marked setup complete.</p>
   <p class="footer">Generated ${new Date().toLocaleString('en-US')} · U.S. Shingle &amp; Metal Training System</p>
 </body></html>`
-}
-
-function scoreColor(pct) {
-  if (pct == null) return '#94a3b8'
-  if (pct >= 80) return '#16a34a'
-  if (pct >= 60) return '#ca8a04'
-  return '#dc2626'
 }
 
 function esc(s) {

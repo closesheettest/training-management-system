@@ -228,14 +228,13 @@ export default function Messages() {
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="font-semibold">Graduating class report (PDF)</h3>
           <p className="mt-1 text-sm text-slate-600">
-            One-page Letter PDF: class header, stats card (graduates / tests submitted / avg
-            retention), roster table with name, company email, days attended, test score, correct
-            answers, and RepCard / JobNimbus / Sales Academy setup status. Attached to the email
-            subscribers receive after the last trainee submits their final test.
+            One-page Letter PDF: class header, two totals (graduates count, total days attended),
+            and a simple numbered list of graduates with their name, company email, and days
+            attended. Attached to the email subscribers receive after the last trainee submits
+            their final test.
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            To preview a real one, run the function manually from your terminal or hit the
-            dry-run URL:{' '}
+            To preview a real one, hit the dry-run URL:{' '}
             <code className="rounded bg-slate-100 px-1 font-mono text-[0.85em]">
               /.netlify/functions/send-graduation-report?secret=&lt;CRON_SECRET&gt;&amp;dry_run=1
             </code>
