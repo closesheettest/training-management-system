@@ -117,7 +117,21 @@ export default function Provision() {
     load()
   }
 
-  async function submit() {
+  async function saveCredentials(toProvision) {
+    for (const r of toProvision) {
+      const { error: err } = await supabase
+        .from('trainees')
+        .update({
+          company_email: r.email.trim(),
+          company_email_password: r.password.trim(),
+          email_assigned_at: new Date().toISOString(),
+        })
+        .eq('id', r.trainee.id)
+      if (err) throw err
+    }
+  }
+
+  async function submit({ sendSms }) {
     setMessage(null)
 
     const toProvision = rows.filter((r) => r.email.trim() && r.password.trim())
@@ -131,20 +145,17 @@ export default function Provision() {
 
     setSubmitting(true)
     try {
-      // 1. Save each trainee's credentials to Supabase
-      for (const r of toProvision) {
-        const { error: err } = await supabase
-          .from('trainees')
-          .update({
-            company_email: r.email.trim(),
-            company_email_password: r.password.trim(),
-            email_assigned_at: new Date().toISOString(),
-          })
-          .eq('id', r.trainee.id)
-        if (err) throw err
+      await saveCredentials(toProvision)
+
+      if (!sendSms) {
+        setMessage({
+          type: 'success',
+          text: `Saved credentials for ${toProvision.length} trainee${toProvision.length === 1 ? '' : 's'} — no texts sent. Come back and click "Save & send credentials" when you're ready to text them.`,
+        })
+        load()
+        return
       }
 
-      // 2. Call the Netlify function to send credentials SMS + admin notification
       const res = await fetch('/.netlify/functions/send-credentials-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -342,14 +353,25 @@ export default function Provision() {
               <strong>{rows.filter((r) => r.email.trim() && r.password.trim()).length}</strong>{' '}
               of {rows.length} ready to send.
             </p>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={submitting}
-              className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
-            >
-              {submitting ? 'Saving + sending…' : 'Save & send credentials'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => submit({ sendSms: false })}
+                disabled={submitting}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                title="Save the email + password to each trainee's record without texting them. Useful when you want to review what they'll see before triggering the text."
+              >
+                {submitting ? 'Saving…' : 'Save without sending'}
+              </button>
+              <button
+                type="button"
+                onClick={() => submit({ sendSms: true })}
+                disabled={submitting}
+                className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
+              >
+                {submitting ? 'Saving + sending…' : 'Save & send credentials'}
+              </button>
+            </div>
           </div>
         </>
       )}
