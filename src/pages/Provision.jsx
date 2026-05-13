@@ -117,6 +117,67 @@ export default function Provision() {
     load()
   }
 
+  async function forceSendCredentialsTexts() {
+    setMessage(null)
+    const provisionedTrainees = rows
+      .filter((r) => r.trainee.company_email && r.trainee.enrolled !== false)
+      .map((r) => r.trainee)
+    if (provisionedTrainees.length === 0) {
+      setMessage({
+        type: 'error',
+        text: 'Nobody to text yet — save credentials first.',
+      })
+      return
+    }
+    if (
+      !confirm(
+        `Send the credentials text to ${provisionedTrainees.length} trainee${provisionedTrainees.length === 1 ? '' : 's'} right now? This will fire SMS to anyone already provisioned, even if they were texted before.`,
+      )
+    ) {
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/.netlify/functions/send-credentials-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_id,
+          trainee_ids: provisionedTrainees.map((t) => t.id),
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
+          setMessage({
+            type: 'error',
+            text: 'SMS endpoint is only available on the deployed Netlify site (not in npm run dev).',
+          })
+          return
+        }
+        throw new Error(body.error || `Request failed: ${res.status}`)
+      }
+      const failures = (body.results || []).filter((r) => !r.success)
+      const successCount = (body.results || []).filter((r) => r.success).length
+      if (failures.length === 0) {
+        setMessage({
+          type: 'success',
+          text: `Sent ${successCount} credentials text${successCount === 1 ? '' : 's'}.`,
+        })
+      } else {
+        setMessage({
+          type: 'error',
+          text: `Sent ${successCount}, failed ${failures.length}. First error: ${failures[0].error}`,
+        })
+      }
+      load()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function saveCredentials(toProvision) {
     for (const r of toProvision) {
       const { error: err } = await supabase
@@ -203,6 +264,10 @@ export default function Provision() {
     return hour < 12
   }, [])
 
+  const provisionedCount = rows.filter(
+    (r) => r.trainee.company_email && r.trainee.enrolled !== false,
+  ).length
+
   if (loading) return <p className="text-sm text-slate-500">Loading…</p>
   if (error) {
     return (
@@ -254,6 +319,23 @@ export default function Provision() {
           }
         >
           {message.text}
+        </div>
+      )}
+
+      {provisionedCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <div>
+            <strong>{provisionedCount}</strong> trainee{provisionedCount === 1 ? ' has' : 's have'}{' '}
+            an email assigned already. Skipped the day-2 send? Force the text now.
+          </div>
+          <button
+            type="button"
+            onClick={forceSendCredentialsTexts}
+            disabled={submitting}
+            className="rounded-md bg-sky-700 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+          >
+            {submitting ? 'Sending…' : `📨 Send credentials text now (${provisionedCount})`}
+          </button>
         </div>
       )}
 
