@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U.S. Shingle &amp; Metal — Training Management System Overview</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+    --emerald-50: #ecfdf5;
+    --emerald-700: #15803d;
+    --amber-50: #fffbeb;
+    --amber-700: #b45309;
+    --sky-50: #f0f9ff;
+    --sky-700: #0369a1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: #fff;
+    font-size: 14px;
+  }
+  .page { max-width: 820px; margin: 0 auto; padding: 32px 36px 64px; }
+  .stripe { height: 4px; background: var(--red); }
+  header.title {
+    border-bottom: 1px solid var(--slate-200);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  header.title h1 { color: var(--navy); margin: 0 0 4px; font-size: 26px; letter-spacing: -0.01em; }
+  header.title .sub { color: var(--slate-500); font-size: 14px; }
+  header.title .gen { color: var(--slate-500); font-size: 12px; margin-top: 8px; }
+  h2 { color: var(--navy); font-size: 18px; margin-top: 32px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid var(--slate-200); }
+  h3 { color: var(--navy-dark); font-size: 15px; margin: 18px 0 6px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  code {
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    background: var(--slate-100);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--slate-700);
+  }
+  .toc {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 16px 0 24px;
+  }
+  .toc ol { margin: 4px 0; }
+  .toc a { color: var(--navy); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .callout {
+    border-left: 3px solid var(--red);
+    background: var(--slate-50);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 13.5px;
+  }
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .role {
+    border: 1px solid var(--slate-200);
+    border-radius: 6px;
+    padding: 12px 14px;
+    background: #fff;
+  }
+  .role .name { font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .role .desc { font-size: 13px; color: var(--slate-500); }
+  .day {
+    border-left: 4px solid var(--navy);
+    padding: 10px 16px;
+    margin: 8px 0;
+    background: var(--slate-50);
+    border-radius: 0 4px 4px 0;
+  }
+  .day .label { font-weight: 700; color: var(--navy); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .day .what { margin: 4px 0 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--navy);
+    color: white;
+    text-align: left;
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--slate-200);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--slate-50); }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill-sms { background: #dbeafe; color: #1e40af; }
+  .pill-email { background: #fce7f3; color: #9d174d; }
+  .pill-pdf { background: #fef3c7; color: #92400e; }
+  .pill-cron { background: var(--slate-100); color: var(--slate-700); }
+  .pill-manual { background: var(--emerald-50); color: var(--emerald-700); }
+  .flow {
+    margin: 16px 0;
+    padding: 16px 18px;
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-radius: 6px;
+  }
+  .flow ol { padding-left: 24px; }
+  .flow ol li {
+    margin: 8px 0;
+    padding-left: 6px;
+  }
+  .flow ol li::marker { color: var(--red); font-weight: 700; }
+  footer.meta {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-500);
+    font-size: 12px;
+  }
+  @media print {
+    body { font-size: 11pt; }
+    .page { padding: 0; max-width: none; }
+    h2 { page-break-after: avoid; }
+    h3 { page-break-after: avoid; }
+    .day, .role, .callout, .flow, table { page-break-inside: avoid; }
+    a { color: var(--navy); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="page">
+
+<header class="title">
+  <h1>Training Management System</h1>
+  <div class="sub">U.S. Shingle &amp; Metal · A walk-through of the full process</div>
+  <div class="gen">Document generated for executive review · trainingmanagementsys.netlify.app</div>
+</header>
+
+<section class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#what">What the system does</a></li>
+    <li><a href="#roles">The people involved</a></li>
+    <li><a href="#week">A training week, day by day</a></li>
+    <li><a href="#messages">Every automated text &amp; email</a></li>
+    <li><a href="#pages">Key pages — staff &amp; trainees</a></li>
+    <li><a href="#dropouts">When someone drops out</a></li>
+    <li><a href="#graduation">End-of-week graduation report</a></li>
+    <li><a href="#stack">Where everything lives</a></li>
+  </ol>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="what">1. What the system does</h2>
+
+<p>The Training Management System replaces a manual chain of texts, spreadsheets,
+emails, and follow-ups with one place that runs an entire training week on
+autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
+
+<ul>
+  <li><strong>Trainee on-boarding</strong> — a registration text goes out automatically, the trainee fills in their info, address, sales experience.</li>
+  <li><strong>Daily kiosk check-in</strong> — a tablet at the training site captures attendance for every day of the class.</li>
+  <li><strong>Company-email provisioning</strong> — on day 2, IT gets a text telling them to create the Google Workspace accounts. They download a pre-filled CSV with one click and bulk-upload it.</li>
+  <li><strong>Platform setup</strong> — the moment IT marks provisioning complete, HR and a Virtual Assistant (VA) are texted/emailed with a checklist for setting up each trainee in RepCard, JobNimbus, and Sales Academy.</li>
+  <li><strong>Credentials delivery</strong> — once setup is done, the corporate trainer sends each trainee a text with their email, password, and step-by-step iPhone/Android setup instructions.</li>
+  <li><strong>Day-of safety nets</strong> — hotel no-show alerts at 10:30 AM so unused rooms can be cancelled; dropout detection that pings IT and HR to clean up accounts.</li>
+  <li><strong>End-of-week reporting</strong> — a PDF graduating class report is generated and emailed automatically once every trainee has submitted their final test.</li>
+</ul>
+
+<p>The dollar value is in the time saved per class week — what used to be an inbox-driven, "who-texted-who" workflow is now visible, dedup'd, and self-driving.</p>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="roles">2. The people involved</h2>
+
+<p>Each role has clearly defined responsibilities, and each gets pinged only for the things they own. People are added once on the <strong>Notifications</strong> page; from there they can be checked into specific events.</p>
+
+<div class="role-grid">
+  <div class="role">
+    <div class="name">Admin / Operations</div>
+    <div class="desc">Adds locations, schedules class weeks, enrolls trainees, manages the whole system. Sees everything.</div>
+  </div>
+  <div class="role">
+    <div class="name">Hiring Manager</div>
+    <div class="desc">Enrolls new trainees into upcoming class weeks. Adds candidate names and phone numbers.</div>
+  </div>
+  <div class="role">
+    <div class="name">IT</div>
+    <div class="desc">Creates company emails in Google Workspace from a CSV. Gets pinged on day 2.</div>
+  </div>
+  <div class="role">
+    <div class="name">HR</div>
+    <div class="desc">Notified when emails are ready; oversees that the VA gets the setup list. Also handles hotel no-show alerts.</div>
+  </div>
+  <div class="role">
+    <div class="name">Virtual Assistant (VA)</div>
+    <div class="desc">Sets up each trainee in RepCard, JobNimbus, and Sales Academy. Marks each platform done per trainee.</div>
+  </div>
+  <div class="role">
+    <div class="name">Corporate Trainer</div>
+    <div class="desc">Runs the class. Sends final test, sends graduating reps their email credentials when everything is ready.</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="week">3. A training week, day by day</h2>
+
+<div class="day">
+  <div class="label">Before the class — enrollment</div>
+  <p class="what">Hiring Manager adds new candidates to an upcoming class week. The system automatically texts each one a registration link. The trainee opens it, confirms name, fills in home address + sales experience.</p>
+</div>
+
+<div class="day">
+  <div class="label">Day 1 — orientation</div>
+  <p class="what">Trainees arrive at the training location. They sign in at the kiosk on the front-desk tablet. Day 1 is intro / orientation — no system actions fire yet.</p>
+</div>
+
+<div class="day">
+  <div class="label">Day 2 — provisioning</div>
+  <p class="what">When the first trainee signs in at the kiosk on day 2 (or at 11 AM as a fallback), IT gets a text and email: "<em>Day 2 trainees have started checking in. Time to create company emails for [region]. Open the Provision page...</em>" IT opens the link, reviews 12 pre-filled rows (one per checked-in trainee, auto-named <code>firstname.lastname@shingleusa.com</code>), clicks <strong>Download CSV</strong>, uploads it to Google Workspace, then clicks <strong>✅ Mark provisioning complete</strong>. That triggers two more notifications, instantly.</p>
+</div>
+
+<div class="day">
+  <div class="label">Day 2, immediately after IT — HR &amp; VA</div>
+  <p class="what">HR is texted/emailed that the email list is ready, with a link to the Setup page. The VA is also pinged: "<em>12 new trainees need to be set up in RepCard, JobNimbus, and Sales Academy.</em>" The VA opens the link, sees the email list and a checklist for each trainee. They check off each platform per trainee as they go.</p>
+</div>
+
+<div class="day">
+  <div class="label">Day 2–5 — training, kiosk check-ins, safety nets</div>
+  <p class="what">Trainees attend each day, signing in at the kiosk each morning. Daily at 10:30 AM, a cron checks for hotel-needing trainees who haven't shown — HR is alerted so they can cancel unused rooms. Daily at 1 PM, the system checks for trainees who were provisioned but didn't show that day; if any look like dropouts, IT is asked to delete their Google Workspace account and HR is asked to remove their app access.</p>
+</div>
+
+<div class="day">
+  <div class="label">Last day — final test</div>
+  <p class="what">Trainees take a final assessment from their phone. Multiple-choice + a few essay/testimonial questions. Scores are saved automatically.</p>
+</div>
+
+<div class="day">
+  <div class="label">Once everyone has submitted the final test — graduation</div>
+  <p class="what">Within 15 minutes of the last trainee submitting, the system emails the subscribed leadership a PDF graduating-class report. Subject: "<em>Graduating training week of May 11 – 15, 2026</em>". Attachment: a one-page PDF listing every graduate with their company email and days attended, plus week totals.</p>
+</div>
+
+<div class="day">
+  <div class="label">Trainer's call — send credentials to reps</div>
+  <p class="what">Once setup is complete and the trainer is confident the trainees are ready, they trigger the final step: each trainee receives a personal text with their company email, password, and a link explaining how to add the account to their iPhone or Android, plus install instructions for RepCard and JobNimbus.</p>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="messages">4. Every automated text &amp; email</h2>
+
+<p>Every notification is event-driven. The recipient list for each event is configured on the <strong>Notifications</strong> page — you can subscribe one person to multiple events, or two trainers to different events, with channel choice (text, email, or both) per person.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>When</th>
+      <th>Who gets it</th>
+      <th>Channels</th>
+      <th>Trigger</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Trainee enrolled</strong><br><span class="pill pill-sms">Trainee SMS</span></td>
+      <td>Each new trainee</td>
+      <td>📱 Text</td>
+      <td><span class="pill pill-manual">Manual — HR clicks "Send"</span></td>
+    </tr>
+    <tr>
+      <td><strong>Day-2 reminder</strong><br><em>"Time to create emails"</em></td>
+      <td>IT</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-cron">Cron — first day-2 sign-in OR 11 AM fallback</span> <span class="pill pill-manual">+ Manual override on Class detail page</span></td>
+    </tr>
+    <tr>
+      <td><strong>Emails provisioned</strong><br><em>"Email list ready for setup"</em></td>
+      <td>HR</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-manual">IT clicks "Mark provisioning complete"</span></td>
+    </tr>
+    <tr>
+      <td><strong>Setup required</strong><br><em>"Set them up in RepCard / JN / SA"</em></td>
+      <td>Virtual Assistant</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-manual">Fires alongside HR notification — same trigger</span></td>
+    </tr>
+    <tr>
+      <td><strong>Hotel no-show alert</strong></td>
+      <td>HR</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-cron">Daily cron — 10:30 AM Eastern</span></td>
+    </tr>
+    <tr>
+      <td><strong>Trainee dropped out — delete email</strong></td>
+      <td>IT</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-cron">Daily cron — checks for no-shows of provisioned trainees</span></td>
+    </tr>
+    <tr>
+      <td><strong>Trainee dropped out — remove from apps</strong></td>
+      <td>HR / VA</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-cron">Fires alongside IT version</span></td>
+    </tr>
+    <tr>
+      <td><strong>Graduating class report</strong></td>
+      <td>Leadership (configurable)</td>
+      <td>✉️ Email · <span class="pill pill-pdf">PDF attached</span></td>
+      <td><span class="pill pill-cron">Cron — fires when last trainee submits final test</span></td>
+    </tr>
+    <tr>
+      <td><strong>Final credentials</strong><br><em>Email + password for trainee</em></td>
+      <td>Each trainee</td>
+      <td>📱 Text · with link to setup page</td>
+      <td><span class="pill pill-manual">Trainer triggers</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>Where to preview every message:</strong> Open the system's <code>/messages</code> page (Message Center). It shows the actual SMS text and email subject + body for every event, plus links to live previews of the trainee-facing pages.
+</div>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="pages">5. Key pages — staff &amp; trainees</h2>
+
+<h3>What staff use</h3>
+<table>
+  <thead>
+    <tr><th>Page</th><th>Who uses it</th><th>What's on it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Home</strong></td><td>All staff</td><td>Today-at-a-glance: which class is active, who's signed in.</td></tr>
+    <tr><td><strong>Schedule</strong></td><td>Admin · Hiring Mgr</td><td>All training weeks, grouped by month. Add or edit class weeks, see headcount per class.</td></tr>
+    <tr><td><strong>Class detail</strong></td><td>Admin · Trainer</td><td>Full class roster, registration status, send/resend texts, unenroll, day-2 IT reminder button.</td></tr>
+    <tr><td><strong>Attendance</strong></td><td>All staff</td><td>Who's signed in today across all active classes.</td></tr>
+    <tr><td><strong>Provisioning</strong></td><td>IT</td><td>Auto-populated list of classes ready to provision right now. Empty when nothing needs attention.</td></tr>
+    <tr><td><strong>Provision page</strong></td><td>IT</td><td>Pre-filled email + password rows. Download CSV → upload to Google Workspace → Mark complete.</td></tr>
+    <tr><td><strong>Setup page</strong></td><td>HR · VA</td><td>Email list + per-trainee checkboxes for RepCard, JobNimbus, Sales Academy. Progress card up top.</td></tr>
+    <tr><td><strong>Hiring Manager</strong></td><td>Hiring Mgr</td><td>Quick form to enroll a new candidate into a future class.</td></tr>
+    <tr><td><strong>Locations</strong></td><td>Admin</td><td>Manage training locations (St Pete corporate, regional offices, TBD slots).</td></tr>
+    <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice, essay, testimonial.</td></tr>
+    <tr><td><strong>Testimonials</strong></td><td>Admin · Marketing</td><td>Trainee testimonial responses collected from the final test.</td></tr>
+    <tr><td><strong>Notifications</strong></td><td>Admin</td><td>Who gets which texts/emails. Per-event subscriptions, channel preferences.</td></tr>
+    <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place.</td></tr>
+  </tbody>
+</table>
+
+<h3>What trainees see</h3>
+<table>
+  <thead>
+    <tr><th>Page</th><th>When</th><th>What's on it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name, set sales experience, fill home address.</td></tr>
+    <tr><td><strong>Confirmation reminder</strong></td><td>24h before class</td><td>"Can you make it tomorrow?" — they tap Yes / No.</td></tr>
+    <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name.</td></tr>
+    <tr><td><strong>Credentials</strong></td><td>After trainer sends</td><td>Their company email + password, plus step-by-step iPhone or Android setup instructions.</td></tr>
+    <tr><td><strong>App downloads</strong></td><td>Linked from credentials page</td><td>RepCard + JobNimbus install instructions, with "email link first, then app" guidance.</td></tr>
+    <tr><td><strong>Final test</strong></td><td>Last day</td><td>Multiple choice + essay/testimonial. Score saved automatically.</td></tr>
+  </tbody>
+</table>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="dropouts">6. When someone drops out mid-week</h2>
+
+<p>If a trainee has been set up with a company email and apps, then doesn't show up to class for the day, the system handles cleanup automatically:</p>
+
+<div class="flow">
+  <ol>
+    <li>Daily cron at ~1 PM Eastern scans every active class.</li>
+    <li>For every enrolled trainee who has a company email but no attendance today, the system flags them as a likely dropout.</li>
+    <li>One summary text + email goes to IT listing the trainee names and their company emails — so IT can delete their Google Workspace accounts.</li>
+    <li>A parallel text + email goes to HR with the same list — they remove the trainee from RepCard, JobNimbus, and Sales Academy.</li>
+    <li>The trainee is marked <em>notified</em> so they aren't reported again on subsequent days.</li>
+  </ol>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="graduation">7. End-of-week graduation report</h2>
+
+<p>Once every enrolled trainee has submitted their final test, the system generates a PDF report and emails it to whoever is subscribed.</p>
+
+<ul>
+  <li><strong>Trigger:</strong> last test submission detected by a cron that polls every ~15 minutes.</li>
+  <li><strong>Subject:</strong> <em>"Graduating training week of May 11 – 15, 2026"</em></li>
+  <li><strong>Attachment:</strong> a one-page Letter PDF — class header, two stats (graduates count, total days attended), and a numbered list of every graduate (name, company email, days attended).</li>
+  <li><strong>Sent once.</strong> Each class fires exactly one graduation report; subsequent cron runs see the timestamp and skip.</li>
+</ul>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="stack">8. Where everything lives</h2>
+
+<table>
+  <thead>
+    <tr><th>Component</th><th>Service</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Front-end (web app)</td><td>Netlify</td><td>The React app — auto-deploys on every push to main.</td></tr>
+    <tr><td>Database</td><td>Supabase (Postgres)</td><td>Stores classes, trainees, attendance, test results, recipients.</td></tr>
+    <tr><td>SMS</td><td>GoHighLevel (GHL)</td><td>Sends all texts to staff and trainees.</td></tr>
+    <tr><td>Email</td><td>Resend</td><td>Sends all transactional emails. Domain-verified for production.</td></tr>
+    <tr><td>PDF rendering</td><td>PDFShift</td><td>Converts the graduation report HTML to a PDF attachment.</td></tr>
+    <tr><td>Scheduled jobs</td><td>cron-job.org</td><td>Fires the time-based notifications (day-2 reminder, 10:30 hotel alert, dropout check, graduation report poll).</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>Cost note:</strong> Every service above has a generous free tier that covers the current training cadence. SMS costs are pay-per-text via GHL's pool; email is essentially free at this volume; PDF rendering is on a per-page basis (one page per class graduation).
+</div>
+
+<footer class="meta">
+  Document generated to summarize the Training Management System as it stands today. All wording in the "Every automated text &amp; email" section mirrors the live templates — open the Message Center in the app to see them rendered with sample data.
+</footer>
+
+</div>
+</body>
+</html>
