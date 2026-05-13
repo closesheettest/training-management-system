@@ -15,6 +15,7 @@
 // Response: { results: [{ trainee_id, success, error? }], admin_notified: bool }
 
 import { createClient } from '@supabase/supabase-js'
+import { recipientPhonesForEvent } from './_recipients.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -126,31 +127,19 @@ export const handler = async (event) => {
     `${successCount} credential text${successCount === 1 ? '' : 's'} sent` +
     (failCount > 0 ? `, ${failCount} failed.` : '.')
 
-  const adminPhones = await loadAdminPhones(supabase)
+  // Subscribers to 'day_2_provision_complete' get this admin/HR-style summary.
+  // Falls back to role=admin then ADMIN_PHONE env var (see _recipients.js).
+  const { phones: adminPhones } = await recipientPhonesForEvent(
+    supabase,
+    'day_2_provision_complete',
+    { legacyRole: 'admin' },
+  )
   let adminNotifiedCount = 0
   for (const phone of adminPhones) {
     if (await sendOneSms(phone, adminMessage, 'Admin')) adminNotifiedCount++
   }
 
   return json(200, { results, admin_notified_count: adminNotifiedCount })
-}
-
-// Look up active 'admin' recipients with a phone number. Fall back to
-// ADMIN_PHONE env var if none exist in the DB (so existing deployments keep working).
-async function loadAdminPhones(supabase) {
-  const { data } = await supabase
-    .from('notification_recipients')
-    .select('phone')
-    .eq('role', 'admin')
-    .eq('active', true)
-    .not('phone', 'is', null)
-
-  const fromDb = (data || []).map((r) => normalizePhone(r.phone)).filter(Boolean)
-  if (fromDb.length > 0) return fromDb
-
-  // Fallback
-  const fallback = normalizePhone(process.env.ADMIN_PHONE)
-  return fallback ? [fallback] : []
 }
 
 // Sends one SMS via GHL. Best-effort — failures don't throw.

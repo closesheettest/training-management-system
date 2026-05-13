@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { NOTIFICATION_EVENTS } from '../lib/notification_events.js'
 
 const ROLES = [
-  { value: 'admin', label: 'Admin', desc: 'Owner / operations. Gets the day-2 email-provisioning notification.' },
-  { value: 'it', label: 'IT', desc: 'IT department contact. Reserved for future IT-routed events.' },
-  { value: 'hr', label: 'HR', desc: 'HR / corporate. Reserved for future HR-routed events.' },
+  { value: 'admin', label: 'Admin', desc: 'Owner / operations.' },
+  { value: 'it', label: 'IT', desc: 'IT department — creates company emails.' },
+  { value: 'hr', label: 'HR', desc: 'HR / corporate — shares the email list with the VA.' },
+  { value: 'trainer', label: 'Corporate Trainer', desc: 'Sends the credentials text to trainees once setup is done.' },
+  { value: 'va', label: 'Virtual Assistant', desc: 'Sets up trainees in RepCard, JobNimbus, and Sales Academy.' },
   { value: 'test', label: 'Test', desc: 'Your own test phone — used by the "Send test SMS" button below.' },
-  { value: 'custom', label: 'Custom', desc: 'Other contacts. Won\'t automatically receive any events.' },
-]
-
-const EVENT_ROUTING = [
-  { event: 'Day-2 email provisioning complete', roles: ['admin'] },
-  {
-    event: 'Hotel-needing trainee absent at 10:30 AM (cancel their room)',
-    roles: ['hr'],
-    fallback: '→ admin → ADMIN_PHONE env var',
-  },
-  // Future events will be added here as we wire them up:
-  // { event: 'New class scheduled', roles: ['hr'] },
-  // { event: 'Final test submitted', roles: ['admin'] },
+  { value: 'custom', label: 'Custom', desc: 'Other contacts. Subscribe them to specific events as needed.' },
 ]
 
 const blank = () => ({
@@ -28,6 +19,7 @@ const blank = () => ({
   email: '',
   active: true,
   notes: '',
+  subscribed_events: [],
 })
 
 export default function Notifications() {
@@ -71,6 +63,7 @@ export default function Notifications() {
       email: r.email || '',
       active: r.active !== false,
       notes: r.notes || '',
+      subscribed_events: Array.isArray(r.subscribed_events) ? [...r.subscribed_events] : [],
     })
     setEditingId(r.id)
     setMessage(null)
@@ -105,6 +98,7 @@ export default function Notifications() {
         email: draft.email.trim() || null,
         active: !!draft.active,
         notes: draft.notes.trim() || null,
+        subscribed_events: Array.isArray(draft.subscribed_events) ? draft.subscribed_events : [],
         updated_at: new Date().toISOString(),
       }
       if (editingId === 'new') {
@@ -199,9 +193,9 @@ export default function Notifications() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Notifications</h1>
           <p className="mt-2 text-slate-600">
-            Manage who receives SMS notifications when training events happen. Roles map to events
-            (see the routing reference below) — so if a person changes jobs, you only update them
-            in one place.
+            Manage who gets texted when automated training events fire. Each recipient subscribes
+            to the specific events they should hear about — so two trainers can have different
+            subscription mixes without changing the code.
           </p>
         </div>
         {editingId === null && (
@@ -260,23 +254,38 @@ export default function Notifications() {
 
       {/* Event routing reference */}
       <section className="rounded-lg border border-slate-200 bg-slate-50 p-6">
-        <h2 className="text-lg font-semibold">Event routing reference</h2>
+        <h2 className="text-lg font-semibold">Automated events</h2>
         <p className="mt-1 text-xs text-slate-500">
-          When these events fire, the system sends SMS to all active recipients of the listed
-          role(s).
+          Every event below fires SMS to whoever has it checked on their recipient card.
+          Subscribe people from the edit form above.
         </p>
         <ul className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white">
-          {EVENT_ROUTING.map((e) => (
-            <li key={e.event} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-slate-800">{e.event}</span>
-              <div className="flex flex-wrap items-center gap-1">
-                {e.roles.map((r) => (
-                  <RoleTag key={r} role={r} />
-                ))}
-                {e.fallback && <span className="text-xs text-slate-400">{e.fallback}</span>}
-              </div>
-            </li>
-          ))}
+          {NOTIFICATION_EVENTS.map((e) => {
+            const subs = recipients.filter(
+              (r) => r.active && Array.isArray(r.subscribed_events) && r.subscribed_events.includes(e.key),
+            )
+            return (
+              <li key={e.key} className="flex flex-col gap-2 px-4 py-3 text-sm">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                  <span className="font-medium text-slate-800">{e.label}</span>
+                  <span className="text-xs text-slate-400">{subs.length} active subscriber{subs.length === 1 ? '' : 's'}</span>
+                </div>
+                {e.desc && <p className="text-xs text-slate-500">{e.desc}</p>}
+                {subs.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {subs.map((s) => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                      >
+                        {s.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </section>
 
@@ -332,6 +341,23 @@ function RoleSection({ role, items, onEdit, onRemove, onToggle }) {
                   {r.phone && r.email && <span> · </span>}
                   {r.email && <span>✉️ {r.email}</span>}
                 </div>
+                {Array.isArray(r.subscribed_events) && r.subscribed_events.length > 0 ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {r.subscribed_events.map((key) => {
+                      const ev = NOTIFICATION_EVENTS.find((e) => e.key === key)
+                      return (
+                        <span
+                          key={key}
+                          className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-800"
+                        >
+                          🔔 {ev?.label || key}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-amber-700">⚠ Not subscribed to any events.</div>
+                )}
                 {r.notes && <div className="mt-1 text-xs text-slate-500 italic">{r.notes}</div>}
               </div>
               <div className="flex shrink-0 gap-2">
@@ -429,9 +455,46 @@ function RecipientForm({ value, onChange, onSave, onCancel, submitting, isNew })
             onChange={(e) => onChange('active', e.target.checked)}
             className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
           />
-          Active (will receive notifications for their role)
+          Active (will receive notifications they're subscribed to)
         </label>
       </div>
+
+      {/* Per-event subscription checkboxes */}
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+        <div className="text-sm font-semibold text-slate-700">Subscribed events</div>
+        <p className="mt-1 text-xs text-slate-500">
+          Check the events you want this person to be texted for. Leave all unchecked if they're
+          a contact you don't want to auto-notify yet.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {NOTIFICATION_EVENTS.map((e) => {
+            const checked = Array.isArray(value.subscribed_events) && value.subscribed_events.includes(e.key)
+            return (
+              <li key={e.key}>
+                <label className="flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(ev) => {
+                      const current = Array.isArray(value.subscribed_events) ? value.subscribed_events : []
+                      const next = ev.target.checked
+                        ? [...new Set([...current, e.key])]
+                        : current.filter((k) => k !== e.key)
+                      onChange('subscribed_events', next)
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+                  />
+                  <span className="flex-1">
+                    <span className="font-medium">{e.label}</span>
+                    {e.desc && <span className="block text-xs text-slate-500">{e.desc}</span>}
+                  </span>
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
       <p className="text-xs text-slate-500">
         At least one of <strong>Phone</strong> or <strong>Email</strong> is required. SMS-based
         notifications need phone; future email-based notifications will need email.
@@ -454,21 +517,6 @@ function RecipientForm({ value, onChange, onSave, onCancel, submitting, isNew })
         </button>
       </div>
     </section>
-  )
-}
-
-function RoleTag({ role }) {
-  const palette = {
-    admin: 'bg-brand-navy text-white',
-    it: 'bg-sky-100 text-sky-800',
-    hr: 'bg-purple-100 text-purple-800',
-    test: 'bg-amber-100 text-amber-800',
-    custom: 'bg-slate-100 text-slate-700',
-  }[role] || 'bg-slate-100 text-slate-700'
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${palette}`}>
-      {role}
-    </span>
   )
 }
 

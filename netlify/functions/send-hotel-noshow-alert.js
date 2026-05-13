@@ -20,6 +20,7 @@
 // }
 
 import { createClient } from '@supabase/supabase-js'
+import { recipientPhonesForEvent } from './_recipients.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -89,7 +90,11 @@ export const handler = async (event) => {
   const message = buildMessage(absentees, today)
 
   // Look up recipients — HR first, then admin, then env var fallback
-  const { phones, roleUsed } = await loadRecipientPhones(supabase)
+  const { phones, source: roleUsed } = await recipientPhonesForEvent(
+    supabase,
+    'hotel_noshow_alert',
+    { legacyRole: 'hr' },
+  )
 
   if (phones.length === 0) {
     return json(200, {
@@ -163,33 +168,6 @@ function buildMessage(absentees, dateIso) {
   return `[Training] ${absentees.length} hotel-needing trainees haven't checked in by 10:30 AM on ${dateLabel}:\n${lines.join('\n')}\nConsider cancelling their rooms.`
 }
 
-// Look up phones for HR -> Admin -> env var fallback.
-async function loadRecipientPhones(supabase) {
-  // Try HR first
-  let { data } = await supabase
-    .from('notification_recipients')
-    .select('phone')
-    .eq('role', 'hr')
-    .eq('active', true)
-    .not('phone', 'is', null)
-  let phones = (data || []).map((r) => normalizePhone(r.phone)).filter(Boolean)
-  if (phones.length > 0) return { phones, roleUsed: 'hr' }
-
-  // Fall back to admin
-  ;({ data } = await supabase
-    .from('notification_recipients')
-    .select('phone')
-    .eq('role', 'admin')
-    .eq('active', true)
-    .not('phone', 'is', null))
-  phones = (data || []).map((r) => normalizePhone(r.phone)).filter(Boolean)
-  if (phones.length > 0) return { phones, roleUsed: 'admin (HR not set up)' }
-
-  // Final fallback to env var
-  const env = normalizePhone(process.env.ADMIN_PHONE)
-  return env ? { phones: [env], roleUsed: 'ADMIN_PHONE env var' } : { phones: [], roleUsed: null }
-}
-
 async function sendOneSms(phone, message) {
   try {
     const cRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
@@ -244,15 +222,6 @@ function ghlHeaders() {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   }
-}
-
-function normalizePhone(raw) {
-  if (!raw) return null
-  const digits = String(raw).replace(/\D/g, '')
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-  if (digits.length >= 11 && String(raw).trim().startsWith('+')) return `+${digits}`
-  return null
 }
 
 function computeFloridaToday() {

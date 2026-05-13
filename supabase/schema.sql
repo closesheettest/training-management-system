@@ -149,11 +149,14 @@ alter table trainees add column if not exists years_in_sales text;
 create table if not exists notification_recipients (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  role text not null check (role in ('admin', 'it', 'hr', 'test', 'custom')),
+  role text not null check (role in ('admin', 'it', 'hr', 'trainer', 'va', 'test', 'custom')),
   phone text,
   email text,
   active boolean not null default true,
   notes text,
+  -- Per-event subscriptions: list of event keys this recipient is opted in to.
+  -- The role is informational/organizational; subscriptions drive who gets which SMS.
+  subscribed_events text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
