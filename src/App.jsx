@@ -81,6 +81,15 @@ function AdminLayout() {
           </Link>
           <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:gap-x-6">
             <NavItem to="/" end>Home</NavItem>
+            <a
+              href="/system-overview.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pb-3 -mb-3 text-slate-600 hover:text-brand-navy"
+              title="One-page summary of the whole training system — opens in a new tab"
+            >
+              System Overview
+            </a>
             <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/attendance">Attendance</NavItem>
             <NavItem to="/provisioning">Provisioning</NavItem>
