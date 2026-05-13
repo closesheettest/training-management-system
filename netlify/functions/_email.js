@@ -1,48 +1,51 @@
-// Transactional email sender via Resend (https://resend.com).
+// Transactional email sender via Resend.
+//
+// Matches the pattern used in ccg-claims-docs/send-email.js — same SDK, same
+// env var names — so credentials and verified-domain setup carry over.
 //
 // Required env vars:
-//   RESEND_API_KEY            — Resend API key (rs_...)
-//   NOTIFICATION_FROM_EMAIL   — Verified "from" address on your Resend domain.
-//                                e.g. "Training System <notify@yourdomain.com>"
-//                                Falls back to "Training System <onboarding@resend.dev>"
-//                                which works without domain verification (Resend test mode)
-//                                but can only deliver to the account owner's email.
+//   RESEND_API_KEY  — Resend API key (rs_...)
+//   EMAIL_FROM      — verified "From" address on your Resend domain.
+//                     e.g. "Training System <notify@yourverifieddomain.com>"
+//                     Falls back to "Training System <onboarding@resend.dev>"
+//                     (Resend's sandbox — works without domain verification
+//                     but only delivers to the Resend account owner's email).
 //
 // Never throws — returns { ok, step?, error? } so callers can aggregate.
 
+import { Resend } from 'resend'
+
+let _client = null
+function client() {
+  if (_client) return _client
+  if (!process.env.RESEND_API_KEY) return null
+  _client = new Resend(process.env.RESEND_API_KEY)
+  return _client
+}
+
 export async function sendEmail(toAddress, subject, body) {
   if (!toAddress) return { ok: false, step: 'precheck', error: 'No email address provided' }
-  if (!process.env.RESEND_API_KEY) {
-    return { ok: false, step: 'precheck', error: 'RESEND_API_KEY not configured' }
-  }
-  const from =
-    process.env.NOTIFICATION_FROM_EMAIL ||
-    'Training System <onboarding@resend.dev>'
+  const r = client()
+  if (!r) return { ok: false, step: 'precheck', error: 'RESEND_API_KEY not configured' }
+
+  const from = process.env.EMAIL_FROM || 'Training System <onboarding@resend.dev>'
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from,
-        to: [toAddress],
-        subject,
-        html: wrapHtml(body),
-        text: body,
-      }),
+    const result = await r.emails.send({
+      from,
+      to: [toAddress],
+      subject,
+      html: wrapHtml(body),
+      text: body,
     })
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}))
+    if (result.error) {
       return {
         ok: false,
         step: 'resend_send',
-        error: `${res.status}: ${j.message || j.name || JSON.stringify(j)}`,
+        error: result.error.message || JSON.stringify(result.error),
       }
     }
-    return { ok: true }
+    return { ok: true, id: result.data?.id || null }
   } catch (err) {
     return { ok: false, step: 'exception', error: err.message || 'Unknown' }
   }
