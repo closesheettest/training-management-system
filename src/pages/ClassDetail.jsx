@@ -315,6 +315,66 @@ export default function ClassDetail() {
     }
   }
 
+  async function sendCredentialsToTrainees() {
+    const unsent = (cls?.trainees || []).filter(
+      (t) => t.enrolled !== false && t.company_email && !t.credentials_sent_at,
+    )
+    if (unsent.length === 0) {
+      setMessage({
+        type: 'error',
+        text: 'No trainees to text — either nobody is provisioned yet, or everyone has already been sent their credentials.',
+      })
+      return
+    }
+    if (
+      !confirm(
+        `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} now?\n\n` +
+          `Each trainee gets a personal link with their company email + password and step-by-step iPhone/Android setup. ` +
+          `Anyone who already received their text won't be re-sent.`,
+      )
+    ) {
+      return
+    }
+    setMessage(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-credentials-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_id: cls.id,
+          trainee_ids: unsent.map((t) => t.id),
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 404) {
+          setMessage({
+            type: 'error',
+            text: 'SMS endpoint is only available on the deployed Netlify site — not in local npm run dev.',
+          })
+          return
+        }
+        throw new Error(body.error || `Request failed: ${res.status}`)
+      }
+      const successes = (body.results || []).filter((r) => r.success).length
+      const failures = (body.results || []).filter((r) => !r.success)
+      if (failures.length === 0) {
+        setMessage({
+          type: 'success',
+          text: `Sent credentials text to ${successes} trainee${successes === 1 ? '' : 's'}.`,
+        })
+      } else {
+        setMessage({
+          type: 'error',
+          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}`,
+        })
+      }
+      load()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Something went wrong.' })
+    }
+  }
+
   async function startFinalTest() {
     if (!confirm('Send the final-test link via SMS to every enrolled, registered trainee in this class?')) return
     setMessage(null)
@@ -484,6 +544,7 @@ export default function ClassDetail() {
       <ProvisioningWorkflowCard
         cls={cls}
         onSendDay2={sendDay2ItReminder}
+        onSendCredentials={sendCredentialsToTrainees}
       />
 
       <RosterSummary summary={summary} />
@@ -1083,23 +1144,64 @@ function pct(numerator, denominator) {
   return Math.round((numerator / denominator) * 100)
 }
 
-function ProvisioningWorkflowCard({ cls, onSendDay2 }) {
+function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
   const notifiedAt = cls.day_2_it_notified_at
   const completedAt = cls.it_completed_at
+  const provisioned = (cls.trainees || []).filter(
+    (t) => t.enrolled !== false && t.company_email,
+  )
+  const sentCount = provisioned.filter((t) => t.credentials_sent_at).length
+  const unsentCount = provisioned.length - sentCount
+  // Most-recent credentials_sent_at among the class — used as the step timestamp.
+  const lastSentAt = provisioned
+    .map((t) => t.credentials_sent_at)
+    .filter(Boolean)
+    .sort()
+    .pop()
+  const canSendCredentials = !!completedAt && unsentCount > 0
+
+  let credentialsStatusText
+  if (provisioned.length === 0) {
+    credentialsStatusText = 'Waiting on IT to provision emails.'
+  } else if (unsentCount > 0 && sentCount === 0) {
+    credentialsStatusText = `${unsentCount} trainee${unsentCount === 1 ? '' : 's'} ready to receive their credentials text.`
+  } else if (unsentCount > 0) {
+    credentialsStatusText = `${sentCount} of ${provisioned.length} texted · ${unsentCount} still to go.`
+  } else {
+    credentialsStatusText = `All ${sentCount} trainees received their credentials.`
+  }
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">Email provisioning workflow</h2>
-        <button
-          type="button"
-          onClick={onSendDay2}
-          className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
-          title="Manually send the day-2 reminder text to IT subscribers right now. The cron will also stop firing for this class after you click."
-        >
-          📨 Send day-2 IT reminder text now
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onSendDay2}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            title="Manually send the day-2 reminder text to IT subscribers right now."
+          >
+            📨 Send day-2 IT reminder
+          </button>
+          <button
+            type="button"
+            onClick={onSendCredentials}
+            disabled={!canSendCredentials}
+            className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:cursor-not-allowed disabled:opacity-50"
+            title={
+              !completedAt
+                ? 'Available once IT marks provisioning complete.'
+                : unsentCount === 0
+                  ? 'Every provisioned trainee has already been texted.'
+                  : `Texts ${unsentCount} trainee${unsentCount === 1 ? '' : 's'} their company email + password and setup link.`
+            }
+          >
+            📤 Send credentials to {unsentCount > 0 ? unsentCount : 'attendees'}
+          </button>
+        </div>
       </div>
-      <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+      <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
         <WorkflowStep
           label="Day-2 reminder sent to IT"
           stampedAt={notifiedAt}
@@ -1109,6 +1211,11 @@ function ProvisioningWorkflowCard({ cls, onSendDay2 }) {
           label="IT marked provisioning complete"
           stampedAt={completedAt}
           pendingText="Pending — IT clicks the button on the Provision page."
+        />
+        <WorkflowStep
+          label="Credentials texted to trainees"
+          stampedAt={unsentCount === 0 && sentCount > 0 ? lastSentAt : null}
+          pendingText={credentialsStatusText}
         />
       </ul>
     </section>
