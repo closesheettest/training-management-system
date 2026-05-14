@@ -445,7 +445,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 <ul>
   <li><strong>Trigger:</strong> last test submission detected by a cron that polls every ~15 minutes.</li>
   <li><strong>Subject:</strong> <em>"Graduating training week of May 11 – 15, 2026"</em></li>
-  <li><strong>Attachment:</strong> a one-page Letter PDF — class header, two stats (graduates count, total days attended), and a numbered list of every graduate (name, company email, days attended).</li>
+  <li><strong>Attachment:</strong> a one-page Letter PDF — class header, two stats (graduates count, total days attended), and a numbered list of every graduate with name, phone, home address, company email, and days attended (so leadership has everything they need to reach a new rep without opening another system).</li>
   <li><strong>Sent once.</strong> Each class fires exactly one graduation report; subsequent cron runs see the timestamp and skip.</li>
   <li><strong>Graduation social post fires at the same time</strong> — a generic "🎓 Just wrapped another training week …" post goes out <strong>immediately</strong> to the Facebook Page and LinkedIn personal profile (with a random venue photo attached when available). This is separate from the paced testimonial queue described below.</li>
 </ul>

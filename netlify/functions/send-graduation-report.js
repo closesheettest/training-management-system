@@ -67,6 +67,7 @@ export const handler = async (event) => {
       locations(name, street_address, city, state, zip),
       trainees(
         id, first_name, last_name, company_email, enrolled,
+        phone, street_address, city, state, zip,
         repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at,
         attendance(attendance_date, confirmed),
         test_attempts(submitted_at, retention_pct, correct_count, total_mc)
@@ -248,11 +249,17 @@ function buildReportHtml(cls) {
   const rows = enrolled
     .map((t, i) => {
       const attendance = (t.attendance || []).filter((a) => a.confirmed).length
+      const phone = formatPhone(t.phone)
+      const address = formatAddress(t.street_address, t.city, t.state, t.zip)
       return `
         <tr>
           <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
-          <td>${esc(t.first_name)} ${esc(t.last_name)}</td>
-          <td>${esc(t.company_email || '—')}</td>
+          <td>
+            <div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div>
+            ${phone ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">${esc(phone)}</div>` : ''}
+          </td>
+          <td style="color:#334155;font-size:11px;">${esc(address) || '<span style="color:#94a3b8;">—</span>'}</td>
+          <td style="font-size:11px;">${esc(t.company_email || '—')}</td>
           <td style="text-align:center;">${attendance}</td>
         </tr>
       `
@@ -290,17 +297,41 @@ function buildReportHtml(cls) {
   <table>
     <thead>
       <tr>
-        <th style="text-align:center;width:32px;">#</th>
-        <th>Name</th>
-        <th>Company email</th>
-        <th style="text-align:center;">Days attended</th>
+        <th style="text-align:center;width:28px;">#</th>
+        <th style="width:25%;">Name &amp; phone</th>
+        <th style="width:32%;">Home address</th>
+        <th style="width:28%;">Company email</th>
+        <th style="text-align:center;width:60px;">Days</th>
       </tr>
     </thead>
-    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
+    <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
   </table>
 
   <p class="footer">Generated ${new Date().toLocaleString('en-US')} · U.S. Shingle &amp; Metal Training System</p>
 </body></html>`
+}
+
+// Pretty-print a phone number. Accepts whatever the trainee typed:
+//   "5551234567" → "(555) 123-4567"
+//   "+15551234567" → "(555) 123-4567"
+//   anything else → returned as-is (don't mangle good input).
+function formatPhone(raw) {
+  if (!raw) return ''
+  const digits = String(raw).replace(/\D/g, '')
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  return String(raw)
+}
+
+// Build a single-line address: "123 Main St, Tampa, FL 33602"
+// Skips parts the trainee didn't fill in.
+function formatAddress(street, city, state, zip) {
+  const cityStateZip = [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+  return [street, cityStateZip].filter(Boolean).join(', ')
 }
 
 function esc(s) {
