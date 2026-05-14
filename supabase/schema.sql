@@ -188,6 +188,16 @@ create index if not exists trainee_handoff_contacts_active_region_idx
   where active = true;
 alter table trainees add column if not exists handoff_contacts_sent_at timestamptz;
 
+alter table trainee_handoff_contacts enable row level security;
+drop policy if exists "trainee_handoff_contacts_public_select" on trainee_handoff_contacts;
+drop policy if exists "trainee_handoff_contacts_public_insert" on trainee_handoff_contacts;
+drop policy if exists "trainee_handoff_contacts_public_update" on trainee_handoff_contacts;
+drop policy if exists "trainee_handoff_contacts_public_delete" on trainee_handoff_contacts;
+create policy "trainee_handoff_contacts_public_select" on trainee_handoff_contacts for select using (true);
+create policy "trainee_handoff_contacts_public_insert" on trainee_handoff_contacts for insert with check (true);
+create policy "trainee_handoff_contacts_public_update" on trainee_handoff_contacts for update using (true);
+create policy "trainee_handoff_contacts_public_delete" on trainee_handoff_contacts for delete using (true);
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.
