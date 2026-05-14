@@ -273,6 +273,103 @@ export default function Messages() {
           </p>
         </div>
       </section>
+
+      {/* Social posts */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Social posts</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Auto-posts to your personal brand pages. Generic copy — never mentions the client
+            company name — so the same posts work no matter who you're training for.
+          </p>
+        </div>
+        <SocialTestCard />
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold">📘 Facebook — class graduated</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Auto-fires when the last trainee in a class submits the final test (alongside the
+            graduation-report email). Attaches a random photo from the venue's photo library
+            (manage at /locations) when available.
+          </p>
+          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`🎓 Just wrapped another training week at the Hilton in Orlando.
+
+12 new sales reps graduated this week — proud of this group's hustle and how much they soaked up.
+
+Onto the next class.
+
+#SalesTraining #FieldSales #SalesCoaching`}</pre>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold">📘 Facebook — new testimonial</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Auto-fires the instant a trainee submits their final test, IF they wrote a
+            "use-for-testimonial" essay. Uses the longest one. Same photo logic as graduation post.
+          </p>
+          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`One of this week's trainees, in their own words:
+
+"It was a pivotal life-changing training moment where I now have a set of skills to take with me through all conversations and relationships — watch out world!"
+
+— Kortni K. · 20+ yrs in sales
+
+Real impact. That's why I do this. 🙌
+
+#SalesTraining #SalesCoaching`}</pre>
+        </article>
+      </section>
+    </div>
+  )
+}
+
+function SocialTestCard() {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  async function fire() {
+    if (!confirm('Post a test message to your Facebook Page right now? You can delete it from FB after.')) return
+    setBusy(true)
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/post-social-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (body.ok) {
+        setResult({ kind: 'success', text: `Posted to Facebook. post_id: ${body.post_id}` })
+      } else {
+        setResult({ kind: 'error', text: body.error || 'Unknown error' })
+      }
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message || 'Network error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="rounded-lg border-2 border-dashed border-sky-300 bg-sky-50 p-5">
+      <h3 className="font-semibold text-sky-900">🧪 Send a test post to Facebook</h3>
+      <p className="mt-1 text-sm text-sky-900">
+        Posts a one-off "if you can see this, it works" message to your configured Facebook Page.
+        Safe to delete from Facebook afterward.
+      </p>
+      <button
+        type="button"
+        onClick={fire}
+        disabled={busy}
+        className="mt-3 rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+      >
+        {busy ? 'Posting…' : 'Send test post'}
+      </button>
+      {result && (
+        <p
+          className={
+            'mt-3 text-sm ' +
+            (result.kind === 'success' ? 'text-emerald-800' : 'text-red-700')
+          }
+        >
+          {result.text}
+        </p>
+      )}
     </div>
   )
 }

@@ -162,6 +162,23 @@ export const handler = async (event) => {
       .update({ graduation_report_sent_at: new Date().toISOString() })
       .eq('id', cls.id)
 
+    // Fire-and-forget Facebook post celebrating the graduation. Generic copy,
+    // optional venue photo. Best-effort — never blocks the report email.
+    let socialResult = null
+    try {
+      const siteBase = (process.env.PUBLIC_SITE_URL || process.env.URL || '').replace(/\/$/, '')
+      if (siteBase) {
+        const sr = await fetch(`${siteBase}/.netlify/functions/post-social-graduation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ class_id: cls.id }),
+        })
+        socialResult = await sr.json().catch(() => null)
+      }
+    } catch {
+      // swallow — Facebook is gravy, not the headline action
+    }
+
     results.push({
       class_id: cls.id,
       region: cls.region,
@@ -169,6 +186,7 @@ export const handler = async (event) => {
       graduates: enrolled.length,
       sent_count: sentCount,
       recipient_count: emailRecipients.length,
+      facebook: socialResult,
       ...(sendErrors.length ? { errors: sendErrors } : {}),
     })
   }

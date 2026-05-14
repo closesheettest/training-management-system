@@ -167,6 +167,14 @@ export default function TakeTest() {
         body: JSON.stringify({ trainee_id: trainee.id }),
       }).catch(() => {})
 
+      // Fire-and-forget Facebook post of their best testimonial-eligible
+      // essay (if any). Generic copy — no client company name. Best effort.
+      fetch('/.netlify/functions/post-social-testimonial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      }).catch(() => {})
+
       // Navigate to done page
       window.location.href = `/test/${token}/done`
     } catch (err) {
