@@ -120,6 +120,15 @@ export default function Register() {
       setErrorMsg('Please confirm your first and last name.')
       return
     }
+    if (!form.email.trim()) {
+      setErrorMsg('Please enter your personal email address.')
+      return
+    }
+    // Light shape check — real validation is the browser's type="email" + DB.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setErrorMsg('That email doesn\'t look right — please double-check it.')
+      return
+    }
     if (!form.years_in_sales) {
       setErrorMsg('Please pick your years in sales.')
       return
@@ -143,7 +152,7 @@ export default function Register() {
       .update({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
-        email: form.email.trim() || null,
+        email: form.email.trim(),
         years_in_sales: form.years_in_sales,
         street_address: form.street_address.trim(),
         city: form.city.trim(),
@@ -261,13 +270,19 @@ export default function Register() {
                 />
               </Field>
 
-              <Field label="Email (optional but recommended)" className="sm:col-span-6">
+              <Field
+                label="Personal email"
+                className="sm:col-span-6"
+                hint="We'll send your post-test review email here, plus class reminders. Use one you actually check."
+              >
                 <input
                   type="email"
+                  required
                   value={form.email}
                   onChange={(e) => updateField('email', e.target.value)}
                   className={inputCls}
                   autoComplete="email"
+                  placeholder="you@example.com"
                 />
               </Field>
 
@@ -373,11 +388,12 @@ function Row({ label, children }) {
   )
 }
 
-function Field({ label, children, className = '' }) {
+function Field({ label, children, className = '', hint = null }) {
   return (
     <label className={`block text-sm font-medium text-slate-700 ${className}`}>
       {label}
       {children}
+      {hint && <span className="mt-1 block text-xs font-normal text-slate-500">{hint}</span>}
     </label>
   )
 }
