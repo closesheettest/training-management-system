@@ -15,6 +15,8 @@ export default function ClassDetail() {
   const [sending, setSending] = useState(null) // null | 'all' | trainee_id
   const [editingLocation, setEditingLocation] = useState(false)
   const [locationDraft, setLocationDraft] = useState('')
+  const [editingWeek, setEditingWeek] = useState(false)
+  const [weekDraft, setWeekDraft] = useState({ start: '', end: '', schedule: '' })
   const [editingTraineeId, setEditingTraineeId] = useState(null)
   const [traineeDraft, setTraineeDraft] = useState(null)
   const [addingTrainee, setAddingTrainee] = useState(false)
@@ -80,6 +82,47 @@ export default function ClassDetail() {
       setMessage({ type: 'error', text: err.message })
       return
     }
+    load()
+  }
+
+  function startEditWeek() {
+    setWeekDraft({
+      start: cls?.week_start_date || '',
+      end: cls?.week_end_date || '',
+      schedule: cls?.schedule_details || '',
+    })
+    setEditingWeek(true)
+    setMessage(null)
+  }
+
+  function cancelEditWeek() {
+    setEditingWeek(false)
+  }
+
+  async function saveWeek() {
+    setMessage(null)
+    if (!weekDraft.start || !weekDraft.end) {
+      setMessage({ type: 'error', text: 'Both start and end dates are required.' })
+      return
+    }
+    if (weekDraft.end < weekDraft.start) {
+      setMessage({ type: 'error', text: 'End date must be on or after the start date.' })
+      return
+    }
+    const { error: err } = await supabase
+      .from('classes')
+      .update({
+        week_start_date: weekDraft.start,
+        week_end_date: weekDraft.end,
+        schedule_details: weekDraft.schedule.trim() || null,
+      })
+      .eq('id', id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setEditingWeek(false)
+    setMessage({ type: 'success', text: 'Class week updated.' })
     load()
   }
 
@@ -448,6 +491,84 @@ export default function ClassDetail() {
       {summary.testSubmitted > 0 && (
         <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} />
       )}
+
+      {/* Class week (dates + schedule) — editable inline */}
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold">Class week</h2>
+          {!editingWeek && (
+            <button
+              type="button"
+              onClick={startEditWeek}
+              className="text-xs font-medium text-slate-600 underline hover:text-slate-900"
+            >
+              Change dates / schedule
+            </button>
+          )}
+        </div>
+        {editingWeek ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Start date (day 1)
+              <input
+                type="date"
+                value={weekDraft.start}
+                onChange={(e) => setWeekDraft((d) => ({ ...d, start: e.target.value }))}
+                className={inputCls}
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              End date (last day)
+              <input
+                type="date"
+                value={weekDraft.end}
+                onChange={(e) => setWeekDraft((d) => ({ ...d, end: e.target.value }))}
+                className={inputCls}
+              />
+            </label>
+            <label className="sm:col-span-2 block text-sm font-medium text-slate-700">
+              Schedule details (optional)
+              <textarea
+                rows={3}
+                value={weekDraft.schedule}
+                onChange={(e) => setWeekDraft((d) => ({ ...d, schedule: e.target.value }))}
+                placeholder="Daily schedule, agenda, hotel info, anything trainees should know."
+                className={inputCls}
+              />
+            </label>
+            <div className="sm:col-span-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cancelEditWeek}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveWeek}
+                className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 text-sm text-slate-700">
+            <p className="font-medium">{formatDateRange(cls.week_start_date, cls.week_end_date)}</p>
+            {cls.schedule_details ? (
+              <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-xs text-slate-600">
+                {cls.schedule_details}
+              </pre>
+            ) : (
+              <p className="text-xs text-slate-500 italic">
+                No schedule details yet. Click "Change dates / schedule" to add hotel info, daily
+                agenda, etc.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Region + training location controls */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
