@@ -18,6 +18,8 @@ create table if not exists locations (
   phone text not null,
   contact_info text,
   schedule_template text,
+  -- Public Supabase Storage URLs for photos of this venue. Used by auto-posting.
+  photo_urls text[] not null default '{}',
   created_at timestamptz not null default now()
 );
 

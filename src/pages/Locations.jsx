@@ -21,6 +21,7 @@ export default function Locations() {
   const [form, setForm] = useState(blankLocation())
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState(null)
+  const [uploadingForId, setUploadingForId] = useState(null)
 
   useEffect(() => {
     loadLocations()
@@ -69,6 +70,65 @@ export default function Locations() {
 
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Upload one or more image files to Supabase Storage under
+  // location-photos/<location_id>/<timestamp>-<filename> and append the
+  // public URL to the location's photo_urls array.
+  async function uploadPhotos(loc, fileList) {
+    if (!fileList || fileList.length === 0) return
+    setMessage(null)
+    setUploadingForId(loc.id)
+    const newUrls = []
+    for (const file of fileList) {
+      if (!file.type.startsWith('image/')) continue
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '-')
+      const path = `${loc.id}/${Date.now()}-${safeName}`
+      const { error: upErr } = await supabase.storage
+        .from('location-photos')
+        .upload(path, file, { contentType: file.type, upsert: false })
+      if (upErr) {
+        setMessage({ type: 'error', text: `Upload failed: ${upErr.message}` })
+        setUploadingForId(null)
+        return
+      }
+      const { data } = supabase.storage.from('location-photos').getPublicUrl(path)
+      if (data?.publicUrl) newUrls.push(data.publicUrl)
+    }
+    if (newUrls.length > 0) {
+      const merged = [...(loc.photo_urls || []), ...newUrls]
+      const { error: dbErr } = await supabase
+        .from('locations')
+        .update({ photo_urls: merged })
+        .eq('id', loc.id)
+      if (dbErr) {
+        setMessage({ type: 'error', text: `Photo saved to storage, but DB update failed: ${dbErr.message}` })
+      } else {
+        setMessage({ type: 'success', text: `Uploaded ${newUrls.length} photo${newUrls.length === 1 ? '' : 's'} to ${loc.name}.` })
+      }
+      loadLocations()
+    }
+    setUploadingForId(null)
+  }
+
+  async function removePhoto(loc, url) {
+    if (!confirm('Remove this photo from the location?')) return
+    setMessage(null)
+    // Best-effort delete from Storage. Extract the path after the bucket name.
+    const match = url.match(/\/location-photos\/(.+)$/)
+    if (match?.[1]) {
+      await supabase.storage.from('location-photos').remove([match[1]]).catch(() => {})
+    }
+    const remaining = (loc.photo_urls || []).filter((u) => u !== url)
+    const { error: dbErr } = await supabase
+      .from('locations')
+      .update({ photo_urls: remaining })
+      .eq('id', loc.id)
+    if (dbErr) {
+      setMessage({ type: 'error', text: dbErr.message })
+      return
+    }
+    loadLocations()
   }
 
   async function save(e) {
@@ -358,6 +418,55 @@ export default function Locations() {
                   )}
                 </dl>
               )}
+
+              {/* Photos for social posts */}
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Photos {loc.photo_urls?.length > 0 && `(${loc.photo_urls.length})`}
+                  </span>
+                  <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    {uploadingForId === loc.id ? 'Uploading…' : '+ Add photo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploadingForId === loc.id}
+                      onChange={(e) => {
+                        uploadPhotos(loc, e.target.files)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+                {loc.photo_urls?.length > 0 ? (
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {loc.photo_urls.map((url) => (
+                      <div key={url} className="group relative aspect-square overflow-hidden rounded-md border border-slate-200">
+                        <img
+                          src={url}
+                          alt={`${loc.name} photo`}
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(loc, url)}
+                          className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-xs font-semibold text-red-700 opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-white"
+                          title="Remove photo"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    No photos yet. Add a few — they'll attach to auto-generated social posts about
+                    classes held here.
+                  </p>
+                )}
+              </div>
             </div>
                 ))}
               </div>
