@@ -119,28 +119,36 @@ function buildBody({ firstName, googleEssay, yelpEssay, sameEssay }) {
 
   let body = intro
 
-  // Google section
+  // Google section. We surface the original question so the trainee sees
+  // their answer in context — and so the framing reads naturally as a
+  // testimonial when they paste it into Google.
   body += `\n────────────────────────────────────────\n`
   body += `⭐ GOOGLE REVIEW\n`
   body += `Step 1 — click: ${GOOGLE_REVIEW_URL}\n`
   if (googleEssay) {
-    body += `Step 2 — copy & paste this answer of yours:\n\n`
-    body += `"${googleEssay.essay_response.trim()}"\n`
+    body += `Step 2 — copy & paste this answer of yours below.\n`
+    if (googleEssay.question_prompt) {
+      body += `(You wrote it in response to: "${googleEssay.question_prompt.trim()}")\n`
+    }
+    body += `\n"${googleEssay.essay_response.trim()}"\n`
   } else {
     body += `Step 2 — write a short note about your training experience.\n`
   }
 
-  // Yelp section
+  // Yelp section — same pattern.
   body += `\n────────────────────────────────────────\n`
   body += `⭐ YELP REVIEW\n`
   body += `Step 1 — click: ${YELP_REVIEW_URL}\n`
   if (yelpEssay) {
     if (sameEssay) {
-      body += `Step 2 — paste the same answer (it was the only one you wrote that we could use):\n\n`
+      body += `Step 2 — paste the same answer (it was the only one you wrote that we could use).\n`
     } else {
-      body += `Step 2 — copy & paste this different answer of yours:\n\n`
+      body += `Step 2 — copy & paste this different answer of yours below.\n`
     }
-    body += `"${yelpEssay.essay_response.trim()}"\n`
+    if (yelpEssay.question_prompt) {
+      body += `(You wrote it in response to: "${yelpEssay.question_prompt.trim()}")\n`
+    }
+    body += `\n"${yelpEssay.essay_response.trim()}"\n`
   } else {
     body += `Step 2 — write a short note about your training experience.\n`
   }

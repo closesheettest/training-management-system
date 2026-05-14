@@ -108,12 +108,14 @@ const MESSAGES = {
       `────────────────────────────────────────\n` +
       `⭐ GOOGLE REVIEW\n` +
       `Step 1 — click: https://g.page/r/.../review\n` +
-      `Step 2 — copy & paste this answer of yours:\n\n` +
+      `Step 2 — copy & paste this answer of yours below.\n` +
+      `(You wrote it in response to: "<question prompt goes here>")\n\n` +
       `"<longest essay response goes here>"\n\n` +
       `────────────────────────────────────────\n` +
       `⭐ YELP REVIEW\n` +
       `Step 1 — click: https://www.yelp.com/writeareview/biz/...\n` +
-      `Step 2 — copy & paste this different answer of yours:\n\n` +
+      `Step 2 — copy & paste this different answer of yours below.\n` +
+      `(You wrote it in response to: "<different question prompt>")\n\n` +
       `"<second-longest essay response goes here>"\n\n` +
       `────────────────────────────────────────\n` +
       `Congratulations on graduating training!\n\n` +
@@ -323,7 +325,10 @@ Onto the next class.
             one testimonial-eligible essay, Facebook gets it and LinkedIn is skipped to avoid
             duplicate quotes.
           </p>
-          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`One of this week's trainees, in their own words:
+          <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`Asked one of this week's sales trainees:
+"What was the most valuable part of this week's sales training?"
+
+In their own words:
 
 "It was a pivotal life-changing training moment where I now have a set of skills to take with me through all conversations and relationships — watch out world!"
 

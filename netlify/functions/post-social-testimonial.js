@@ -58,7 +58,7 @@ export const handler = async (event) => {
 
   const { data: responses } = await supabase
     .from('test_responses')
-    .select('essay_response')
+    .select('essay_response, question_prompt')
     .eq('attempt_id', attempt.id)
     .eq('question_type', 'essay')
     .eq('use_for_testimonial', true)
@@ -89,8 +89,18 @@ export const handler = async (event) => {
   const fbEssay = essays[0]
   const liEssay = essays[1] || null
 
-  const fbMessage = buildTestimonialPost({ ...meta, quote: fbEssay.essay_response })
-  const liMessage = liEssay ? buildTestimonialPost({ ...meta, quote: liEssay.essay_response }) : null
+  const fbMessage = buildTestimonialPost({
+    ...meta,
+    quote: fbEssay.essay_response,
+    question: fbEssay.question_prompt,
+  })
+  const liMessage = liEssay
+    ? buildTestimonialPost({
+        ...meta,
+        quote: liEssay.essay_response,
+        question: liEssay.question_prompt,
+      })
+    : null
 
   const enqueued = []
 

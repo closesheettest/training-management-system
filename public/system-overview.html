@@ -379,7 +379,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><strong>New testimonial — social post</strong><br><em>Generic post with the trainee's quote — paced 1/day per network</em></td>
       <td>Facebook Page + LinkedIn personal profile</td>
       <td>📘 Facebook · 🔷 LinkedIn</td>
-      <td><span class="pill pill-manual">When a trainee submits, their testimonial essays are <strong>queued</strong> instead of firing immediately: longest essay for Facebook, second-longest for LinkedIn (different essays per platform). A daily 9 AM Eastern cron publishes one item per network per day. A 12-trainee class with 2 essays each → ~12 days of paced content on each network instead of 24 simultaneous posts. Trainee text is verbatim — never SEO-rewritten. Queue status and "post next now" override live on <code>/messages</code>.</span></td>
+      <td><span class="pill pill-manual">When a trainee submits, their testimonial essays are <strong>queued</strong> instead of firing immediately: longest essay for Facebook, second-longest for LinkedIn (different essays per platform). A daily 9 AM Eastern cron publishes one item per network per day. A 12-trainee class with 2 essays each → ~12 days of paced content on each network instead of 24 simultaneous posts. Each post pairs the <strong>question</strong> (SEO-friendly framing) with the trainee's <strong>verbatim</strong> answer — never SEO-reworded. Queue status and "post next now" override live on <code>/messages</code>.</span></td>
     </tr>
   </tbody>
 </table>
@@ -466,7 +466,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li>If a trainee only has one testimonial-eligible essay, Facebook gets it and LinkedIn is skipped (to avoid posting the same quote twice).</li>
   <li>A daily 9 AM Eastern cron picks the oldest pending item per platform and publishes it — one Facebook post + one LinkedIn post per day.</li>
   <li>A 12-trainee class with 2 testimonials each turns into roughly 12 days of paced content on each network instead of 24 simultaneous posts.</li>
-  <li>Essays go out <strong>verbatim</strong>, exactly as the trainee typed them — no SEO rewording.</li>
+  <li>Posts pair the <strong>question</strong> (which carries the SEO-friendly keywords like "sales training") with the trainee's <strong>verbatim answer</strong>. We never reword what the trainee wrote — the SEO benefit comes from the question framing, not from massaging their voice. Same rule applies on the testimonials feed embedded at nealscoppettuolo.com and in the post-test Google/Yelp review email.</li>
   <li>Generic copy: never mentions the client company name. Location phrasing: venue + city for hotels ("at the Hilton in Orlando"), city only for client HQ ("in St Pete").</li>
   <li>Live status + "Post next now" override available on <code>/messages</code>.</li>
 </ul>

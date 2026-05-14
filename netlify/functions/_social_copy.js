@@ -43,13 +43,24 @@ export function buildGraduationPost({ count, location }) {
 }
 
 // "New testimonial" copy. Generic; uses first name + initial only.
-export function buildTestimonialPost({ quote, firstName, lastName, yearsInSales }) {
+//
+// Format intentionally pairs the question (SEO-friendly framing — keywords
+// like "sales training" live naturally inside the prompt) with the trainee's
+// verbatim answer. We never reword the answer; the SEO benefit comes from
+// the question framing, not from massaging the trainee's voice.
+//
+// `question` is optional — if missing, falls back to the older
+// "in their own words" lead-in so old callers still work.
+export function buildTestimonialPost({ quote, question, firstName, lastName, yearsInSales }) {
   if (!quote) return null
   const initial = lastName ? lastName.charAt(0).toUpperCase() + '.' : ''
   const attr = [firstName, initial].filter(Boolean).join(' ')
   const tail = yearsInSales ? `${attr} · ${yearsInSales}` : attr
+  const lead = question?.trim()
+    ? `Asked one of this week's sales trainees:\n"${question.trim()}"\n\nIn their own words:`
+    : `One of this week's trainees, in their own words:`
   return (
-    `One of this week's trainees, in their own words:\n\n` +
+    `${lead}\n\n` +
     `"${quote.trim()}"\n\n` +
     (tail ? `— ${tail}\n\n` : '') +
     `Real impact. That's why I do this. 🙌\n\n` +
