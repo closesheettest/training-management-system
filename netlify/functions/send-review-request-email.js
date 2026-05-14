@@ -55,17 +55,44 @@ export const handler = async (event) => {
     return json(200, { ok: true, skipped_reason: 'Already sent', sent_at: t.review_email_sent_at })
   }
 
+  // Pull this trainee's testimonial-eligible essay answers so we can pre-pick
+  // two of them — one for Google, one for Yelp. Sort by length descending so
+  // the most substantive answer goes to Google (typically higher-impact SEO).
+  const { data: attempt } = await supabase
+    .from('test_attempts')
+    .select('id')
+    .eq('trainee_id', trainee_id)
+    .not('submitted_at', 'is', null)
+    .maybeSingle()
+
+  let essays = []
+  if (attempt) {
+    const { data: responses } = await supabase
+      .from('test_responses')
+      .select('essay_response, question_prompt')
+      .eq('attempt_id', attempt.id)
+      .eq('question_type', 'essay')
+      .eq('use_for_testimonial', true)
+      .not('essay_response', 'is', null)
+    essays = (responses || [])
+      .filter((r) => r.essay_response && r.essay_response.trim().length > 0)
+      .sort((a, b) => (b.essay_response || '').length - (a.essay_response || '').length)
+  }
+
+  // Pick the answer for each platform. If only 1 essay exists, use the same
+  // one for both. If 0 essays, both will be null and the email falls back to
+  // just the links.
+  const googleEssay = essays[0] || null
+  const yelpEssay = essays[1] || essays[0] || null
+
   const firstName = (t.first_name || 'there').trim() || 'there'
   const subject = `Thanks for completing your training, ${firstName} — 30-second favor?`
-  const textBody =
-    `Hi ${firstName},\n\n` +
-    `Thanks so much for finishing your final assessment — that's a real accomplishment.\n\n` +
-    `One small ask: would you take 30 seconds to leave a quick review? It helps the next class find us and means the world.\n\n` +
-    `Google: ${GOOGLE_REVIEW_URL}\n` +
-    `Yelp: ${YELP_REVIEW_URL}\n\n` +
-    `Whatever you wrote in your essay answers makes a perfect review — feel free to copy/paste anything you said there.\n\n` +
-    `Thanks again — congratulations on graduating training.\n\n` +
-    `— U.S. Shingle & Metal Training Team`
+  const textBody = buildBody({
+    firstName,
+    googleEssay,
+    yelpEssay,
+    sameEssay: !!(googleEssay && yelpEssay && googleEssay === yelpEssay),
+  })
 
   const result = await sendEmail(t.email, subject, textBody)
   if (!result.ok) {
@@ -82,6 +109,48 @@ export const handler = async (event) => {
     .eq('id', trainee_id)
 
   return json(200, { ok: true, sent_to: t.email })
+}
+
+function buildBody({ firstName, googleEssay, yelpEssay, sameEssay }) {
+  const intro =
+    `Hi ${firstName},\n\n` +
+    `Thanks so much for finishing your final assessment — that's a real accomplishment.\n\n` +
+    `One small ask: would you take 30 seconds to leave a quick review? We've pre-picked one of your own essay answers for each site — just click the link, then paste the answer below.\n`
+
+  let body = intro
+
+  // Google section
+  body += `\n────────────────────────────────────────\n`
+  body += `⭐ GOOGLE REVIEW\n`
+  body += `Step 1 — click: ${GOOGLE_REVIEW_URL}\n`
+  if (googleEssay) {
+    body += `Step 2 — copy & paste this answer of yours:\n\n`
+    body += `"${googleEssay.essay_response.trim()}"\n`
+  } else {
+    body += `Step 2 — write a short note about your training experience.\n`
+  }
+
+  // Yelp section
+  body += `\n────────────────────────────────────────\n`
+  body += `⭐ YELP REVIEW\n`
+  body += `Step 1 — click: ${YELP_REVIEW_URL}\n`
+  if (yelpEssay) {
+    if (sameEssay) {
+      body += `Step 2 — paste the same answer (it was the only one you wrote that we could use):\n\n`
+    } else {
+      body += `Step 2 — copy & paste this different answer of yours:\n\n`
+    }
+    body += `"${yelpEssay.essay_response.trim()}"\n`
+  } else {
+    body += `Step 2 — write a short note about your training experience.\n`
+  }
+
+  body += `\n────────────────────────────────────────\n`
+  body += `That's it. Each one really does help the next class find us.\n\n`
+  body += `Congratulations on graduating training!\n\n`
+  body += `— U.S. Shingle & Metal Training Team`
+
+  return body
 }
 
 function json(status, body) {
