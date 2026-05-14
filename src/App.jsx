@@ -20,6 +20,7 @@ import TestDone from './pages/TestDone.jsx'
 import Testimonials from './pages/Testimonials.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Messages from './pages/Messages.jsx'
+import HandoffContacts from './pages/HandoffContacts.jsx'
 
 export default function App() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/manager" element={<HiringManager />} />
         <Route path="/locations" element={<Locations />} />
+        <Route path="/handoff-contacts" element={<HandoffContacts />} />
       </Route>
     </Routes>
   )
@@ -99,6 +101,7 @@ function AdminLayout() {
               items={[
                 { to: '/messages', label: 'Messages' },
                 { to: '/notifications', label: 'Notifications' },
+                { to: '/handoff-contacts', label: 'Handoff contacts' },
                 { href: '/system-overview.html', external: true, label: 'System Overview' },
               ]}
             />

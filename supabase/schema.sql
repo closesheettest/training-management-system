@@ -167,6 +167,27 @@ create index if not exists social_post_queue_pending_idx
   on social_post_queue(platform, scheduled_post_at)
   where posted_at is null;
 
+-- ============================================================
+-- TRAINEE HANDOFF CONTACTS — vCard data for end-of-test text
+-- ============================================================
+create table if not exists trainee_handoff_contacts (
+  id uuid primary key default gen_random_uuid(),
+  display_name text not null,
+  title text,
+  organization text,
+  phone text,
+  email text,
+  region text,
+  active boolean not null default true,
+  display_order int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists trainee_handoff_contacts_active_region_idx
+  on trainee_handoff_contacts(region)
+  where active = true;
+alter table trainees add column if not exists handoff_contacts_sent_at timestamptz;
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.

@@ -67,6 +67,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Trainee-facing automated email — fires once, right after the trainee submits their final test. Sent to the trainee\'s own email with the Google + Yelp review links. Not configurable in /notifications since it goes to the trainee, not staff.',
   },
+  {
+    key: 'trainee_handoff_contacts',
+    label: 'Trainee handoff contacts (vCard text)',
+    desc:
+      'Trainee-facing automated text — fires once, right after the trainee submits their final test. Sent to the trainee\'s personal phone with a tap-to-save vCard link containing their Sales Manager, Helpline, and any region-matched contacts (managed at /handoff-contacts). Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

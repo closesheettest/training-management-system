@@ -175,6 +175,16 @@ export default function TakeTest() {
         body: JSON.stringify({ trainee_id: trainee.id }),
       }).catch(() => {})
 
+      // Fire-and-forget text with a vCard link so the trainee can save
+      // their handoff contacts (Sales Manager + Helpline + anyone region-
+      // matched) to their phone in one tap. Skipped silently if no
+      // contacts are configured yet on /handoff-contacts.
+      fetch('/.netlify/functions/send-handoff-contacts-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      }).catch(() => {})
+
       // Navigate to done page
       window.location.href = `/test/${token}/done`
     } catch (err) {

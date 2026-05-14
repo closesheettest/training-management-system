@@ -91,6 +91,12 @@ const MESSAGES = {
       `• ${SAMPLE.region} — week of May 25, 2026 (11 days away)\n  → https://trainingmanagementsys.netlify.app/class/<id>\n\n` +
       `The reminder will keep firing every day at 10 AM until a location is selected.\n\n— Training System`,
   },
+  trainee_handoff_contacts: {
+    triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal phone via SMS. Skipped silently if no handoff contacts have been added on /handoff-contacts. One-time only (dedup via handoff_contacts_sent_at).'],
+    sms: `[Training] Sample, congrats on finishing your final test! Tap to save your team contacts to your phone in one go: https://trainingmanagementsys.netlify.app/.netlify/functions/trainee-contacts-vcard?trainee_id=<id>`,
+    emailSubject: '(this one is text-only — the vCard link is the whole point)',
+    emailBody: '(no email; trainee taps the link and their phone offers to add Sales Manager + Helpline + any region-matched contacts in one confirmation)',
+  },
   trainee_review_request: {
     triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email (not via /notifications). Pre-picks two of their own essay answers — one for Google, one for Yelp.'],
     sms: '(this one is email-only — sent to the trainee\'s personal email after submitting their final test)',
