@@ -284,12 +284,14 @@ export default function Messages() {
           </p>
         </div>
         <SocialTestCard />
+        <SocialQueueCard />
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="font-semibold">📘 Facebook — class graduated</h3>
+          <h3 className="font-semibold">📘 Facebook + 🔷 LinkedIn — class graduated</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Auto-fires when the last trainee in a class submits the final test (alongside the
-            graduation-report email). Attaches a random photo from the venue's photo library
-            (manage at /locations) when available.
+            Auto-fires <strong>immediately</strong> (no queueing) when the last trainee in a class
+            submits the final test — this is the headliner, alongside the graduation-report email.
+            Attaches a random photo from the venue's photo library (manage at /locations) when
+            available.
           </p>
           <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`🎓 Just wrapped another training week at the Hilton in Orlando.
 
@@ -300,10 +302,20 @@ Onto the next class.
 #SalesTraining #FieldSales #SalesCoaching`}</pre>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="font-semibold">📘 Facebook — new testimonial</h3>
+          <h3 className="font-semibold">📘 Facebook + 🔷 LinkedIn — new testimonial <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">paced 1/day</span></h3>
           <p className="mt-1 text-xs text-slate-500">
-            Auto-fires the instant a trainee submits their final test, IF they wrote a
-            "use-for-testimonial" essay. Uses the longest one. Same photo logic as graduation post.
+            When a trainee submits, the system pulls every essay they marked as a testimonial,
+            sorts them longest-first, and <strong>queues</strong> them: longest essay for Facebook,
+            second-longest for LinkedIn (different essays per platform, so the same trainee shows
+            up twice — once on each network). One item per platform fires per day at 9 AM
+            Eastern. A class of 12 trainees with 2 essays each → ~12 days of paced content on
+            each network instead of 24 simultaneous posts.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Essays go out <strong>verbatim</strong> — exactly as the trainee typed them — never
+            SEO-rewritten. Same venue photo logic as the graduation post. If a trainee only has
+            one testimonial-eligible essay, Facebook gets it and LinkedIn is skipped to avoid
+            duplicate quotes.
           </p>
           <pre className="mt-3 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-sans leading-snug">{`One of this week's trainees, in their own words:
 
@@ -316,16 +328,13 @@ Real impact. That's why I do this. 🙌
 #SalesTraining #SalesCoaching`}</pre>
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="font-semibold">🔷 LinkedIn — same copy, fires alongside Facebook</h3>
+          <h3 className="font-semibold">🔷 LinkedIn note — personal profile</h3>
           <p className="mt-1 text-xs text-slate-500">
             Posts to your personal LinkedIn profile (not the Company Page — that requires
-            LinkedIn's Community Management API approval, ~1–2 weeks). Same generic copy as
-            Facebook. Token expires every 60 days — when it does, you'll need to re-run the OAuth
-            dance from the Auth tab of the LinkedIn dev app (about 5 minutes).
-          </p>
-          <p className="mt-2 text-xs text-slate-500">
-            Posts include the same venue photo as Facebook when available — LinkedIn uploads it
-            to their own CDN automatically.
+            LinkedIn's Community Management API approval, ~1–2 weeks). Token expires every 60
+            days — when it does, you'll need to re-run the OAuth dance from the Auth tab of the
+            LinkedIn dev app (about 5 minutes). Image upload uses LinkedIn's 3-step CDN flow so
+            the venue photo travels with the post.
           </p>
         </article>
       </section>
@@ -388,6 +397,169 @@ function SocialTestCard() {
       )}
     </div>
   )
+}
+
+// Live status of the paced testimonial queue (one row per platform) plus a
+// "post next item now" override button. Reads social_post_queue directly via
+// Supabase RLS — same as other admin reads on this page.
+function SocialQueueCard() {
+  const [rows, setRows] = useState(null) // null = loading, [] = empty
+  const [busy, setBusy] = useState(null) // 'facebook' | 'linkedin' | null
+  const [flashMsg, setFlashMsg] = useState(null)
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('social_post_queue')
+      .select('id, platform, scheduled_post_at, posted_at, post_id, last_error, message, created_at')
+      .order('scheduled_post_at', { ascending: true })
+      .limit(200)
+    if (error) {
+      setRows([])
+      return
+    }
+    setRows(data || [])
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function postNext(platform) {
+    if (!confirm(`Post the next queued ${platform} testimonial NOW (skipping its scheduled date)?`)) return
+    setBusy(platform)
+    setFlashMsg(null)
+    try {
+      const res = await fetch('/.netlify/functions/flush-social-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform }),
+      })
+      const body = await res.json().catch(() => ({}))
+      const r = (body.results || []).find((x) => x.platform === platform) || {}
+      if (r.ok && r.posted_item_id) {
+        setFlashMsg({ kind: 'success', text: `✓ Posted ${platform} (post id ${r.post_id || 'n/a'})` })
+      } else if (r.ok && r.skipped) {
+        setFlashMsg({ kind: 'info', text: `Nothing queued for ${platform}.` })
+      } else {
+        setFlashMsg({ kind: 'error', text: `✗ ${platform}: ${r.error || 'unknown'}` })
+      }
+      await load()
+    } catch (err) {
+      setFlashMsg({ kind: 'error', text: err.message || 'Network error' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  if (rows === null) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Loading queue status…
+      </div>
+    )
+  }
+
+  const platforms = ['facebook', 'linkedin']
+  const summary = {}
+  for (const p of platforms) {
+    const pending = rows.filter((r) => r.platform === p && !r.posted_at)
+      .sort((a, b) => new Date(a.scheduled_post_at) - new Date(b.scheduled_post_at))
+    const posted = rows.filter((r) => r.platform === p && r.posted_at)
+    summary[p] = {
+      pending,
+      posted,
+      next: pending[0] || null,
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="font-semibold">📅 Paced testimonial queue</h3>
+      <p className="mt-1 text-xs text-slate-500">
+        The daily 9 AM Eastern cron picks the next pending item per platform. "Post next item
+        now" skips the scheduled date and fires immediately — useful for clearing a backlog or
+        testing.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {platforms.map((p) => (
+          <div key={p} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold capitalize text-slate-800">
+                {p === 'facebook' ? '📘 Facebook' : '🔷 LinkedIn'}
+              </div>
+              <button
+                type="button"
+                onClick={() => postNext(p)}
+                disabled={busy !== null || summary[p].pending.length === 0}
+                className="rounded-md bg-slate-800 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
+              >
+                {busy === p ? 'Posting…' : 'Post next now'}
+              </button>
+            </div>
+            <ul className="mt-2 space-y-0.5 text-xs text-slate-700">
+              <li><strong>{summary[p].pending.length}</strong> pending</li>
+              <li><strong>{summary[p].posted.length}</strong> posted</li>
+              {summary[p].next ? (
+                <li className="text-slate-500">
+                  Next: {formatScheduled(summary[p].next.scheduled_post_at)}
+                </li>
+              ) : (
+                <li className="text-slate-400">Queue empty.</li>
+              )}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {flashMsg && (
+        <div
+          className={
+            'mt-3 rounded-md border px-3 py-2 text-sm ' +
+            (flashMsg.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : flashMsg.kind === 'info'
+                ? 'border-slate-200 bg-slate-100 text-slate-700'
+                : 'border-red-200 bg-red-50 text-red-800')
+          }
+        >
+          {flashMsg.text}
+        </div>
+      )}
+      {rows.some((r) => r.last_error) && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs font-semibold text-amber-800">
+            ⚠ {rows.filter((r) => r.last_error && !r.posted_at).length} item(s) with last_error — click to view
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs text-slate-700">
+            {rows
+              .filter((r) => r.last_error && !r.posted_at)
+              .map((r) => (
+                <li key={r.id} className="rounded border border-amber-200 bg-amber-50 p-2">
+                  <span className="font-semibold capitalize">{r.platform}</span>{' '}
+                  · scheduled {formatScheduled(r.scheduled_post_at)} ·{' '}
+                  <span className="text-red-700">{r.last_error}</span>
+                </li>
+              ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  )
+}
+
+function formatScheduled(iso) {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }) + ' ET'
+  } catch {
+    return iso
+  }
 }
 
 function EventCard({ event, messages, subscribers }) {

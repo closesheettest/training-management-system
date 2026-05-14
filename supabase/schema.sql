@@ -147,6 +147,26 @@ alter table trainees add column if not exists dropout_notified_at timestamptz;
 -- their Google + Yelp review links so they don't get the email twice.
 alter table trainees add column if not exists review_email_sent_at timestamptz;
 
+-- ============================================================
+-- SOCIAL POST QUEUE — paced Facebook + LinkedIn auto-posts
+-- ============================================================
+create table if not exists social_post_queue (
+  id uuid primary key default gen_random_uuid(),
+  class_id uuid references classes(id) on delete cascade,
+  trainee_id uuid references trainees(id) on delete cascade,
+  platform text not null check (platform in ('facebook', 'linkedin')),
+  message text not null,
+  photo_url text,
+  scheduled_post_at timestamptz not null,
+  posted_at timestamptz,
+  post_id text,
+  last_error text,
+  created_at timestamptz not null default now()
+);
+create index if not exists social_post_queue_pending_idx
+  on social_post_queue(platform, scheduled_post_at)
+  where posted_at is null;
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.

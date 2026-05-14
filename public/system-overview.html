@@ -369,10 +369,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">Auto-fires alongside the graduation-report email. Picks a random photo from the venue's library (managed at /locations).</span></td>
     </tr>
     <tr>
-      <td><strong>New testimonial — social post</strong><br><em>Generic post with the trainee's quote</em></td>
+      <td><strong>New testimonial — social post</strong><br><em>Generic post with the trainee's quote — paced 1/day per network</em></td>
       <td>Facebook Page + LinkedIn personal profile</td>
       <td>📘 Facebook · 🔷 LinkedIn</td>
-      <td><span class="pill pill-manual">Auto-fires when a trainee submits their final test with a testimonial-eligible essay. Uses their longest answer.</span></td>
+      <td><span class="pill pill-manual">When a trainee submits, their testimonial essays are <strong>queued</strong> instead of firing immediately: longest essay for Facebook, second-longest for LinkedIn (different essays per platform). A daily 9 AM Eastern cron publishes one item per network per day. A 12-trainee class with 2 essays each → ~12 days of paced content on each network instead of 24 simultaneous posts. Trainee text is verbatim — never SEO-rewritten. Queue status and "post next now" override live on <code>/messages</code>.</span></td>
     </tr>
   </tbody>
 </table>
@@ -461,7 +461,8 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td>SMS</td><td>GoHighLevel (GHL)</td><td>Sends all texts to staff and trainees.</td></tr>
     <tr><td>Email</td><td>Resend</td><td>Sends all transactional emails. Domain-verified for production.</td></tr>
     <tr><td>PDF rendering</td><td>PDFShift</td><td>Converts the graduation report HTML to a PDF attachment.</td></tr>
-    <tr><td>Scheduled jobs</td><td>cron-job.org</td><td>Fires the time-based notifications (day-2 reminder, 10:30 hotel alert, dropout check, graduation report poll).</td></tr>
+    <tr><td>Scheduled jobs</td><td>cron-job.org</td><td>Fires the time-based notifications (day-2 reminder, 10:30 hotel alert, dropout check, graduation report poll, <strong>daily 9 AM Eastern paced-social-queue flush</strong>).</td></tr>
+    <tr><td>Social posting</td><td>Facebook Graph API · LinkedIn UGC Posts API</td><td>Auto-posts class graduations (immediate) and trainee testimonials (paced 1/day via the <code>social_post_queue</code> table).</td></tr>
   </tbody>
 </table>
 
