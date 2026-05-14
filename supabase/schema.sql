@@ -141,6 +141,10 @@ alter table trainees add column if not exists sales_academy_setup_at timestamptz
 -- provisioned trainee no-shows for the first time during their class week.
 alter table trainees add column if not exists dropout_notified_at timestamptz;
 
+-- Post-test review-request email dedup. Stamped after we email the trainee
+-- their Google + Yelp review links so they don't get the email twice.
+alter table trainees add column if not exists review_email_sent_at timestamptz;
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.

@@ -91,6 +91,20 @@ const MESSAGES = {
       `• ${SAMPLE.region} — week of May 25, 2026 (11 days away)\n  → https://trainingmanagementsys.netlify.app/class/<id>\n\n` +
       `The reminder will keep firing every day at 10 AM until a location is selected.\n\n— Training System`,
   },
+  trainee_review_request: {
+    triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email (not via /notifications).'],
+    sms: '(this one is email-only — sent to the trainee\'s personal email after submitting their final test)',
+    emailSubject: `Thanks for completing your training, Sample — 30-second favor?`,
+    emailBody:
+      `Hi Sample,\n\n` +
+      `Thanks so much for finishing your final assessment — that's a real accomplishment.\n\n` +
+      `One small ask: would you take 30 seconds to leave a quick review? It helps the next class find us and means the world.\n\n` +
+      `Google: https://g.page/r/.../review\n` +
+      `Yelp: https://www.yelp.com/writeareview/biz/...\n\n` +
+      `Whatever you wrote in your essay answers makes a perfect review — feel free to copy/paste anything you said there.\n\n` +
+      `Thanks again — congratulations on graduating training.\n\n` +
+      `— U.S. Shingle & Metal Training Team`,
+  },
   graduation_class_report: {
     triggers: ['Cron ~every 15 min — fires once every enrolled trainee submits their final test'],
     sms: '(this event is email-only — PDF can\'t be sent via SMS)',

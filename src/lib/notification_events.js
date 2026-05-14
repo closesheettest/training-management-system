@@ -61,6 +61,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Daily cron at 10 AM Eastern. Fires for every upcoming class within 2 weeks where no training location has been assigned. Repeats every morning until a location is selected.',
   },
+  {
+    key: 'trainee_review_request',
+    label: 'Trainee review request (Google + Yelp)',
+    desc:
+      'Trainee-facing automated email — fires once, right after the trainee submits their final test. Sent to the trainee\'s own email with the Google + Yelp review links. Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

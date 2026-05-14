@@ -157,6 +157,16 @@ export default function TakeTest() {
         .eq('id', attempt.id)
       if (uErr) throw uErr
 
+      // Fire-and-forget review-request email. Best effort — never blocks
+      // the trainee from seeing their results page. If the email fails
+      // (no email on file, Resend down, etc.) the in-page CTAs on /test/:token/done
+      // still let them leave a review manually.
+      fetch('/.netlify/functions/send-review-request-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      }).catch(() => {})
+
       // Navigate to done page
       window.location.href = `/test/${token}/done`
     } catch (err) {
