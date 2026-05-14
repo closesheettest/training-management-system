@@ -98,7 +98,7 @@ const MESSAGES = {
     emailBody: '(no email; trainee taps the link and their phone offers to add Sales Manager + Helpline + any region-matched contacts in one confirmation)',
   },
   trainee_review_request: {
-    triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email (not via /notifications). Pre-picks two of their own essay answers — one for Google, one for Yelp.'],
+    triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email (not via /notifications). Picks essays flagged "Use for client business review" on the Questions page — longest for Google, second-longest for Yelp. Falls back to longest-of-any if no questions are flagged for client review yet.'],
     sms: '(this one is email-only — sent to the trainee\'s personal email after submitting their final test)',
     emailSubject: `Thanks for completing your training, Sample — 30-second favor?`,
     emailBody:

@@ -7,6 +7,7 @@ const blankQuestion = () => ({
   choices: ['', ''],
   correct_choice: '',
   use_for_testimonial: false,
+  use_for_client_review: false,
   active: true,
 })
 
@@ -52,6 +53,7 @@ export default function Questions() {
       choices: Array.isArray(q.choices) ? q.choices : ['', ''],
       correct_choice: q.correct_choice || '',
       use_for_testimonial: !!q.use_for_testimonial,
+      use_for_client_review: !!q.use_for_client_review,
       active: q.active !== false,
       order_index: q.order_index,
     })
@@ -86,6 +88,7 @@ export default function Questions() {
         } else if (value === 'multiple_choice') {
           if (!Array.isArray(next.choices) || next.choices.length < 2) next.choices = ['', '']
           next.use_for_testimonial = false
+          next.use_for_client_review = false
         }
       }
       return next
@@ -144,6 +147,7 @@ export default function Questions() {
         correct_choice:
           draft.question_type === 'multiple_choice' ? draft.correct_choice.trim() || null : null,
         use_for_testimonial: draft.question_type === 'essay' ? !!draft.use_for_testimonial : false,
+        use_for_client_review: draft.question_type === 'essay' ? !!draft.use_for_client_review : false,
         active: !!draft.active,
         order_index: draft.order_index ?? 0,
         updated_at: new Date().toISOString(),
@@ -352,7 +356,8 @@ function QuestionList({ title, items, onEdit, onRemove, onToggle, onMove, dimmed
                   <Tag color={q.question_type === 'essay' ? 'red' : 'navy'}>
                     {q.question_type === 'essay' ? 'Essay' : 'Multiple choice'}
                   </Tag>
-                  {q.use_for_testimonial && <Tag color="sky">For website testimonials</Tag>}
+                  {q.use_for_testimonial && <Tag color="sky">⭐ Neal's testimonials</Tag>}
+                  {q.use_for_client_review && <Tag color="red">🏢 Client review (Google/Yelp)</Tag>}
                   {!q.active && <Tag color="slate">Inactive</Tag>}
                 </div>
                 <p className="mt-2 text-sm font-medium text-slate-900">{q.prompt}</p>
@@ -469,8 +474,9 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
         />
         {value.question_type === 'essay' && (
           <p className="mt-1 text-xs text-slate-500">
-            For testimonial-eligible questions, write this so it reads well as a public header on
-            the website (e.g. include "Neal Scoppettuolo" naturally for SEO).
+            Write so the question reads naturally as a header. For Neal's testimonials, fold
+            in keywords like "sales training" or "Neal Scoppettuolo". For client reviews,
+            naming the company directly ("U.S. Shingle & Metal") is welcome.
           </p>
         )}
       </label>
@@ -526,15 +532,47 @@ function QuestionForm({ value, onChange, updateChoice, addChoice, removeChoice, 
       )}
 
       {value.question_type === 'essay' && (
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input
-            type="checkbox"
-            checked={!!value.use_for_testimonial}
-            onChange={(e) => onChange('use_for_testimonial', e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
-          />
-          ⭐ Use responses as testimonials on /testimonials and website feed
-        </label>
+        <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs text-slate-600">
+            <strong>Where do the answers go?</strong> Two independent flags — pick whichever
+            apply.
+          </p>
+          <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={!!value.use_for_testimonial}
+              onChange={(e) => onChange('use_for_testimonial', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+            />
+            <span>
+              ⭐ <strong>Use for Neal's brand testimonials</strong> · auto Facebook + LinkedIn
+              posts and the nealscoppettuolo.com testimonials feed.
+              <br />
+              <span className="text-xs font-normal text-slate-500">
+                Copy must stay <em>generic</em> — don't mention the client company name
+                here, since these surfaces travel across clients.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={!!value.use_for_client_review}
+              onChange={(e) => onChange('use_for_client_review', e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+            />
+            <span>
+              🏢 <strong>Use for client business review</strong> · Google + Yelp copy-paste
+              blocks in the post-test review email.
+              <br />
+              <span className="text-xs font-normal text-slate-500">
+                Client-specific wording is welcome here (e.g. mention "U.S. Shingle & Metal" —
+                those reviews are about the client's business). The longest flagged essay
+                goes to Google, next-longest to Yelp.
+              </span>
+            </span>
+          </label>
+        </div>
       )}
 
       <div className="flex flex-wrap justify-end gap-2 pt-2">

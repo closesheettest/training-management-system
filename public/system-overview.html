@@ -361,7 +361,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><strong>Review request</strong><br><em>Google + Yelp links, with one of their own essay answers pre-picked per site</em></td>
       <td>Each trainee</td>
       <td>✉️ Email</td>
-      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. The system picks the trainee's longest testimonial-eligible essay for Google and the next-longest for Yelp, so all they do is click the link and paste. One-time only (dedup via review_email_sent_at).</span></td>
+      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. The system picks essays flagged <em>"Use for client business review"</em> on the Questions page (longest → Google, next-longest → Yelp), so all they do is click the link and paste. Client-specific wording is welcome in these essays — those reviews are about the client's business. Falls back to longest-of-any essay if no client-review questions are flagged yet. One-time only (dedup via review_email_sent_at).</span></td>
     </tr>
     <tr>
       <td><strong>Handoff contacts (vCard)</strong><br><em>Tap-to-save Sales Manager + Helpline (and any region-matched contacts) to the trainee's phone</em></td>
@@ -406,7 +406,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Setup page</strong></td><td>HR · VA</td><td>Email list + per-trainee checkboxes for RepCard, JobNimbus, Sales Academy. Progress card up top.</td></tr>
     <tr><td><strong>Hiring Manager</strong></td><td>Hiring Mgr</td><td>Quick form to enroll a new candidate into a future class.</td></tr>
     <tr><td><strong>Locations</strong></td><td>Admin</td><td>Manage training locations (St Pete corporate, regional offices, TBD slots).</td></tr>
-    <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice, essay, testimonial.</td></tr>
+    <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice + essay. Each essay can be independently flagged: <strong>"Use for Neal's brand testimonials"</strong> (auto FB/LinkedIn + nealscoppettuolo.com — must stay generic) and/or <strong>"Use for client business review"</strong> (Google/Yelp copy-paste in the post-test email — client-specific wording welcome).</td></tr>
     <tr><td><strong>Testimonials</strong></td><td>Admin · Marketing</td><td>Trainee testimonial responses collected from the final test.</td></tr>
     <tr><td><strong>Notifications</strong></td><td>Admin</td><td>Who gets which texts/emails. Per-event subscriptions, channel preferences.</td></tr>
     <tr><td><strong>Handoff contacts</strong></td><td>Admin</td><td>Manages the people that get saved to each trainee's phone via vCard after they finish their final test. Universal contacts (helpline, support) plus region-specific ones (Sales Manager — St Pete, Sales Manager — Orlando, etc.).</td></tr>

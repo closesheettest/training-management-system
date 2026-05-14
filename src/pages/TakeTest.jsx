@@ -132,6 +132,7 @@ export default function TakeTest() {
           is_correct,
           essay_response,
           use_for_testimonial: !!q.use_for_testimonial,
+          use_for_client_review: !!q.use_for_client_review,
         }
       })
 

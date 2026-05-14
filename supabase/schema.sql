@@ -251,7 +251,8 @@ create table if not exists questions (
   question_type text not null check (question_type in ('multiple_choice', 'essay')),
   choices jsonb,                 -- ['option a', 'option b', ...] for multiple_choice
   correct_choice text,           -- the correct value (matches one of `choices`) for multiple_choice
-  use_for_testimonial boolean not null default false,  -- essay-only: surface on /testimonials and website JSON feed
+  use_for_testimonial boolean not null default false,  -- essay-only: surface on /testimonials and website JSON feed (Neal's brand — generic copy)
+  use_for_client_review boolean not null default false, -- essay-only: surface in Google/Yelp review email copy-paste (client's business reviews — client-specific copy welcome)
   order_index integer not null default 0,
   active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -284,6 +285,7 @@ create table if not exists test_responses (
   is_correct boolean,
   essay_response text,
   use_for_testimonial boolean not null default false,
+  use_for_client_review boolean not null default false,
   created_at timestamptz not null default now()
 );
 

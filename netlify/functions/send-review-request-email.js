@@ -65,18 +65,28 @@ export const handler = async (event) => {
     .not('submitted_at', 'is', null)
     .maybeSingle()
 
+  // Selection strategy:
+  //   1. Prefer essays the admin explicitly flagged use_for_client_review
+  //      (these are written specifically to read well as client business
+  //      reviews — they're free to mention the company name).
+  //   2. If none of those exist for this attempt (e.g. older classes
+  //      before the flag existed, or admin hasn't flagged any yet), fall
+  //      back to all essay answers sorted by length so the email still
+  //      has something useful.
   let essays = []
   if (attempt) {
-    const { data: responses } = await supabase
+    const { data: allResponses } = await supabase
       .from('test_responses')
-      .select('essay_response, question_prompt')
+      .select('essay_response, question_prompt, use_for_client_review')
       .eq('attempt_id', attempt.id)
       .eq('question_type', 'essay')
-      .eq('use_for_testimonial', true)
       .not('essay_response', 'is', null)
-    essays = (responses || [])
-      .filter((r) => r.essay_response && r.essay_response.trim().length > 0)
-      .sort((a, b) => (b.essay_response || '').length - (a.essay_response || '').length)
+    const all = (allResponses || []).filter(
+      (r) => r.essay_response && r.essay_response.trim().length > 0,
+    )
+    const clientReview = all.filter((r) => r.use_for_client_review)
+    const pool = clientReview.length > 0 ? clientReview : all
+    essays = pool.sort((a, b) => (b.essay_response || '').length - (a.essay_response || '').length)
   }
 
   // Pick the answer for each platform. If only 1 essay exists, use the same
