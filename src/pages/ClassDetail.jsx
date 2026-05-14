@@ -34,7 +34,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, locations(*), trainees(*), test_attempts(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, locations(*), trainees(*, attendance(attendance_date, confirmed)), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
@@ -316,21 +316,27 @@ export default function ClassDetail() {
   }
 
   async function sendCredentialsToTrainees() {
-    const unsent = (cls?.trainees || []).filter(
-      (t) => t.enrolled !== false && t.company_email && !t.credentials_sent_at,
-    )
+    const today = todayLocalIso()
+    const unsent = (cls?.trainees || []).filter((t) => {
+      if (t.enrolled === false) return false
+      if (!t.company_email) return false
+      if (t.credentials_sent_at) return false
+      // Must have a confirmed attendance record for today — no-shows are skipped.
+      return (t.attendance || []).some((a) => a.confirmed && a.attendance_date === today)
+    })
     if (unsent.length === 0) {
       setMessage({
         type: 'error',
-        text: 'No trainees to text — either nobody is provisioned yet, or everyone has already been sent their credentials.',
+        text:
+          'Nobody to text right now. The button only sends to trainees who have a confirmed attendance for today AND are provisioned AND haven\'t already been texted.',
       })
       return
     }
     if (
       !confirm(
-        `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} now?\n\n` +
+        `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} who attended today?\n\n` +
           `Each trainee gets a personal link with their company email + password and step-by-step iPhone/Android setup. ` +
-          `Anyone who already received their text won't be re-sent.`,
+          `Anyone who didn't sign in today OR already received their text is skipped.`,
       )
     ) {
       return
@@ -1099,6 +1105,11 @@ function BackLink() {
   )
 }
 
+function todayLocalIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function byName(a, b) {
   const an = `${a.first_name} ${a.last_name}`.toLowerCase()
   const bn = `${b.first_name} ${b.last_name}`.toLowerCase()
@@ -1147,28 +1158,34 @@ function pct(numerator, denominator) {
 function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
   const notifiedAt = cls.day_2_it_notified_at
   const completedAt = cls.it_completed_at
+  const today = todayLocalIso()
   const provisioned = (cls.trainees || []).filter(
     (t) => t.enrolled !== false && t.company_email,
   )
+  // Only trainees who actually attended today are eligible to receive credentials.
+  const attendedToday = provisioned.filter((t) =>
+    (t.attendance || []).some((a) => a.confirmed && a.attendance_date === today),
+  )
   const sentCount = provisioned.filter((t) => t.credentials_sent_at).length
-  const unsentCount = provisioned.length - sentCount
-  // Most-recent credentials_sent_at among the class — used as the step timestamp.
+  const eligibleNow = attendedToday.filter((t) => !t.credentials_sent_at).length
   const lastSentAt = provisioned
     .map((t) => t.credentials_sent_at)
     .filter(Boolean)
     .sort()
     .pop()
-  const canSendCredentials = !!completedAt && unsentCount > 0
+  const canSendCredentials = !!completedAt && eligibleNow > 0
 
   let credentialsStatusText
   if (provisioned.length === 0) {
     credentialsStatusText = 'Waiting on IT to provision emails.'
-  } else if (unsentCount > 0 && sentCount === 0) {
-    credentialsStatusText = `${unsentCount} trainee${unsentCount === 1 ? '' : 's'} ready to receive their credentials text.`
-  } else if (unsentCount > 0) {
-    credentialsStatusText = `${sentCount} of ${provisioned.length} texted · ${unsentCount} still to go.`
-  } else {
+  } else if (sentCount === 0) {
+    credentialsStatusText = `${eligibleNow} of ${provisioned.length} attended today and are ready to receive their credentials text.`
+  } else if (eligibleNow > 0) {
+    credentialsStatusText = `${sentCount} texted so far · ${eligibleNow} more attended today and still need theirs.`
+  } else if (sentCount === provisioned.length) {
     credentialsStatusText = `All ${sentCount} trainees received their credentials.`
+  } else {
+    credentialsStatusText = `${sentCount} texted · waiting on today's attendance for the rest.`
   }
 
   return (
@@ -1192,12 +1209,12 @@ function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
             title={
               !completedAt
                 ? 'Available once IT marks provisioning complete.'
-                : unsentCount === 0
-                  ? 'Every provisioned trainee has already been texted.'
-                  : `Texts ${unsentCount} trainee${unsentCount === 1 ? '' : 's'} their company email + password and setup link.`
+                : eligibleNow === 0
+                  ? 'No eligible trainees right now — needs at least one provisioned attendee who has signed in today and not yet been texted.'
+                  : `Texts ${eligibleNow} trainee${eligibleNow === 1 ? '' : 's'} who attended today their company email + password and setup link. No-shows are skipped.`
             }
           >
-            📤 Send credentials to {unsentCount > 0 ? unsentCount : 'attendees'}
+            📤 Send credentials to {eligibleNow > 0 ? `${eligibleNow} attendee${eligibleNow === 1 ? '' : 's'}` : 'attendees'}
           </button>
         </div>
       </div>
@@ -1214,7 +1231,7 @@ function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
         />
         <WorkflowStep
           label="Credentials texted to trainees"
-          stampedAt={unsentCount === 0 && sentCount > 0 ? lastSentAt : null}
+          stampedAt={provisioned.length > 0 && sentCount === provisioned.length ? lastSentAt : null}
           pendingText={credentialsStatusText}
         />
       </ul>
