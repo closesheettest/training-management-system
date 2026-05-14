@@ -17,9 +17,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
 
-const GOOGLE_REVIEW_URL = 'https://g.page/r/CYeQXuq6eOfTEAI/review'
-const YELP_REVIEW_URL =
-  'https://www.yelp.com/writeareview/biz/CPWQA_SoEVdP8Swql9keWQ?return_url=%2Fbiz%2FCPWQA_SoEVdP8Swql9keWQ&review_origin=biz-details-war-button'
+// Review destinations — both point at U.S. Shingle & Metal's business
+// listings (the CLIENT's reviews, written by the trainee about their new
+// employer). The Google URL uses Maps' "!9m1!1b1" data param to land
+// trainees directly on the Reviews tab so the "Write a review" button is
+// the first thing they see — one less hunt. The Yelp URL is Yelp's
+// standard /writeareview/biz/<slug> pattern.
+const GOOGLE_REVIEW_URL =
+  'https://www.google.com/maps/place/U.S.+Shingle+%26+Metal/@27.8527654,-82.6883464,17z/data=!4m8!3m7!1s0x8fb84b03769f830d:0x8d64a0e607cf3840!8m2!3d27.8527654!4d-82.6857715!9m1!1b1!16s%2Fg%2F11l5dn1vrt'
+const YELP_REVIEW_URL = 'https://www.yelp.com/writeareview/biz/us-shingle-clearwater'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
