@@ -202,6 +202,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li><strong>Credentials delivery</strong> — once setup is done, the corporate trainer sends each trainee a text with their email, password, and step-by-step iPhone/Android setup instructions.</li>
   <li><strong>Day-of safety nets</strong> — hotel no-show alerts at 10:30 AM so unused rooms can be cancelled; dropout detection that pings IT and HR to clean up accounts.</li>
   <li><strong>End-of-week reporting</strong> — a PDF graduating class report is generated and emailed automatically once every trainee has submitted their final test.</li>
+  <li><strong>Auto-marketing</strong> — review-request emails to each graduate (Google + Yelp links pre-populated with their own essay answers), an immediate graduation announcement to Facebook + LinkedIn, and a paced trainee-testimonial queue that posts one quote per platform per day so social stays alive between classes.</li>
 </ul>
 
 <p>The dollar value is in the time saved per class week — what used to be an inbox-driven, "who-texted-who" workflow is now visible, dedup'd, and self-driving.</p>
@@ -402,7 +403,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice, essay, testimonial.</td></tr>
     <tr><td><strong>Testimonials</strong></td><td>Admin · Marketing</td><td>Trainee testimonial responses collected from the final test.</td></tr>
     <tr><td><strong>Notifications</strong></td><td>Admin</td><td>Who gets which texts/emails. Per-event subscriptions, channel preferences.</td></tr>
-    <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place.</td></tr>
+    <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place. Also shows live status of the paced social-post queue (pending count + next scheduled time per network) with a "Post next now" override button to skip the schedule and publish the next queued item immediately.</td></tr>
   </tbody>
 </table>
 
@@ -446,6 +447,21 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li><strong>Subject:</strong> <em>"Graduating training week of May 11 – 15, 2026"</em></li>
   <li><strong>Attachment:</strong> a one-page Letter PDF — class header, two stats (graduates count, total days attended), and a numbered list of every graduate (name, company email, days attended).</li>
   <li><strong>Sent once.</strong> Each class fires exactly one graduation report; subsequent cron runs see the timestamp and skip.</li>
+  <li><strong>Graduation social post fires at the same time</strong> — a generic "🎓 Just wrapped another training week …" post goes out <strong>immediately</strong> to the Facebook Page and LinkedIn personal profile (with a random venue photo attached when available). This is separate from the paced testimonial queue described below.</li>
+</ul>
+
+<h3>Paced testimonial queue (after graduation)</h3>
+
+<p>As each trainee submits their final test, the system also pulls every essay they marked as a testimonial and adds them to a queue instead of posting immediately:</p>
+
+<ul>
+  <li>The trainee's <strong>longest</strong> essay goes to the Facebook side of the queue; the <strong>second-longest</strong> goes to the LinkedIn side. So the same trainee shows up on both networks but with different quotes.</li>
+  <li>If a trainee only has one testimonial-eligible essay, Facebook gets it and LinkedIn is skipped (to avoid posting the same quote twice).</li>
+  <li>A daily 9 AM Eastern cron picks the oldest pending item per platform and publishes it — one Facebook post + one LinkedIn post per day.</li>
+  <li>A 12-trainee class with 2 testimonials each turns into roughly 12 days of paced content on each network instead of 24 simultaneous posts.</li>
+  <li>Essays go out <strong>verbatim</strong>, exactly as the trainee typed them — no SEO rewording.</li>
+  <li>Generic copy: never mentions the client company name. Location phrasing: venue + city for hotels ("at the Hilton in Orlando"), city only for client HQ ("in St Pete").</li>
+  <li>Live status + "Post next now" override available on <code>/messages</code>.</li>
 </ul>
 
 <!-- ─────────────────────────────────────────────────────────── -->
