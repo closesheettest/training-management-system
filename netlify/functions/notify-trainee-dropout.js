@@ -16,7 +16,11 @@
 // Required env vars: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN,
 // GHL_LOCATION_ID, CRON_SECRET. Optional: RESEND_API_KEY, EMAIL_FROM.
 //
-// Auth: ?secret=<CRON_SECRET> or X-Cron-Secret header.
+// GET auth: ?secret=<CRON_SECRET> or X-Cron-Secret header.
+// POST: { class_id, date? } — fires for one class immediately, no secret
+//   required (admin UI is implicit auth). Used by the trainer's "Send
+//   credentials" button so the no-show fan-out fires the same day they
+//   close out the class.
 // Query params: ?dry_run=1, ?date=YYYY-MM-DD (override today, for testing).
 
 import { createClient } from '@supabase/supabase-js'
@@ -24,12 +28,16 @@ import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
 
 export const handler = async (event) => {
-  const provided =
-    event.headers['x-cron-secret'] ||
-    event.headers['X-Cron-Secret'] ||
-    event.queryStringParameters?.secret
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
-    return json(401, { error: 'Unauthorized' })
+  const isPost = event.httpMethod === 'POST'
+
+  if (!isPost) {
+    const provided =
+      event.headers['x-cron-secret'] ||
+      event.headers['X-Cron-Secret'] ||
+      event.queryStringParameters?.secret
+    if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+      return json(401, { error: 'Unauthorized' })
+    }
   }
 
   const missing = []
@@ -40,22 +48,37 @@ export const handler = async (event) => {
 
   const params = event.queryStringParameters || {}
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
-  const today = params.date || computeFloridaToday()
+
+  let targetClassId = null
+  let postDate = null
+  if (isPost) {
+    try {
+      const body = JSON.parse(event.body || '{}')
+      targetClassId = body.class_id || null
+      postDate = body.date || null
+    } catch {
+      return json(400, { error: 'Invalid JSON body' })
+    }
+    if (!targetClassId) return json(400, { error: 'class_id required for POST' })
+  }
+
+  const today = params.date || postDate || computeFloridaToday()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   // Pull every enrolled trainee with a company email and no dropout stamp.
-  // We'll filter "class active today" and "no attendance today" in code.
-  const { data: trainees, error: trErr } = await supabase
+  let query = supabase
     .from('trainees')
     .select(`
-      id, first_name, last_name, company_email,
+      id, first_name, last_name, company_email, class_id,
       classes(id, region, week_start_date, week_end_date, locations(name)),
       attendance(attendance_date, confirmed)
     `)
     .eq('enrolled', true)
     .not('company_email', 'is', null)
     .is('dropout_notified_at', null)
+  if (targetClassId) query = query.eq('class_id', targetClassId)
+  const { data: trainees, error: trErr } = await query
   if (trErr) return json(500, { error: `Supabase: ${trErr.message}` })
 
   const dropouts = (trainees || []).filter((t) => {

@@ -335,8 +335,9 @@ export default function ClassDetail() {
     if (
       !confirm(
         `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} who attended today?\n\n` +
-          `Each trainee gets a personal link with their company email + password and step-by-step iPhone/Android setup. ` +
-          `Anyone who didn't sign in today OR already received their text is skipped.`,
+          `Each gets a personal link with their company email + password and iPhone/Android setup steps. ` +
+          `Anyone who didn't sign in today OR already received their text is skipped.\n\n` +
+          `Also fires dropout notifications for today's no-shows: IT gets a "delete the Google Workspace account" message and HR/VA get a "remove them from RepCard/JobNimbus/Sales Academy" message.`,
       )
     ) {
       return
@@ -364,15 +365,42 @@ export default function ClassDetail() {
       }
       const successes = (body.results || []).filter((r) => r.success).length
       const failures = (body.results || []).filter((r) => !r.success)
+
+      // Right after credentials fire, kick the dropout flow for the same day
+      // so any no-shows are reported to IT (delete email) + HR/VA (remove
+      // from apps). Best-effort — credentials are the headline action; if
+      // dropout fan-out hits a snag we still want the success banner to
+      // surface what worked.
+      let dropoutNote = ''
+      try {
+        const dRes = await fetch('/.netlify/functions/notify-trainee-dropout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ class_id: cls.id, date: today }),
+        })
+        const dBody = await dRes.json().catch(() => ({}))
+        if (dRes.ok && dBody.candidate_count > 0) {
+          const it = dBody.it_notified || {}
+          const hr = dBody.hr_notified || {}
+          dropoutNote =
+            ` Dropouts flagged: ${dBody.candidate_count} no-show${dBody.candidate_count === 1 ? '' : 's'}` +
+            ` — IT ${it.sms_sent || 0}/${it.recipient_count || 0}, HR/VA ${hr.sms_sent || 0}/${hr.recipient_count || 0}.`
+        } else if (dRes.ok && dBody.candidate_count === 0) {
+          dropoutNote = ' No dropouts to report for today.'
+        }
+      } catch {
+        // best-effort — surface in console but don't block UI
+      }
+
       if (failures.length === 0) {
         setMessage({
           type: 'success',
-          text: `Sent credentials text to ${successes} trainee${successes === 1 ? '' : 's'}.`,
+          text: `Sent credentials text to ${successes} trainee${successes === 1 ? '' : 's'}.${dropoutNote}`,
         })
       } else {
         setMessage({
           type: 'error',
-          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}`,
+          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}.${dropoutNote}`,
         })
       }
       load()
