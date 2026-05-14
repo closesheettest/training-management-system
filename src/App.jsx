@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, NavLink, Link, Outlet } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import HiringManager from './pages/HiringManager.jsx'
@@ -79,26 +80,28 @@ function AdminLayout() {
               </span>
             </div>
           </Link>
-          <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm sm:gap-x-6">
+          <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:gap-x-6">
             <NavItem to="/" end>Home</NavItem>
-            <a
-              href="/system-overview.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pb-3 -mb-3 text-slate-600 hover:text-brand-navy"
-              title="One-page summary of the whole training system — opens in a new tab"
-            >
-              System Overview
-            </a>
             <NavItem to="/calendar">Schedule</NavItem>
             <NavItem to="/attendance">Attendance</NavItem>
             <NavItem to="/provisioning">Provisioning</NavItem>
-            <NavItem to="/manager">Hiring Manager</NavItem>
-            <NavItem to="/locations">Locations</NavItem>
-            <NavItem to="/questions">Questions</NavItem>
-            <NavItem to="/testimonials">Testimonials</NavItem>
-            <NavItem to="/messages">Messages</NavItem>
-            <NavItem to="/notifications">Notifications</NavItem>
+            <NavDropdown
+              label="Setup"
+              items={[
+                { to: '/manager', label: 'Hiring Manager' },
+                { to: '/locations', label: 'Locations' },
+                { to: '/questions', label: 'Questions' },
+                { to: '/testimonials', label: 'Testimonials' },
+              ]}
+            />
+            <NavDropdown
+              label="Settings"
+              items={[
+                { to: '/messages', label: 'Messages' },
+                { to: '/notifications', label: 'Notifications' },
+                { href: '/system-overview.html', external: true, label: 'System Overview' },
+              ]}
+            />
           </nav>
         </div>
       </header>
@@ -144,6 +147,88 @@ function NavItem({ to, end, children }) {
     >
       {children}
     </NavLink>
+  )
+}
+
+// Click-to-open menu for the right-side nav groups. Items are either React
+// Router targets (to: path) or external links (href + external: true). Closes
+// on outside click or when an item is selected.
+function NavDropdown({ label, items }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 pb-3 -mb-3 text-slate-600 hover:text-brand-navy"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {label}
+        <svg
+          className={(open ? 'rotate-180 ' : '') + 'h-3 w-3 transition-transform'}
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="3 5 6 8 9 5" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+        >
+          {items.map((item) => {
+            if (item.external) {
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-brand-navy"
+                  role="menuitem"
+                >
+                  {item.label}{' '}
+                  <span className="text-slate-400" aria-hidden="true">↗</span>
+                </a>
+              )
+            }
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  'block px-4 py-2 text-sm ' +
+                  (isActive
+                    ? 'bg-slate-100 font-semibold text-brand-navy'
+                    : 'text-slate-700 hover:bg-slate-50 hover:text-brand-navy')
+                }
+                role="menuitem"
+              >
+                {item.label}
+              </NavLink>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
