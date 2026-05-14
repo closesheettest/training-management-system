@@ -38,16 +38,22 @@ export default function Attendance() {
     setLoading(false)
   }
 
-  // Summary across all classes for the chosen date
+  // Summary across all classes for the chosen date. Denominator excludes
+  // dropouts (manually unenrolled or stamped by the dropout cron) so the
+  // headcount reflects who's actually expected today.
   const summary = useMemo(() => {
-    let total = 0
+    let expected = 0
+    let dropouts = 0
     let present = 0
     for (const cls of classes) {
-      total += cls.trainees?.length || 0
+      for (const t of cls.trainees || []) {
+        if (t.enrolled === false || t.dropout_notified_at) dropouts++
+        else expected++
+      }
       const attendanceForDay = (cls.attendance || []).filter((a) => a.attendance_date === date && a.confirmed)
       present += attendanceForDay.length
     }
-    return { total, present }
+    return { expected, dropouts, present }
   }, [classes, date])
 
   function shiftDate(days) {
@@ -109,9 +115,10 @@ export default function Attendance() {
             'No classes scheduled this day'
           ) : (
             <>
-              {summary.present}<span className="text-slate-400"> / {summary.total}</span> signed in
+              {summary.present}<span className="text-slate-400"> / {summary.expected}</span> signed in
               <span className="ml-2 text-sm font-normal text-slate-500">
                 across {classes.length} class{classes.length === 1 ? '' : 'es'}
+                {summary.dropouts > 0 && ` · ${summary.dropouts} dropped out`}
               </span>
             </>
           )}
@@ -198,9 +205,12 @@ function ClassAttendanceCard({ cls, date }) {
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-slate-900">
-            {present.length}<span className="text-slate-400">/{allTrainees.length}</span>
+            {present.length}
+            <span className="text-slate-400">/{present.length + notSignedIn.length + unregistered.length}</span>
           </div>
-          <div className="text-xs text-slate-500">signed in</div>
+          <div className="text-xs text-slate-500">
+            signed in{dropouts.length > 0 && ` · ${dropouts.length} dropped out`}
+          </div>
           <Link
             to={`/class/${cls.id}`}
             className="mt-1 inline-block text-xs text-slate-500 underline hover:text-slate-700"
