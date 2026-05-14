@@ -82,6 +82,15 @@ const MESSAGES = {
       `• ${SAMPLE.trainee} — ${SAMPLE.email} (${SAMPLE.region} · ${SAMPLE.location})\n\n` +
       `— Training System`,
   },
+  location_tbd_reminder: {
+    triggers: ['Daily cron at 10 AM Eastern. Fires every day for upcoming classes within 2 weeks that don\'t have a location yet. Stops once a location is picked.'],
+    sms: `[Training] Still no location booked for ${SAMPLE.region} training week of May 25, 2026 (11 days away). Pick one: https://trainingmanagementsys.netlify.app/class/<id>`,
+    emailSubject: `Training location still TBD — week of May 25, 2026`,
+    emailBody:
+      `The following upcoming class doesn't have a training location assigned yet:\n\n` +
+      `• ${SAMPLE.region} — week of May 25, 2026 (11 days away)\n  → https://trainingmanagementsys.netlify.app/class/<id>\n\n` +
+      `The reminder will keep firing every day at 10 AM until a location is selected.\n\n— Training System`,
+  },
   graduation_class_report: {
     triggers: ['Cron ~every 15 min — fires once every enrolled trainee submits their final test'],
     sms: '(this event is email-only — PDF can\'t be sent via SMS)',

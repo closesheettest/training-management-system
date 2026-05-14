@@ -55,6 +55,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires once every enrolled trainee in a class has submitted their final test. Emails a PDF report (roster, attendance, test scores, platform setup) to subscribers. Email-only — PDFs can\'t be sent via SMS.',
   },
+  {
+    key: 'location_tbd_reminder',
+    label: 'Training location still TBD (2 weeks out)',
+    desc:
+      'Daily cron at 10 AM Eastern. Fires for every upcoming class within 2 weeks where no training location has been assigned. Repeats every morning until a location is selected.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',
