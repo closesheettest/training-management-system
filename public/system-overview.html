@@ -358,10 +358,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">Trainer clicks "📤 Send credentials to attendees" on the Class detail page — no-shows for the day are skipped</span></td>
     </tr>
     <tr>
-      <td><strong>Review request</strong><br><em>Google + Yelp links, with one of their own essay answers pre-picked per site</em></td>
+      <td><strong>Review request — 4 reviews</strong><br><em>Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo. Each pre-filled with a different essay answer.</em></td>
       <td>Each trainee</td>
       <td>✉️ Email</td>
-      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. The system picks essays flagged <em>"Use for client business review"</em> on the Questions page (longest → Google, next-longest → Yelp), so all they do is click the link and paste. Client-specific wording is welcome in these essays — those reviews are about the client's business. Falls back to longest-of-any essay if no client-review questions are flagged yet. One-time only (dedup via review_email_sent_at).</span></td>
+      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. One email asks for FOUR reviews. Sections #1 + #2 (U.S. Shingle Google + Yelp) pre-fill with the trainee's longest then second-longest essay flagged <em>"Use for client business review"</em> — these can name the company. Sections #3 + #4 (Neal Google + Yelp) pre-fill with their longest then second-longest essay flagged <em>"Use for Neal's brand testimonials"</em> — these stay generic. Each block shows the original question above the verbatim answer. Trainees click → paste → submit. Falls back to longest-of-any essay if a flag pool is empty. One email per trainee (dedup via review_email_sent_at).</span></td>
     </tr>
     <tr>
       <td><strong>Handoff contacts (vCard)</strong><br><em>Tap-to-save Sales Manager + Helpline (and any region-matched contacts) to the trainee's phone</em></td>

@@ -98,26 +98,43 @@ const MESSAGES = {
     emailBody: '(no email; trainee taps the link and their phone offers to add Sales Manager + Helpline + any region-matched contacts in one confirmation)',
   },
   trainee_review_request: {
-    triggers: ['Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email (not via /notifications). Picks essays flagged "Use for client business review" on the Questions page — longest for Google, second-longest for Yelp. Falls back to longest-of-any if no questions are flagged for client review yet.'],
+    triggers: [
+      'Fires automatically right after a trainee submits their final test. Sent to the trainee\'s personal email.',
+      'Asks for FOUR reviews — Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo (Corporate Trainer).',
+      'Sections 1 & 2 use essays flagged "🏢 Use for client business review"; sections 3 & 4 use essays flagged "⭐ Use for Neal\'s brand testimonials". Each section is pre-filled with the trainee\'s longest (then second-longest) qualifying essay so they only click + paste.',
+    ],
     sms: '(this one is email-only — sent to the trainee\'s personal email after submitting their final test)',
-    emailSubject: `Thanks for completing your training, Sample — 30-second favor?`,
+    emailSubject: `Thanks for completing your training, Sample — 4 quick reviews?`,
     emailBody:
       `Hi Sample,\n\n` +
       `Thanks so much for finishing your final assessment — that's a real accomplishment.\n\n` +
-      `One small ask: would you take 30 seconds to leave a quick review? We've pre-picked one of your own essay answers for each site — just click the link, then paste the answer below.\n\n` +
+      `One ask before you go: would you leave 4 quick reviews so the next class of trainees can find us? Two for U.S. Shingle & Metal (the company you're joining) and two for Neal Scoppettuolo (your corporate trainer). I've pre-picked one of your own essay answers for each — just click the link, then paste the answer.\n\n` +
       `────────────────────────────────────────\n` +
-      `⭐ GOOGLE REVIEW\n` +
+      `⭐ #1 OF 4 — GOOGLE REVIEW FOR U.S. SHINGLE & METAL\n` +
+      `Step 1 — click: https://www.google.com/maps/place/U.S.+Shingle+%26+Metal/...\n` +
+      `Step 2 — copy & paste this answer of yours below.\n` +
+      `(You wrote it in response to: "<longest client-review question>")\n\n` +
+      `"<longest U.S. Shingle essay response>"\n\n` +
+      `────────────────────────────────────────\n` +
+      `⭐ #2 OF 4 — YELP REVIEW FOR U.S. SHINGLE & METAL\n` +
+      `Step 1 — click: https://www.yelp.com/writeareview/biz/us-shingle-clearwater\n` +
+      `Step 2 — copy & paste this answer of yours below.\n` +
+      `(You wrote it in response to: "<2nd client-review question>")\n\n` +
+      `"<2nd-longest U.S. Shingle essay response>"\n\n` +
+      `────────────────────────────────────────\n` +
+      `⭐ #3 OF 4 — GOOGLE REVIEW FOR NEAL SCOPPETTUOLO — CORPORATE TRAINER\n` +
       `Step 1 — click: https://g.page/r/.../review\n` +
       `Step 2 — copy & paste this answer of yours below.\n` +
-      `(You wrote it in response to: "<question prompt goes here>")\n\n` +
-      `"<longest essay response goes here>"\n\n` +
+      `(You wrote it in response to: "<longest testimonial question>")\n\n` +
+      `"<longest Neal-brand essay response>"\n\n` +
       `────────────────────────────────────────\n` +
-      `⭐ YELP REVIEW\n` +
+      `⭐ #4 OF 4 — YELP REVIEW FOR NEAL SCOPPETTUOLO — CORPORATE TRAINER\n` +
       `Step 1 — click: https://www.yelp.com/writeareview/biz/...\n` +
-      `Step 2 — copy & paste this different answer of yours below.\n` +
-      `(You wrote it in response to: "<different question prompt>")\n\n` +
-      `"<second-longest essay response goes here>"\n\n` +
+      `Step 2 — copy & paste this answer of yours below.\n` +
+      `(You wrote it in response to: "<2nd testimonial question>")\n\n` +
+      `"<2nd-longest Neal-brand essay response>"\n\n` +
       `────────────────────────────────────────\n` +
+      `That's everything. Each review takes about a minute and really does help.\n\n` +
       `Congratulations on graduating training!\n\n` +
       `— U.S. Shingle & Metal Training Team`,
   },
