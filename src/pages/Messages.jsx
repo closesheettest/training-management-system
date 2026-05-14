@@ -315,6 +315,19 @@ Real impact. That's why I do this. 🙌
 
 #SalesTraining #SalesCoaching`}</pre>
         </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold">🔷 LinkedIn — same copy, fires alongside Facebook</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Posts to your personal LinkedIn profile (not the Company Page — that requires
+            LinkedIn's Community Management API approval, ~1–2 weeks). Same generic copy as
+            Facebook. Token expires every 60 days — when it does, you'll need to re-run the OAuth
+            dance from the Auth tab of the LinkedIn dev app (about 5 minutes).
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Posts include the same venue photo as Facebook when available — LinkedIn uploads it
+            to their own CDN automatically.
+          </p>
+        </article>
       </section>
     </div>
   )
@@ -324,7 +337,7 @@ function SocialTestCard() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   async function fire() {
-    if (!confirm('Post a test message to your Facebook Page right now? You can delete it from FB after.')) return
+    if (!confirm('Post a test message to your Facebook Page AND your LinkedIn profile right now? Safe to delete from both after.')) return
     setBusy(true)
     setResult(null)
     try {
@@ -334,23 +347,31 @@ function SocialTestCard() {
         body: JSON.stringify({}),
       })
       const body = await res.json().catch(() => ({}))
-      if (body.ok) {
-        setResult({ kind: 'success', text: `Posted to Facebook. post_id: ${body.post_id}` })
-      } else {
-        setResult({ kind: 'error', text: body.error || 'Unknown error' })
-      }
+      const fb = body.facebook || {}
+      const li = body.linkedin || {}
+      const fbLine = fb.ok ? `✓ Facebook (${fb.post_id})` : `✗ Facebook: ${fb.error || 'unknown'}`
+      const liLine = li.ok ? `✓ LinkedIn (${li.post_id || 'posted'})` : `✗ LinkedIn: ${li.error || 'unknown'}`
+      const allOk = fb.ok && li.ok
+      setResult({
+        kind: allOk ? 'success' : fb.ok || li.ok ? 'partial' : 'error',
+        lines: [fbLine, liLine],
+      })
     } catch (err) {
-      setResult({ kind: 'error', text: err.message || 'Network error' })
+      setResult({ kind: 'error', lines: [err.message || 'Network error'] })
     } finally {
       setBusy(false)
     }
   }
+  const toneCls =
+    result?.kind === 'success' ? 'text-emerald-800' :
+    result?.kind === 'partial' ? 'text-amber-800' :
+    result?.kind === 'error' ? 'text-red-700' : ''
   return (
     <div className="rounded-lg border-2 border-dashed border-sky-300 bg-sky-50 p-5">
-      <h3 className="font-semibold text-sky-900">🧪 Send a test post to Facebook</h3>
+      <h3 className="font-semibold text-sky-900">🧪 Send a test post to Facebook + LinkedIn</h3>
       <p className="mt-1 text-sm text-sky-900">
-        Posts a one-off "if you can see this, it works" message to your configured Facebook Page.
-        Safe to delete from Facebook afterward.
+        Posts a one-off "if you can see this, it works" message to both your Facebook Page and your
+        LinkedIn personal profile. Safe to delete from both afterward.
       </p>
       <button
         type="button"
@@ -361,14 +382,9 @@ function SocialTestCard() {
         {busy ? 'Posting…' : 'Send test post'}
       </button>
       {result && (
-        <p
-          className={
-            'mt-3 text-sm ' +
-            (result.kind === 'success' ? 'text-emerald-800' : 'text-red-700')
-          }
-        >
-          {result.text}
-        </p>
+        <ul className={'mt-3 space-y-0.5 text-sm ' + toneCls}>
+          {result.lines.map((l, i) => <li key={i}>{l}</li>)}
+        </ul>
       )}
     </div>
   )

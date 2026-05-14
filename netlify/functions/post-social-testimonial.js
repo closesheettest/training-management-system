@@ -10,6 +10,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { postToFacebookPage } from './_facebook.js'
+import { postToLinkedIn } from './_linkedin.js'
 import { buildTestimonialPost } from './_social_copy.js'
 
 export const handler = async (event) => {
@@ -76,8 +77,11 @@ export const handler = async (event) => {
   const photos = trainee.classes?.locations?.photo_urls || []
   const photoUrl = photos.length ? photos[Math.floor(Math.random() * photos.length)] : null
 
-  const result = await postToFacebookPage({ message, photoUrl })
-  return json(200, { ...result, preview_message: message, used_photo: !!photoUrl })
+  const [facebook, linkedin] = await Promise.all([
+    postToFacebookPage({ message, photoUrl }),
+    postToLinkedIn({ message, photoUrl }),
+  ])
+  return json(200, { facebook, linkedin, preview_message: message, used_photo: !!photoUrl })
 }
 
 function json(status, body) {

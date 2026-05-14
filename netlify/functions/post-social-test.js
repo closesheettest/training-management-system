@@ -5,6 +5,7 @@
 // Response: { ok, post_id?, error? }
 
 import { postToFacebookPage } from './_facebook.js'
+import { postToLinkedIn } from './_linkedin.js'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
@@ -19,10 +20,17 @@ export const handler = async (event) => {
   const message =
     body.message ||
     `Test post from the training auto-post system at ${new Date().toLocaleString('en-US')}. ` +
-      `If you can see this on the Page, the Facebook integration is working. Safe to delete.`
+      `If you can see this on both Facebook and LinkedIn, the integration is working. Safe to delete.`
+  const photoUrl = body.photo_url || null
 
-  const result = await postToFacebookPage({ message, photoUrl: body.photo_url || null })
-  return json(200, result)
+  // Fire both in parallel. Each is independent — one failing doesn't fail the
+  // other. Caller gets a per-platform result.
+  const [facebook, linkedin] = await Promise.all([
+    postToFacebookPage({ message, photoUrl }),
+    postToLinkedIn({ message, photoUrl }),
+  ])
+
+  return json(200, { facebook, linkedin })
 }
 
 function json(status, body) {
