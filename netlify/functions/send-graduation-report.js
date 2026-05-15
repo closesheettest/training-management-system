@@ -148,10 +148,15 @@ export const handler = async (event) => {
     const subject = `Graduating training week of ${dateLabel}`
     const filename = filenameFor(cls)
     const locationName = cls.locations?.name || `${cls.region} — TBD`
-    const enrolled = (cls.trainees || []).filter((t) => t.enrolled !== false)
+    // "Graduate" = enrolled AND submitted the final test. Matches the
+    // same filter buildReportHtml uses, so the email body number always
+    // agrees with the row count in the attached PDF.
+    const graduates = (cls.trainees || [])
+      .filter((t) => t.enrolled !== false)
+      .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     const body =
       `Attached is the graduating class report for ${cls.region} · ${locationName} (week of ${dateLabel}).\n\n` +
-      `${enrolled.length} graduate${enrolled.length === 1 ? '' : 's'}.\n\n` +
+      `${graduates.length} graduate${graduates.length === 1 ? '' : 's'}.\n\n` +
       `— Training System`
 
     if (dryRun) {
@@ -159,7 +164,7 @@ export const handler = async (event) => {
         class_id: cls.id,
         region: cls.region,
         location: locationName,
-        graduates: enrolled.length,
+        graduates: graduates.length,
         dry_run: true,
         preview_subject: subject,
         preview_filename: filename,
@@ -217,7 +222,7 @@ export const handler = async (event) => {
       class_id: cls.id,
       region: cls.region,
       location: locationName,
-      graduates: enrolled.length,
+      graduates: graduates.length,
       sent_count: sentCount,
       recipient_count: emailRecipients.length,
       facebook: socialResult,

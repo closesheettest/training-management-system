@@ -50,15 +50,21 @@ function esc(s) {
 }
 
 export function buildReportHtml(cls) {
-  const enrolled = (cls.trainees || [])
+  // "Graduate" = enrolled AND actually submitted the final test.
+  // Trainees who were enrolled but no-showed (no test submission) get
+  // dropped from the roster — they didn't complete training.
+  // Requires the caller's Supabase query to include
+  // `test_attempts(submitted_at)` nested under trainees.
+  const graduates = (cls.trainees || [])
     .filter((t) => t.enrolled !== false)
+    .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
   const locationName = esc(cls.locations?.name || `${cls.region || 'Region'} — TBD`)
   const region = esc(cls.region || '')
   const weekLabel = formatDateRange(cls.week_start_date, cls.week_end_date)
-  const totalGraduates = enrolled.length
+  const totalGraduates = graduates.length
 
-  const rows = enrolled
+  const rows = graduates
     .map((t, i) => {
       const phone = formatPhone(t.phone)
       const address = formatAddress(t.street_address, t.city, t.state, t.zip)

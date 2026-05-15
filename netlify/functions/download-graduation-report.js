@@ -50,7 +50,8 @@ export const handler = async (event) => {
       locations(name, street_address, city, state, zip),
       trainees(
         id, first_name, last_name, enrolled,
-        phone, street_address, city, state, zip
+        phone, street_address, city, state, zip,
+        test_attempts(submitted_at)
       )
     `)
     .eq('id', classId)
