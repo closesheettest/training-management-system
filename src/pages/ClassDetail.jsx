@@ -261,6 +261,10 @@ export default function ClassDetail() {
       setMessage({ type: 'error', text: 'First name, last name, and phone are required.' })
       return
     }
+    if (newTraineeDraft.needs_hotel !== true && newTraineeDraft.needs_hotel !== false) {
+      setMessage({ type: 'error', text: 'Please pick Yes or No on "Needs hotel".' })
+      return
+    }
     setMessage(null)
     const { error: err } = await supabase.from('trainees').insert({
       class_id: id,
@@ -268,7 +272,7 @@ export default function ClassDetail() {
       last_name: newTraineeDraft.last_name.trim(),
       phone: newTraineeDraft.phone.trim(),
       email: newTraineeDraft.email.trim() || null,
-      needs_hotel: !!newTraineeDraft.needs_hotel,
+      needs_hotel: newTraineeDraft.needs_hotel,
     })
     if (err) {
       setMessage({ type: 'error', text: err.message })
@@ -1097,15 +1101,15 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
           <input type="email" value={value.email} onChange={set('email')} className={inputCls} autoComplete="off" />
         </label>
       </div>
-      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input
-          type="checkbox"
-          checked={!!value.needs_hotel}
-          onChange={(e) => onChange({ ...value, needs_hotel: e.target.checked })}
-          className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-slate-700">
+          🏨 Needs hotel accommodation?
+        </span>
+        <NeedsHotelToggle
+          value={value.needs_hotel}
+          onChange={(v) => onChange({ ...value, needs_hotel: v })}
         />
-        🏨 Needs hotel accommodation (out-of-town)
-      </label>
+      </div>
       <div className="border-t border-slate-200 pt-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Registration details
@@ -1492,7 +1496,9 @@ function blankTrainee() {
     last_name: '',
     phone: '',
     email: '',
-    needs_hotel: false,
+    // Tri-state: null until the hiring manager picks Yes or No. Save
+    // handler refuses to insert with null so HR can't forget the answer.
+    needs_hotel: null,
     years_in_sales: '',
     street_address: '',
     city: '',
@@ -1503,3 +1509,46 @@ function blankTrainee() {
 
 const inputCls =
   'mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500'
+
+// Tri-state Yes/No toggle for needs_hotel. `value` can be null (undecided
+// — both buttons inactive, amber outline nudges the user to choose),
+// true (Yes lit green), or false (No lit slate).
+function NeedsHotelToggle({ value, onChange }) {
+  const undecided = value !== true && value !== false
+  const base = 'px-3 py-1 text-xs font-semibold transition'
+  return (
+    <div
+      className={
+        'inline-flex overflow-hidden rounded-md border ' +
+        (undecided ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-300')
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={
+          base +
+          ' border-r ' +
+          (value === true
+            ? 'bg-emerald-600 text-white border-emerald-600'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50')
+        }
+      >
+        Yes
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={
+          base +
+          ' ' +
+          (value === false
+            ? 'bg-slate-700 text-white'
+            : 'bg-white text-slate-700 hover:bg-slate-50')
+        }
+      >
+        No
+      </button>
+    </div>
+  )
+}

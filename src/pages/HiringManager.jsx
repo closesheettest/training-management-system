@@ -4,7 +4,10 @@ import { supabase } from '../lib/supabase.js'
 import { formatAddress } from '../lib/locations.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
-const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '', needs_hotel: false })
+// needs_hotel starts as null (not chosen). The submit handler refuses to
+// save until every trainee has an explicit Yes or No — forces the hiring
+// manager to make the call up front instead of forgetting.
+const blankTrainee = () => ({ first_name: '', last_name: '', phone: '', email: '', needs_hotel: null })
 
 export default function HiringManager() {
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -72,6 +75,18 @@ export default function HiringManager() {
     }
     if (validTrainees.length === 0) {
       setMessage({ type: 'error', text: 'Add at least one trainee with first name, last name, and phone.' })
+      return
+    }
+    // Force an explicit Yes/No on hotel — left null = the hiring manager
+    // hasn't decided yet and they shouldn't be allowed to forget.
+    const undecidedHotel = validTrainees.some(
+      (t) => t.needs_hotel !== true && t.needs_hotel !== false,
+    )
+    if (undecidedHotel) {
+      setMessage({
+        type: 'error',
+        text: 'Please pick Yes or No on "Needs hotel" for every trainee.',
+      })
       return
     }
 
@@ -222,16 +237,16 @@ export default function HiringManager() {
                       className={inputCls}
                     />
                   </Field>
-                  <div className="sm:col-span-12 flex items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={!!t.needs_hotel}
-                        onChange={(e) => updateTrainee(i, 'needs_hotel', e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-brand-navy focus:ring-brand-navy"
+                  <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700">
+                        🏨 Needs hotel accommodation?
+                      </span>
+                      <NeedsHotelToggle
+                        value={t.needs_hotel}
+                        onChange={(v) => updateTrainee(i, 'needs_hotel', v)}
                       />
-                      🏨 Needs hotel accommodation (out-of-town)
-                    </label>
+                    </div>
                     {trainees.length > 1 && (
                       <button
                         type="button"
@@ -490,5 +505,48 @@ function Field({ label, children, className = '' }) {
       {label}
       {children}
     </label>
+  )
+}
+
+// Tri-state Yes/No toggle for needs_hotel. `value` can be null (undecided
+// — the buttons are both inactive and outlined in amber to nudge the user),
+// true (Yes lit up green), or false (No lit up slate).
+function NeedsHotelToggle({ value, onChange }) {
+  const undecided = value !== true && value !== false
+  const base = 'rounded-md border px-3 py-1 text-xs font-semibold transition'
+  return (
+    <div
+      className={
+        'inline-flex overflow-hidden rounded-md border ' +
+        (undecided ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-300')
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={
+          base +
+          ' rounded-r-none border-r ' +
+          (value === true
+            ? 'bg-emerald-600 text-white border-emerald-600'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50')
+        }
+      >
+        Yes
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={
+          base +
+          ' rounded-l-none border-l-0 ' +
+          (value === false
+            ? 'bg-slate-700 text-white border-slate-700'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50')
+        }
+      >
+        No
+      </button>
+    </div>
   )
 }

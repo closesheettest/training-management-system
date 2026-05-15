@@ -69,10 +69,15 @@ export default function Hotels() {
     }
     setLoadingTrainees(true)
     const [tRes, sRes] = await Promise.all([
+      // Only pull trainees flagged needs_hotel = true. The hiring manager
+      // makes that call when enrolling; trainees not flagged never show
+      // up here, so HR can scan and act on just the people who actually
+      // need a room.
       supabase
         .from('trainees')
-        .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at')
+        .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel')
         .eq('class_id', selectedClassId)
+        .eq('needs_hotel', true)
         .order('last_name', { ascending: true }),
       supabase
         .from('trainee_hotel_stays')
@@ -326,7 +331,14 @@ export default function Hotels() {
           {loadingTrainees ? (
             <p className="text-sm text-slate-500">Loading trainees…</p>
           ) : trainees.length === 0 ? (
-            <p className="text-sm text-slate-500">No enrolled trainees in this class yet.</p>
+            <div className="rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">
+              <p>No trainees in this class are flagged as needing a hotel.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Trainees only appear here when the hiring manager answered "Yes" to "Needs hotel"
+                during enrollment. To add a trainee to this list, open the class on the Schedule
+                page and edit the trainee — toggle "Needs hotel" to Yes.
+              </p>
+            </div>
           ) : (
             <ul className="space-y-3">
               {trainees.map((t) => {
