@@ -518,7 +518,7 @@ function HotelForm({ draft, setDraft, meetingVenue, onCopyVenue, onUseName, onCa
           >
             <option value="">—</option>
             {US_STATES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s.code} value={s.code}>{s.code}</option>
             ))}
           </select>
         </Field>
