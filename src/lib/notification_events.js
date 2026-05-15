@@ -80,6 +80,12 @@ export const NOTIFICATION_EVENTS = [
       'Trainee-facing automated email — fires daily at 10 AM Eastern via cron. Sent once per trainee, only after they\'ve registered AND their class location is no longer TBD. Includes the location address, the schedule from the location/class, and the hiring manager\'s signature. Body and subject are editable at /message-templates. Not configurable in /notifications since it goes to the trainee, not staff.',
   },
   {
+    key: 'trainee_hotel_info',
+    label: 'Trainee hotel room info text',
+    desc:
+      'Trainee-facing text — fires when HR captures a trainee\'s hotel stay on the /hotels page and clicks "Send" (or "Send all unsent" for a whole class at once). Pre-fills with the hotel name, address, phone, check-in/out dates, confirmation number, and guest name. Body editable at /message-templates. Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
+  {
     key: 'trainee_declined',
     label: 'Trainee declined / withdrew from training',
     desc:

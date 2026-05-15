@@ -24,6 +24,25 @@ const SAMPLE = {
 }
 
 const MESSAGES = {
+  trainee_hotel_info: {
+    triggers: [
+      'Fires when HR clicks "Send" (or "Send all unsent") on the Hotels page after capturing a trainee\'s room details.',
+      'One text per stay. Re-sends are allowed and update info_sent_at. Editable at /message-templates.',
+    ],
+    sms: `Hi Sample, here's your hotel info for training week of May 11, 2026:
+
+Hilton Garden Inn Orlando Airport
+5877 T G Lee Blvd, Orlando, FL 32822
+Phone: (407) 240-3725
+Check-in: Sun, May 10, 2026
+Check-out: Fri, May 15, 2026
+Booked under: Sample Trainee
+Confirmation #: ABC123456
+
+Reply to this text if anything looks wrong. — U.S. Shingle Training`,
+    emailSubject: '(this one is text-only)',
+    emailBody: '(text-only — trainees get the hotel details via SMS)',
+  },
   trainee_itinerary: {
     triggers: [
       'Auto-fires daily at 10 AM Eastern via cron — sends the training itinerary email to every trainee who is registered AND has had their class location assigned (i.e. no longer TBD).',

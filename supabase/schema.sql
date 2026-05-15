@@ -226,6 +226,42 @@ alter table trainees add column if not exists declined_reason text;
 alter table trainees add column if not exists registration_followup_1_sent_at timestamptz;
 alter table trainees add column if not exists registration_followup_2_sent_at timestamptz;
 alter table trainees add column if not exists itinerary_email_sent_at timestamptz;
+
+-- ============================================================
+-- TRAINEE HOTEL STAYS — per-trainee room info for Day-1 text
+-- ============================================================
+create table if not exists trainee_hotel_stays (
+  id uuid primary key default gen_random_uuid(),
+  trainee_id uuid not null references trainees(id) on delete cascade,
+  class_id uuid not null references classes(id) on delete cascade,
+  hotel_name text not null,
+  hotel_street_address text,
+  hotel_city text,
+  hotel_state text,
+  hotel_zip text,
+  hotel_phone text,
+  check_in_date date,
+  check_out_date date,
+  confirmation_number text,
+  guest_name text,
+  room_number text,
+  notes text,
+  info_sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (trainee_id, class_id)
+);
+alter table trainee_hotel_stays enable row level security;
+drop policy if exists "trainee_hotel_stays_public_select" on trainee_hotel_stays;
+drop policy if exists "trainee_hotel_stays_public_insert" on trainee_hotel_stays;
+drop policy if exists "trainee_hotel_stays_public_update" on trainee_hotel_stays;
+drop policy if exists "trainee_hotel_stays_public_delete" on trainee_hotel_stays;
+create policy "trainee_hotel_stays_public_select" on trainee_hotel_stays for select using (true);
+create policy "trainee_hotel_stays_public_insert" on trainee_hotel_stays for insert with check (true);
+create policy "trainee_hotel_stays_public_update" on trainee_hotel_stays for update using (true);
+create policy "trainee_hotel_stays_public_delete" on trainee_hotel_stays for delete using (true);
+create index if not exists trainee_hotel_stays_class_idx
+  on trainee_hotel_stays(class_id);
 create index if not exists trainees_followup_candidates_idx
   on trainees(registered, enrolled, declined_at, last_sms_sent_at);
 

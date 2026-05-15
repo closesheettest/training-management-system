@@ -22,6 +22,7 @@ import Notifications from './pages/Notifications.jsx'
 import Messages from './pages/Messages.jsx'
 import HandoffContacts from './pages/HandoffContacts.jsx'
 import MessageTemplates from './pages/MessageTemplates.jsx'
+import Hotels from './pages/Hotels.jsx'
 
 export default function App() {
   return (
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/locations" element={<Locations />} />
         <Route path="/handoff-contacts" element={<HandoffContacts />} />
         <Route path="/message-templates" element={<MessageTemplates />} />
+        <Route path="/hotels" element={<Hotels />} />
       </Route>
     </Routes>
   )
@@ -94,6 +96,7 @@ function AdminLayout() {
               items={[
                 { to: '/manager', label: 'Hiring Manager' },
                 { to: '/locations', label: 'Locations' },
+                { to: '/hotels', label: 'Hotels' },
                 { to: '/questions', label: 'Questions' },
                 { to: '/testimonials', label: 'Testimonials' },
               ]}
