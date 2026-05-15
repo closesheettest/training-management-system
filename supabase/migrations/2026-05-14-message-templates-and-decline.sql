@@ -36,22 +36,22 @@ insert into message_templates (key, label, description, body, placeholders) valu
   (
     'registration_initial',
     'Registration — initial text',
-    'First text sent when HR clicks "Send" on the Class detail page. Goes to every trainee added to the class.',
-    'Hi {firstName}, you''re scheduled for training the week of {weekDate} at {locationName}. Please complete your registration here: {link}',
+    $desc$First text sent when HR clicks "Send" on the Class detail page. Goes to every trainee added to the class.$desc$,
+    $body$Hi {firstName}, you're scheduled for training the week of {weekDate} at {locationName}. Please complete your registration here: {link}$body$,
     array['firstName', 'locationName', 'weekDate', 'link']
   ),
   (
     'registration_followup_1',
     'Registration — follow-up #1',
-    'Auto-fires 24 hours after the initial text if the trainee hasn''t registered yet. Daily 10 AM Eastern cron.',
-    'Hi {firstName}, quick reminder — please finish your training registration so we can confirm your spot for the week of {weekDate}: {link}',
+    $desc$Auto-fires 24 hours after the initial text if the trainee hasn't registered yet. Daily 10 AM Eastern cron.$desc$,
+    $body$Hi {firstName}, quick reminder — please finish your training registration so we can confirm your spot for the week of {weekDate}: {link}$body$,
     array['firstName', 'locationName', 'weekDate', 'link']
   ),
   (
     'registration_followup_2',
     'Registration — follow-up #2 (final)',
-    'Auto-fires 48 hours after follow-up #1 if still not registered AND class is within 7 days. This is the last text — no more after this.',
-    'Hi {firstName}, final reminder — we need to confirm your spot for training the week of {weekDate}. Please register here today: {link}. If you can''t attend, please text back so we can give your spot to someone else.',
+    $desc$Auto-fires 48 hours after follow-up #1 if still not registered AND class is within 7 days. This is the last text — no more after this.$desc$,
+    $body$Hi {firstName}, final reminder — we need to confirm your spot for training the week of {weekDate}. Please register here today: {link}. If you can't attend, please text back so we can give your spot to someone else.$body$,
     array['firstName', 'locationName', 'weekDate', 'link']
   )
 on conflict (key) do nothing;

@@ -59,16 +59,20 @@ create index if not exists trainee_hotel_stays_class_idx
 -- function assembles dynamically — that way missing fields (e.g. trainee
 -- didn't get a confirmation number yet) just don't show up in the text,
 -- instead of leaving blank lines.
+--
+-- Dollar-quoted strings ($label$...$label$) used here so apostrophes and
+-- newlines in the body don't need escaping — paste-safe in the Supabase
+-- SQL editor.
 insert into message_templates (key, label, description, body, placeholders) values
   (
     'hotel_room_info',
-    'Hotel room info — sent to each trainee with a room booked',
-    'Fired from the Hotels page when HR clicks "Send info". One text per trainee with a hotel stay. The {hotelDetails} placeholder is built dynamically by the function — only filled-in fields appear in the text, so a missing confirmation number doesn''t leave a blank line.',
-    'Hi {firstName}, here''s your hotel info for training week of {weekDate}:
+    $label$Hotel room info — sent to each trainee with a room booked$label$,
+    $desc$Fired from the Hotels page when HR clicks "Send info". One text per trainee with a hotel stay. The {hotelDetails} placeholder is built dynamically by the function — only filled-in fields appear in the text, so a missing confirmation number doesn't leave a blank line.$desc$,
+    $body$Hi {firstName}, here's your hotel info for training week of {weekDate}:
 
 {hotelDetails}
 
-Reply to this text if anything looks wrong. — U.S. Shingle Training',
+Reply to this text if anything looks wrong. — U.S. Shingle Training$body$,
     array['firstName', 'weekDate', 'hotelDetails']
   )
 on conflict (key) do nothing;
