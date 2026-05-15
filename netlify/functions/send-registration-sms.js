@@ -12,6 +12,7 @@
 // Response:     { results: [{ trainee_id, success, error? }] }
 
 import { createClient } from '@supabase/supabase-js'
+import { renderTemplate } from './_templates.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -72,7 +73,7 @@ export const handler = async (event) => {
       const link = `${siteUrl}/register/${t.registration_token}`
       const locationName = t.classes?.locations?.name || 'your training location'
       const weekDate = formatDate(t.classes?.week_start_date)
-      const message = buildMessage({
+      const message = await renderTemplate(supabase, 'registration_initial', {
         firstName: t.first_name,
         locationName,
         weekDate,
@@ -148,13 +149,6 @@ function ghlHeaders() {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   }
-}
-
-function buildMessage({ firstName, locationName, weekDate, link }) {
-  const first = (firstName || '').trim()
-  const greeting = first ? `Hi ${first},` : 'Hi,'
-  const dateClause = weekDate ? ` the week of ${weekDate}` : ''
-  return `${greeting} you're scheduled for training${dateClause} at ${locationName}. Please complete your registration here: ${link}`
 }
 
 // Normalize US phone numbers to E.164 (+1XXXXXXXXXX)

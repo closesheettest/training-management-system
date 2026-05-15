@@ -198,6 +198,35 @@ create policy "trainee_handoff_contacts_public_insert" on trainee_handoff_contac
 create policy "trainee_handoff_contacts_public_update" on trainee_handoff_contacts for update using (true);
 create policy "trainee_handoff_contacts_public_delete" on trainee_handoff_contacts for delete using (true);
 
+-- ============================================================
+-- MESSAGE TEMPLATES — editable SMS body templates
+-- ============================================================
+create table if not exists message_templates (
+  id uuid primary key default gen_random_uuid(),
+  key text unique not null,
+  label text not null,
+  description text,
+  body text not null,
+  placeholders text[],
+  updated_at timestamptz not null default now()
+);
+alter table message_templates enable row level security;
+drop policy if exists "message_templates_public_select" on message_templates;
+drop policy if exists "message_templates_public_insert" on message_templates;
+drop policy if exists "message_templates_public_update" on message_templates;
+drop policy if exists "message_templates_public_delete" on message_templates;
+create policy "message_templates_public_select" on message_templates for select using (true);
+create policy "message_templates_public_insert" on message_templates for insert with check (true);
+create policy "message_templates_public_update" on message_templates for update using (true);
+create policy "message_templates_public_delete" on message_templates for delete using (true);
+
+alter table trainees add column if not exists declined_at timestamptz;
+alter table trainees add column if not exists declined_reason text;
+alter table trainees add column if not exists registration_followup_1_sent_at timestamptz;
+alter table trainees add column if not exists registration_followup_2_sent_at timestamptz;
+create index if not exists trainees_followup_candidates_idx
+  on trainees(registered, enrolled, declined_at, last_sms_sent_at);
+
 -- Migration: enrollment status. Trainer can unenroll trainees on day 2
 -- if they don't pass the early assessment. Unenrolled trainees don't appear
 -- on the provisioning roster and don't get further SMS.

@@ -5,7 +5,7 @@ import { US_STATES, formatAddress, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '.
 
 export default function Register() {
   const { token } = useParams()
-  const [status, setStatus] = useState('loading') // loading | not_found | form | submitting | done
+  const [status, setStatus] = useState('loading') // loading | not_found | form | submitting | done | declined | declining
   const [trainee, setTrainee] = useState(null)
   const [classInfo, setClassInfo] = useState(null)
   const [location, setLocation] = useState(null)
@@ -20,6 +20,8 @@ export default function Register() {
     zip: '',
   })
   const [errorMsg, setErrorMsg] = useState(null)
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
 
   useEffect(() => {
     if (!token) {
@@ -82,7 +84,7 @@ export default function Register() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, email, phone, years_in_sales, street_address, city, state, zip, registered, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
+        'id, first_name, last_name, email, phone, years_in_sales, street_address, city, state, zip, registered, declined_at, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
       )
       .eq('registration_token', token)
       .maybeSingle()
@@ -105,7 +107,45 @@ export default function Register() {
       state: data.state || '',
       zip: data.zip || '',
     })
-    setStatus(data.registered ? 'done' : 'form')
+    if (data.declined_at) {
+      setStatus('declined')
+    } else if (data.registered) {
+      setStatus('done')
+    } else {
+      setStatus('form')
+    }
+  }
+
+  async function submitDecline() {
+    setStatus('declining')
+    setErrorMsg(null)
+    // Demo mode short-circuit
+    if (token === 'demo') {
+      setShowDeclineModal(false)
+      setStatus('declined')
+      return
+    }
+    try {
+      const res = await fetch('/.netlify/functions/decline-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration_token: token,
+          reason: declineReason.trim() || null,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.ok) {
+        setErrorMsg(json.error || 'Something went wrong. Please try again or call us.')
+        setStatus('form')
+        return
+      }
+      setShowDeclineModal(false)
+      setStatus('declined')
+    } catch (err) {
+      setErrorMsg(err.message || 'Network error. Please try again or call us.')
+      setStatus('form')
+    }
   }
 
   function updateField(field, value) {
@@ -233,6 +273,14 @@ export default function Register() {
             <h2 className="text-lg font-semibold text-green-900">Registration confirmed</h2>
             <p className="mt-1 text-sm text-green-800">
               You'll receive a reminder text the morning of each training day.
+            </p>
+          </div>
+        ) : status === 'declined' ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+            <h2 className="text-lg font-semibold text-slate-900">Thanks for letting us know.</h2>
+            <p className="mt-2 text-sm text-slate-700">
+              We've marked you as not attending and removed you from automated reminders. If you
+              change your mind, please call us at <strong>(727) 761-5200</strong>.
             </p>
           </div>
         ) : (
@@ -370,7 +418,69 @@ export default function Register() {
             </div>
           </form>
         )}
+
+        {/* Decline / can't-attend link. Intentionally placed below the form
+            and styled small — visible to people who need it without
+            tempting people who would otherwise register. */}
+        {status === 'form' && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setDeclineReason('')
+                setShowDeclineModal(true)
+              }}
+              className="text-sm text-slate-500 underline hover:text-slate-700"
+            >
+              Can't make it? Let us know →
+            </button>
+          </div>
+        )}
       </div>
+
+      {showDeclineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Let us know if you can't attend
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This will tell the team you're not taking this training. You won't get any more
+              texts about it. If you change your mind, please call us at{' '}
+              <strong>(727) 761-5200</strong>.
+            </p>
+            <label className="mt-4 block text-sm font-medium text-slate-700">
+              Briefly tell us why? <span className="text-slate-400">(optional)</span>
+              <textarea
+                rows={3}
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="e.g. got another job, schedule conflict, changed my mind…"
+                maxLength={1000}
+              />
+            </label>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeclineModal(false)}
+                disabled={status === 'declining'}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitDecline}
+                disabled={status === 'declining'}
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+              >
+                {status === 'declining' ? 'Saving…' : "Yes, I'm not attending"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Centered>
   )
 }

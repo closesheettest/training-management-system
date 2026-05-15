@@ -73,6 +73,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Trainee-facing automated text — fires once, right after the trainee submits their final test. Sent to the trainee\'s personal phone with a tap-to-save vCard link containing their Sales Manager, Helpline, and any region-matched contacts (managed at /handoff-contacts). Not configurable in /notifications since it goes to the trainee, not staff.',
   },
+  {
+    key: 'trainee_declined',
+    label: 'Trainee declined / withdrew from training',
+    desc:
+      'Fires when a trainee taps "Can\'t make it" on their registration page and confirms. Includes their name, class week, and any reason they typed in. Subscribers should be Hiring Manager + Admin so they can fill the spot or follow up.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

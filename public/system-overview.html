@@ -195,7 +195,7 @@ emails, and follow-ups with one place that runs an entire training week on
 autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <ul>
-  <li><strong>Trainee on-boarding</strong> — a registration text goes out automatically, the trainee fills in their info, address, sales experience.</li>
+  <li><strong>Trainee on-boarding</strong> — the trainee gets a registration text with their personal link; if they don't respond in 24 hours the system auto-sends a friendly follow-up, and a final reminder 48 hours after that. They can also tap a "Can't make it" link on the registration page to cleanly opt out, which alerts HR and stops further texts. All three registration texts are editable from the Message Templates page.</li>
   <li><strong>Daily kiosk check-in</strong> — a tablet at the training site captures attendance for every day of the class.</li>
   <li><strong>Company-email provisioning</strong> — on day 2, IT gets a text telling them to create the Google Workspace accounts. They download a pre-filled CSV with one click and bulk-upload it.</li>
   <li><strong>Platform setup</strong> — the moment IT marks provisioning complete, HR and a Virtual Assistant (VA) are texted/emailed with a checklist for setting up each trainee in RepCard, JobNimbus, and Sales Academy.</li>
@@ -298,10 +298,16 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Trainee enrolled</strong><br><span class="pill pill-sms">Trainee SMS</span></td>
+      <td><strong>Trainee enrolled — registration text</strong><br><em>3-text sequence to maximize registrations</em></td>
       <td>Each new trainee</td>
       <td>📱 Text</td>
-      <td><span class="pill pill-manual">Manual — HR clicks "Send"</span></td>
+      <td><span class="pill pill-manual">Initial: manual — HR clicks "Send"</span> <span class="pill pill-cron">Follow-up #1: auto 24h later if not registered</span> <span class="pill pill-cron">Follow-up #2 (final): auto 48h after FU#1 if class is within 7 days</span><br><span style="font-size:12px;color:#475569;">All three texts are editable from the <strong>Message templates</strong> page (no redeploy).</span></td>
+    </tr>
+    <tr>
+      <td><strong>Trainee declined</strong><br><em>Trainee clicked "Can't make it" on their registration page</em></td>
+      <td>Hiring Manager · Admin (configurable)</td>
+      <td>📱 Text · ✉️ Email</td>
+      <td><span class="pill pill-manual">Auto-fires when a trainee uses the "Let us know" link below the registration form. Notification includes their reason (if they gave one). Trainee is auto-unenrolled — no more automated texts go to them.</span></td>
     </tr>
     <tr>
       <td><strong>Day-2 reminder</strong><br><em>"Time to create emails"</em></td>
@@ -409,6 +415,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice + essay. Each essay can be independently flagged: <strong>"Use for Neal's brand testimonials"</strong> (auto FB/LinkedIn + nealscoppettuolo.com — must stay generic) and/or <strong>"Use for client business review"</strong> (Google/Yelp copy-paste in the post-test email — client-specific wording welcome).</td></tr>
     <tr><td><strong>Testimonials</strong></td><td>Admin · Marketing</td><td>Trainee testimonial responses collected from the final test.</td></tr>
     <tr><td><strong>Notifications</strong></td><td>Admin</td><td>Who gets which texts/emails. Per-event subscriptions, channel preferences.</td></tr>
+    <tr><td><strong>Message templates</strong></td><td>Admin</td><td>Editable text of the automated SMS messages (currently the 3 registration texts — initial + 2 paced follow-ups). Edit the wording, save, done — next text uses the new copy. No redeploy. Placeholders like <code>{firstName}</code> are substituted at send time.</td></tr>
     <tr><td><strong>Handoff contacts</strong></td><td>Admin</td><td>Manages the people that get saved to each trainee's phone via vCard after they finish their final test. Universal contacts (helpline, support) plus region-specific ones (Sales Manager — St Pete, Sales Manager — Orlando, etc.).</td></tr>
     <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place. Also shows live status of the paced social-post queue (pending count + next scheduled time per network) with a "Post next now" override button to skip the schedule and publish the next queued item immediately.</td></tr>
   </tbody>
@@ -420,7 +427,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><th>Page</th><th>When</th><th>What's on it</th></tr>
   </thead>
   <tbody>
-    <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name, set sales experience, fill home address.</td></tr>
+    <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name + personal email (required), set sales experience, fill home address. Includes a small "Can't make it? Let us know" link at the bottom — clicking it opens a confirmation modal with an optional reason textbox so trainees who change their mind can cleanly opt out instead of ghosting.</td></tr>
     <tr><td><strong>Confirmation reminder</strong></td><td>24h before class</td><td>"Can you make it tomorrow?" — they tap Yes / No.</td></tr>
     <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name.</td></tr>
     <tr><td><strong>Credentials</strong></td><td>After trainer sends</td><td>Their company email + password, plus step-by-step iPhone or Android setup instructions.</td></tr>

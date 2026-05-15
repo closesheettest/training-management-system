@@ -219,11 +219,23 @@ export default function ClassDetail() {
   }
 
   async function reenrollTrainee(t) {
-    if (!confirm(`Re-enroll ${t.first_name} ${t.last_name}?`)) return
+    const wasDeclined = !!t.declined_at
+    const confirmMsg = wasDeclined
+      ? `${t.first_name} ${t.last_name} previously declined this training. Re-enroll them and clear the decline?`
+      : `Re-enroll ${t.first_name} ${t.last_name}?`
+    if (!confirm(confirmMsg)) return
     setMessage(null)
     const { error: err } = await supabase
       .from('trainees')
-      .update({ enrolled: true, unenrolled_at: null, unenrolled_reason: null })
+      .update({
+        enrolled: true,
+        unenrolled_at: null,
+        unenrolled_reason: null,
+        // Clearing the decline stamps lets the system text them again. Only
+        // wipe these if the row was actually declined — otherwise leave
+        // historical data alone.
+        ...(wasDeclined ? { declined_at: null, declined_reason: null } : {}),
+      })
       .eq('id', t.id)
     if (err) {
       setMessage({ type: 'error', text: err.message })
@@ -497,8 +509,13 @@ export default function ClassDetail() {
     )
   if (!cls) return null
 
+  // A trainee who declined gets marked enrolled=false by the decline flow,
+  // so they naturally fall out of the "enrolled" list. We pull them into
+  // their own "declined" bucket below so HR can see them separately from
+  // ordinary unenrollments.
+  const declined = trainees.filter((t) => t.declined_at)
   const enrolled = trainees.filter((t) => t.enrolled !== false)
-  const unenrolled = trainees.filter((t) => t.enrolled === false)
+  const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at)
   const registered = enrolled.filter((t) => t.registered)
   const sentNoResponse = enrolled.filter((t) => !t.registered && t.last_sms_sent_at)
   const notSent = enrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
@@ -807,6 +824,62 @@ export default function ClassDetail() {
           onUnenroll={unenrollTrainee}
         />
       ))}
+
+      {declined.length > 0 && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-amber-900">
+            🙅 Declined / withdrew <span className="font-normal text-amber-700">({declined.length})</span>
+          </h2>
+          <p className="mt-1 text-xs text-amber-800">
+            These trainees clicked "Can't make it" on their registration page. They've been
+            auto-unenrolled and the system will not send them any more texts. Reasons (when
+            given) are below — useful for HR follow-up.
+          </p>
+          <ul className="mt-4 divide-y divide-amber-200 rounded-md border border-amber-200 bg-white">
+            {declined.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900">
+                    {t.first_name} {t.last_name}
+                  </div>
+                  <div className="text-slate-500">
+                    {t.phone}
+                    {t.email && ` · ${t.email}`}
+                  </div>
+                  {t.declined_reason && (
+                    <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs italic text-amber-900">
+                      "{t.declined_reason}"
+                    </div>
+                  )}
+                  {t.declined_at && (
+                    <div className="mt-1 text-xs text-slate-400">
+                      Declined: {new Date(t.declined_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => reenrollTrainee(t)}
+                    className="rounded-md border border-green-300 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                    title="If the trainee changed their mind back, re-enroll them and clear the decline"
+                  >
+                    Re-enroll
+                  </button>
+                  <button
+                    onClick={() => deleteTrainee(t)}
+                    className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {unenrolled.length > 0 && (
         <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 shadow-sm">

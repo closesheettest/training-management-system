@@ -24,6 +24,23 @@ const SAMPLE = {
 }
 
 const MESSAGES = {
+  trainee_declined: {
+    triggers: [
+      'Fires when a trainee taps "Can\'t make it" on their registration page and confirms in the modal.',
+      'The trainee is also auto-unenrolled so no more automated texts go to them.',
+    ],
+    sms: `[Training] ${SAMPLE.trainee} declined training for ${SAMPLE.region} · ${SAMPLE.location} (week of ${SAMPLE.weekStart}).\nReason: "Got another offer."`,
+    emailSubject: `Trainee declined: ${SAMPLE.trainee} — ${SAMPLE.region} (week of ${SAMPLE.weekStart})`,
+    emailBody:
+      `${SAMPLE.trainee} just used the "I can't attend" link on the registration page.\n\n` +
+      `Class: ${SAMPLE.region} · ${SAMPLE.location}\n` +
+      `Week of: ${SAMPLE.weekStart}\n` +
+      `Trainee phone: (555) 555-5555\n` +
+      `Trainee email: ${SAMPLE.email}\n` +
+      `Reason: "Got another offer."\n\n` +
+      `They've been marked declined + un-enrolled. No more automated texts will fire to them.\n\n` +
+      `— Training System`,
+  },
   day_2_provision_due: {
     triggers: ['Cron (hourly 7–11 AM Eastern, fires on first day-2 sign-in or 11 AM fallback)', 'Manual: Class detail → Send day-2 IT reminder text now'],
     sms: `[Training] Day 2 trainees have started checking in. Time to create company emails for ${SAMPLE.region} · ${SAMPLE.location}. Open the Provision page and click "Mark provisioning complete" when done: ${SAMPLE.provisionLink}`,
