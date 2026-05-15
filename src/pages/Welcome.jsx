@@ -99,29 +99,39 @@ export default function Welcome() {
 
 // Quick instructions for getting signed in to the company Google account
 // so the Sales Rep Dashboard + Drive videos open without an "access
-// denied" page. Collapsed by default to keep the page short for people
-// who don't need it.
+// denied" page.
+//
+// Open by default — first-time users need to actually read this before
+// tapping the Google-sign-in-required links below. Big bold amber
+// header so it's impossible to scroll past on a phone. Trainees can
+// collapse it if they've already done the steps.
 function SignInNote() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <details
       open={open}
       onToggle={(e) => setOpen(e.target.open)}
-      className="rounded-lg border border-sky-200 bg-sky-50 p-4"
+      className="overflow-hidden rounded-xl border-4 border-amber-400 bg-amber-50 shadow-md"
     >
-      <summary className="cursor-pointer text-sm font-semibold text-sky-900">
-        🔐 First time? Sign in to your company Google account
+      <summary className="flex cursor-pointer list-none items-center gap-3 bg-amber-200 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-amber-900 sm:text-lg">
+        <span aria-hidden="true" className="text-2xl">⚠️</span>
+        <span className="flex-1 leading-tight">
+          Start here — sign in to your @shingleusa.com Google account FIRST
+        </span>
+        <span aria-hidden="true" className="ml-2 text-xl text-amber-700">
+          {open ? '▾' : '▸'}
+        </span>
       </summary>
-      <div className="mt-3 space-y-3 text-sm text-sky-900">
-        <p>
+      <div className="space-y-4 p-4 text-sm text-amber-950">
+        <p className="text-base font-semibold">
           Two of the links below (Sales Rep Dashboard + How-to Videos) only open when you're
           signed in to Google with your <strong>@shingleusa.com</strong> email — the one IT
-          set up for you during training.
+          set up for you during training. Do this first or you'll get "Access denied."
         </p>
 
-        <div>
-          <div className="font-semibold">📱 On iPhone:</div>
-          <ol className="ml-5 mt-1 list-decimal space-y-1">
+        <div className="rounded-md bg-white p-3">
+          <div className="text-base font-bold">📱 On iPhone</div>
+          <ol className="ml-5 mt-2 list-decimal space-y-1.5">
             <li>
               Open the <strong>Chrome</strong> app (download from the App Store if you don't
               have it).
@@ -139,9 +149,9 @@ function SignInNote() {
           </ol>
         </div>
 
-        <div>
-          <div className="font-semibold">🤖 On Android:</div>
-          <ol className="ml-5 mt-1 list-decimal space-y-1">
+        <div className="rounded-md bg-white p-3">
+          <div className="text-base font-bold">🤖 On Android</div>
+          <ol className="ml-5 mt-2 list-decimal space-y-1.5">
             <li>Open the <strong>Chrome</strong> app (already installed on most Androids).</li>
             <li>Tap the three dots in the top right → <strong>Settings</strong>.</li>
             <li>Tap your name / email at the top of Settings.</li>
@@ -157,7 +167,7 @@ function SignInNote() {
           </ol>
         </div>
 
-        <p className="text-xs text-sky-800">
+        <p className="text-sm font-semibold">
           Stuck? Text your hiring manager — they can walk you through it.
         </p>
       </div>
