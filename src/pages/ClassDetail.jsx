@@ -627,6 +627,10 @@ export default function ClassDetail() {
         <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} classId={id} />
       )}
 
+      {!cls.attendance_only && summary.testSubmitted > 0 && (
+        <GraduationReportCard cls={cls} onReload={load} />
+      )}
+
       {/* Class week (dates + schedule) — editable inline */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-baseline justify-between">
@@ -1894,6 +1898,101 @@ const inputCls =
 // Tri-state Yes/No toggle for needs_hotel. `value` can be null (undecided
 // — both buttons inactive, amber outline nudges the user to choose),
 // true (Yes lit green), or false (No lit slate).
+// Manual "Send / re-send graduation report" button. The auto-cron fires
+// once after every enrolled trainee submits the final test, but if that
+// run errored (Resend outage, sender not verified, subscriber list
+// empty, etc.) the report won't have actually delivered. This card lets
+// admin force a re-send. Function POST mode bypasses the
+// graduation_report_sent_at filter so it works even after the cron
+// stamped a (failed) send.
+function GraduationReportCard({ cls, onReload }) {
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
+  const stampedAt = cls.graduation_report_sent_at
+  async function fire() {
+    const action = stampedAt ? 'Re-send' : 'Send'
+    if (!confirm(`${action} the graduation report email to every subscriber now?`)) return
+    setSending(true)
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-graduation-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id }),
+      })
+      const j = await res.json().catch(() => ({}))
+      const cls0 = (j.results || [])[0] || {}
+      if (!res.ok || cls0.error) {
+        setResult({ kind: 'error', text: cls0.error || j.error || 'Send failed.' })
+      } else if ((cls0.sent_count ?? 0) === 0) {
+        const errSummary = (cls0.errors || []).map((e) => `${e.recipient}: ${e.error}`).join('; ')
+        setResult({
+          kind: 'error',
+          text:
+            j.warning ||
+            (errSummary
+              ? `Nothing was delivered. ${errSummary}`
+              : `Nothing was delivered. Check that the graduation_class_report event has subscribers on /notifications and that Resend is configured.`),
+        })
+      } else {
+        setResult({
+          kind: 'success',
+          text: `Sent to ${cls0.sent_count} of ${cls0.recipient_count} subscriber${cls0.recipient_count === 1 ? '' : 's'}.`,
+        })
+        if (onReload) await onReload()
+      }
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message })
+    } finally {
+      setSending(false)
+    }
+  }
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">🎓 Graduation report email</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            PDF roster (name, phone, home address — no test scores) sent to every subscriber of
+            the <strong>graduation_class_report</strong> event on /notifications. Cron fires
+            automatically when every enrolled trainee has submitted their final test. Use the
+            button below if you need to manually fire or re-send it.
+          </p>
+          {stampedAt ? (
+            <p className="mt-2 text-xs text-emerald-700">
+              ✓ Previously sent {new Date(stampedAt).toLocaleString()}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-amber-700">
+              ⏳ Not yet sent for this class.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={fire}
+          disabled={sending}
+          className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+        >
+          {sending ? 'Sending…' : stampedAt ? 'Re-send report' : 'Send report now'}
+        </button>
+      </div>
+      {result && (
+        <div
+          className={
+            'mt-3 rounded-md border p-2 text-xs ' +
+            (result.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800')
+          }
+        >
+          {result.text}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function NeedsHotelToggle({ value, onChange }) {
   const undecided = value !== true && value !== false
   const base = 'px-3 py-1 text-xs font-semibold transition'

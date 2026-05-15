@@ -60,6 +60,12 @@ export const handler = async (event) => {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
   // Pull classes that haven't been reported yet.
+  // Cron mode (no targetClassId) filters out already-stamped classes
+  // so we don't spam on every run. POST mode with a class_id bypasses
+  // that filter so admins can manually re-send a report (e.g. recover
+  // from a Resend outage that pre-dated the stamping fix). Also
+  // bypasses the attendance_only=false filter since admin explicitly
+  // chose this class.
   let query = supabase
     .from('classes')
     .select(`
@@ -73,9 +79,13 @@ export const handler = async (event) => {
         test_attempts(submitted_at, retention_pct, correct_count, total_mc)
       )
     `)
-    .is('graduation_report_sent_at', null)
-    .eq('attendance_only', false)
-  if (targetClassId) query = query.eq('id', targetClassId)
+  if (targetClassId) {
+    query = query.eq('id', targetClassId)
+  } else {
+    query = query
+      .is('graduation_report_sent_at', null)
+      .eq('attendance_only', false)
+  }
   const { data: classes, error: clsErr } = await query
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })
 
@@ -158,11 +168,18 @@ export const handler = async (event) => {
       else sendErrors.push({ recipient: r.name, error: s.error, step: s.step })
     }
 
-    // Stamp regardless — partial failure beats spamming on the next cron.
-    await supabase
-      .from('classes')
-      .update({ graduation_report_sent_at: new Date().toISOString() })
-      .eq('id', cls.id)
+    // Only stamp when at least ONE email actually delivered. If every
+    // send failed (Resend rejected, bad sender, recipient bounced, etc.)
+    // leaving graduation_report_sent_at null means the next cron run —
+    // OR a manual re-send from the Class detail page — will retry.
+    // This used to stamp unconditionally; we'd silently mark "sent" even
+    // when nobody got the email.
+    if (sentCount > 0) {
+      await supabase
+        .from('classes')
+        .update({ graduation_report_sent_at: new Date().toISOString() })
+        .eq('id', cls.id)
+    }
 
     // Fire-and-forget Facebook post celebrating the graduation. Generic copy,
     // optional venue photo. Best-effort — never blocks the report email.
@@ -232,6 +249,10 @@ async function renderPdf(html) {
 }
 
 // ── HTML builder ─────────────────────────────────────────────────────────
+// Minimal-info graduation roster: just the headcount + a contact-info
+// table (name, phone, home address). Per user request — no test scores,
+// no days attended, no company email, no platform setup status.
+// Leadership uses this to know who graduated and how to reach them.
 function buildReportHtml(cls) {
   const enrolled = (cls.trainees || [])
     .filter((t) => t.enrolled !== false)
@@ -240,28 +261,18 @@ function buildReportHtml(cls) {
   const region = esc(cls.region || '')
   const weekLabel = formatDateRange(cls.week_start_date, cls.week_end_date)
 
-  // Totals only — no per-trainee scores or platform status.
   const totalGraduates = enrolled.length
-  const totalDaysAttended = enrolled.reduce(
-    (acc, t) => acc + (t.attendance || []).filter((a) => a.confirmed).length,
-    0,
-  )
 
   const rows = enrolled
     .map((t, i) => {
-      const attendance = (t.attendance || []).filter((a) => a.confirmed).length
       const phone = formatPhone(t.phone)
       const address = formatAddress(t.street_address, t.city, t.state, t.zip)
       return `
         <tr>
-          <td style="text-align:center;color:#94a3b8;">${i + 1}</td>
-          <td>
-            <div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div>
-            ${phone ? `<div style="color:#64748b;font-size:11px;margin-top:2px;">${esc(phone)}</div>` : ''}
-          </td>
-          <td style="color:#334155;font-size:11px;">${esc(address) || '<span style="color:#94a3b8;">—</span>'}</td>
-          <td style="font-size:11px;">${esc(t.company_email || '—')}</td>
-          <td style="text-align:center;">${attendance}</td>
+          <td style="text-align:center;color:#94a3b8;width:32px;">${i + 1}</td>
+          <td><div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div></td>
+          <td style="white-space:nowrap;">${phone ? esc(phone) : '<span style="color:#94a3b8;">—</span>'}</td>
+          <td style="color:#334155;">${esc(address) || '<span style="color:#94a3b8;">—</span>'}</td>
         </tr>
       `
     })
@@ -274,13 +285,12 @@ function buildReportHtml(cls) {
   h1 { color: #13294b; font-size: 22px; margin: 0 0 4px; }
   .subtitle { color: #475569; font-size: 13px; margin: 0 0 16px; }
   .stripe { height: 4px; background: #b8324f; margin: 0 0 16px; }
-  .stats { display: flex; gap: 12px; margin: 0 0 16px; }
-  .stat { flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; background: #f8fafc; }
-  .stat .num { font-size: 22px; font-weight: 700; color: #13294b; }
-  .stat .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+  .headcount { display: inline-block; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 16px; background: #f8fafc; margin: 0 0 16px; }
+  .headcount .num { font-size: 28px; font-weight: 700; color: #13294b; }
+  .headcount .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { background: #13294b; color: white; text-align: left; padding: 8px 10px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-  td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
   tr:nth-child(even) td { background: #f8fafc; }
   .footer { margin-top: 18px; color: #94a3b8; font-size: 10px; }
 </style>
@@ -290,22 +300,20 @@ function buildReportHtml(cls) {
   <h1>Graduating class — ${region}</h1>
   <p class="subtitle">${locationName} · Week of ${esc(weekLabel)}</p>
 
-  <div class="stats">
-    <div class="stat"><div class="num">${totalGraduates}</div><div class="lbl">Graduates</div></div>
-    <div class="stat"><div class="num">${totalDaysAttended}</div><div class="lbl">Total days attended</div></div>
+  <div class="headcount">
+    <span class="num">${totalGraduates}</span><span class="lbl">graduate${totalGraduates === 1 ? '' : 's'}</span>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="text-align:center;width:28px;">#</th>
-        <th style="width:25%;">Name &amp; phone</th>
-        <th style="width:32%;">Home address</th>
-        <th style="width:28%;">Company email</th>
-        <th style="text-align:center;width:60px;">Days</th>
+        <th style="text-align:center;width:32px;">#</th>
+        <th style="width:30%;">Name</th>
+        <th style="width:22%;">Phone</th>
+        <th>Home address</th>
       </tr>
     </thead>
-    <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
+    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
   </table>
 
   <p class="footer">Generated ${new Date().toLocaleString('en-US')} · U.S. Shingle &amp; Metal Training System</p>
