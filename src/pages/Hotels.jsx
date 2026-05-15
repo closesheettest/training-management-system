@@ -2,49 +2,37 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { US_STATES } from '../lib/locations.js'
 
-// Hotels page — HR's workspace for capturing hotel-room details per
-// trainee and texting each one their room info.
+// Hotels page — HR's workspace for room bookings.
+//
+// Design philosophy: the common case is "room booked under the trainee's
+// name at the same hotel as the meeting venue." That's a ONE-CLICK
+// operation. The exception is "different hotel" — that opens a form.
 //
 // Flow:
-//   1. Pick a class week from the dropdown
-//   2. See every enrolled trainee for that class
-//   3. For each one that needs a hotel, click "Add hotel" → form opens
-//      - "Same as meeting venue" autofills from the class's location
-//      - "Use trainee's name" autofills guest_name from the trainee
-//   4. Save the stay (independent of sending; HR can come back later)
-//   5. When everyone's set, click "Send all unsent" to text them all
-//      (each stay also has its own Send/Re-send button)
-
-const blankStay = (traineeId, classId, trainee) => ({
-  trainee_id: traineeId,
-  class_id: classId,
-  hotel_name: '',
-  hotel_street_address: '',
-  hotel_city: '',
-  hotel_state: '',
-  hotel_zip: '',
-  hotel_phone: '',
-  check_in_date: '',
-  check_out_date: '',
-  confirmation_number: '',
-  guest_name: trainee ? `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim() : '',
-  room_number: '',
-  notes: '',
-})
+//   1. Pick a class week from the dropdown.
+//   2. See every trainee flagged "needs hotel" for that class.
+//   3. For each one, two buttons:
+//        ✓ Booked (same hotel) — one click. Pre-fills hotel = meeting
+//          venue, guest_name = trainee name. Done.
+//        Different hotel — opens a form to enter different hotel details.
+//   4. Already-booked trainees show as cards with their saved info and
+//      Edit / Re-send / Delete buttons.
+//   5. "Send notifications" at the top fires SMS to every booked-but-
+//      not-yet-notified trainee in one click.
 
 export default function Hotels() {
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [trainees, setTrainees] = useState([])
-  const [stays, setStays] = useState([]) // existing rows from DB
-  const [editing, setEditing] = useState(null) // trainee_id of the row being edited (or 'new-<id>')
+  const [stays, setStays] = useState([])
+  const [editingStayId, setEditingStayId] = useState(null) // id of stay being edited inline (or 'new-<trainee_id>')
   const [draft, setDraft] = useState(null)
   const [loadingTrainees, setLoadingTrainees] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [busyTraineeId, setBusyTraineeId] = useState(null)
   const [sending, setSending] = useState(false)
   const [flash, setFlash] = useState(null)
 
-  // Load the class list once.
   useEffect(() => {
     loadClasses()
   }, [])
@@ -52,7 +40,7 @@ export default function Hotels() {
   async function loadClasses() {
     const { data, error } = await supabase
       .from('classes')
-      .select('id, region, week_start_date, week_end_date, location_id, locations(name, street_address, city, state, zip)')
+      .select('id, region, week_start_date, week_end_date, location_id, locations(name, street_address, city, state, zip, phone)')
       .order('week_start_date', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -69,10 +57,6 @@ export default function Hotels() {
     }
     setLoadingTrainees(true)
     const [tRes, sRes] = await Promise.all([
-      // Only pull trainees flagged needs_hotel = true. The hiring manager
-      // makes that call when enrolling; trainees not flagged never show
-      // up here, so HR can scan and act on just the people who actually
-      // need a room.
       supabase
         .from('trainees')
         .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel')
@@ -102,49 +86,82 @@ export default function Hotels() {
     () => classes.find((c) => c.id === selectedClassId) || null,
     [classes, selectedClassId],
   )
+  const meetingVenue = selectedClass?.locations || null
   const stayByTraineeId = useMemo(() => {
     const m = {}
     for (const s of stays) m[s.trainee_id] = s
     return m
   }, [stays])
 
-  function startEdit(trainee) {
+  // One-click "Booked" — creates a stay with hotel info copied from the
+  // class's meeting venue and guest_name from the trainee. Defaults the
+  // common case to zero friction.
+  async function quickBook(trainee) {
+    if (!meetingVenue) {
+      setFlash({
+        kind: 'error',
+        text: 'This class doesn\'t have a meeting venue set yet — pick one on the Schedule page first, then come back.',
+      })
+      return
+    }
+    setBusyTraineeId(trainee.id)
+    setFlash(null)
+    const payload = {
+      trainee_id: trainee.id,
+      class_id: selectedClassId,
+      hotel_name: meetingVenue.name || '',
+      hotel_street_address: meetingVenue.street_address || null,
+      hotel_city: meetingVenue.city || null,
+      hotel_state: meetingVenue.state || null,
+      hotel_zip: meetingVenue.zip || null,
+      hotel_phone: meetingVenue.phone || null,
+      guest_name: `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim(),
+    }
+    const { error } = await supabase.from('trainee_hotel_stays').insert(payload)
+    setBusyTraineeId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `Marked booked: ${trainee.first_name} ${trainee.last_name}` })
+    await loadForClass()
+  }
+
+  // "Different hotel" — opens the inline form pre-filled with the same
+  // defaults but everything is editable. HR overrides whatever's
+  // different, hits Save.
+  function startCustomBooking(trainee) {
     const existing = stayByTraineeId[trainee.id]
     if (existing) {
       setDraft({ ...existing })
-      setEditing(trainee.id)
+      setEditingStayId(existing.id)
     } else {
-      setDraft(blankStay(trainee.id, selectedClassId, trainee))
-      setEditing(`new-${trainee.id}`)
+      // Brand-new "different hotel" stay — start with EMPTY hotel fields
+      // (HR is entering a non-default), but keep the guest defaults.
+      setDraft({
+        trainee_id: trainee.id,
+        class_id: selectedClassId,
+        hotel_name: '',
+        hotel_street_address: '',
+        hotel_city: '',
+        hotel_state: '',
+        hotel_zip: '',
+        hotel_phone: '',
+        check_in_date: '',
+        check_out_date: '',
+        confirmation_number: '',
+        guest_name: `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim(),
+        room_number: '',
+        notes: '',
+      })
+      setEditingStayId(`new-${trainee.id}`)
     }
     setFlash(null)
   }
 
   function cancelEdit() {
-    setEditing(null)
+    setEditingStayId(null)
     setDraft(null)
-  }
-
-  function copyFromMeetingVenue() {
-    if (!selectedClass?.locations) return
-    const l = selectedClass.locations
-    setDraft({
-      ...draft,
-      hotel_name: l.name || '',
-      hotel_street_address: l.street_address || '',
-      hotel_city: l.city || '',
-      hotel_state: l.state || '',
-      hotel_zip: l.zip || '',
-    })
-  }
-
-  function useTraineesName() {
-    const t = trainees.find((x) => x.id === draft.trainee_id)
-    if (!t) return
-    setDraft({
-      ...draft,
-      guest_name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
-    })
   }
 
   async function saveStay() {
@@ -156,21 +173,18 @@ export default function Hotels() {
     const payload = {
       ...draft,
       updated_at: new Date().toISOString(),
-      // Empty strings → null so PostgreSQL date columns don't error.
       check_in_date: draft.check_in_date || null,
       check_out_date: draft.check_out_date || null,
     }
-    delete payload.id // let DB assign on insert; ignore on update via .eq
+    delete payload.id
     let result
-    if (editing.startsWith('new-')) {
-      result = await supabase.from('trainee_hotel_stays').insert(payload).select().single()
+    if (editingStayId.startsWith('new-')) {
+      result = await supabase.from('trainee_hotel_stays').insert(payload)
     } else {
       result = await supabase
         .from('trainee_hotel_stays')
         .update(payload)
-        .eq('id', draft.id)
-        .select()
-        .single()
+        .eq('id', editingStayId)
     }
     setSaving(false)
     if (result.error) {
@@ -178,19 +192,19 @@ export default function Hotels() {
       return
     }
     setFlash({ kind: 'success', text: 'Hotel info saved.' })
-    setEditing(null)
+    setEditingStayId(null)
     setDraft(null)
     await loadForClass()
   }
 
   async function deleteStay(stay) {
-    if (!confirm('Delete this hotel stay? The trainee won\'t be notified.')) return
+    if (!confirm('Remove this booking? The trainee will be back to "not booked".')) return
     const { error } = await supabase.from('trainee_hotel_stays').delete().eq('id', stay.id)
     if (error) {
       setFlash({ kind: 'error', text: error.message })
       return
     }
-    setFlash({ kind: 'success', text: 'Stay deleted.' })
+    setFlash({ kind: 'success', text: 'Booking removed.' })
     await loadForClass()
   }
 
@@ -209,10 +223,7 @@ export default function Hotels() {
         setFlash({ kind: 'error', text: j.error || 'Send failed.' })
       } else if (j.sent_count === 0) {
         const failures = (j.results || []).filter((r) => !r.ok)
-        setFlash({
-          kind: 'error',
-          text: failures[0]?.error || 'Nothing was sent.',
-        })
+        setFlash({ kind: 'error', text: failures[0]?.error || 'Nothing was sent.' })
       } else {
         setFlash({ kind: 'success', text: `Sent to ${stayLabel(stay)}.` })
         await loadForClass()
@@ -227,7 +238,7 @@ export default function Hotels() {
   async function sendAllUnsent() {
     const unsent = stays.filter((s) => !s.info_sent_at)
     if (unsent.length === 0) {
-      setFlash({ kind: 'info', text: 'Nothing to send — every stay has already been sent.' })
+      setFlash({ kind: 'info', text: 'Nothing to send — every booking has already been sent.' })
       return
     }
     if (!confirm(`Send hotel info to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} now?`)) return
@@ -262,18 +273,21 @@ export default function Hotels() {
     return t ? `${t.first_name} ${t.last_name}` : 'this trainee'
   }
 
+  const totalBookings = stays.length
   const unsentCount = stays.filter((s) => !s.info_sent_at).length
-  const sentCount = stays.length - unsentCount
+  const sentCount = totalBookings - unsentCount
+  const unbookedCount = trainees.filter((t) => !stayByTraineeId[t.id]).length
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Hotel rooms</h1>
         <p className="mt-2 text-slate-600">
-          For trainees who need a hotel during their training week, HR captures the room info
-          here and texts each trainee their specific details. Separate from the meeting-venue
-          address — sometimes the sleeping hotel and the meeting hotel are the same, sometimes
-          different.
+          For trainees flagged "needs hotel" during enrollment, mark each one booked once
+          you've reserved their room. Most rooms default to the same hotel as the meeting
+          venue and are booked under the trainee's name — that's one click. Use{' '}
+          <strong>Different hotel</strong> only when the sleeping hotel is different from
+          the meeting venue.
         </p>
       </header>
 
@@ -311,12 +325,48 @@ export default function Hotels() {
         </div>
       )}
 
+      {selectedClassId && meetingVenue && (
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-sky-900">
+            Meeting venue (default hotel for "Booked")
+          </div>
+          <div className="mt-1 text-slate-800">
+            <strong>{meetingVenue.name}</strong>
+            {(meetingVenue.street_address || meetingVenue.city) && (
+              <span className="ml-2 text-slate-600">
+                {[
+                  meetingVenue.street_address,
+                  [meetingVenue.city, [meetingVenue.state, meetingVenue.zip].filter(Boolean).join(' ')]
+                    .filter(Boolean)
+                    .join(', '),
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              </span>
+            )}
+            {meetingVenue.phone && (
+              <span className="ml-2 text-slate-500">· {meetingVenue.phone}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedClassId && !meetingVenue && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          ⚠ This class doesn't have a meeting venue assigned yet. Add one on the Schedule
+          page before booking rooms — "Booked (same hotel)" needs a venue to default from.
+        </div>
+      )}
+
       {selectedClassId && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
             <div className="text-slate-700">
-              <strong>{stays.length}</strong> hotel stay{stays.length === 1 ? '' : 's'} captured
-              · <strong>{sentCount}</strong> sent · <strong>{unsentCount}</strong> unsent
+              <strong>{trainees.length}</strong> trainee{trainees.length === 1 ? '' : 's'} need
+              hotel ·{' '}
+              <strong>{totalBookings}</strong> booked ·{' '}
+              <strong>{unsentCount}</strong> ready to send ·{' '}
+              <strong>{sentCount}</strong> notification{sentCount === 1 ? '' : 's'} sent
             </div>
             <button
               type="button"
@@ -324,7 +374,7 @@ export default function Hotels() {
               disabled={sending || unsentCount === 0}
               className="rounded-md bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
             >
-              {sending ? 'Sending…' : `Send all unsent (${unsentCount})`}
+              {sending ? 'Sending…' : `Send notifications (${unsentCount})`}
             </button>
           </div>
 
@@ -335,18 +385,28 @@ export default function Hotels() {
               <p>No trainees in this class are flagged as needing a hotel.</p>
               <p className="mt-1 text-xs text-slate-500">
                 Trainees only appear here when the hiring manager answered "Yes" to "Needs hotel"
-                during enrollment. To add a trainee to this list, open the class on the Schedule
-                page and edit the trainee — toggle "Needs hotel" to Yes.
+                during enrollment.
               </p>
             </div>
           ) : (
             <ul className="space-y-3">
               {trainees.map((t) => {
                 const stay = stayByTraineeId[t.id]
+                const editing =
+                  editingStayId === t.id ||
+                  editingStayId === `new-${t.id}` ||
+                  (stay && editingStayId === stay.id)
                 return (
                   <li
                     key={t.id}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                    className={
+                      'rounded-lg border p-4 shadow-sm ' +
+                      (stay
+                        ? stay.info_sent_at
+                          ? 'border-emerald-200 bg-emerald-50/30'
+                          : 'border-sky-200 bg-sky-50/30'
+                        : 'border-slate-200 bg-white')
+                    }
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
@@ -357,56 +417,88 @@ export default function Hotels() {
                           {t.phone || '— no phone —'}
                           {t.email && ` · ${t.email}`}
                         </div>
-                        {t.street_address && (
+                        {!stay && t.street_address && (
                           <div className="mt-1 text-xs text-slate-500">
                             Home: {t.street_address}, {t.city}, {t.state} {t.zip}
                           </div>
                         )}
                       </div>
-                      <div className="flex shrink-0 gap-2">
-                        {stay ? (
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {!stay ? (
                           <>
                             <button
                               type="button"
-                              onClick={() => startEdit(t)}
-                              className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              onClick={() => quickBook(t)}
+                              disabled={busyTraineeId === t.id || !meetingVenue}
+                              className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                              title={
+                                meetingVenue
+                                  ? 'One-click: book this trainee at the meeting venue under their own name'
+                                  : 'Add a meeting venue to the class first'
+                              }
+                            >
+                              {busyTraineeId === t.id ? 'Saving…' : '✓ Booked (same hotel)'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startCustomBooking(t)}
+                              className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Different hotel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {!stay.info_sent_at && (
+                              <button
+                                type="button"
+                                onClick={() => sendOne(stay)}
+                                disabled={sending}
+                                className="rounded-md bg-slate-800 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
+                              >
+                                Send now
+                              </button>
+                            )}
+                            {stay.info_sent_at && (
+                              <button
+                                type="button"
+                                onClick={() => sendOne(stay)}
+                                disabled={sending}
+                                className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                              >
+                                Re-send
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => startCustomBooking(t)}
+                              className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
-                              onClick={() => sendOne(stay)}
-                              disabled={sending}
-                              className="rounded-md bg-slate-800 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
-                            >
-                              {stay.info_sent_at ? 'Re-send' : 'Send'}
-                            </button>
-                            <button
-                              type="button"
                               onClick={() => deleteStay(stay)}
-                              className="rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                              className="rounded-md border border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
                             >
-                              Delete
+                              Remove
                             </button>
                           </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => startEdit(t)}
-                            className="rounded-md bg-slate-800 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-900"
-                          >
-                            + Add hotel
-                          </button>
                         )}
                       </div>
                     </div>
 
                     {stay && (
-                      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 space-y-0.5">
+                      <div className="mt-3 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-700 space-y-0.5">
                         <div className="font-semibold text-slate-900">{stay.hotel_name}</div>
                         {(stay.hotel_street_address || stay.hotel_city) && (
                           <div>
-                            {[stay.hotel_street_address, [stay.hotel_city, [stay.hotel_state, stay.hotel_zip].filter(Boolean).join(' ')].filter(Boolean).join(', ')]
+                            {[
+                              stay.hotel_street_address,
+                              [stay.hotel_city, [stay.hotel_state, stay.hotel_zip].filter(Boolean).join(' ')]
+                                .filter(Boolean)
+                                .join(', '),
+                            ]
                               .filter(Boolean)
                               .join(', ')}
                           </div>
@@ -425,28 +517,52 @@ export default function Hotels() {
                         {stay.notes && <div className="italic text-slate-600">"{stay.notes}"</div>}
                         <div className="mt-2 text-[10px] uppercase tracking-wide text-slate-400">
                           {stay.info_sent_at
-                            ? `✓ Sent ${new Date(stay.info_sent_at).toLocaleString()}`
-                            : '⏳ Not sent yet'}
+                            ? `✓ Notification sent ${new Date(stay.info_sent_at).toLocaleString()}`
+                            : '⏳ Booked — notification ready to send'}
                         </div>
                       </div>
                     )}
 
-                    {editing === t.id || editing === `new-${t.id}` ? (
+                    {editing && (
                       <HotelForm
                         draft={draft}
                         setDraft={setDraft}
-                        meetingVenue={selectedClass?.locations}
-                        onCopyVenue={copyFromMeetingVenue}
-                        onUseName={useTraineesName}
+                        meetingVenue={meetingVenue}
+                        onCopyVenue={() => {
+                          if (!meetingVenue) return
+                          setDraft({
+                            ...draft,
+                            hotel_name: meetingVenue.name || '',
+                            hotel_street_address: meetingVenue.street_address || '',
+                            hotel_city: meetingVenue.city || '',
+                            hotel_state: meetingVenue.state || '',
+                            hotel_zip: meetingVenue.zip || '',
+                            hotel_phone: meetingVenue.phone || '',
+                          })
+                        }}
+                        onUseName={() => {
+                          setDraft({
+                            ...draft,
+                            guest_name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
+                          })
+                        }}
                         onCancel={cancelEdit}
                         onSave={saveStay}
                         saving={saving}
                       />
-                    ) : null}
+                    )}
                   </li>
                 )
               })}
             </ul>
+          )}
+
+          {unbookedCount === 0 && trainees.length > 0 && unsentCount > 0 && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              All {trainees.length} hotel-needing trainee{trainees.length === 1 ? ' is' : 's are'}{' '}
+              booked. Click <strong>Send notifications ({unsentCount})</strong> above to fire the
+              texts.
+            </div>
           )}
         </>
       )}
@@ -471,7 +587,7 @@ function HotelForm({ draft, setDraft, meetingVenue, onCopyVenue, onUseName, onCa
             onClick={onCopyVenue}
             className="rounded-md border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100"
           >
-            🏨 Same as meeting venue
+            🏨 Copy meeting venue
           </button>
         )}
         <button
@@ -536,7 +652,6 @@ function HotelForm({ draft, setDraft, meetingVenue, onCopyVenue, onUseName, onCa
             value={draft.hotel_phone}
             onChange={(e) => update('hotel_phone', e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            placeholder="(407) 555-1234"
           />
         </Field>
         <Field label="Confirmation #" className="sm:col-span-3">
