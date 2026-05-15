@@ -113,8 +113,15 @@ export const handler = async (event) => {
       checked: (classes || []).length,
       eligible: eligible.length,
       warning:
-        'No subscribers to graduation_class_report event with email enabled. Add one in /notifications.',
+        'No subscribers to graduation_class_report event with email enabled. Add a person on /notifications, check the "Graduating class report" event for them, and make sure their email channel is on.',
       source,
+      recipient_count_raw: recipients.length, // before email/channel filter
+      // Echo back what we found so the UI can show a concrete reason
+      recipients_diagnostic: recipients.map((r) => ({
+        name: r.name,
+        has_email: !!r.email,
+        email_channel_on: !!r.notify_via_email,
+      })),
     })
   }
 
@@ -160,12 +167,19 @@ export const handler = async (event) => {
     }
 
     const attachments = [{ filename, content: pdfBase64 }]
+    // Parallelize the sends so we don't blow past Netlify's per-request
+    // timeout when there are several subscribers. Resend handles
+    // concurrent calls fine.
+    const sendResults = await Promise.all(
+      emailRecipients.map((r) =>
+        sendEmail(r.email, subject, body, { attachments }).then((s) => ({ r, s })),
+      ),
+    )
     let sentCount = 0
     const sendErrors = []
-    for (const r of emailRecipients) {
-      const s = await sendEmail(r.email, subject, body, { attachments })
+    for (const { r, s } of sendResults) {
       if (s.ok) sentCount++
-      else sendErrors.push({ recipient: r.name, error: s.error, step: s.step })
+      else sendErrors.push({ recipient: r.name, email: r.email, error: s.error, step: s.step })
     }
 
     // Only stamp when at least ONE email actually delivered. If every

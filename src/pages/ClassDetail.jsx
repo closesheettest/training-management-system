@@ -2156,36 +2156,72 @@ function GraduationReportCard({ cls, onReload }) {
     if (!confirm(`${action} the graduation report email to every subscriber now?`)) return
     setSending(true)
     setResult(null)
+    // 40-second client timeout so the UI never hangs if Netlify kills
+    // the function or the network drops. Surfaces a clear message
+    // instead of "Sending…" forever.
+    const ctrl = new AbortController()
+    const timeoutId = setTimeout(() => ctrl.abort(), 40000)
     try {
       const res = await fetch('/.netlify/functions/send-graduation-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ class_id: cls.id }),
+        signal: ctrl.signal,
       })
       const j = await res.json().catch(() => ({}))
-      const cls0 = (j.results || [])[0] || {}
-      if (!res.ok || cls0.error) {
-        setResult({ kind: 'error', text: cls0.error || j.error || 'Send failed.' })
-      } else if ((cls0.sent_count ?? 0) === 0) {
-        const errSummary = (cls0.errors || []).map((e) => `${e.recipient}: ${e.error}`).join('; ')
+      // Log full server response so it's visible in browser dev tools —
+      // makes diagnosing weird states (missing env, unexpected shape,
+      // etc.) much faster.
+      console.log('[graduation report] response', { status: res.status, body: j })
+
+      // Surface SOMETHING no matter what shape came back.
+      if (!res.ok) {
         setResult({
           kind: 'error',
-          text:
-            j.warning ||
-            (errSummary
-              ? `Nothing was delivered. ${errSummary}`
-              : `Nothing was delivered. Check that the graduation_class_report event has subscribers on /notifications and that Resend is configured.`),
+          text: `HTTP ${res.status}: ${j.error || JSON.stringify(j).slice(0, 200)}`,
+        })
+      } else if (j.warning) {
+        // Most common: no subscribers configured for the event.
+        const diag = (j.recipients_diagnostic || [])
+          .map((r) => `${r.name} (email: ${r.has_email ? 'yes' : 'NO'}, channel: ${r.email_channel_on ? 'on' : 'OFF'})`)
+          .join('; ')
+        setResult({
+          kind: 'error',
+          text: diag ? `${j.warning}\nSubscribers found: ${diag}` : j.warning,
         })
       } else {
-        setResult({
-          kind: 'success',
-          text: `Sent to ${cls0.sent_count} of ${cls0.recipient_count} subscriber${cls0.recipient_count === 1 ? '' : 's'}.`,
-        })
-        if (onReload) await onReload()
+        const cls0 = (j.results || [])[0] || {}
+        if (cls0.error) {
+          setResult({ kind: 'error', text: cls0.error })
+        } else if ((cls0.sent_count ?? 0) === 0) {
+          const errSummary = (cls0.errors || [])
+            .map((e) => `${e.recipient || e.email}: ${e.error}`)
+            .join('; ')
+          setResult({
+            kind: 'error',
+            text: errSummary
+              ? `Nothing was delivered. ${errSummary}`
+              : `No deliveries (no results in response). Full response logged to browser console.`,
+          })
+        } else {
+          setResult({
+            kind: 'success',
+            text: `Sent to ${cls0.sent_count} of ${cls0.recipient_count} subscriber${cls0.recipient_count === 1 ? '' : 's'}.`,
+          })
+          if (onReload) await onReload()
+        }
       }
     } catch (err) {
-      setResult({ kind: 'error', text: err.message })
+      if (err.name === 'AbortError') {
+        setResult({
+          kind: 'error',
+          text: 'Request timed out after 40s. The function is probably stuck on PDFShift or Resend — check Netlify function logs.',
+        })
+      } else {
+        setResult({ kind: 'error', text: err.message })
+      }
     } finally {
+      clearTimeout(timeoutId)
       setSending(false)
     }
   }
