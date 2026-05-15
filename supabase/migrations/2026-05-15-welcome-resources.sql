@@ -15,7 +15,9 @@
 create table if not exists welcome_resources (
   id uuid primary key default gen_random_uuid(),
   display_order int not null default 0,
-  label text not null,                -- "Sales Rep Dashboard"
+  -- Unique so the seed insert below uses ON CONFLICT (label) DO NOTHING
+  -- and doesn't double-add rows if the migration is run twice.
+  label text not null unique,         -- "Sales Rep Dashboard"
   url text not null,
   description text,                   -- one-line context shown under the link
   -- Icon emoji to render on the card. Optional, just decorative.
@@ -74,7 +76,7 @@ insert into welcome_resources (display_order, label, url, description, icon, req
     $$🙏$$,
     false
   )
-on conflict do nothing;
+on conflict (label) do nothing;
 
 -- Tracking columns on trainees so the daily cron knows where each
 -- person is in the 7-day sequence.

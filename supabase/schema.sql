@@ -269,7 +269,7 @@ create index if not exists trainee_hotel_stays_class_idx
 create table if not exists welcome_resources (
   id uuid primary key default gen_random_uuid(),
   display_order int not null default 0,
-  label text not null,
+  label text not null unique,
   url text not null,
   description text,
   icon text,
