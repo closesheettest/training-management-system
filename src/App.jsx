@@ -24,6 +24,8 @@ import HandoffContacts from './pages/HandoffContacts.jsx'
 import MessageTemplates from './pages/MessageTemplates.jsx'
 import Hotels from './pages/Hotels.jsx'
 import Personas from './pages/Personas.jsx'
+import Welcome from './pages/Welcome.jsx'
+import WelcomeLinks from './pages/WelcomeLinks.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
@@ -51,6 +53,11 @@ export default function App() {
         {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
         <Route path="/kiosk/:class_id" element={<Kiosk />} />
 
+        {/* Public welcome page — newly-graduated reps get texted this
+            URL daily for 7 days. Shows the few company links they
+            constantly forget where to find. No auth. */}
+        <Route path="/welcome" element={<MinimalLayout><Welcome /></MinimalLayout>} />
+
         {/* Internal admin routes — full chrome (gated by persona splash).
             Each top-nav route is wrapped in <RouteGate> which checks the
             current persona's visiblePages set against the route's page
@@ -76,6 +83,7 @@ export default function App() {
           <Route path="/handoff-contacts" element={<RouteGate pageKey="settings.handoff"><HandoffContacts /></RouteGate>} />
           <Route path="/message-templates" element={<RouteGate pageKey="settings.templates"><MessageTemplates /></RouteGate>} />
           <Route path="/hotels" element={<RouteGate pageKey="setup.hotels"><Hotels /></RouteGate>} />
+          <Route path="/welcome-links" element={<RouteGate pageKey="setup.welcome_links"><WelcomeLinks /></RouteGate>} />
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
         </Route>
       </Routes>
@@ -108,6 +116,7 @@ function AdminLayout() {
     { key: 'setup.manager', to: '/manager', label: 'Hiring Manager' },
     { key: 'setup.locations', to: '/locations', label: 'Locations' },
     { key: 'setup.hotels', to: '/hotels', label: 'Hotels' },
+    { key: 'setup.welcome_links', to: '/welcome-links', label: 'Welcome page links' },
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
   ].filter((it) => show(it.key))

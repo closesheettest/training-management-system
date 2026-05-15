@@ -68,6 +68,12 @@ export const NOTIFICATION_EVENTS = [
       'Trainee-facing automated email — fires once, right after the trainee submits their final test. Sent to the trainee\'s own email with the Google + Yelp review links. Not configurable in /notifications since it goes to the trainee, not staff.',
   },
   {
+    key: 'trainee_welcome_drip',
+    label: 'New-rep welcome text (daily for 7 days after graduation)',
+    desc:
+      'Trainee-facing automated text — fires daily at 10 AM Eastern via cron. Sends a link to /welcome (quick-links page with the sales rep dashboard, how-to videos, daily sales meeting, prayer call) every day for 7 days after the trainee submits their final test. Goal: cut down on "where do I find X" calls during their first week. Body editable at /message-templates. Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
+  {
     key: 'trainee_handoff_contacts',
     label: 'Trainee handoff contacts (vCard text)',
     desc:

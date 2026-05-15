@@ -24,6 +24,16 @@ const SAMPLE = {
 }
 
 const MESSAGES = {
+  trainee_welcome_drip: {
+    triggers: [
+      'Daily 10 AM Eastern cron — fires once per day for 7 days after a trainee submits their final test.',
+      'Pulls the welcome SMS body from /message-templates ("welcome_drip" template) and substitutes the day number.',
+      'Goal: drill the welcome-page link into their texts during week one so they stop calling to ask "where do I find X?"',
+    ],
+    sms: `Hi Sample, your quick-links page (sales dashboard, how-to videos, daily sales meeting, prayer call) — save this in your contacts: https://trainingmanagementsys.netlify.app/welcome (Day 1 of 7)`,
+    emailSubject: '(this one is text-only)',
+    emailBody: '(text-only — trainees get the welcome link via SMS)',
+  },
   trainee_hotel_info: {
     triggers: [
       'Fires when HR clicks "Send" (or "Send all unsent") on the Hotels page after capturing a trainee\'s room details.',

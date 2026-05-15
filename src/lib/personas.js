@@ -17,6 +17,7 @@ export const PAGES = [
   { key: 'setup.manager', label: 'Hiring Manager', path: '/manager', menu: 'setup' },
   { key: 'setup.locations', label: 'Locations', path: '/locations', menu: 'setup' },
   { key: 'setup.hotels', label: 'Hotels', path: '/hotels', menu: 'setup' },
+  { key: 'setup.welcome_links', label: 'Welcome page links', path: '/welcome-links', menu: 'setup' },
   { key: 'setup.questions', label: 'Questions', path: '/questions', menu: 'setup' },
   { key: 'setup.testimonials', label: 'Testimonials', path: '/testimonials', menu: 'setup' },
   { key: 'settings.messages', label: 'Messages', path: '/messages', menu: 'settings' },
@@ -48,7 +49,7 @@ export const ROLE_DEFAULTS = {
   hiring_manager: ['home', 'schedule', 'setup.manager', 'setup.hotels', 'settings.overview'],
   it: ['home', 'provisioning', 'settings.overview'],
   // HR co-owns the persona config alongside admin — they shape who sees what.
-  hr: ['home', 'schedule', 'setup.hotels', 'settings.notifications', 'settings.personas', 'settings.overview'],
+  hr: ['home', 'schedule', 'setup.hotels', 'setup.welcome_links', 'settings.notifications', 'settings.personas', 'settings.overview'],
   va: ['home', 'settings.overview'],
   trainer: ['home', 'schedule', 'attendance', 'setup.questions', 'settings.messages', 'settings.overview'],
   test: ['*'],

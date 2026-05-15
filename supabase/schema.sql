@@ -264,6 +264,33 @@ create index if not exists trainee_hotel_stays_class_idx
   on trainee_hotel_stays(class_id);
 
 -- ============================================================
+-- WELCOME RESOURCES — links on the /welcome page
+-- ============================================================
+create table if not exists welcome_resources (
+  id uuid primary key default gen_random_uuid(),
+  display_order int not null default 0,
+  label text not null,
+  url text not null,
+  description text,
+  icon text,
+  requires_google_signin boolean not null default false,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table welcome_resources enable row level security;
+drop policy if exists "welcome_resources_public_select" on welcome_resources;
+drop policy if exists "welcome_resources_public_insert" on welcome_resources;
+drop policy if exists "welcome_resources_public_update" on welcome_resources;
+drop policy if exists "welcome_resources_public_delete" on welcome_resources;
+create policy "welcome_resources_public_select" on welcome_resources for select using (true);
+create policy "welcome_resources_public_insert" on welcome_resources for insert with check (true);
+create policy "welcome_resources_public_update" on welcome_resources for update using (true);
+create policy "welcome_resources_public_delete" on welcome_resources for delete using (true);
+alter table trainees add column if not exists welcome_texts_sent int not null default 0;
+alter table trainees add column if not exists last_welcome_text_at timestamptz;
+
+-- ============================================================
 -- ROLE SETTINGS — persona-based nav filtering (UX, not auth)
 -- ============================================================
 create table if not exists role_settings (
