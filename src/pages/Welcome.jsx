@@ -46,6 +46,8 @@ export default function Welcome() {
 
       <SignInNote />
 
+      <HomeScreenShortcutNote />
+
       {resources.length === 0 ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           No resources have been added yet. Admin can manage these on /welcome-links.
@@ -201,6 +203,78 @@ function SignInNote() {
 
         <p className="text-sm font-semibold">
           Stuck? Text your hiring manager — they can walk you through it.
+        </p>
+      </div>
+    </details>
+  )
+}
+
+// Pro tip: save the welcome page itself as a home-screen shortcut so
+// trainees can launch it in one tap (no scrolling through old texts
+// to find the link). Collapsed by default since it's an enhancement,
+// not a blocker — but the sky-blue header keeps it visible.
+function HomeScreenShortcutNote() {
+  const [open, setOpen] = useState(false)
+  return (
+    <details
+      open={open}
+      onToggle={(e) => setOpen(e.target.open)}
+      className="overflow-hidden rounded-xl border-2 border-sky-300 bg-sky-50"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-3 bg-sky-100 px-4 py-3 text-sm font-bold uppercase tracking-wide text-sky-900 sm:text-base">
+        <span aria-hidden="true" className="text-xl">💡</span>
+        <span className="flex-1 leading-tight">
+          Save this page to your home screen — one tap from now on
+        </span>
+        <span aria-hidden="true" className="ml-2 text-lg text-sky-700">
+          {open ? '▾' : '▸'}
+        </span>
+      </summary>
+      <div className="space-y-4 p-4 text-sm text-sky-950">
+        <p className="text-base font-semibold">
+          Don't bury this in your texts. Pin the page to your home screen so it opens like an
+          app — one tap and all your daily links are right there.
+        </p>
+
+        <div className="rounded-md bg-white p-3">
+          <div className="text-base font-bold">📱 On iPhone</div>
+          <ol className="ml-5 mt-2 list-decimal space-y-1.5">
+            <li>
+              Open this page in <strong>Safari</strong> (not Chrome — only Safari can save
+              shortcuts to the home screen on iPhone).
+            </li>
+            <li>
+              Tap the <strong>Share button</strong> — the square with an arrow pointing up,
+              at the bottom of the screen.
+            </li>
+            <li>
+              Scroll down in the share sheet and tap <strong>"Add to Home Screen."</strong>
+            </li>
+            <li>Name it something easy like <strong>"U.S. Shingle"</strong> and tap <strong>Add</strong>.</li>
+            <li>
+              Done — there's a new icon on your home screen. Tap it anytime to land right
+              back here.
+            </li>
+          </ol>
+        </div>
+
+        <div className="rounded-md bg-white p-3">
+          <div className="text-base font-bold">🤖 On Android</div>
+          <ol className="ml-5 mt-2 list-decimal space-y-1.5">
+            <li>Open this page in <strong>Chrome</strong>.</li>
+            <li>Tap the three dots in the top right.</li>
+            <li>
+              Tap <strong>"Add to Home screen"</strong> (sometimes labeled{' '}
+              <strong>"Install app"</strong>).
+            </li>
+            <li>Name it <strong>"U.S. Shingle"</strong> and tap <strong>Add</strong>.</li>
+            <li>The shortcut now lives on your home screen — open it anytime.</li>
+          </ol>
+        </div>
+
+        <p className="text-sm font-semibold">
+          Bonus: once it's on your home screen, you can long-press the icon to drag it
+          wherever you want — right next to your other work apps.
         </p>
       </div>
     </details>
