@@ -306,7 +306,7 @@ alter table trainees add column if not exists years_in_sales text;
 create table if not exists notification_recipients (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  role text not null check (role in ('admin', 'it', 'hr', 'trainer', 'va', 'test', 'custom')),
+  role text not null check (role in ('admin', 'hiring_manager', 'it', 'hr', 'trainer', 'va', 'test', 'custom')),
   phone text,
   email text,
   active boolean not null default true,
