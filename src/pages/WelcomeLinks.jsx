@@ -13,6 +13,8 @@ const blank = () => ({
   description: '',
   icon: '',
   requires_google_signin: false,
+  mandatory: false,
+  mandatory_note: '',
   active: true,
 })
 
@@ -70,6 +72,8 @@ export default function WelcomeLinks() {
       description: draft.description?.trim() || null,
       icon: draft.icon?.trim() || null,
       requires_google_signin: !!draft.requires_google_signin,
+      mandatory: !!draft.mandatory,
+      mandatory_note: draft.mandatory_note?.trim() || null,
       active: !!draft.active,
       updated_at: new Date().toISOString(),
     }
@@ -164,6 +168,11 @@ export default function WelcomeLinks() {
                     {r.requires_google_signin && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                         Google sign-in
+                      </span>
+                    )}
+                    {r.mandatory && (
+                      <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                        ⚠️ Mandatory
                       </span>
                     )}
                     {!r.active && (
@@ -285,6 +294,33 @@ export default function WelcomeLinks() {
               />
               Active (visible on /welcome)
             </label>
+          </div>
+
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-red-900">
+              <input
+                type="checkbox"
+                checked={draft.mandatory}
+                onChange={(e) => setDraft({ ...draft, mandatory: e.target.checked })}
+                className="h-4 w-4"
+              />
+              ⚠️ Mandatory — render this card in red with a banner across the top
+            </label>
+            {draft.mandatory && (
+              <Field
+                label="Banner text"
+                hint={'Shown in the red banner. Keep it short — e.g. "MANDATORY — DON\'T MISS · CAMERA MUST BE ON".'}
+              >
+                <input
+                  type="text"
+                  value={draft.mandatory_note}
+                  onChange={(e) => setDraft({ ...draft, mandatory_note: e.target.value })}
+                  placeholder="MANDATORY — YOU CAN NOT MISS ANY · CAMERA MUST BE ON"
+                  maxLength={120}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </Field>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <button

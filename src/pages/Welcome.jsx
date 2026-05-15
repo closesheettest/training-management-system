@@ -58,23 +58,55 @@ export default function Welcome() {
                 href={r.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-brand-navy hover:shadow-md"
+                className={
+                  'block overflow-hidden rounded-lg shadow-sm hover:shadow-md ' +
+                  (r.mandatory
+                    ? 'border-4 border-red-600 bg-white'
+                    : 'border border-slate-200 bg-white hover:border-brand-navy')
+                }
               >
-                <div className="flex items-start gap-3">
+                {r.mandatory && (
+                  <div className="bg-red-600 px-3 py-2 text-center text-sm font-extrabold uppercase tracking-wide text-white sm:text-base">
+                    ⚠️ {r.mandatory_note || 'MANDATORY'}
+                  </div>
+                )}
+                <div className="flex items-start gap-3 p-4">
                   {r.icon && (
-                    <span className="text-2xl leading-none" aria-hidden="true">
+                    <span
+                      className={r.mandatory ? 'text-3xl leading-none' : 'text-2xl leading-none'}
+                      aria-hidden="true"
+                    >
                       {r.icon}
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-semibold text-brand-navy">
+                      <span
+                        className={
+                          r.mandatory
+                            ? 'text-xl font-extrabold text-red-700 sm:text-2xl'
+                            : 'text-base font-semibold text-brand-navy'
+                        }
+                      >
                         {r.label}
                       </span>
-                      <span className="text-slate-400" aria-hidden="true">↗</span>
+                      <span
+                        className={r.mandatory ? 'text-red-500' : 'text-slate-400'}
+                        aria-hidden="true"
+                      >
+                        ↗
+                      </span>
                     </div>
                     {r.description && (
-                      <p className="mt-1 text-sm text-slate-600">{r.description}</p>
+                      <p
+                        className={
+                          r.mandatory
+                            ? 'mt-1 text-sm font-medium text-slate-800'
+                            : 'mt-1 text-sm text-slate-600'
+                        }
+                      >
+                        {r.description}
+                      </p>
                     )}
                     {r.requires_google_signin && (
                       <p className="mt-2 inline-block rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
