@@ -14,7 +14,8 @@ import { supabase } from '../lib/supabase.js'
 
 export default function MessageTemplates() {
   const [rows, setRows] = useState(null)
-  const [drafts, setDrafts] = useState({}) // key → editable body
+  // Each draft is { body, subject } — subject is undefined for SMS templates.
+  const [drafts, setDrafts] = useState({})
   const [savingKey, setSavingKey] = useState(null)
   const [flash, setFlash] = useState(null)
 
@@ -35,7 +36,12 @@ export default function MessageTemplates() {
     setRows(data || [])
     const initialDrafts = {}
     for (const r of data || []) {
-      initialDrafts[r.key] = r.body || ''
+      initialDrafts[r.key] = {
+        body: r.body || '',
+        // subject is undefined for SMS templates — keep it undefined so
+        // we don't overwrite null with empty string on save.
+        subject: r.subject !== null && r.subject !== undefined ? r.subject : undefined,
+      }
     }
     setDrafts(initialDrafts)
   }
@@ -43,10 +49,20 @@ export default function MessageTemplates() {
   async function save(row) {
     setSavingKey(row.key)
     setFlash(null)
-    const newBody = drafts[row.key] ?? ''
+    const draft = drafts[row.key] || {}
+    const payload = {
+      body: draft.body ?? '',
+      updated_at: new Date().toISOString(),
+    }
+    // Only include subject if the row supports it (i.e. it had a non-null
+    // subject in the DB). Avoids accidentally setting empty string on
+    // SMS-only templates.
+    if (row.subject !== null && row.subject !== undefined) {
+      payload.subject = draft.subject ?? ''
+    }
     const { error } = await supabase
       .from('message_templates')
-      .update({ body: newBody, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', row.id)
     setSavingKey(null)
     if (error) {
@@ -58,7 +74,20 @@ export default function MessageTemplates() {
   }
 
   function resetDraft(row) {
-    setDrafts({ ...drafts, [row.key]: row.body })
+    setDrafts({
+      ...drafts,
+      [row.key]: {
+        body: row.body || '',
+        subject: row.subject !== null && row.subject !== undefined ? row.subject : undefined,
+      },
+    })
+  }
+
+  function updateDraft(key, field, value) {
+    setDrafts({
+      ...drafts,
+      [key]: { ...(drafts[key] || {}), [field]: value },
+    })
   }
 
   if (rows === null) {
@@ -102,24 +131,54 @@ export default function MessageTemplates() {
       ) : (
         <ul className="space-y-4">
           {rows.map((r) => {
-            const isDirty = (drafts[r.key] ?? '') !== (r.body ?? '')
+            const draft = drafts[r.key] || {}
+            const isEmail = r.subject !== null && r.subject !== undefined
+            const bodyChanged = (draft.body ?? '') !== (r.body ?? '')
+            const subjectChanged = isEmail && (draft.subject ?? '') !== (r.subject ?? '')
+            const isDirty = bodyChanged || subjectChanged
             return (
               <li
                 key={r.id}
                 className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm space-y-3"
               >
                 <div>
-                  <h3 className="font-semibold text-slate-900">{r.label}</h3>
+                  <h3 className="font-semibold text-slate-900">
+                    {r.label}
+                    <span className={
+                      'ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ' +
+                      (isEmail ? 'bg-sky-100 text-sky-800' : 'bg-emerald-100 text-emerald-800')
+                    }>
+                      {isEmail ? '✉️ Email' : '📱 SMS'}
+                    </span>
+                  </h3>
                   {r.description && (
                     <p className="mt-1 text-xs text-slate-500">{r.description}</p>
                   )}
                 </div>
-                <textarea
-                  rows={4}
-                  value={drafts[r.key] ?? ''}
-                  onChange={(e) => setDrafts({ ...drafts, [r.key]: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
-                />
+                {isEmail && (
+                  <label className="block">
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Subject line
+                    </span>
+                    <input
+                      type="text"
+                      value={draft.subject ?? ''}
+                      onChange={(e) => updateDraft(r.key, 'subject', e.target.value)}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+                    />
+                  </label>
+                )}
+                <label className="block">
+                  <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {isEmail ? 'Email body' : 'Text body'}
+                  </span>
+                  <textarea
+                    rows={isEmail ? 14 : 4}
+                    value={draft.body ?? ''}
+                    onChange={(e) => updateDraft(r.key, 'body', e.target.value)}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+                  />
+                </label>
                 {r.placeholders && r.placeholders.length > 0 && (
                   <p className="text-xs text-slate-500">
                     <strong>Available placeholders:</strong>{' '}

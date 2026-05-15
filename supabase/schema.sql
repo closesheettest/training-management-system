@@ -206,6 +206,7 @@ create table if not exists message_templates (
   key text unique not null,
   label text not null,
   description text,
+  subject text,                       -- optional; used for email templates only
   body text not null,
   placeholders text[],
   updated_at timestamptz not null default now()
@@ -224,6 +225,7 @@ alter table trainees add column if not exists declined_at timestamptz;
 alter table trainees add column if not exists declined_reason text;
 alter table trainees add column if not exists registration_followup_1_sent_at timestamptz;
 alter table trainees add column if not exists registration_followup_2_sent_at timestamptz;
+alter table trainees add column if not exists itinerary_email_sent_at timestamptz;
 create index if not exists trainees_followup_candidates_idx
   on trainees(registered, enrolled, declined_at, last_sms_sent_at);
 

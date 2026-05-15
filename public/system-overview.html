@@ -310,6 +310,12 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">Auto-fires when a trainee uses the "Let us know" link below the registration form. Notification includes their reason (if they gave one). Trainee is auto-unenrolled — no more automated texts go to them.</span></td>
     </tr>
     <tr>
+      <td><strong>Training itinerary email</strong><br><em>Welcome + schedule + address + hiring manager signature</em></td>
+      <td>Each registered trainee whose class has a location set</td>
+      <td>✉️ Email</td>
+      <td><span class="pill pill-cron">Daily cron at 10 AM Eastern</span> Auto-fires once a trainee is <strong>registered</strong> AND their class's <strong>location is no longer TBD</strong>. Pulls the schedule from the location's saved schedule template (or class-specific override), the address from the location record, and the signature from whichever Hiring Manager is set on /notifications. Body + subject editable on /message-templates. One email per trainee (dedup via itinerary_email_sent_at).</td>
+    </tr>
+    <tr>
       <td><strong>Day-2 reminder</strong><br><em>"Time to create emails"</em></td>
       <td>IT</td>
       <td>📱 Text · ✉️ Email</td>

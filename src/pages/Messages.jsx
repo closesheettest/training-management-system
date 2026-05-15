@@ -24,6 +24,37 @@ const SAMPLE = {
 }
 
 const MESSAGES = {
+  trainee_itinerary: {
+    triggers: [
+      'Auto-fires daily at 10 AM Eastern via cron — sends the training itinerary email to every trainee who is registered AND has had their class location assigned (i.e. no longer TBD).',
+      'One email per trainee (dedup via itinerary_email_sent_at). Editable on /message-templates — both subject and body.',
+    ],
+    sms: '(this one is email-only — too much info for SMS)',
+    emailSubject: `Your training itinerary — Week of May 11, 2026 at ${SAMPLE.location}`,
+    emailBody:
+      `Hello Sample,\n\n` +
+      `We're excited to welcome you to U.S. Shingle & Metal and look forward to starting your Retail Sales training soon!\n\n` +
+      `Our Retail Sales training program begins Monday May 11, 2026.\n\n` +
+      `Please reply to this email to confirm your attendance for May 11, 2026.\n\n` +
+      `TRAINING SCHEDULE\n` +
+      `${SAMPLE.location}\n` +
+      `3845 Gateway Centre Blvd Suite 300\n` +
+      `Pinellas Park, FL 33782\n\n` +
+      `Monday: 11:30 AM – 4:00 PM (please arrive 15 minutes early for onboarding)\n` +
+      `Tuesday–Thursday: 10:00 AM – 2:00 PM\n` +
+      `Friday: 9:00 AM – 11:00 AM\n\n` +
+      `ARRIVAL DETAILS\n` +
+      `Plan to arrive 15 minutes early each day. Neal, the trainer, likes to keep a timely schedule.\n\n` +
+      `If you're unable to attend for any reason, please respond to this email promptly so we can adjust arrangements, including hotel reservations if needed.\n\n` +
+      `WHAT TO EXPECT\n` +
+      `If traveling from more than 70 miles away, you'll receive hotel details on Monday during training.\n\n` +
+      `We're thrilled to have you join the U.S. Shingle & Metal family and can't wait to see you in training!\n\n` +
+      `--\n` +
+      `Brent Davidson\n` +
+      `Hiring Manager\n` +
+      `U.S. Shingle and Metal\n` +
+      `727-340-2965`,
+  },
   trainee_declined: {
     triggers: [
       'Fires when a trainee taps "Can\'t make it" on their registration page and confirms in the modal.',

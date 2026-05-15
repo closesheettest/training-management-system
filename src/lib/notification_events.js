@@ -74,6 +74,12 @@ export const NOTIFICATION_EVENTS = [
       'Trainee-facing automated text — fires once, right after the trainee submits their final test. Sent to the trainee\'s personal phone with a tap-to-save vCard link containing their Sales Manager, Helpline, and any region-matched contacts (managed at /handoff-contacts). Not configurable in /notifications since it goes to the trainee, not staff.',
   },
   {
+    key: 'trainee_itinerary',
+    label: 'Trainee training itinerary email',
+    desc:
+      'Trainee-facing automated email — fires daily at 10 AM Eastern via cron. Sent once per trainee, only after they\'ve registered AND their class location is no longer TBD. Includes the location address, the schedule from the location/class, and the hiring manager\'s signature. Body and subject are editable at /message-templates. Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
+  {
     key: 'trainee_declined',
     label: 'Trainee declined / withdrew from training',
     desc:
