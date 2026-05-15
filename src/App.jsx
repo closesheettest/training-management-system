@@ -23,58 +23,101 @@ import Messages from './pages/Messages.jsx'
 import HandoffContacts from './pages/HandoffContacts.jsx'
 import MessageTemplates from './pages/MessageTemplates.jsx'
 import Hotels from './pages/Hotels.jsx'
+import Personas from './pages/Personas.jsx'
+import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
+import PersonaSplash from './components/PersonaSplash.jsx'
+import { roleLabel } from './lib/personas.js'
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public trainee-facing registration — minimal chrome */}
-      <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
+    <PersonaProvider>
+      <Routes>
+        {/* Public trainee-facing registration — minimal chrome */}
+        <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
 
-      {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
-      <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
+        {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
+        <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
 
-      {/* Public credentials: trainee taps the link from the day-2 SMS */}
-      <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />
+        {/* Public credentials: trainee taps the link from the day-2 SMS */}
+        <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />
 
-      {/* Public app downloads — linked from the credentials page */}
-      <Route path="/apps" element={<MinimalLayout><AppDownloads /></MinimalLayout>} />
+        {/* Public app downloads — linked from the credentials page */}
+        <Route path="/apps" element={<MinimalLayout><AppDownloads /></MinimalLayout>} />
 
-      {/* Public test taking + thank-you (last-day final assessment) */}
-      <Route path="/test/:token" element={<MinimalLayout><TakeTest /></MinimalLayout>} />
-      <Route path="/test/:token/done" element={<MinimalLayout><TestDone /></MinimalLayout>} />
+        {/* Public test taking + thank-you (last-day final assessment) */}
+        <Route path="/test/:token" element={<MinimalLayout><TakeTest /></MinimalLayout>} />
+        <Route path="/test/:token/done" element={<MinimalLayout><TestDone /></MinimalLayout>} />
 
-      {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
-      <Route path="/kiosk/:class_id" element={<Kiosk />} />
+        {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
+        <Route path="/kiosk/:class_id" element={<Kiosk />} />
 
-      {/* Internal admin routes — full chrome */}
-      <Route element={<AdminLayout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/class/:id" element={<ClassDetail />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/provisioning" element={<ProvisioningHub />} />
-        <Route path="/provision/:class_id" element={<Provision />} />
-        <Route path="/setup/:class_id" element={<Setup />} />
-        <Route path="/questions" element={<Questions />} />
-        <Route path="/testimonials" element={<Testimonials />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/manager" element={<HiringManager />} />
-        <Route path="/locations" element={<Locations />} />
-        <Route path="/handoff-contacts" element={<HandoffContacts />} />
-        <Route path="/message-templates" element={<MessageTemplates />} />
-        <Route path="/hotels" element={<Hotels />} />
-      </Route>
-    </Routes>
+        {/* Internal admin routes — full chrome (gated by persona splash) */}
+        <Route element={<AdminLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/class/:id" element={<ClassDetail />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/provisioning" element={<ProvisioningHub />} />
+          <Route path="/provision/:class_id" element={<Provision />} />
+          <Route path="/setup/:class_id" element={<Setup />} />
+          <Route path="/questions" element={<Questions />} />
+          <Route path="/testimonials" element={<Testimonials />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/manager" element={<HiringManager />} />
+          <Route path="/locations" element={<Locations />} />
+          <Route path="/handoff-contacts" element={<HandoffContacts />} />
+          <Route path="/message-templates" element={<MessageTemplates />} />
+          <Route path="/hotels" element={<Hotels />} />
+          <Route path="/personas" element={<Personas />} />
+        </Route>
+      </Routes>
+    </PersonaProvider>
   )
 }
 
 function AdminLayout() {
+  const { status, persona, visiblePages, switchPersona } = usePersona()
+
+  // While we're loading the persona from localStorage + DB, show a thin
+  // placeholder so the nav doesn't flicker.
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <BrandStripe />
+        <div className="mx-auto max-w-5xl px-6 py-10 text-sm text-slate-400">Loading…</div>
+      </div>
+    )
+  }
+
+  // No persona picked yet (or the stored id was invalid) → splash.
+  if (status === 'splash') {
+    return <PersonaSplash />
+  }
+
+  // Filter helpers — each nav item checks visiblePages before rendering.
+  const show = (key) => visiblePages.has(key)
+  const setupItems = [
+    { key: 'setup.manager', to: '/manager', label: 'Hiring Manager' },
+    { key: 'setup.locations', to: '/locations', label: 'Locations' },
+    { key: 'setup.hotels', to: '/hotels', label: 'Hotels' },
+    { key: 'setup.questions', to: '/questions', label: 'Questions' },
+    { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
+  ].filter((it) => show(it.key))
+  const settingsItems = [
+    { key: 'settings.messages', to: '/messages', label: 'Messages' },
+    { key: 'settings.notifications', to: '/notifications', label: 'Notifications' },
+    { key: 'settings.templates', to: '/message-templates', label: 'Message templates' },
+    { key: 'settings.handoff', to: '/handoff-contacts', label: 'Handoff contacts' },
+    { key: 'settings.personas', to: '/personas', label: 'Personas' },
+    { key: 'settings.overview', href: '/system-overview.html', external: true, label: 'System Overview' },
+  ].filter((it) => show(it.key))
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <BrandStripe />
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/" className="flex items-center gap-3">
             <BrandMark />
             <div className="flex flex-col leading-tight">
@@ -87,36 +130,38 @@ function AdminLayout() {
             </div>
           </Link>
           <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:gap-x-6">
-            <NavItem to="/" end>Home</NavItem>
-            <NavItem to="/calendar">Schedule</NavItem>
-            <NavItem to="/attendance">Attendance</NavItem>
-            <NavItem to="/provisioning">Provisioning</NavItem>
-            <NavDropdown
-              label="Setup"
-              items={[
-                { to: '/manager', label: 'Hiring Manager' },
-                { to: '/locations', label: 'Locations' },
-                { to: '/hotels', label: 'Hotels' },
-                { to: '/questions', label: 'Questions' },
-                { to: '/testimonials', label: 'Testimonials' },
-              ]}
-            />
-            <NavDropdown
-              label="Settings"
-              items={[
-                { to: '/messages', label: 'Messages' },
-                { to: '/notifications', label: 'Notifications' },
-                { to: '/message-templates', label: 'Message templates' },
-                { to: '/handoff-contacts', label: 'Handoff contacts' },
-                { href: '/system-overview.html', external: true, label: 'System Overview' },
-              ]}
-            />
+            {show('home') && <NavItem to="/" end>Home</NavItem>}
+            {show('schedule') && <NavItem to="/calendar">Schedule</NavItem>}
+            {show('attendance') && <NavItem to="/attendance">Attendance</NavItem>}
+            {show('provisioning') && <NavItem to="/provisioning">Provisioning</NavItem>}
+            {setupItems.length > 0 && <NavDropdown label="Setup" items={setupItems} />}
+            {settingsItems.length > 0 && <NavDropdown label="Settings" items={settingsItems} />}
+            <PersonaBadge persona={persona} onSwitch={switchPersona} />
           </nav>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-10">
         <Outlet />
       </main>
+    </div>
+  )
+}
+
+function PersonaBadge({ persona, onSwitch }) {
+  if (!persona) return null
+  return (
+    <div className="ml-0 flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs sm:ml-2">
+      <span className="font-medium text-slate-700">👤 {persona.name}</span>
+      <span className="text-slate-400">·</span>
+      <span className="text-slate-500">{roleLabel(persona.role)}</span>
+      <button
+        type="button"
+        onClick={onSwitch}
+        className="ml-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-200"
+        title="Switch to a different person"
+      >
+        Switch
+      </button>
     </div>
   )
 }

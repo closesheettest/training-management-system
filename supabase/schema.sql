@@ -262,6 +262,24 @@ create policy "trainee_hotel_stays_public_update" on trainee_hotel_stays for upd
 create policy "trainee_hotel_stays_public_delete" on trainee_hotel_stays for delete using (true);
 create index if not exists trainee_hotel_stays_class_idx
   on trainee_hotel_stays(class_id);
+
+-- ============================================================
+-- ROLE SETTINGS — persona-based nav filtering (UX, not auth)
+-- ============================================================
+create table if not exists role_settings (
+  role text primary key,
+  visible_page_keys text[] not null default '{}',
+  updated_at timestamptz not null default now()
+);
+alter table role_settings enable row level security;
+drop policy if exists "role_settings_public_select" on role_settings;
+drop policy if exists "role_settings_public_insert" on role_settings;
+drop policy if exists "role_settings_public_update" on role_settings;
+drop policy if exists "role_settings_public_delete" on role_settings;
+create policy "role_settings_public_select" on role_settings for select using (true);
+create policy "role_settings_public_insert" on role_settings for insert with check (true);
+create policy "role_settings_public_update" on role_settings for update using (true);
+create policy "role_settings_public_delete" on role_settings for delete using (true);
 create index if not exists trainees_followup_candidates_idx
   on trainees(registered, enrolled, declined_at, last_sms_sent_at);
 
