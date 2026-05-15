@@ -22,7 +22,7 @@ insert into role_settings (role, visible_page_keys) values
   ('admin',         array['*']),
   ('hiring_manager', array['home', 'schedule', 'setup.manager', 'setup.hotels', 'settings.overview']),
   ('it',            array['home', 'provisioning', 'settings.overview']),
-  ('hr',            array['home', 'schedule', 'setup.hotels', 'settings.notifications', 'settings.overview']),
+  ('hr',            array['home', 'schedule', 'setup.hotels', 'settings.notifications', 'settings.personas', 'settings.overview']),
   ('va',            array['home', 'settings.overview']),
   ('trainer',       array['home', 'schedule', 'attendance', 'setup.questions', 'settings.messages', 'settings.overview']),
   ('test',          array['*']),

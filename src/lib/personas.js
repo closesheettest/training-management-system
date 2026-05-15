@@ -47,7 +47,8 @@ export const ROLE_DEFAULTS = {
   admin: ['*'],
   hiring_manager: ['home', 'schedule', 'setup.manager', 'setup.hotels', 'settings.overview'],
   it: ['home', 'provisioning', 'settings.overview'],
-  hr: ['home', 'schedule', 'setup.hotels', 'settings.notifications', 'settings.overview'],
+  // HR co-owns the persona config alongside admin — they shape who sees what.
+  hr: ['home', 'schedule', 'setup.hotels', 'settings.notifications', 'settings.personas', 'settings.overview'],
   va: ['home', 'settings.overview'],
   trainer: ['home', 'schedule', 'attendance', 'setup.questions', 'settings.messages', 'settings.overview'],
   test: ['*'],
@@ -56,7 +57,9 @@ export const ROLE_DEFAULTS = {
 
 // Pages everyone can always see, regardless of role config. Keeps the
 // app from getting into a state where someone has no nav at all.
-export const ALWAYS_VISIBLE = new Set(['home', 'settings.personas'])
+// Only home — Personas is toggleable like every other page and defaults
+// to admin + HR only.
+export const ALWAYS_VISIBLE = new Set(['home'])
 
 // LocalStorage key for the currently-selected persona's recipient id.
 export const PERSONA_STORAGE_KEY = 'tms_persona_id'

@@ -76,7 +76,7 @@ export default function App() {
           <Route path="/handoff-contacts" element={<RouteGate pageKey="settings.handoff"><HandoffContacts /></RouteGate>} />
           <Route path="/message-templates" element={<RouteGate pageKey="settings.templates"><MessageTemplates /></RouteGate>} />
           <Route path="/hotels" element={<RouteGate pageKey="setup.hotels"><Hotels /></RouteGate>} />
-          <Route path="/personas" element={<Personas />} />
+          <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
         </Route>
       </Routes>
     </PersonaProvider>

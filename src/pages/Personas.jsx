@@ -126,8 +126,8 @@ export default function Personas() {
           but for now this prevents the active persona from drifting into pages outside their job.
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Pages marked with <span className="italic">always</span> below are visible to everyone
-          regardless of toggles — keeps the app from getting into a "no nav at all" state.
+          Home is always visible to every role (so nobody lands on a blank screen). All other
+          pages are toggleable — including this one, which by default is admin + HR only.
         </p>
       </header>
 
