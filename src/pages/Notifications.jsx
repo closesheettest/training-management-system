@@ -4,6 +4,7 @@ import { NOTIFICATION_EVENTS } from '../lib/notification_events.js'
 
 const ROLES = [
   { value: 'admin', label: 'Admin', desc: 'Owner / operations.' },
+  { value: 'hiring_manager', label: 'Hiring Manager', desc: 'Enrolls candidates into class weeks. Signs the trainee itinerary email. Gets notified of declines.' },
   { value: 'it', label: 'IT', desc: 'IT department — creates company emails.' },
   { value: 'hr', label: 'HR', desc: 'HR / corporate — shares the email list with the VA.' },
   { value: 'trainer', label: 'Corporate Trainer', desc: 'Sends the credentials text to trainees once setup is done.' },
