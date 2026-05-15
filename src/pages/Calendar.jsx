@@ -141,6 +141,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
     region: '',
     location_id: '',
     schedule_details: '',
+    attendance_only: false,
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -178,6 +179,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
         region: form.region,
         location_id: form.location_id || null,
         schedule_details: form.schedule_details || null,
+        attendance_only: !!form.attendance_only,
       })
       .select()
       .single()
@@ -274,6 +276,26 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
         </label>
       </div>
 
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+        <label className="flex items-start gap-2 text-sm font-semibold text-amber-900">
+          <input
+            type="checkbox"
+            checked={!!form.attendance_only}
+            onChange={(e) => update('attendance_only', e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            📋 One-off meeting — attendance only
+            <span className="mt-1 block text-xs font-normal text-amber-800">
+              Pick this for company meetings or one-day events that need headcount tracking
+              but aren't real training weeks. Skips registration texts, provisioning, final
+              test, graduation report, hotels, the welcome drip, and every other automated
+              flow. Trainees just check in at the kiosk.
+            </span>
+          </span>
+        </label>
+      </div>
+
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
@@ -355,6 +377,11 @@ function ClassRow({ cls }) {
             {isTBD && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                 Location TBD
+              </span>
+            )}
+            {cls.attendance_only && (
+              <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-900">
+                📋 Attendance only
               </span>
             )}
           </div>

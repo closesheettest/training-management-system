@@ -74,6 +74,7 @@ export const handler = async (event) => {
       )
     `)
     .is('graduation_report_sent_at', null)
+    .eq('attendance_only', false)
   if (targetClassId) query = query.eq('id', targetClassId)
   const { data: classes, error: clsErr } = await query
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })

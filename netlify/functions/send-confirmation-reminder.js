@@ -59,6 +59,7 @@ export const handler = async (event) => {
       'id, week_start_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, phone, registered, registration_token, last_reminder_sent_at)',
     )
     .eq('week_start_date', targetDate)
+    .eq('attendance_only', false)
 
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })
 

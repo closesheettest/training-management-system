@@ -49,6 +49,7 @@ export const handler = async (event) => {
     .from('classes')
     .select('id, region, week_start_date, week_end_date')
     .is('location_id', null)
+    .eq('attendance_only', false)
     .gte('week_start_date', today)
     .lte('week_start_date', cutoff)
     .order('week_start_date', { ascending: true })

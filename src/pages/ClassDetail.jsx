@@ -596,15 +596,34 @@ export default function ClassDetail() {
         </div>
       )}
 
-      <ProvisioningWorkflowCard
-        cls={cls}
-        onSendDay2={sendDay2ItReminder}
-        onSendCredentials={sendCredentialsToTrainees}
-      />
+      {cls.attendance_only && (
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-start gap-2">
+            <span className="text-2xl leading-none" aria-hidden="true">📋</span>
+            <div>
+              <div className="font-semibold text-amber-900">Attendance-only meeting</div>
+              <p className="mt-1 text-sm text-amber-900">
+                This class is flagged attendance-only. No automations will run — no
+                registration texts, no provisioning, no final test, no graduation report, no
+                hotels, no welcome drip. Add attendees below and use the kiosk on the day of
+                the meeting to track who showed up.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!cls.attendance_only && (
+        <ProvisioningWorkflowCard
+          cls={cls}
+          onSendDay2={sendDay2ItReminder}
+          onSendCredentials={sendCredentialsToTrainees}
+        />
+      )}
 
       <RosterSummary summary={summary} />
 
-      {summary.testSubmitted > 0 && (
+      {!cls.attendance_only && summary.testSubmitted > 0 && (
         <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} classId={id} />
       )}
 
@@ -765,7 +784,9 @@ export default function ClassDetail() {
       {/* Quick actions */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex-1 text-sm text-slate-700">
-          {unsentIds.length > 0 ? (
+          {cls.attendance_only ? (
+            <><strong>{enrolled.length}</strong> attendee{enrolled.length === 1 ? '' : 's'} on the roster.</>
+          ) : unsentIds.length > 0 ? (
             <><strong>{unsentIds.length}</strong> trainee{unsentIds.length === 1 ? '' : 's'} haven't registered yet.</>
           ) : (
             'All trainees have registered.'
@@ -778,7 +799,7 @@ export default function ClassDetail() {
         >
           + Add trainee
         </button>
-        {unsentIds.length > 0 && (
+        {!cls.attendance_only && unsentIds.length > 0 && (
           <button
             onClick={() => sendSms(unsentIds, 'all')}
             disabled={sending !== null}
@@ -802,8 +823,30 @@ export default function ClassDetail() {
         </section>
       )}
 
-      {/* Trainee status groups */}
-      {[
+      {/* Trainee list — for attendance-only classes show ONE simple
+          "Attendees" list (no registration concept). Otherwise show
+          the normal 3-bucket grouping by registration status. */}
+      {cls.attendance_only ? (
+        <TraineeGroup
+          title="Attendees"
+          emoji="👥"
+          color="slate"
+          trainees={enrolled}
+          empty="No attendees added yet. Click + Add trainee to add one."
+          sending={sending}
+          hideSend
+          onSend={() => {}}
+          editingTraineeId={editingTraineeId}
+          traineeDraft={traineeDraft}
+          onStartEdit={startEditTrainee}
+          onCancelEdit={cancelEditTrainee}
+          onSaveEdit={saveEditTrainee}
+          onDraftChange={setTraineeDraft}
+          onDelete={deleteTrainee}
+          onUnenroll={unenrollTrainee}
+        />
+      ) : (
+      [
         { title: 'Registered', emoji: '✅', color: 'green', items: registered, empty: 'No trainees have completed registration yet.', showResend: true },
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
@@ -827,7 +870,8 @@ export default function ClassDetail() {
           onDelete={deleteTrainee}
           onUnenroll={unenrollTrainee}
         />
-      ))}
+      ))
+      )}
 
       {declined.length > 0 && (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
@@ -946,6 +990,9 @@ function TraineeGroup({
   sending,
   onSend,
   showResend = false,
+  // hideSend = true → no "Send text" button on each row. Used by the
+  // attendance-only class view, where there's no registration flow.
+  hideSend = false,
   editingTraineeId,
   traineeDraft,
   onStartEdit,
@@ -1059,6 +1106,7 @@ function TraineeGroup({
                       >
                         Delete
                       </button>
+                      {!hideSend && (
                       <button
                         onClick={() => onSend(t.id)}
                         disabled={sending !== null || editingTraineeId !== null}
@@ -1066,6 +1114,7 @@ function TraineeGroup({
                       >
                         {sending === t.id ? 'Sending…' : showResend ? 'Resend text' : 'Send text'}
                       </button>
+                      )}
                     </div>
                   </div>
                 )}

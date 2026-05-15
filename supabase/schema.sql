@@ -57,8 +57,12 @@ create table if not exists classes (
   it_completed_at timestamptz,      -- when IT clicked "Mark provisioning complete"
   -- End-of-week graduation report dedup (one email per class, ever).
   graduation_report_sent_at timestamptz,
+  -- One-off meetings (not real training weeks) — kiosk attendance only,
+  -- no automation runs. See 2026-05-15-attendance-only-class.sql.
+  attendance_only boolean not null default false,
   created_at timestamptz not null default now()
 );
+create index if not exists classes_attendance_only_idx on classes(attendance_only) where attendance_only = true;
 
 -- Migration: ensure region column exists on classes (nullable on upgrade; app enforces required)
 alter table classes add column if not exists region text;
