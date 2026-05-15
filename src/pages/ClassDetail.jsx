@@ -1441,52 +1441,260 @@ function TestResults({ trainees, attemptsByTrainee }) {
     .map((t) => ({ trainee: t, attempt: attemptsByTrainee[t.id] }))
     .sort((a, b) => `${a.trainee.first_name} ${a.trainee.last_name}`.localeCompare(`${b.trainee.first_name} ${b.trainee.last_name}`))
 
+  const [expandedAttemptId, setExpandedAttemptId] = useState(null)
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold">📝 Final test results</h2>
       <p className="text-xs text-slate-500">
-        Retention scores from the multiple-choice section. Essay answers (used for testimonials)
-        are aggregated on the <Link to="/testimonials" className="underline">Testimonials page</Link>.
+        Retention scores from the multiple-choice section. Click <strong>View answers</strong>{' '}
+        on any submitted trainee to see exactly which questions they got right or wrong, plus
+        their essay responses. Essay answers used for testimonials are also aggregated on the{' '}
+        <Link to="/testimonials" className="underline">Testimonials page</Link>.
       </p>
       <ul className="mt-4 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
-        {withAttempts.map(({ trainee, attempt }) => (
-          <li key={trainee.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-            <div className="min-w-0">
-              <div className="font-medium text-slate-900">
-                {trainee.first_name} {trainee.last_name}
-              </div>
-              {attempt?.submitted_at ? (
-                <div className="text-xs text-slate-500">
-                  Submitted {new Date(attempt.submitted_at).toLocaleString()}
-                </div>
-              ) : (
-                <div className="text-xs text-amber-700">Not submitted yet</div>
-              )}
-            </div>
-            <div className="text-right">
-              {attempt?.submitted_at && attempt.total_mc > 0 ? (
-                <>
-                  <div className="text-xl font-bold text-brand-navy">
-                    {attempt.correct_count}<span className="text-slate-400">/{attempt.total_mc}</span>
+        {withAttempts.map(({ trainee, attempt }) => {
+          const isExpanded = attempt && expandedAttemptId === attempt.id
+          return (
+            <li key={trainee.id} className="text-sm">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900">
+                    {trainee.first_name} {trainee.last_name}
                   </div>
-                  {attempt.retention_pct != null && (
-                    <div className="text-xs font-medium text-slate-600">{attempt.retention_pct}% retention</div>
+                  {attempt?.submitted_at ? (
+                    <div className="text-xs text-slate-500">
+                      Submitted {new Date(attempt.submitted_at).toLocaleString()}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-amber-700">Not submitted yet</div>
                   )}
-                </>
-              ) : attempt?.submitted_at ? (
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                  Submitted
-                </span>
-              ) : (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  —
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  {attempt?.submitted_at && attempt.total_mc > 0 ? (
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-brand-navy">
+                        {attempt.correct_count}<span className="text-slate-400">/{attempt.total_mc}</span>
+                      </div>
+                      {attempt.retention_pct != null && (
+                        <div className="text-xs font-medium text-slate-600">{attempt.retention_pct}% retention</div>
+                      )}
+                    </div>
+                  ) : attempt?.submitted_at ? (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                      Submitted
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                      —
+                    </span>
+                  )}
+                  {attempt?.submitted_at && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedAttemptId(isExpanded ? null : attempt.id)
+                      }
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      {isExpanded ? 'Hide answers' : 'View answers'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              {isExpanded && <AttemptDetail attemptId={attempt.id} />}
+            </li>
+          )
+        })}
       </ul>
     </section>
+  )
+}
+
+// Expands inline under a trainee row when "View answers" is clicked.
+// Pulls every test_responses row for the attempt + the linked
+// questions.correct_choice / choices so we can render right/wrong with
+// the correct answer highlighted. Essay responses just show the text —
+// no right or wrong on those.
+function AttemptDetail({ attemptId }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setData(null)
+      setError(null)
+      const { data: rows, error: err } = await supabase
+        .from('test_responses')
+        .select(
+          'id, question_prompt, question_type, selected_choice, is_correct, essay_response, use_for_testimonial, use_for_client_review, questions(correct_choice, choices, order_index)',
+        )
+        .eq('attempt_id', attemptId)
+        .order('created_at', { ascending: true })
+      if (cancelled) return
+      if (err) {
+        setError(err.message)
+        return
+      }
+      // Sort by the original question order_index so the trainee's answers
+      // show up in the same sequence they took the test.
+      const sorted = (rows || []).slice().sort((a, b) => {
+        const ai = a.questions?.order_index ?? 999
+        const bi = b.questions?.order_index ?? 999
+        return ai - bi
+      })
+      setData(sorted)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [attemptId])
+
+  if (error) {
+    return (
+      <div className="border-t border-slate-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+        Couldn't load answers: {error}
+      </div>
+    )
+  }
+  if (data === null) {
+    return (
+      <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        Loading answers…
+      </div>
+    )
+  }
+  if (data.length === 0) {
+    return (
+      <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        No answers recorded for this attempt.
+      </div>
+    )
+  }
+
+  const mc = data.filter((r) => r.question_type === 'multiple_choice')
+  const essays = data.filter((r) => r.question_type === 'essay')
+  const correctCount = mc.filter((r) => r.is_correct === true).length
+  const wrongCount = mc.filter((r) => r.is_correct === false).length
+
+  return (
+    <div className="border-t border-slate-200 bg-slate-50 px-4 py-4 space-y-4">
+      {mc.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Multiple choice ({correctCount} right · {wrongCount} wrong)
+          </div>
+          <ol className="mt-2 space-y-2">
+            {mc.map((r, i) => {
+              const correct = r.questions?.correct_choice
+              const choices = Array.isArray(r.questions?.choices) ? r.questions.choices : []
+              const noKey = correct === null || correct === undefined || correct === ''
+              return (
+                <li
+                  key={r.id}
+                  className={
+                    'rounded-md border p-3 text-sm shadow-sm ' +
+                    (r.is_correct === true
+                      ? 'border-emerald-200 bg-white'
+                      : r.is_correct === false
+                        ? 'border-red-200 bg-white'
+                        : 'border-slate-200 bg-white')
+                  }
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <span className="text-xs font-semibold text-slate-500">Q{i + 1}.</span>{' '}
+                      <span className="font-medium text-slate-900">{r.question_prompt}</span>
+                    </div>
+                    {noKey ? (
+                      <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
+                        No correct answer set
+                      </span>
+                    ) : r.is_correct === true ? (
+                      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                        ✓ Correct
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800">
+                        ✗ Wrong
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 space-y-0.5 text-xs">
+                    {choices.length > 0 ? (
+                      choices.map((c) => {
+                        const isSelected = c === r.selected_choice
+                        const isCorrect = !noKey && c === correct
+                        return (
+                          <div
+                            key={c}
+                            className={
+                              'rounded px-2 py-1 ' +
+                              (isCorrect
+                                ? 'bg-emerald-50 font-semibold text-emerald-900'
+                                : isSelected
+                                  ? 'bg-red-50 font-medium text-red-900'
+                                  : 'text-slate-600')
+                            }
+                          >
+                            {isCorrect && '✓ '}
+                            {isSelected && !isCorrect && '✗ '}
+                            {!isCorrect && !isSelected && '· '}
+                            {c}
+                            {isSelected && <span className="ml-1 text-[10px] uppercase tracking-wide">(their answer)</span>}
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <div className="text-slate-600">
+                        Their answer: <strong>{r.selected_choice || '— blank —'}</strong>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      )}
+
+      {essays.length > 0 && (
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Essay answers
+          </div>
+          <ol className="mt-2 space-y-2">
+            {essays.map((r, i) => (
+              <li key={r.id} className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <span className="text-xs font-semibold text-slate-500">E{i + 1}.</span>{' '}
+                    <span className="font-medium text-slate-900">{r.question_prompt}</span>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-1">
+                    {r.use_for_testimonial && (
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-800">
+                        ⭐ Neal
+                      </span>
+                    )}
+                    {r.use_for_client_review && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800">
+                        🏢 Client review
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 whitespace-pre-wrap rounded bg-slate-50 px-3 py-2 text-xs italic text-slate-700">
+                  {r.essay_response?.trim() ? `"${r.essay_response.trim()}"` : '— left blank —'}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
   )
 }
 
