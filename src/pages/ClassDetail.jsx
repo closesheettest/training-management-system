@@ -2149,8 +2149,48 @@ function parseAttendeeList(text) {
 // stamped a (failed) send.
 function GraduationReportCard({ cls, onReload }) {
   const [sending, setSending] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [result, setResult] = useState(null)
   const stampedAt = cls.graduation_report_sent_at
+
+  // Workaround for Resend testing-mode lockdown: pull the PDF and let
+  // the admin email it manually from their own inbox. Bypasses Resend
+  // entirely. Useful until shingleusa.com is domain-verified.
+  async function download() {
+    setDownloading(true)
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/download-graduation-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        setResult({ kind: 'error', text: `Download failed: ${txt || res.status}` })
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      // Pull the filename from the Content-Disposition header if present,
+      // otherwise fall back to a sensible default.
+      const cd = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] || `graduating-class-${cls.region || 'class'}-${cls.week_start_date}.pdf`
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setResult({ kind: 'success', text: `Downloaded ${filename}.` })
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message })
+    } finally {
+      setDownloading(false)
+    }
+  }
   async function fire() {
     const action = stampedAt ? 'Re-send' : 'Send'
     if (!confirm(`${action} the graduation report email to every subscriber now?`)) return
@@ -2246,14 +2286,25 @@ function GraduationReportCard({ cls, onReload }) {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={fire}
-          disabled={sending}
-          className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
-        >
-          {sending ? 'Sending…' : stampedAt ? 'Re-send report' : 'Send report now'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={download}
+            disabled={downloading || sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            title="Download the PDF so you can email it manually — useful if Resend isn't delivering yet."
+          >
+            {downloading ? 'Generating…' : '⬇ Download PDF'}
+          </button>
+          <button
+            type="button"
+            onClick={fire}
+            disabled={sending || downloading}
+            className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+          >
+            {sending ? 'Sending…' : stampedAt ? 'Re-send report' : 'Send report now'}
+          </button>
+        </div>
       </div>
       {result && (
         <div
