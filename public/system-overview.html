@@ -195,13 +195,14 @@ emails, and follow-ups with one place that runs an entire training week on
 autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <div class="callout">
-  <strong>Personalized views per role.</strong> When someone opens the app, a "Who are you?"
-  splash asks them to pick their name (from the Notifications list). The nav then shows
-  only the pages that role uses — IT sees Provisioning, HR sees Hotels + Schedule, the
-  Hiring Manager sees their enrollment + hotel pages, and so on. Admins see everything.
-  Configurable on the <strong>Personas</strong> page (Settings ▾). This is personalization,
-  not access control — anyone can still type a URL to see anything, but the screen isn't
-  cluttered with stuff that doesn't apply to them.
+  <strong>Role-based views.</strong> When someone opens the app, a "Who are you?" splash
+  asks them to pick their name (from the Notifications list). The nav then shows only the
+  pages that role uses — IT sees Provisioning, HR sees Hotels + Schedule, the Hiring Manager
+  sees their enrollment + hotel pages, and so on. Admins see everything. Pages outside a
+  role's view are <strong>also blocked at the URL level</strong> — typing the URL directly
+  shows a "Not in your view" screen with a Switch button. Configurable on the{' '}
+  <strong>Personas</strong> page (Settings ▾). This is role-based gating, not authentication —
+  there's no password and anyone can switch personas to gain different access.
 </div>
 
 <ul>
@@ -438,7 +439,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Questions</strong></td><td>Admin · Trainer</td><td>Final-test question bank. Multiple choice + essay. Each essay can be independently flagged: <strong>"Use for Neal's brand testimonials"</strong> (auto FB/LinkedIn + nealscoppettuolo.com — must stay generic) and/or <strong>"Use for client business review"</strong> (Google/Yelp copy-paste in the post-test email — client-specific wording welcome).</td></tr>
     <tr><td><strong>Testimonials</strong></td><td>Admin · Marketing</td><td>Trainee testimonial responses collected from the final test.</td></tr>
     <tr><td><strong>Notifications</strong></td><td>Admin</td><td>Who gets which texts/emails. Per-event subscriptions, channel preferences. Also the source of the "Who are you?" name list on the persona splash.</td></tr>
-    <tr><td><strong>Personas</strong></td><td>Admin</td><td>Pick which nav pages each role sees by default. Grid of role × page checkboxes, like Notifications but for pages. Live (no redeploy). UX personalization only — not access control.</td></tr>
+    <tr><td><strong>Personas</strong></td><td>Admin</td><td>Pick which pages each role can access. Grid of role × page checkboxes, like Notifications but for pages. Unchecked pages are hidden from the nav AND block direct URL navigation. Live (no redeploy). Role-based gating, not auth — anyone can switch personas to gain different access.</td></tr>
     <tr><td><strong>Message templates</strong></td><td>Admin</td><td>Editable text of the automated SMS messages (currently the 3 registration texts — initial + 2 paced follow-ups). Edit the wording, save, done — next text uses the new copy. No redeploy. Placeholders like <code>{firstName}</code> are substituted at send time.</td></tr>
     <tr><td><strong>Handoff contacts</strong></td><td>Admin</td><td>Manages the people that get saved to each trainee's phone via vCard after they finish their final test. Universal contacts (helpline, support) plus region-specific ones (Sales Manager — St Pete, Sales Manager — Orlando, etc.).</td></tr>
     <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place. Also shows live status of the paced social-post queue (pending count + next scheduled time per network) with a "Post next now" override button to skip the schedule and publish the next queued item immediately.</td></tr>

@@ -113,14 +113,17 @@ export default function Personas() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Personas</h1>
         <p className="mt-2 text-slate-600">
-          Pick which pages each role sees in their default nav. Same flexibility as the
-          notifications grid on <code className="rounded bg-slate-100 px-1 text-xs">/notifications</code>
-          — toggle anything, save per role, changes are live.
+          Pick which pages each role can access. Unchecked pages are hidden from the role's nav{' '}
+          <strong>and</strong> blocked when navigated to directly — anyone who tries to open the
+          URL lands on a "Not in your view" screen. Same flexibility as the notifications grid on{' '}
+          <code className="rounded bg-slate-100 px-1 text-xs">/notifications</code> — toggle
+          anything, save per role, changes are live.
         </p>
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <strong>This is personalization, not security.</strong> Anyone who knows a URL can still
-          navigate directly to a page even if their nav doesn't show it. If you ever want real
-          access control (PIN gate, hidden pages by URL), that's a separate build.
+          <strong>This is role-based gating, not auth.</strong> Anyone can still click "Switch" in
+          the nav badge and pick a different persona (e.g. Admin) to gain that role's access.
+          There's no password. If you ever want a real PIN/login layer, that's a separate build —
+          but for now this prevents the active persona from drifting into pages outside their job.
         </div>
         <p className="mt-2 text-xs text-slate-500">
           Pages marked with <span className="italic">always</span> below are visible to everyone

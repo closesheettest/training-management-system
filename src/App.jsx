@@ -51,24 +51,31 @@ export default function App() {
         {/* Kiosk: full-bleed, no admin nav (tablet at training site) */}
         <Route path="/kiosk/:class_id" element={<Kiosk />} />
 
-        {/* Internal admin routes — full chrome (gated by persona splash) */}
+        {/* Internal admin routes — full chrome (gated by persona splash).
+            Each top-nav route is wrapped in <RouteGate> which checks the
+            current persona's visiblePages set against the route's page
+            key — if the role doesn't have access, the user sees a
+            "Not in your view" screen with a Switch button instead of
+            the page. Deep-link routes (class/:id, provision/:id,
+            setup/:id) are left ungated since they're reached from
+            contextual links and texts. */}
         <Route element={<AdminLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/" element={<RouteGate pageKey="home"><Home /></RouteGate>} />
+          <Route path="/calendar" element={<RouteGate pageKey="schedule"><Calendar /></RouteGate>} />
           <Route path="/class/:id" element={<ClassDetail />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/provisioning" element={<ProvisioningHub />} />
+          <Route path="/attendance" element={<RouteGate pageKey="attendance"><Attendance /></RouteGate>} />
+          <Route path="/provisioning" element={<RouteGate pageKey="provisioning"><ProvisioningHub /></RouteGate>} />
           <Route path="/provision/:class_id" element={<Provision />} />
           <Route path="/setup/:class_id" element={<Setup />} />
-          <Route path="/questions" element={<Questions />} />
-          <Route path="/testimonials" element={<Testimonials />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/manager" element={<HiringManager />} />
-          <Route path="/locations" element={<Locations />} />
-          <Route path="/handoff-contacts" element={<HandoffContacts />} />
-          <Route path="/message-templates" element={<MessageTemplates />} />
-          <Route path="/hotels" element={<Hotels />} />
+          <Route path="/questions" element={<RouteGate pageKey="setup.questions"><Questions /></RouteGate>} />
+          <Route path="/testimonials" element={<RouteGate pageKey="setup.testimonials"><Testimonials /></RouteGate>} />
+          <Route path="/notifications" element={<RouteGate pageKey="settings.notifications"><Notifications /></RouteGate>} />
+          <Route path="/messages" element={<RouteGate pageKey="settings.messages"><Messages /></RouteGate>} />
+          <Route path="/manager" element={<RouteGate pageKey="setup.manager"><HiringManager /></RouteGate>} />
+          <Route path="/locations" element={<RouteGate pageKey="setup.locations"><Locations /></RouteGate>} />
+          <Route path="/handoff-contacts" element={<RouteGate pageKey="settings.handoff"><HandoffContacts /></RouteGate>} />
+          <Route path="/message-templates" element={<RouteGate pageKey="settings.templates"><MessageTemplates /></RouteGate>} />
+          <Route path="/hotels" element={<RouteGate pageKey="setup.hotels"><Hotels /></RouteGate>} />
           <Route path="/personas" element={<Personas />} />
         </Route>
       </Routes>
@@ -143,6 +150,59 @@ function AdminLayout() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         <Outlet />
       </main>
+    </div>
+  )
+}
+
+// Wraps a route element. If the current persona has the page key in
+// their visible set, render the page. Otherwise show a "Not in your
+// view" screen with options to go home or switch persona. This is
+// real navigation gating — not just nav hiding — but it's still not
+// auth: anyone can click Switch and pick a different persona to gain
+// different access.
+function RouteGate({ pageKey, children }) {
+  const { visiblePages, persona, switchPersona } = usePersona()
+  if (visiblePages.has(pageKey)) return children
+  return <NotInYourView pageKey={pageKey} persona={persona} onSwitch={switchPersona} />
+}
+
+function NotInYourView({ pageKey, persona, onSwitch }) {
+  return (
+    <div className="mx-auto max-w-xl py-16 text-center">
+      <div className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
+        Not in your view
+      </div>
+      <h1 className="mt-4 text-2xl font-bold text-slate-900">This page isn't part of your role</h1>
+      <p className="mt-3 text-slate-600">
+        {persona ? (
+          <>
+            <strong>{persona.name}</strong> ({roleLabel(persona.role)}) doesn't have{' '}
+            <code className="rounded bg-slate-100 px-1 text-xs">{pageKey}</code> in their persona
+            settings.
+          </>
+        ) : (
+          <>You don't have an active persona set.</>
+        )}
+      </p>
+      <p className="mt-2 text-sm text-slate-500">
+        If you need this page in your view, ask an admin to check the box for your role on the
+        Personas page. Or switch to a different person below.
+      </p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Link
+          to="/"
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          ← Back to Home
+        </Link>
+        <button
+          type="button"
+          onClick={onSwitch}
+          className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+        >
+          Switch persona
+        </button>
+      </div>
     </div>
   )
 }
