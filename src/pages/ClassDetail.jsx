@@ -803,6 +803,9 @@ export default function ClassDetail() {
         >
           + Add trainee
         </button>
+        {cls.attendance_only && (
+          <BulkImportButton classId={id} onImported={load} />
+        )}
         {!cls.attendance_only && unsentIds.length > 0 && (
           <button
             onClick={() => sendSms(unsentIds, 'all')}
@@ -1898,6 +1901,245 @@ const inputCls =
 // Tri-state Yes/No toggle for needs_hotel. `value` can be null (undecided
 // — both buttons inactive, amber outline nudges the user to choose),
 // true (Yes lit green), or false (No lit slate).
+// Bulk import — useful for attendance-only meetings where HR has a long
+// list (e.g. 70-person company meeting). Accepts a CSV file OR a pasted
+// list. Each line is "Full Name" or "Full Name, phone" (header optional).
+// Names with a single word land entirely in first_name. No registration
+// text is sent — these are attendance-only attendees.
+function BulkImportButton({ classId, onImported }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        📋 Bulk import (CSV)
+      </button>
+      {open && (
+        <BulkImportModal
+          classId={classId}
+          onClose={() => setOpen(false)}
+          onImported={onImported}
+        />
+      )}
+    </>
+  )
+}
+
+function BulkImportModal({ classId, onClose, onImported }) {
+  const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [done, setDone] = useState(null) // { inserted, skipped }
+
+  function onFile(e) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    const reader = new FileReader()
+    reader.onload = () => setText(String(reader.result || ''))
+    reader.readAsText(f)
+  }
+
+  const parsed = parseAttendeeList(text)
+
+  async function importAll() {
+    setSaving(true)
+    setError(null)
+    const payload = parsed.map((p) => ({
+      class_id: classId,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      phone: p.phone || null,
+      // Attendance-only attendees come in already "enrolled". They never
+      // go through registration since the class skips automations —
+      // setting registered=true here lets them appear on a real-training
+      // kiosk too if someone ever flips the class flag, harmless either
+      // way because the attendance_only kiosk path doesn't filter on it.
+      enrolled: true,
+      needs_hotel: false,
+    }))
+    const { error: err } = await supabase.from('trainees').insert(payload)
+    setSaving(false)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setDone({ inserted: payload.length })
+    if (onImported) await onImported()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 overflow-y-auto">
+      <div className="my-8 w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">📋 Bulk import attendees</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Upload a CSV file <strong>or</strong> paste the list below — one attendee per
+              line. Optional phone separated by a comma. Examples:
+            </p>
+            <pre className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 whitespace-pre">{`John Doe
+Jane Smith, 555-123-4567
+Mary Williams
+Bob Johnson, (727) 555-0142`}</pre>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        {done ? (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            <p className="font-semibold">✓ Imported {done.inserted} attendees.</p>
+            <p className="mt-1 text-xs">Close this dialog and you'll see them in the Attendees list.</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-3 rounded-md bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Upload CSV file
+              </span>
+              <input
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                onChange={onFile}
+                className="mt-1 block w-full text-sm"
+              />
+            </label>
+            <div className="text-xs text-slate-500">— or —</div>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Paste the list
+              </span>
+              <textarea
+                rows={8}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="John Doe&#10;Jane Smith, 555-1234&#10;…"
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+              />
+            </label>
+
+            {parsed.length > 0 && (
+              <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
+                <div className="font-semibold">
+                  Preview: {parsed.length} attendee{parsed.length === 1 ? '' : 's'} ready to
+                  import
+                </div>
+                <ul className="mt-2 max-h-48 space-y-0.5 overflow-y-auto">
+                  {parsed.slice(0, 20).map((p, i) => (
+                    <li key={i}>
+                      {i + 1}. {p.first_name} {p.last_name}
+                      {p.phone && <span className="text-slate-500"> · {p.phone}</span>}
+                    </li>
+                  ))}
+                  {parsed.length > 20 && (
+                    <li className="italic text-slate-500">…and {parsed.length - 20} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {error}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={saving}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={importAll}
+                disabled={saving || parsed.length === 0}
+                className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+              >
+                {saving ? 'Importing…' : `Import ${parsed.length} attendee${parsed.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Parses a pasted/CSV list into [{first_name, last_name, phone}, ...].
+// Tolerates: header row, empty lines, commas vs tabs, single-name lines,
+// "First Last, 555-1234" or "First,Last,555-1234".
+function parseAttendeeList(text) {
+  if (!text) return []
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const out = []
+  for (const [idx, line] of lines.entries()) {
+    const cells = line.split(/[,\t]/).map((c) => c.trim())
+    // Skip a likely header row on the very first line.
+    if (
+      idx === 0 &&
+      cells.some((c) => /^(name|first[_\s-]?name|last[_\s-]?name|phone)$/i.test(c))
+    ) {
+      continue
+    }
+    if (cells.length === 0 || !cells[0]) continue
+
+    let first_name = ''
+    let last_name = ''
+    let phone = ''
+
+    // Detect shape:
+    //   1 column: "Full Name" — split on space
+    //   2 columns: either "First Last, Phone" (second cell is digits/parens)
+    //              OR "First, Last"
+    //   3+ columns: First, Last, Phone, [ignore rest]
+    if (cells.length === 1) {
+      const parts = cells[0].split(/\s+/)
+      first_name = parts[0]
+      last_name = parts.slice(1).join(' ')
+    } else if (cells.length === 2) {
+      if (/[\d()+\- .]{7,}/.test(cells[1])) {
+        const parts = cells[0].split(/\s+/)
+        first_name = parts[0]
+        last_name = parts.slice(1).join(' ')
+        phone = cells[1]
+      } else {
+        first_name = cells[0]
+        last_name = cells[1]
+      }
+    } else {
+      first_name = cells[0]
+      last_name = cells[1]
+      phone = cells[2]
+    }
+    if (!first_name) continue
+    out.push({
+      first_name: first_name.trim(),
+      last_name: (last_name || '').trim(),
+      phone: phone ? phone.replace(/\s+/g, ' ').trim() : '',
+    })
+  }
+  return out
+}
+
 // Manual "Send / re-send graduation report" button. The auto-cron fires
 // once after every enrolled trainee submits the final test, but if that
 // run errored (Resend outage, sender not verified, subscriber list

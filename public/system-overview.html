@@ -202,7 +202,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   itinerary email, no hotels, no final test, no graduation report, no welcome drip, no
   social posts. The Class detail page hides every workflow card except the attendee roster +
   kiosk link, and the Schedule page tags the class with an amber <em>"📋 Attendance only"</em>
-  pill so it's clearly different from real training weeks.
+  pill so it's clearly different from real training weeks. For meetings with a lot of people
+  (e.g. a 70-person company meeting), the Class detail page exposes a
+  <strong>"📋 Bulk import (CSV)"</strong> button — upload a CSV file or paste a list of
+  attendees and every one gets created at once.
 </div>
 
 <div class="callout">
@@ -478,7 +481,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <tbody>
     <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name + personal email (required), set sales experience, fill home address. Includes a small "Can't make it? Let us know" link at the bottom — clicking it opens a confirmation modal with an optional reason textbox so trainees who change their mind can cleanly opt out instead of ghosting.</td></tr>
     <tr><td><strong>Confirmation reminder</strong></td><td>24h before class</td><td>"Can you make it tomorrow?" — they tap Yes / No.</td></tr>
-    <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name.</td></tr>
+    <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name. Trainer can hit "🔒 Close sign-in" once class starts to lock out late arrivals — kiosk shows a big red "Sign-in closed for today" banner instead of name tiles. Tomorrow's kiosk opens automatically.</td></tr>
     <tr><td><strong>Credentials</strong></td><td>After trainer sends</td><td>Their company email + password, plus step-by-step iPhone or Android setup instructions.</td></tr>
     <tr><td><strong>App downloads</strong></td><td>Linked from credentials page</td><td>RepCard + JobNimbus install instructions, with "email link first, then app" guidance.</td></tr>
     <tr><td><strong>Final test</strong></td><td>Last day</td><td>Multiple choice + essay/testimonial. Score saved automatically.</td></tr>
@@ -510,7 +513,8 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 <ul>
   <li><strong>Trigger:</strong> last test submission detected by a cron that polls every ~15 minutes.</li>
   <li><strong>Subject:</strong> <em>"Graduating training week of May 11 – 15, 2026"</em></li>
-  <li><strong>Attachment:</strong> a one-page Letter PDF — class header, two stats (graduates count, total days attended), and a numbered list of every graduate with name, phone, home address, company email, and days attended (so leadership has everything they need to reach a new rep without opening another system).</li>
+  <li><strong>Attachment:</strong> a one-page Letter PDF with just the graduate count and a numbered roster of name / phone / home address — nothing else (no test scores, no email, no days attended). Leadership uses this to know who graduated and how to reach them.</li>
+  <li><strong>Manual re-send:</strong> the Class detail page has a "🎓 Graduation report email" card with a Send / Re-send button. Use it if the auto-cron run errored (Resend outage, sender not yet verified, no subscribers) — the button surfaces the actual delivery result so you can fix root causes.</li>
   <li><strong>Sent once.</strong> Each class fires exactly one graduation report; subsequent cron runs see the timestamp and skip.</li>
   <li><strong>Graduation social post fires at the same time</strong> — a generic "🎓 Just wrapped another training week …" post goes out <strong>immediately</strong> to the Facebook Page and LinkedIn personal profile (with a random venue photo attached when available). This is separate from the paced testimonial queue described below.</li>
 </ul>
