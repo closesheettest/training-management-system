@@ -103,6 +103,33 @@ export default function WelcomeLinks() {
     await load()
   }
 
+  // Up/down reordering. Swaps display_order with the adjacent row in
+  // the currently-sorted list — no manual number-juggling needed.
+  // Sequential since `rows` is already sorted by display_order on load.
+  async function move(row, direction) {
+    const idx = rows.findIndex((r) => r.id === row.id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= rows.length) return
+    const other = rows[swapIdx]
+    const now = new Date().toISOString()
+    // Two-step swap. There's no unique constraint on display_order so
+    // ordering doesn't matter; if it ever gets one, we'd need to bounce
+    // through a temporary value to avoid the conflict.
+    const r1 = await supabase
+      .from('welcome_resources')
+      .update({ display_order: other.display_order, updated_at: now })
+      .eq('id', row.id)
+    const r2 = await supabase
+      .from('welcome_resources')
+      .update({ display_order: row.display_order, updated_at: now })
+      .eq('id', other.id)
+    if (r1.error || r2.error) {
+      setFlash({ kind: 'error', text: (r1.error || r2.error).message })
+      return
+    }
+    await load()
+  }
+
   if (rows === null) return <p className="text-sm text-slate-500">Loading…</p>
 
   return (
@@ -152,7 +179,7 @@ export default function WelcomeLinks() {
         </p>
       ) : (
         <ul className="space-y-3">
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <li
               key={r.id}
               className={
@@ -188,24 +215,46 @@ export default function WelcomeLinks() {
                     <div className="mt-1 text-sm text-slate-600">{r.description}</div>
                   )}
                   <div className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
-                    Display order: {r.display_order}
+                    Position {i + 1} of {rows.length}
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(r)}
-                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(r)}
-                    className="rounded-md border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => move(r, 'up')}
+                      disabled={i === 0}
+                      title="Move up"
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-30"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(r, 'down')}
+                      disabled={i === rows.length - 1}
+                      title="Move down"
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50 disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(r)}
+                      className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(r)}
+                      className="rounded-md border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </li>
@@ -225,7 +274,7 @@ export default function WelcomeLinks() {
             {editingId === 'new' ? '✏️ Add link' : '✏️ Edit link'}
           </h3>
           <div className="grid gap-3 sm:grid-cols-6">
-            <Field label="Label *" className="sm:col-span-4">
+            <Field label="Label *" className="sm:col-span-5">
               <input
                 type="text"
                 value={draft.label}
@@ -242,14 +291,6 @@ export default function WelcomeLinks() {
                 onChange={(e) => setDraft({ ...draft, icon: e.target.value })}
                 placeholder="📊"
                 maxLength={4}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              />
-            </Field>
-            <Field label="Order" hint="Lower = first." className="sm:col-span-1">
-              <input
-                type="number"
-                value={draft.display_order}
-                onChange={(e) => setDraft({ ...draft, display_order: e.target.value })}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
             </Field>
