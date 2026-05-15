@@ -161,47 +161,38 @@ function AdminLayout() {
 // auth: anyone can click Switch and pick a different persona to gain
 // different access.
 function RouteGate({ pageKey, children }) {
-  const { visiblePages, persona, switchPersona } = usePersona()
+  const { visiblePages, persona } = usePersona()
   if (visiblePages.has(pageKey)) return children
-  return <NotInYourView pageKey={pageKey} persona={persona} onSwitch={switchPersona} />
+  return <NotInYourView pageKey={pageKey} persona={persona} />
 }
 
-function NotInYourView({ pageKey, persona, onSwitch }) {
+function NotInYourView({ pageKey, persona }) {
   return (
     <div className="mx-auto max-w-xl py-16 text-center">
       <div className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
         Not in your view
       </div>
-      <h1 className="mt-4 text-2xl font-bold text-slate-900">This page isn't part of your role</h1>
+      <h1 className="mt-4 text-2xl font-bold text-slate-900">You don't have access to this page</h1>
       <p className="mt-3 text-slate-600">
         {persona ? (
           <>
-            <strong>{persona.name}</strong> ({roleLabel(persona.role)}) doesn't have{' '}
-            <code className="rounded bg-slate-100 px-1 text-xs">{pageKey}</code> in their persona
-            settings.
+            <strong>{persona.name}</strong> ({roleLabel(persona.role)}) doesn't have access to{' '}
+            <code className="rounded bg-slate-100 px-1 text-xs">{pageKey}</code>.
           </>
         ) : (
           <>You don't have an active persona set.</>
         )}
       </p>
       <p className="mt-2 text-sm text-slate-500">
-        If you need this page in your view, ask an admin to check the box for your role on the
-        Personas page. Or switch to a different person below.
+        If you think you should have access to this page, talk to your admin.
       </p>
-      <div className="mt-6 flex flex-wrap justify-center gap-3">
+      <div className="mt-6 flex justify-center">
         <Link
           to="/"
           className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
           ← Back to Home
         </Link>
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
-        >
-          Switch persona
-        </button>
       </div>
     </div>
   )
