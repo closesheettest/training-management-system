@@ -226,6 +226,7 @@ alter table trainees add column if not exists declined_reason text;
 alter table trainees add column if not exists registration_followup_1_sent_at timestamptz;
 alter table trainees add column if not exists registration_followup_2_sent_at timestamptz;
 alter table trainees add column if not exists itinerary_email_sent_at timestamptz;
+alter table trainees add column if not exists test_results_link_sent_at timestamptz;
 
 -- ============================================================
 -- TRAINEE HOTEL STAYS — per-trainee room info for Day-1 text

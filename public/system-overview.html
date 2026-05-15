@@ -333,6 +333,12 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">HR uses the Hotels page (Setup ▾ → Hotels). Pick a class week, then mark each trainee booked. <strong>"✓ Booked (same hotel)"</strong> is a one-click action that defaults to the meeting venue + the trainee's own name as guest — the most common case. <strong>"Different hotel"</strong> opens a form for the exception cases. When everyone's booked, <strong>"Send notifications"</strong> fires all unsent texts at once. The text body skips any field HR didn't fill in — no blank lines. Body editable on /message-templates.</span></td>
     </tr>
     <tr>
+      <td><strong>Final test results link</strong><br><em>Personal link showing each trainee what they got right and wrong</em></td>
+      <td>Each trainee who submitted the final test</td>
+      <td>📱 Text</td>
+      <td><span class="pill pill-manual">Admin clicks "Send results" on a row in the Final Test Results section of a Class detail page (or "Send to all submitted" for the whole class). Texts a private link to <code>/results/&lt;token&gt;</code> where the trainee sees their multiple-choice answers with right/wrong + correct answers highlighted, plus their essay responses. Token is per-trainee, so each link only opens that trainee's own data. Body editable on /message-templates.</span></td>
+    </tr>
+    <tr>
       <td><strong>New-rep welcome drip</strong><br><em>Daily 7-day text with the link to /welcome (quick-links page)</em></td>
       <td>Each newly-graduated trainee</td>
       <td>📱 Text</td>
@@ -465,6 +471,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Credentials</strong></td><td>After trainer sends</td><td>Their company email + password, plus step-by-step iPhone or Android setup instructions.</td></tr>
     <tr><td><strong>App downloads</strong></td><td>Linked from credentials page</td><td>RepCard + JobNimbus install instructions, with "email link first, then app" guidance.</td></tr>
     <tr><td><strong>Final test</strong></td><td>Last day</td><td>Multiple choice + essay/testimonial. Score saved automatically.</td></tr>
+    <tr><td><strong>Final test results</strong></td><td>After Admin clicks "Send results"</td><td>Private link showing exactly what they got right or wrong on the multiple-choice section (correct answers highlighted) + their essay answers. Useful as a self-coaching tool.</td></tr>
     <tr><td><strong>Welcome quick-links</strong></td><td>Daily for 7 days after graduating</td><td>Big tap-targets for the Sales Rep Dashboard, how-to videos, daily 9:30 AM sales meeting Zoom, voluntary 9:15 AM prayer call. Includes phone-specific Google sign-in instructions since the dashboard + videos require a company Google account. Designed to be saved in the texts.</td></tr>
   </tbody>
 </table>

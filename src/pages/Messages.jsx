@@ -24,6 +24,16 @@ const SAMPLE = {
 }
 
 const MESSAGES = {
+  trainee_test_results: {
+    triggers: [
+      'Fires when an admin clicks "Send results" (single trainee) or "Send to all submitted" (whole class) on the Final Test Results section of a Class detail page.',
+      'Link opens /results/<token>, a private page showing the trainee\'s answers with right/wrong + correct answers highlighted, plus their essay responses.',
+      'One text per trainee with dedup via test_results_link_sent_at — but per-row "Re-send results" always re-sends if the trainee loses the original text.',
+    ],
+    sms: `Hi Sample, your final test results from training are ready — see what you got right and wrong: https://trainingmanagementsys.netlify.app/results/demo`,
+    emailSubject: '(this one is text-only — link opens a mobile-friendly results page)',
+    emailBody: '(text-only — trainees get the results via SMS)',
+  },
   trainee_welcome_drip: {
     triggers: [
       'Daily 10 AM Eastern cron — fires once per day for 7 days after a trainee submits their final test.',
@@ -253,6 +263,19 @@ const TRAINEE_FACING = [
     desc: 'Last-day assessment. Multiple-choice + essay/testimonial questions. Score and retention % are saved to test_attempts.',
     url: '/test/<token>',
     note: 'No demo mode yet — requires a real trainee. Open one from a Class detail page.',
+  },
+  {
+    label: 'Final test results',
+    desc: 'Personal results page sent to each trainee after Admin clicks "Send results" on the Class detail page. Shows their right/wrong on every multiple-choice question (with correct answers highlighted) + their essay responses.',
+    url: '/results/demo',
+    linkable: true,
+    note: 'Live preview shows a small example with right + wrong + essay.',
+  },
+  {
+    label: 'Welcome quick-links',
+    desc: 'Daily texted page for newly-graduated reps for 7 days. Sales Dashboard, How-to Videos, Sales Meeting, Prayer Call. Editable on /welcome-links.',
+    url: '/welcome',
+    linkable: true,
   },
 ]
 

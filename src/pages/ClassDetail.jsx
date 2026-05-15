@@ -605,7 +605,7 @@ export default function ClassDetail() {
       <RosterSummary summary={summary} />
 
       {summary.testSubmitted > 0 && (
-        <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} />
+        <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} classId={id} />
       )}
 
       {/* Class week (dates + schedule) — editable inline */}
@@ -1436,22 +1436,127 @@ function Stat({ label, value, pct: pctValue, tone = 'slate' }) {
   )
 }
 
-function TestResults({ trainees, attemptsByTrainee }) {
+function TestResults({ trainees, attemptsByTrainee, classId }) {
   const withAttempts = trainees
     .map((t) => ({ trainee: t, attempt: attemptsByTrainee[t.id] }))
     .sort((a, b) => `${a.trainee.first_name} ${a.trainee.last_name}`.localeCompare(`${b.trainee.first_name} ${b.trainee.last_name}`))
 
   const [expandedAttemptId, setExpandedAttemptId] = useState(null)
+  const [sendingId, setSendingId] = useState(null)
+  const [bulkSending, setBulkSending] = useState(false)
+  const [flash, setFlash] = useState(null)
+
+  const submitted = withAttempts.filter(({ attempt }) => attempt?.submitted_at)
+  const unsentSubmitted = submitted.filter(({ trainee }) => !trainee.test_results_link_sent_at)
+
+  async function sendResults(trainee) {
+    if (!confirm(`Text ${trainee.first_name} ${trainee.last_name} a link to their results now?`)) return
+    setSendingId(trainee.id)
+    setFlash(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-test-results-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_ids: [trainee.id] }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || j.sent_count === 0) {
+        const err = (j.results || []).find((r) => !r.ok)?.error || j.error || 'Send failed.'
+        setFlash({ kind: 'error', text: err })
+      } else {
+        setFlash({ kind: 'success', text: `Sent results to ${trainee.first_name} ${trainee.last_name}.` })
+        // Mutate locally so the badge updates without a full class reload.
+        trainee.test_results_link_sent_at = new Date().toISOString()
+      }
+    } catch (err) {
+      setFlash({ kind: 'error', text: err.message })
+    } finally {
+      setSendingId(null)
+    }
+  }
+
+  async function sendToAllUnsent() {
+    if (unsentSubmitted.length === 0) {
+      setFlash({ kind: 'info', text: 'Nothing to send — every submitted trainee has already received their results link.' })
+      return
+    }
+    if (
+      !confirm(
+        `Send results to ${unsentSubmitted.length} trainee${unsentSubmitted.length === 1 ? '' : 's'} who haven't received the link yet?`,
+      )
+    )
+      return
+    setBulkSending(true)
+    setFlash(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-test-results-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: classId, unsent_only: true }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFlash({ kind: 'error', text: j.error || 'Send failed.' })
+      } else {
+        const failNote = j.fail_count > 0 ? ` · ${j.fail_count} failed` : ''
+        setFlash({
+          kind: j.fail_count > 0 ? 'error' : 'success',
+          text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${failNote}.`,
+        })
+        // Mark every unsent one as sent locally so the bulk count updates.
+        for (const { trainee } of unsentSubmitted) {
+          trainee.test_results_link_sent_at = new Date().toISOString()
+        }
+      }
+    } catch (err) {
+      setFlash({ kind: 'error', text: err.message })
+    } finally {
+      setBulkSending(false)
+    }
+  }
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">📝 Final test results</h2>
-      <p className="text-xs text-slate-500">
-        Retention scores from the multiple-choice section. Click <strong>View answers</strong>{' '}
-        on any submitted trainee to see exactly which questions they got right or wrong, plus
-        their essay responses. Essay answers used for testimonials are also aggregated on the{' '}
-        <Link to="/testimonials" className="underline">Testimonials page</Link>.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">📝 Final test results</h2>
+          <p className="text-xs text-slate-500">
+            Retention scores from the multiple-choice section. Click <strong>View answers</strong>{' '}
+            on any submitted trainee to see exactly which questions they got right or wrong, plus
+            their essay responses. Use <strong>Send results</strong> to text the trainee a private
+            link to the same view. Essay answers used for testimonials are also aggregated on the{' '}
+            <Link to="/testimonials" className="underline">Testimonials page</Link>.
+          </p>
+        </div>
+        {submitted.length > 0 && (
+          <button
+            type="button"
+            onClick={sendToAllUnsent}
+            disabled={bulkSending || unsentSubmitted.length === 0}
+            className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
+          >
+            {bulkSending
+              ? 'Sending…'
+              : unsentSubmitted.length === 0
+                ? 'All results sent'
+                : `Send to all submitted (${unsentSubmitted.length})`}
+          </button>
+        )}
+      </div>
+      {flash && (
+        <div
+          className={
+            'mt-3 rounded-md border p-2 text-xs ' +
+            (flash.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : flash.kind === 'info'
+                ? 'border-slate-200 bg-slate-50 text-slate-700'
+                : 'border-red-200 bg-red-50 text-red-800')
+          }
+        >
+          {flash.text}
+        </div>
+      )}
       <ul className="mt-4 divide-y divide-slate-200 rounded-md border border-slate-200 bg-white">
         {withAttempts.map(({ trainee, attempt }) => {
           const isExpanded = attempt && expandedAttemptId === attempt.id
@@ -1490,15 +1595,34 @@ function TestResults({ trainees, attemptsByTrainee }) {
                     </span>
                   )}
                   {attempt?.submitted_at && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExpandedAttemptId(isExpanded ? null : attempt.id)
-                      }
-                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      {isExpanded ? 'Hide answers' : 'View answers'}
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedAttemptId(isExpanded ? null : attempt.id)
+                        }
+                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        {isExpanded ? 'Hide answers' : 'View answers'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sendResults(trainee)}
+                        disabled={sendingId === trainee.id}
+                        className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
+                        title={
+                          trainee.test_results_link_sent_at
+                            ? `Already sent ${new Date(trainee.test_results_link_sent_at).toLocaleString()} — clicking will resend`
+                            : 'Text this trainee a private link to their results'
+                        }
+                      >
+                        {sendingId === trainee.id
+                          ? 'Sending…'
+                          : trainee.test_results_link_sent_at
+                            ? 'Re-send results'
+                            : 'Send results'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

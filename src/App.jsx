@@ -26,6 +26,7 @@ import Hotels from './pages/Hotels.jsx'
 import Personas from './pages/Personas.jsx'
 import Welcome from './pages/Welcome.jsx'
 import WelcomeLinks from './pages/WelcomeLinks.jsx'
+import Results from './pages/Results.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
@@ -57,6 +58,12 @@ export default function App() {
             URL daily for 7 days. Shows the few company links they
             constantly forget where to find. No auth. */}
         <Route path="/welcome" element={<MinimalLayout><Welcome /></MinimalLayout>} />
+
+        {/* Public final-test results page — token-gated. Trainees get
+            texted /results/<their token> from the Class detail page
+            so they can see exactly which questions they got right or
+            wrong on the multiple choice, plus their essay answers. */}
+        <Route path="/results/:token" element={<MinimalLayout><Results /></MinimalLayout>} />
 
         {/* Internal admin routes — full chrome (gated by persona splash).
             Each top-nav route is wrapped in <RouteGate> which checks the

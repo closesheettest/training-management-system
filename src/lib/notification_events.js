@@ -68,6 +68,12 @@ export const NOTIFICATION_EVENTS = [
       'Trainee-facing automated email — fires once, right after the trainee submits their final test. Sent to the trainee\'s own email with the Google + Yelp review links. Not configurable in /notifications since it goes to the trainee, not staff.',
   },
   {
+    key: 'trainee_test_results',
+    label: 'Trainee final-test results link',
+    desc:
+      'Trainee-facing text — fires manually from the Final Test Results section on a Class detail page ("Send results" per trainee or "Send to all submitted" for the whole class). The link opens /results/<token>, a private page showing the trainee\'s right/wrong on every multiple-choice question plus their essay responses. Body editable at /message-templates ("test_results_link"). Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
+  {
     key: 'trainee_welcome_drip',
     label: 'New-rep welcome text (daily for 7 days after graduation)',
     desc:
