@@ -53,7 +53,7 @@ export default function Hotels() {
     const { data, error } = await supabase
       .from('classes')
       .select('id, region, week_start_date, week_end_date, location_id, locations(name, street_address, city, state, zip)')
-      .order('week_start_date', { ascending: false })
+      .order('week_start_date', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
       return
