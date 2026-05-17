@@ -272,6 +272,20 @@ create index if not exists trainees_never_updated_idx
   on trainees(is_active_sales_rep)
   where is_active_sales_rep = true and info_updated_at is null;
 
+-- Geocoded home location for the Sales Team Map. Filled by the
+-- geocode-trainee Netlify function (Nominatim / OpenStreetMap).
+-- geocoded_address is the literal string we sent to the API so we can
+-- skip redundant calls when a rep re-submits the same address.
+alter table trainees add column if not exists latitude double precision;
+alter table trainees add column if not exists longitude double precision;
+alter table trainees add column if not exists geocoded_at timestamptz;
+alter table trainees add column if not exists geocoded_address text;
+create index if not exists trainees_needs_geocode_idx
+  on trainees(id)
+  where latitude is null
+    and street_address is not null
+    and street_address != '';
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================

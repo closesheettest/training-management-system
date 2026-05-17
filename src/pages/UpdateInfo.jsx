@@ -166,6 +166,18 @@ export default function UpdateInfo() {
         }
       }
     }
+    // Step 3 — fire-and-forget geocode call so the Sales Team Map shows
+    // this rep at their actual home. Best-effort: if Nominatim is down
+    // or the address doesn't match cleanly, the rep still falls back to
+    // their region's metro center on the map. Doesn't block the form's
+    // success transition.
+    if (trainee?.id) {
+      fetch('/.netlify/functions/geocode-trainee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      }).catch(() => {})
+    }
     setStatus('done')
   }
 

@@ -48,9 +48,14 @@ function seededJitter(seed) {
 }
 
 function locationForTrainee(t) {
+  // Real geocoded coords win — set by /.netlify/functions/geocode-trainee
+  // when the rep submits /update-info (or via the bulk backfill button).
+  if (typeof t.latitude === 'number' && typeof t.longitude === 'number') {
+    return { lat: t.latitude, lng: t.longitude, geocoded: true }
+  }
   const center = REGION_CENTERS[t.region] || CORPORATE_OFFICE
   const j = seededJitter(t.id || '')
-  return { lat: center.lat + j.dLat, lng: center.lng + j.dLng }
+  return { lat: center.lat + j.dLat, lng: center.lng + j.dLng, geocoded: false }
 }
 
 // Status → pin color + label. Drives both the legend and the marker icons.
@@ -98,13 +103,19 @@ export default function RepMap() {
   })
   // Region filter on top of status — same pattern as ActiveReps.
   const [regionFilter, setRegionFilter] = useState('')
+  // Bulk backfill state for "🔄 Geocode N unmapped reps". The client
+  // loops through reps with addresses but no lat/lng, calling the
+  // geocode function once per rep with a 1.1s gap (Nominatim's free
+  // tier requires 1 req/sec max). Progress shown live so admin can
+  // watch pins appear without wondering whether anything is happening.
+  const [geocoding, setGeocoding] = useState(null) // null | { processed, total, errors }
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     const { data, error: err } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, classes(week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, latitude, longitude, geocoded_at, street_address, city, state, zip, classes(week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (err) {
       setError(err.message)
@@ -158,6 +169,56 @@ export default function RepMap() {
     }
     return out
   }, [categorized, show, regionFilter])
+
+  // Reps eligible for the bulk-geocode pass: have a street address on
+  // file but no lat/lng yet. Drives the "Geocode N unmapped reps" button.
+  const unmapped = useMemo(
+    () => trainees.filter(
+      (t) =>
+        t.street_address &&
+        String(t.street_address).trim() !== '' &&
+        (t.latitude == null || t.longitude == null),
+    ),
+    [trainees],
+  )
+
+  async function geocodeAllUnmapped() {
+    if (unmapped.length === 0) return
+    if (!confirm(
+      `Geocode ${unmapped.length} rep${unmapped.length === 1 ? '' : 's'}? ` +
+      `Takes about ${Math.ceil(unmapped.length * 1.2)} seconds (Nominatim free tier = 1 lookup/sec). ` +
+      `Pins will appear on the map as each one completes.`,
+    )) return
+    setGeocoding({ processed: 0, total: unmapped.length, errors: 0 })
+    let processed = 0
+    let errors = 0
+    for (const t of unmapped) {
+      try {
+        const res = await fetch('/.netlify/functions/geocode-trainee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trainee_id: t.id }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!body.ok && !body.skipped) errors++
+      } catch {
+        errors++
+      }
+      processed++
+      setGeocoding({ processed, total: unmapped.length, errors })
+      // Refresh map data periodically so pins appear as they're geocoded
+      // (every 5 successful lookups is a nice balance — not too chatty).
+      if (processed % 5 === 0 || processed === unmapped.length) {
+        await load()
+      }
+      // Nominatim rate limit: 1 req/sec. Sleep ~1.1s between calls.
+      if (processed < unmapped.length) {
+        await new Promise((r) => setTimeout(r, 1100))
+      }
+    }
+    setGeocoding(null)
+    await load()
+  }
 
   // Center the map on Florida initially. Zoom 6.5 fits the whole state.
   const FL_CENTER = [27.9944, -81.7603]
@@ -226,11 +287,42 @@ export default function RepMap() {
             </button>
           ))}
         </div>
-        <p className="text-xs text-slate-500">
-          Showing <strong>{visible.length}</strong> rep{visible.length === 1 ? '' : 's'} on the map.
-          {loading && ' Loading…'}
-          {error && <span className="text-red-700"> Error: {error}</span>}
-        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-slate-500">
+            Showing <strong>{visible.length}</strong> rep{visible.length === 1 ? '' : 's'} on the map.
+            {loading && ' Loading…'}
+            {error && <span className="text-red-700"> Error: {error}</span>}
+          </p>
+          {unmapped.length > 0 && !geocoding && (
+            <button
+              type="button"
+              onClick={geocodeAllUnmapped}
+              className="rounded-md border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100"
+              title="Look up actual lat/lng for each rep with an address on file — about 1 second per rep (Nominatim free-tier rate limit)."
+            >
+              🔄 Geocode {unmapped.length} unmapped rep{unmapped.length === 1 ? '' : 's'}
+            </button>
+          )}
+          {geocoding && (
+            <div className="flex items-center gap-2 text-xs text-sky-900">
+              <span>
+                Geocoding: <strong>{geocoding.processed}</strong> of{' '}
+                <strong>{geocoding.total}</strong>
+                {geocoding.errors > 0 && (
+                  <span className="ml-1 text-amber-700">({geocoding.errors} couldn't be matched)</span>
+                )}
+              </span>
+              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-sky-200">
+                <div
+                  className="h-full bg-sky-600 transition-all duration-200"
+                  style={{
+                    width: `${Math.round((geocoding.processed / Math.max(1, geocoding.total)) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* The map itself. Height set explicitly so Leaflet renders. */}
@@ -246,9 +338,9 @@ export default function RepMap() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {visible.map(({ trainee, status }) => {
-            const { lat, lng } = locationForTrainee(trainee)
+            const loc = locationForTrainee(trainee)
             return (
-              <Marker key={trainee.id} position={[lat, lng]} icon={ICONS[status]}>
+              <Marker key={trainee.id} position={[loc.lat, loc.lng]} icon={ICONS[status]}>
                 <Popup>
                   <div className="text-sm">
                     <div className="font-semibold">
@@ -269,6 +361,15 @@ export default function RepMap() {
                     <div className="text-xs text-slate-500">
                       Region: {trainee.region || '— (defaulted to corporate)'}
                     </div>
+                    {loc.geocoded ? (
+                      <div className="mt-1 text-[10px] text-emerald-700">
+                        📍 Geocoded from home address
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-[10px] text-slate-500">
+                        📍 Approximated (region center — no address on file)
+                      </div>
+                    )}
                     {!trainee.info_updated_at && (
                       <div className="mt-1 text-[10px] text-amber-700">
                         📋 Hasn't filled in /update-info yet
