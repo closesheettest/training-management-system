@@ -119,14 +119,12 @@ export default function Calendar() {
         <>
           <Section title="Upcoming" classes={upcoming} emptyText="No upcoming weeks scheduled." />
           {past.length > 0 && (
-            <details className="group">
-              <summary className="cursor-pointer text-sm font-medium text-slate-500 hover:text-slate-700">
-                Past weeks ({past.length}) — click to expand
-              </summary>
-              <div className="mt-4">
-                <Section title="" classes={past} emptyText="" />
-              </div>
-            </details>
+            <Section
+              title={`Past weeks (${past.length})`}
+              classes={past}
+              emptyText=""
+              subtitle="Past classes — click any to view test results, re-send the graduation report, or browse attendance."
+            />
           )}
         </>
       )}
@@ -322,7 +320,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
   )
 }
 
-function Section({ title, classes, emptyText }) {
+function Section({ title, classes, emptyText, subtitle }) {
   if (classes.length === 0) {
     return emptyText ? (
       <section>
@@ -332,8 +330,13 @@ function Section({ title, classes, emptyText }) {
     ) : null
   }
   return (
-    <section className="space-y-6">
-      {title && <h2 className="text-lg font-semibold">{title}</h2>}
+    <section className="space-y-4">
+      {title && (
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+        </div>
+      )}
       {groupByMonth(classes).map(([key, items]) => (
         <div key={key}>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
