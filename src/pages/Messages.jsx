@@ -411,7 +411,7 @@ export default function Messages() {
           </h3>
           <p className="mt-1 text-xs text-slate-500">
             Default template for asking reps who came in via CSV import to fill in their personal
-            email + home address. Editable on{' '}
+            email, home address, and region. Editable on{' '}
             <Link to="/message-templates" className="underline">Message templates</Link>{' '}
             (keys: <code>update_info_request_sms</code> / <code>update_info_request_email</code>).
             Link points to <code>/update-info/&lt;token&gt;</code>.
@@ -419,7 +419,7 @@ export default function Messages() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">📱 Text</div>
-              <pre className="whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample, we're updating our records — please take 30 seconds to enter your personal email + home address: ${SAMPLE.registerLink.replace('/register/<token>', '/update-info/<token>')}`}</pre>
+              <pre className="whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample, we're updating our records — please take 30 seconds to enter your personal email, home address, and pick your region: ${SAMPLE.registerLink.replace('/register/<token>', '/update-info/<token>')}`}</pre>
             </div>
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">✉️ Email</div>
@@ -428,7 +428,7 @@ export default function Messages() {
               </p>
               <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample,
 
-We're keeping our records up to date in the new training system. Please take 30 seconds to enter your personal email + home address using your private link below:
+We're keeping our records up to date in the new training system. Please take 30 seconds to enter your personal email, home address, and the region closest to where you live using your private link below:
 
 ${SAMPLE.registerLink.replace('/register/<token>', '/update-info/<token>')}
 
@@ -441,7 +441,7 @@ Thanks!
         </article>
         <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="font-semibold">
-            📱 Group meeting reminder{' '}
+            📱 Company meeting reminder{' '}
             <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
               manual
             </span>

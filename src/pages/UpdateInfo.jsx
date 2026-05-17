@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { US_STATES, ZIP_PATTERN } from '../lib/locations.js'
+import { US_STATES, ZIP_PATTERN, FL_REGIONS } from '../lib/locations.js'
 
 // Public self-service page for sales reps to update their personal
 // email + home address. Reached via a tap-friendly link texted from
@@ -23,6 +23,7 @@ export default function UpdateInfo() {
   const [trainee, setTrainee] = useState(null)
   const [form, setForm] = useState({
     email: '',
+    region: '',
     street_address: '',
     city: '',
     state: '',
@@ -44,6 +45,7 @@ export default function UpdateInfo() {
       setTrainee({ first_name: 'Sample', last_name: 'Attendee' })
       setForm({
         email: '',
+        region: '',
         street_address: '',
         city: 'St. Petersburg',
         state: 'FL',
@@ -54,7 +56,7 @@ export default function UpdateInfo() {
     }
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, email, street_address, city, state, zip')
+      .select('id, first_name, last_name, email, region, street_address, city, state, zip')
       .eq('registration_token', token)
       .maybeSingle()
     if (error || !data) {
@@ -64,6 +66,7 @@ export default function UpdateInfo() {
     setTrainee(data)
     setForm({
       email: data.email || '',
+      region: data.region || '',
       street_address: data.street_address || '',
       city: data.city || '',
       state: data.state || '',
@@ -88,6 +91,10 @@ export default function UpdateInfo() {
       setErrorMsg("That email doesn't look right — please double-check it.")
       return
     }
+    if (!form.region) {
+      setErrorMsg('Please pick the region closest to where you live.')
+      return
+    }
     const addressFields = ['street_address', 'city', 'state', 'zip']
     for (const f of addressFields) {
       if (!form[f].trim()) {
@@ -105,6 +112,7 @@ export default function UpdateInfo() {
       .from('trainees')
       .update({
         email: form.email.trim(),
+        region: form.region,
         street_address: form.street_address.trim(),
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
@@ -150,7 +158,7 @@ export default function UpdateInfo() {
         </h1>
         <p className="mt-2 text-slate-600">
           We're keeping our records current in the new training system. Take 30 seconds to
-          confirm or correct your personal email + home address below.
+          confirm or correct your personal email, region, and home address below.
         </p>
       </header>
 
@@ -174,6 +182,28 @@ export default function UpdateInfo() {
             review-request emails and class reminders.
           </span>
         </label>
+
+        <div className="border-t border-slate-200 pt-4">
+          <label className="block text-sm font-medium text-slate-700">
+            Region closest to where you live
+            <select
+              value={form.region}
+              onChange={(e) => update('region', e.target.value)}
+              required
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">— Pick your region —</option>
+              {FL_REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Pick the area you live or work closest to. This is how we route regional manager
+              messages and meeting reminders — pick the wrong one and you'll miss texts about
+              your area's meetings.
+            </span>
+          </label>
+        </div>
 
         <div className="border-t border-slate-200 pt-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">

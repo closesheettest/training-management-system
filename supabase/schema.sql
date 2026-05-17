@@ -243,6 +243,14 @@ alter table trainees add column if not exists is_active_sales_rep boolean not nu
 alter table trainees add column if not exists became_active_rep_at timestamptz;
 create index if not exists trainees_active_rep_idx on trainees(is_active_sales_rep) where is_active_sales_rep = true;
 
+-- Per-trainee region. Set by the trainee themselves on /update-info
+-- (region picker is required) or by HR via /active-reps. Separate from
+-- classes.region so the bulk-imported reps living under a Florida-wide
+-- meeting class can each be filtered by where they actually live.
+-- Powers Group Messages region filter + future regional-manager scopes.
+alter table trainees add column if not exists region text;
+create index if not exists trainees_region_idx on trainees(region);
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================

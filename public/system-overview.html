@@ -482,7 +482,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><th>Page</th><th>When</th><th>What's on it</th></tr>
   </thead>
   <tbody>
-    <tr><td><strong>Update your info</strong></td><td>Anytime — manual blast from Group Messages</td><td>Self-service page for reps to fill in their personal email + home address. Linked from the "Update info request" SMS / email blasts. Pre-fills with whatever's already on file so they just confirm or correct, then save. Token-gated like every other trainee-facing page.</td></tr>
+    <tr><td><strong>Update your info</strong></td><td>Anytime — manual blast from Group Messages</td><td>Self-service page for reps to fill in their personal email, the region closest to where they live (St Pete / Jacksonville / Orlando / Miami), and home address. Linked from the "Update info request" SMS / email blasts. Pre-fills with whatever's already on file so they just confirm or correct, then save. Token-gated like every other trainee-facing page.</td></tr>
     <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name + personal email (required), set sales experience, fill home address. Includes a small "Can't make it? Let us know" link at the bottom — clicking it opens a confirmation modal with an optional reason textbox so trainees who change their mind can cleanly opt out instead of ghosting.</td></tr>
     <tr><td><strong>Confirmation reminder</strong></td><td>24h before class</td><td>"Can you make it tomorrow?" — they tap Yes / No.</td></tr>
     <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name. Trainer can hit "🔒 Close sign-in" once class starts to lock out late arrivals — kiosk shows a big red "Sign-in closed for today" banner instead of name tiles. Tomorrow's kiosk opens automatically.</td></tr>
@@ -557,6 +557,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <div class="callout">
   <strong>"Active sales rep" vs. "trainee":</strong> The system keeps two different concepts of "on the team." A <em>trainee</em> is someone currently in a training class week — a transient state that ends in graduation or no-show. An <em>active sales rep</em> is someone working in the field — the durable list. The flag flips on automatically when a trainee submits their final test, and the bulk-imported initial cohort was seeded active in the May 17 migration. Group Messages "All active sales reps" sends only to this durable list, so no-shows and unregistered trainees never get blasts meant for working reps. Manage the list on <code>/active-reps</code>.
+</div>
+
+<div class="callout">
+  <strong>Region per rep:</strong> Each rep has their own <code>region</code> field (St Pete, Jacksonville, Orlando, Miami) — separate from the region of any class they attended, since most of the bulk-imported reps came in via a single Florida-wide meeting and need to be sliced by where they actually live. The <code>/update-info</code> page makes them pick this themselves; HR can also set it on <code>/active-reps</code>. Group Messages has an optional region filter that lets you blast just one region (regional-manager fanout) or skip the filter for company-wide. Future regional managers will use this same flag to fence off their own broadcasts.
 </div>
 
 <div class="flow">

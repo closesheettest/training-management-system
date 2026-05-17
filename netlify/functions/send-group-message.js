@@ -5,6 +5,8 @@
 //   {
 //     scope: 'class' | 'all_active_reps',
 //     class_id?: 'uuid',           // required when scope === 'class'
+//     region?: 'St Pete'|'Jacksonville'|...,  // optional region filter
+//                                  // (applies to all_active_reps scope only)
 //     channels: { sms?: bool, email?: bool },
 //     sms_body?: string,            // raw body OR with {firstName}/{link} placeholders
 //     email_subject?: string,
@@ -23,7 +25,8 @@
 //   'all_active_reps' = every trainee where is_active_sales_rep = true.
 //     This is the durable "on the sales team in the field" list —
 //     decoupled from training-week state so no-shows and unregistered
-//     trainees never get blasts meant for working reps.
+//     trainees never get blasts meant for working reps. Combine with
+//     `region` to slice to one geographic area (regional manager fanout).
 //
 // Per-recipient substitution:
 //   {firstName} → trainee.first_name
@@ -115,13 +118,15 @@ export const handler = async (event) => {
   if (body.scope === 'class') {
     if (!body.class_id) return json(400, { error: 'class_id required when scope=class' })
     q = q.eq('class_id', body.class_id).neq('enrolled', false).is('declined_at', null)
-  } else if (body.scope === 'all_active_reps') {
-    // The durable "in the field" list — independent of training-week state.
+  } else if (body.scope === 'all_active_reps' || body.scope === 'all_enrolled') {
+    // 'all_enrolled' is the legacy alias — kept so a cached client doesn't
+    // 400. Both paths apply the same active-rep filter.
     q = q.eq('is_active_sales_rep', true)
-  } else if (body.scope === 'all_enrolled') {
-    // Legacy alias — keep working for any cached client. New page sends
-    // all_active_reps but we accept the old value transparently.
-    q = q.eq('is_active_sales_rep', true)
+    if (body.region) {
+      // Optional region slice — regional-manager broadcasts. Skipped on
+      // company-wide blasts.
+      q = q.eq('region', body.region)
+    }
   } else {
     return json(400, { error: 'scope must be "class" or "all_active_reps"' })
   }

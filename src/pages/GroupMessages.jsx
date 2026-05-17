@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
+import { FL_REGIONS } from '../lib/locations.js'
 
 // Group Messages — admin's broadcast composer.
 //
@@ -32,6 +33,10 @@ export default function GroupMessages() {
   const [scope, setScope] = useState('all_active_reps') // 'class' | 'all_active_reps'
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
+  // Optional region filter — only applies when scope === 'all_active_reps'.
+  // '' = no filter (all regions). Future: a regional manager persona could
+  // default this to their own region.
+  const [regionFilter, setRegionFilter] = useState('')
 
   // Channels
   const [wantSms, setWantSms] = useState(true)
@@ -64,7 +69,7 @@ export default function GroupMessages() {
   useEffect(() => {
     loadRecipients()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, selectedClassId])
+  }, [scope, selectedClassId, regionFilter])
 
   async function loadClasses() {
     const { data } = await supabase
@@ -86,7 +91,7 @@ export default function GroupMessages() {
     setLoadingRecipients(true)
     let q = supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep')
+      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep, region')
       .order('last_name', { ascending: true })
     if (scope === 'class') {
       if (!selectedClassId) {
@@ -97,8 +102,10 @@ export default function GroupMessages() {
       // Class scope: every cohort member except explicit declines/unenrolls.
       q = q.eq('class_id', selectedClassId).neq('enrolled', false).is('declined_at', null)
     } else {
-      // All active reps: the durable "in the field" filter.
+      // All active reps: the durable "in the field" filter, optionally
+      // sliced to one region.
       q = q.eq('is_active_sales_rep', true)
+      if (regionFilter) q = q.eq('region', regionFilter)
     }
     const { data } = await q
     setRecipients(data || [])
@@ -178,7 +185,8 @@ export default function GroupMessages() {
   const reach = useMemo(() => {
     const sms = recipients.filter((r) => !!r.phone).length
     const email = recipients.filter((r) => !!r.email).length
-    return { sms, email, total: recipients.length }
+    const noRegion = recipients.filter((r) => !r.region).length
+    return { sms, email, noRegion, total: recipients.length }
   }, [recipients])
 
   const validationError = useMemo(() => {
@@ -198,6 +206,7 @@ export default function GroupMessages() {
       const payload = {
         scope, // 'class' | 'all_active_reps'
         ...(scope === 'class' ? { class_id: selectedClassId } : {}),
+        ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
         channels: { sms: wantSms, email: wantEmail },
         ...(wantSms ? { sms_body: smsBody } : {}),
         ...(wantEmail ? { email_subject: emailSubject, email_body: emailBody } : {}),
@@ -258,6 +267,27 @@ export default function GroupMessages() {
                 blast.{' '}
                 <Link to="/active-reps" className="underline">Manage the list →</Link>
               </p>
+              {scope === 'all_active_reps' && (
+                <div className="mt-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Filter by region (optional)
+                  </label>
+                  <select
+                    value={regionFilter}
+                    onChange={(e) => setRegionFilter(e.target.value)}
+                    className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:max-w-xs"
+                  >
+                    <option value="">All regions (company-wide)</option>
+                    {FL_REGIONS.map((r) => (
+                      <option key={r} value={r}>{r} only</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Pick a region for a regional-manager blast — only reps who've set their
+                    region to this on <code>/update-info</code> will receive it.
+                  </p>
+                </div>
+              )}
             </div>
           </label>
           <label className="flex items-start gap-3">
@@ -318,6 +348,13 @@ export default function GroupMessages() {
                   ⚠ {reach.total - reach.email} recipient{reach.total - reach.email === 1 ? '' : 's'}{' '}
                   will be skipped for email (no email on file) — perfect candidates for the SMS
                   "update your info" link.
+                </div>
+              )}
+              {scope === 'all_active_reps' && !regionFilter && reach.noRegion > 0 && (
+                <div className="mt-1 text-xs text-amber-700">
+                  ⚠ {reach.noRegion} rep{reach.noRegion === 1 ? '' : 's'} haven't picked a region
+                  yet — they'll get this company-wide blast, but they wouldn't be included in a
+                  regional-only blast until they self-serve on <code>/update-info</code>.
                 </div>
               )}
             </>
