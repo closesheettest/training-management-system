@@ -25,8 +25,9 @@ export const PAGES = [
   { key: 'settings.templates', label: 'Message templates', path: '/message-templates', menu: 'settings' },
   { key: 'settings.handoff', label: 'Handoff contacts', path: '/handoff-contacts', menu: 'settings' },
   { key: 'settings.personas', label: 'Personas', path: '/personas', menu: 'settings' },
-  { key: 'settings.active_reps', label: 'Active sales reps', path: '/active-reps', menu: 'settings' },
-  { key: 'settings.group_messages', label: 'Group messages', path: '/group-messages', menu: 'settings' },
+  { key: 'settings.active_reps', label: 'Active sales reps', path: '/active-reps', menu: 'team' },
+  { key: 'team.map', label: 'Sales team map', path: '/rep-map', menu: 'team' },
+  { key: 'settings.group_messages', label: 'Group messages', path: '/group-messages', menu: 'team' },
   { key: 'settings.overview', label: 'System Overview', href: '/system-overview.html', external: true, menu: 'settings' },
 ]
 
@@ -51,7 +52,7 @@ export const ROLE_DEFAULTS = {
   hiring_manager: ['home', 'schedule', 'setup.manager', 'setup.hotels', 'settings.overview'],
   it: ['home', 'provisioning', 'settings.overview'],
   // HR co-owns the persona config alongside admin — they shape who sees what.
-  hr: ['home', 'schedule', 'setup.hotels', 'setup.welcome_links', 'settings.notifications', 'settings.personas', 'settings.group_messages', 'settings.active_reps', 'settings.overview'],
+  hr: ['home', 'schedule', 'setup.hotels', 'setup.welcome_links', 'settings.notifications', 'settings.personas', 'settings.group_messages', 'settings.active_reps', 'team.map', 'settings.overview'],
   va: ['home', 'settings.overview'],
   trainer: ['home', 'schedule', 'attendance', 'setup.questions', 'settings.messages', 'settings.overview'],
   test: ['*'],

@@ -30,6 +30,7 @@ import Results from './pages/Results.jsx'
 import UpdateInfo from './pages/UpdateInfo.jsx'
 import GroupMessages from './pages/GroupMessages.jsx'
 import ActiveReps from './pages/ActiveReps.jsx'
+import RepMap from './pages/RepMap.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
+          <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
         </Route>
       </Routes>
     </PersonaProvider>
@@ -137,9 +139,12 @@ function AdminLayout() {
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
   ].filter((it) => show(it.key))
-  const settingsItems = [
+  const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
+    { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
+  ].filter((it) => show(it.key))
+  const settingsItems = [
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
     { key: 'settings.notifications', to: '/notifications', label: 'Notifications' },
     { key: 'settings.templates', to: '/message-templates', label: 'Message templates' },
@@ -170,6 +175,7 @@ function AdminLayout() {
             {show('attendance') && <NavItem to="/attendance">Attendance</NavItem>}
             {show('provisioning') && <NavItem to="/provisioning">Provisioning</NavItem>}
             {setupItems.length > 0 && <NavDropdown label="Setup" items={setupItems} />}
+            {teamItems.length > 0 && <NavDropdown label="Sales Team" items={teamItems} />}
             {settingsItems.length > 0 && <NavDropdown label="Settings" items={settingsItems} />}
             <PersonaBadge persona={persona} onSwitch={switchPersona} />
           </nav>
