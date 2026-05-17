@@ -413,10 +413,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">Trainer clicks "📤 Send credentials to attendees" on the Class detail page — no-shows for the day are skipped</span></td>
     </tr>
     <tr>
-      <td><strong>Review request — 4 reviews</strong><br><em>Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo. Each pre-filled with a different essay answer.</em></td>
+      <td><strong>Review request — 2 emails</strong><br><em>One email per business (U.S. Shingle and Neal) so trainees can tell them apart at a glance.</em></td>
       <td>Each trainee</td>
-      <td>✉️ Email</td>
-      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. One email asks for FOUR reviews. Sections #1 + #2 (U.S. Shingle Google + Yelp) pre-fill with the trainee's longest then second-longest essay flagged <em>"Use for client business review"</em> — these can name the company. Sections #3 + #4 (Neal Google + Yelp) pre-fill with their longest then second-longest essay flagged <em>"Use for Neal's brand testimonials"</em> — these stay generic. Each block shows the original question above the verbatim answer. Trainees click → paste → submit. Falls back to longest-of-any essay if a flag pool is empty. One email per trainee (dedup via review_email_sent_at).</span></td>
+      <td>✉️ Email × 2</td>
+      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. Two separate emails go to the trainee's personal inbox: one for U.S. Shingle (Google + Yelp inside) and one for Neal (Google + Yelp inside). U.S. Shingle email uses essays flagged <em>"Use for client business review"</em> (client-specific wording welcome); Neal email uses essays flagged <em>"Use for Neal's brand testimonials"</em> (must stay generic). Each block shows the original question above the verbatim answer; trainees click → paste → submit. Falls back to longest-of-any essay if a flag pool is empty. Stamps once if at least one of the two emails delivered (dedup via review_email_sent_at).</span></td>
     </tr>
     <tr>
       <td><strong>Handoff contacts (vCard)</strong><br><em>Tap-to-save Sales Manager + Helpline (and any region-matched contacts) to the trainee's phone</em></td>

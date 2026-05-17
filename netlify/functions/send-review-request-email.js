@@ -138,77 +138,116 @@ export const handler = async (event) => {
   const nealYelpEssay = fallbackTrainer[1] || fallbackTrainer[0] || null
 
   const firstName = (t.first_name || 'there').trim() || 'there'
-  const subject = `Thanks for completing your training, ${firstName} — 4 quick reviews?`
-  const textBody = buildBody({
-    firstName,
-    sections: [
-      {
-        n: 1,
-        platform: 'Google',
-        business: 'U.S. Shingle & Metal',
-        url: US_SHINGLE_GOOGLE_URL,
-        essay: usGoogleEssay,
-        sameAsPrev: false,
-      },
-      {
-        n: 2,
-        platform: 'Yelp',
-        business: 'U.S. Shingle & Metal',
-        url: US_SHINGLE_YELP_URL,
-        essay: usYelpEssay,
-        sameAsPrev: !!(usGoogleEssay && usYelpEssay && usGoogleEssay === usYelpEssay),
-      },
-      {
-        n: 3,
-        platform: 'Google',
-        business: 'Neal Scoppettuolo — Corporate Trainer',
-        url: NEAL_GOOGLE_URL,
-        essay: nealGoogleEssay,
-        sameAsPrev: false,
-      },
-      {
-        n: 4,
-        platform: 'Yelp',
-        business: 'Neal Scoppettuolo — Corporate Trainer',
-        url: NEAL_YELP_URL,
-        essay: nealYelpEssay,
-        sameAsPrev: !!(nealGoogleEssay && nealYelpEssay && nealGoogleEssay === nealYelpEssay),
-      },
-    ],
-  })
 
-  const result = await sendEmail(t.email, subject, textBody)
-  if (!result.ok) {
+  // Send as TWO separate emails so the trainee doesn't get confused about
+  // which review goes where. Each email is focused on one business with
+  // two sections inside (Google + Yelp). Different subjects so they sort
+  // distinctly in their inbox.
+  const usShingleEmail = {
+    subject: `${firstName}, quick review for U.S. Shingle & Metal (2 min)`,
+    body: buildBusinessEmail({
+      firstName,
+      businessName: 'U.S. Shingle & Metal',
+      intro:
+        "Thanks so much for finishing your final assessment — that's a real accomplishment. " +
+        "Would you leave a quick review for U.S. Shingle & Metal? I've pre-picked one of " +
+        "your own essay answers for each site — click the link, paste the answer, done.",
+      sections: [
+        {
+          n: 1,
+          platform: 'Google',
+          url: US_SHINGLE_GOOGLE_URL,
+          essay: usGoogleEssay,
+          sameAsPrev: false,
+        },
+        {
+          n: 2,
+          platform: 'Yelp',
+          url: US_SHINGLE_YELP_URL,
+          essay: usYelpEssay,
+          sameAsPrev: !!(usGoogleEssay && usYelpEssay && usGoogleEssay === usYelpEssay),
+        },
+      ],
+      sendoff:
+        "Each review really does help the next class of trainees find us. " +
+        "There's a second email coming with a quick review for your trainer Neal — " +
+        "if you have an extra minute, that would be huge too.",
+    }),
+  }
+
+  const nealEmail = {
+    subject: `${firstName}, quick review for your trainer Neal Scoppettuolo (2 min)`,
+    body: buildBusinessEmail({
+      firstName,
+      businessName: 'Neal Scoppettuolo — Corporate Trainer',
+      intro:
+        "One more quick ask. Your trainer Neal Scoppettuolo runs training for sales reps " +
+        "and the only way new reps find him is through reviews from past trainees. " +
+        "Would you leave him a quick review on each site? I've pre-picked one of your own " +
+        "essay answers for each — click the link, paste the answer, done.",
+      sections: [
+        {
+          n: 1,
+          platform: 'Google',
+          url: NEAL_GOOGLE_URL,
+          essay: nealGoogleEssay,
+          sameAsPrev: false,
+        },
+        {
+          n: 2,
+          platform: 'Yelp',
+          url: NEAL_YELP_URL,
+          essay: nealYelpEssay,
+          sameAsPrev: !!(nealGoogleEssay && nealYelpEssay && nealGoogleEssay === nealYelpEssay),
+        },
+      ],
+      sendoff: "Thanks again, congratulations on graduating training!",
+    }),
+  }
+
+  // Fire both in parallel so the trainee sees them at roughly the same
+  // time in their inbox.
+  const [usResult, nealResult] = await Promise.all([
+    sendEmail(t.email, usShingleEmail.subject, usShingleEmail.body),
+    sendEmail(t.email, nealEmail.subject, nealEmail.body),
+  ])
+
+  const anyOk = usResult.ok || nealResult.ok
+  if (!anyOk) {
     return json(200, {
       ok: false,
-      error: result.error,
-      step: result.step,
+      us_shingle: usResult,
+      neal: nealResult,
     })
   }
 
+  // Stamp if at least one delivered. Same dedup pattern as elsewhere —
+  // partial success is success, the cron / retry won't re-spam.
   await supabase
     .from('trainees')
     .update({ review_email_sent_at: new Date().toISOString() })
     .eq('id', trainee_id)
 
-  return json(200, { ok: true, sent_to: t.email })
+  return json(200, {
+    ok: true,
+    sent_to: t.email,
+    us_shingle: usResult,
+    neal: nealResult,
+  })
 }
 
 // ── Email body builder ──────────────────────────────────────────────────
 //
-// Plain text. Four numbered review sections separated by horizontal rules.
-// Each section: platform · business name · link · prefilled answer with the
-// original question shown in context so the pasted block reads naturally.
+// One email = one business with two review sections (Google + Yelp).
+// Plain text with horizontal-rule dividers. Each section gives the
+// trainee a one-click link + their own pre-picked answer to paste.
 
-function buildBody({ firstName, sections }) {
-  let body =
-    `Hi ${firstName},\n\n` +
-    `Thanks so much for finishing your final assessment — that's a real accomplishment.\n\n` +
-    `One ask before you go: would you leave 4 quick reviews so the next class of trainees can find us? Two for U.S. Shingle & Metal (the company you're joining) and two for Neal Scoppettuolo (your corporate trainer). I've pre-picked one of your own essay answers for each — just click the link, then paste the answer.\n`
+function buildBusinessEmail({ firstName, businessName, intro, sections, sendoff }) {
+  let body = `Hi ${firstName},\n\n${intro}\n`
 
   for (const s of sections) {
     body += `\n────────────────────────────────────────\n`
-    body += `⭐ #${s.n} OF 4 — ${s.platform.toUpperCase()} REVIEW FOR ${s.business.toUpperCase()}\n`
+    body += `⭐ ${s.platform.toUpperCase()} REVIEW FOR ${businessName.toUpperCase()}\n`
     body += `Step 1 — click: ${s.url}\n`
     if (s.essay) {
       if (s.sameAsPrev) {
@@ -226,8 +265,7 @@ function buildBody({ firstName, sections }) {
   }
 
   body += `\n────────────────────────────────────────\n`
-  body += `That's everything. Each review takes about a minute and really does help the next class of trainees find us.\n\n`
-  body += `Congratulations on graduating training!\n\n`
+  body += `${sendoff}\n\n`
   body += `— U.S. Shingle & Metal Training Team`
 
   return body
