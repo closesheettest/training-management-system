@@ -198,7 +198,7 @@ export default function RepMap() {
     if (unmapped.length === 0) return
     if (!confirm(
       `Geocode ${unmapped.length} rep${unmapped.length === 1 ? '' : 's'}? ` +
-      `Takes about ${Math.ceil(unmapped.length * 1.2)} seconds (Nominatim free tier = 1 lookup/sec). ` +
+      `Takes about ${Math.ceil(unmapped.length * 0.15)} seconds (Google Maps API). ` +
       `Pins will appear on the map as each one completes.`,
     )) return
     setGeocoding({ processed: 0, total: unmapped.length, errors: 0 })
@@ -219,13 +219,14 @@ export default function RepMap() {
       processed++
       setGeocoding({ processed, total: unmapped.length, errors })
       // Refresh map data periodically so pins appear as they're geocoded
-      // (every 5 successful lookups is a nice balance — not too chatty).
-      if (processed % 5 === 0 || processed === unmapped.length) {
+      // (every 10 successful lookups is a nice balance — not too chatty).
+      if (processed % 10 === 0 || processed === unmapped.length) {
         await load()
       }
-      // Nominatim rate limit: 1 req/sec. Sleep ~1.1s between calls.
+      // Google allows 50 QPS; 100ms gap keeps us nicely under that and
+      // gives the UI time to render progress updates between batches.
       if (processed < unmapped.length) {
-        await new Promise((r) => setTimeout(r, 1100))
+        await new Promise((r) => setTimeout(r, 100))
       }
     }
     setGeocoding(null)
