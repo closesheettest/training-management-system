@@ -70,6 +70,11 @@ export default function ActiveReps() {
     //   - current/future training class                              → notYetActive
     //   - attendance-only or no class                                 → hidden
     //     (these are bulk-import dupes etc — not interesting here)
+    //
+    // Date parsing: Postgres `date` columns come back as 'YYYY-MM-DD'.
+    // We parse component-wise (parseLocalDate) so the result is a local
+    // Date at midnight — safer than feeding the string into `new Date`
+    // which has timezone quirks across environments.
     function classifyInactive(t) {
       if (t.is_active_sales_rep) return null
       if (t.declined_at) return null
@@ -84,7 +89,10 @@ export default function ActiveReps() {
         // No class scheduled — treat as not-yet-active.
         return 'notYet'
       }
-      const end = new Date(c.week_end_date + 'T23:59:59')
+      // Parse 'YYYY-MM-DD' (or full ISO) as a local-midnight Date.
+      const parts = String(c.week_end_date).slice(0, 10).split('-').map(Number)
+      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return 'notYet'
+      const end = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59)
       if (end < today) return 'dropout'
       return 'notYet'
     }
@@ -422,6 +430,11 @@ export default function ActiveReps() {
           <strong className="text-emerald-700">{active.length}</strong> active ·{' '}
           <strong className="text-slate-500">{notYetActive.length}</strong> not yet active ·{' '}
           <strong className="text-slate-500">{dropouts.length}</strong> dropouts
+          {(regionFilter || neverUpdatedOnly || search) && (
+            <span className="ml-2 text-xs text-amber-700">
+              ⚠ filters active — counts below reflect filters, totals above are unfiltered
+            </span>
+          )}
         </div>
       </div>
 
