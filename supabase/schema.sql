@@ -264,6 +264,14 @@ create index if not exists trainees_pending_cleanup_idx
   on trainees(left_company_at)
   where left_company_at is not null and cleanup_done_at is null;
 
+-- Stamped when a rep submits the public /update-info form. Lets the
+-- /active-reps UI surface "Never updated" and "Updated X days ago" so
+-- admin can chase stragglers after an "update your info" blast.
+alter table trainees add column if not exists info_updated_at timestamptz;
+create index if not exists trainees_never_updated_idx
+  on trainees(is_active_sales_rep)
+  where is_active_sales_rep = true and info_updated_at is null;
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================

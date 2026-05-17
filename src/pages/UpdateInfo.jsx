@@ -117,6 +117,12 @@ export default function UpdateInfo() {
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
         zip: form.zip.trim(),
+        // Stamps the "responded to update-info blast" timestamp so
+        // /active-reps can show "Updated X days ago" and filter out
+        // people who still haven't filled in the form. Re-submissions
+        // refresh the timestamp, which is what we want — most recent
+        // self-served update wins.
+        info_updated_at: new Date().toISOString(),
       })
       .eq('registration_token', token)
     if (error) {

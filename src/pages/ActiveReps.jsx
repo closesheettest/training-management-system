@@ -36,12 +36,18 @@ export default function ActiveReps() {
   // Modal state for "No longer a sales rep" — null when closed.
   // { trainee, reason } while open.
   const [leavingModal, setLeavingModal] = useState(null)
+  // Extra filter chip: when true, list shows only reps whose
+  // info_updated_at is null (haven't self-served via /update-info yet).
+  const [neverUpdatedOnly, setNeverUpdatedOnly] = useState(false)
+  // Bulk re-send state for the "Re-send update-info request" button.
+  // { traineeIds: [...], sending, result } while running.
+  const [resendBatch, setResendBatch] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, classes(region, week_start_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, classes(region, week_start_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -153,6 +159,7 @@ export default function ActiveReps() {
       // who haven't filled in /update-info yet.
       if (regionFilter === '__none' && t.region) return false
       if (regionFilter && regionFilter !== '__none' && t.region !== regionFilter) return false
+      if (neverUpdatedOnly && t.info_updated_at) return false
       if (!searchLower) return true
       const full = `${t.first_name || ''} ${t.last_name || ''}`.toLowerCase()
       return full.includes(searchLower) || (t.phone || '').includes(searchLower)
@@ -160,6 +167,14 @@ export default function ActiveReps() {
   }
   const activeFiltered = filterList(active)
   const inactiveFiltered = filterList(inactive)
+
+  // How many active reps still haven't responded to the update-info
+  // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
+  // "Re-send update-info request" button.
+  const neverUpdatedCount = useMemo(
+    () => active.filter((t) => !t.info_updated_at).length,
+    [active],
+  )
 
   // Per-region active-rep counts for the breakdown card.
   const activeByRegion = useMemo(() => {
@@ -260,7 +275,56 @@ export default function ActiveReps() {
         </section>
       )}
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {/* Info-status row: who still hasn't filled in /update-info? */}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide text-slate-500">Info status:</span>
+          <button
+            type="button"
+            onClick={() => setNeverUpdatedOnly(!neverUpdatedOnly)}
+            className={
+              'rounded-full border px-2.5 py-1 ' +
+              (neverUpdatedOnly
+                ? 'border-amber-700 bg-amber-100 text-amber-900'
+                : neverUpdatedCount > 0
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-emerald-300 bg-emerald-50 text-emerald-800 cursor-default')
+            }
+            disabled={neverUpdatedCount === 0}
+            title="Active reps who haven't submitted the /update-info form yet."
+          >
+            📋 Never updated their info ({neverUpdatedCount})
+          </button>
+          <span className="text-slate-500">
+            · {active.length - neverUpdatedCount} of {active.length} have filled it in
+          </span>
+          {neverUpdatedOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setResendBatch({
+                    traineeIds: active.filter((t) => !t.info_updated_at).map((t) => t.id),
+                    channels: { sms: true, email: true },
+                    sending: false,
+                    result: null,
+                  })
+                }
+                className="ml-2 rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800"
+              >
+                📧 Re-send update-info request to {neverUpdatedCount}
+              </button>
+              <button
+                type="button"
+                onClick={() => setNeverUpdatedOnly(false)}
+                className="text-slate-500 underline hover:text-slate-700"
+              >
+                Clear filter
+              </button>
+            </>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="font-semibold uppercase tracking-wide text-slate-500">Active by region:</span>
           {FL_REGIONS.map((r) => (
@@ -304,6 +368,14 @@ export default function ActiveReps() {
           )}
         </div>
       </section>
+
+      {resendBatch && (
+        <ResendUpdateInfoModal
+          batch={resendBatch}
+          setBatch={setResendBatch}
+          onClose={() => setResendBatch(null)}
+        />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <input
@@ -458,6 +530,14 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote }) {
         {active && t.became_active_rep_at && (
           <div className="text-[10px] text-slate-400">
             Active since {new Date(t.became_active_rep_at).toLocaleDateString()}
+            {' · '}
+            {t.info_updated_at ? (
+              <span className="text-emerald-700">
+                Info updated {formatRelativeDate(t.info_updated_at)}
+              </span>
+            ) : (
+              <span className="text-amber-700">📋 Never updated their info</span>
+            )}
           </div>
         )}
       </div>
@@ -552,6 +632,156 @@ function CleanupRow({ t, saving, onDone, onUndo }) {
         </p>
       </details>
     </li>
+  )
+}
+
+// Renders "5 days ago" / "today" / "yesterday" / "Jan 12, 2026" for a
+// timestamp. Keeps the active-rep row compact but still gives admin a
+// quick read on how fresh the data is.
+function formatRelativeDate(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const diffMs = now - d
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (days < 0) return d.toLocaleDateString()
+  if (days === 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days} days ago`
+  if (days < 60) return '~1 month ago'
+  if (days < 365) return `~${Math.floor(days / 30)} months ago`
+  return d.toLocaleDateString()
+}
+
+// Modal that opens when admin clicks "Re-send update-info request to N"
+// on /active-reps. Picks SMS/Email channels, previews the seeded
+// template wording, and fires the request to send-group-message with
+// trainee_ids for the never-updated subset.
+function ResendUpdateInfoModal({ batch, setBatch, onClose }) {
+  const { traineeIds, channels, sending, result } = batch
+  const wantSms = !!channels.sms
+  const wantEmail = !!channels.email
+  function toggle(key) {
+    if (sending) return
+    setBatch({ ...batch, channels: { ...channels, [key]: !channels[key] } })
+  }
+  async function fire() {
+    if (!wantSms && !wantEmail) return
+    setBatch({ ...batch, sending: true, result: null })
+    // The function accepts template keys so we don't have to hard-code
+    // the body here — admin can edit the wording on /message-templates
+    // and the next blast picks up the change.
+    const payload = {
+      scope: 'all_active_reps', // overridden by trainee_ids — value just satisfies validation
+      trainee_ids: traineeIds,
+      channels: { sms: wantSms, email: wantEmail },
+      ...(wantSms ? { sms_template_key: 'update_info_request_sms' } : {}),
+      ...(wantEmail ? { email_template_key: 'update_info_request_email' } : {}),
+    }
+    try {
+      const res = await fetch('/.netlify/functions/send-group-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setBatch({ ...batch, sending: false, result: { kind: 'error', text: body.error || `HTTP ${res.status}` } })
+      } else {
+        setBatch({
+          ...batch,
+          sending: false,
+          result: {
+            kind: 'success',
+            counts: body.counts,
+            failures: body.failures || [],
+          },
+        })
+      }
+    } catch (err) {
+      setBatch({ ...batch, sending: false, result: { kind: 'error', text: err.message } })
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">
+          Re-send update-info request to {traineeIds.length} rep{traineeIds.length === 1 ? '' : 's'}
+        </h3>
+        <p className="mt-2 text-sm text-slate-600">
+          Uses the saved templates from <code>/message-templates</code> (keys:{' '}
+          <code>update_info_request_sms</code> /{' '}
+          <code>update_info_request_email</code>). Personalized per recipient
+          with their first name + private <code>/update-info</code> link.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={wantSms}
+              onChange={() => toggle('sms')}
+              disabled={sending || !!result}
+            />
+            📱 SMS
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={wantEmail}
+              onChange={() => toggle('email')}
+              disabled={sending || !!result}
+            />
+            ✉️ Email
+          </label>
+        </div>
+        {result && (
+          <div
+            className={
+              'mt-3 rounded-md border p-2 text-xs ' +
+              (result.kind === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-800')
+            }
+          >
+            {result.kind === 'success' ? (
+              <>
+                ✓ Done.
+                <ul className="mt-1 space-y-0.5">
+                  {wantSms && (
+                    <li>📱 SMS sent: <strong>{result.counts?.sms_sent ?? 0}</strong>{result.counts?.sms_failed ? ` · ${result.counts.sms_failed} failed` : ''}</li>
+                  )}
+                  {wantEmail && (
+                    <li>✉️ Email sent: <strong>{result.counts?.email_sent ?? 0}</strong>{result.counts?.email_failed ? ` · ${result.counts.email_failed} failed` : ''}</li>
+                  )}
+                </ul>
+              </>
+            ) : (
+              <>✗ {result.text}</>
+            )}
+          </div>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {result?.kind === 'success' ? 'Close' : 'Cancel'}
+          </button>
+          {!result && (
+            <button
+              type="button"
+              onClick={fire}
+              disabled={sending || (!wantSms && !wantEmail)}
+              className="rounded-md bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : `Send to ${traineeIds.length}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
