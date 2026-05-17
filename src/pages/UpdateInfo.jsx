@@ -274,7 +274,7 @@ export default function UpdateInfo() {
             disabled={status === 'submitting'}
             className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
           >
-            {status === 'submitting' ? 'Saving…' : 'Save'}
+            {status === 'submitting' ? 'Submitting…' : 'Submit'}
           </button>
         </div>
       </form>
