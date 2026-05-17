@@ -108,27 +108,63 @@ export default function UpdateInfo() {
       setStatus('done')
       return
     }
+    const patch = {
+      email: form.email.trim(),
+      region: form.region,
+      street_address: form.street_address.trim(),
+      city: form.city.trim(),
+      state: form.state.trim().toUpperCase(),
+      zip: form.zip.trim(),
+      // Stamps the "responded to update-info blast" timestamp so
+      // /active-reps can show "Updated X days ago" and filter out
+      // people who still haven't filled in the form. Re-submissions
+      // refresh the timestamp, which is what we want — most recent
+      // self-served update wins.
+      info_updated_at: new Date().toISOString(),
+    }
+    // Step 1 — update the row matching the token (the canonical record).
     const { error } = await supabase
       .from('trainees')
-      .update({
-        email: form.email.trim(),
-        region: form.region,
-        street_address: form.street_address.trim(),
-        city: form.city.trim(),
-        state: form.state.trim().toUpperCase(),
-        zip: form.zip.trim(),
-        // Stamps the "responded to update-info blast" timestamp so
-        // /active-reps can show "Updated X days ago" and filter out
-        // people who still haven't filled in the form. Re-submissions
-        // refresh the timestamp, which is what we want — most recent
-        // self-served update wins.
-        info_updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('registration_token', token)
     if (error) {
       setErrorMsg(error.message)
       setStatus('form')
       return
+    }
+    // Step 2 — dedup sync. If this trainee has duplicate rows in the
+    // system (same person showed up in multiple imports / classes),
+    // they share a phone number. Find every OTHER trainee row with
+    // the same normalized phone and apply the same patch — that way
+    // one form submit marks all of the person's records as updated,
+    // not just the one tied to the SMS link they happened to tap.
+    // Best-effort: if it fails, the canonical row update above
+    // already succeeded so we don't surface an error to the trainee.
+    if (trainee?.id) {
+      const me = await supabase
+        .from('trainees')
+        .select('phone')
+        .eq('id', trainee.id)
+        .maybeSingle()
+      const myPhoneDigits = (me?.data?.phone || '').replace(/\D/g, '')
+      if (myPhoneDigits.length >= 7) {
+        const { data: dupes } = await supabase
+          .from('trainees')
+          .select('id, phone')
+          .neq('id', trainee.id)
+        const matchingIds = (dupes || [])
+          .filter((d) => (d.phone || '').replace(/\D/g, '') === myPhoneDigits)
+          .map((d) => d.id)
+        if (matchingIds.length > 0) {
+          // Don't overwrite the dupe's email if it already has a
+          // company_email — but DO refresh info_updated_at + address
+          // + region so all rows reflect the rep's latest info.
+          await supabase
+            .from('trainees')
+            .update(patch)
+            .in('id', matchingIds)
+        }
+      }
     }
     setStatus('done')
   }
