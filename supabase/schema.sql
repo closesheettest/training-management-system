@@ -286,6 +286,17 @@ create index if not exists trainees_needs_geocode_idx
     and street_address is not null
     and street_address != '';
 
+-- Reminder-cron tracking. The send-update-info-reminders cron texts
+-- active reps who haven't filled in /update-info, throttled by
+-- UPDATE_REMINDER_INTERVAL_HOURS (default 24h between texts to the
+-- same rep) and capped at UPDATE_REMINDER_MAX_ATTEMPTS (default 5
+-- total reminders before giving up).
+alter table trainees add column if not exists last_update_reminder_sent_at timestamptz;
+alter table trainees add column if not exists update_reminder_count int not null default 0;
+create index if not exists trainees_reminder_due_idx
+  on trainees(last_update_reminder_sent_at)
+  where is_active_sales_rep = true and info_updated_at is null;
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================

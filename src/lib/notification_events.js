@@ -92,6 +92,12 @@ export const NOTIFICATION_EVENTS = [
       'Trainee-facing automated email — fires daily at 10 AM Eastern via cron. Sent once per trainee, only after they\'ve registered AND their class location is no longer TBD. Includes the location address, the schedule from the location/class, and the hiring manager\'s signature. Body and subject are editable at /message-templates. Not configurable in /notifications since it goes to the trainee, not staff.',
   },
   {
+    key: 'update_info_reminder',
+    label: 'Update-info reminder SMS (paced cron)',
+    desc:
+      'Trainee-facing automated SMS — hourly cron texts active reps who still haven\'t submitted /update-info. Self-throttles per-rep: each rep gets at most one text every UPDATE_REMINDER_INTERVAL_HOURS (default 24h), and stops entirely after UPDATE_REMINDER_MAX_ATTEMPTS reminders (default 5). Auto-stops the moment they submit the form. Wording editable on /message-templates (update_info_request_sms key — same template the manual blast uses). Not configurable in /notifications since it goes to the trainee, not staff.',
+  },
+  {
     key: 'trainee_hotel_info',
     label: 'Trainee hotel room info text',
     desc:
