@@ -91,7 +91,7 @@ export default function GroupMessages() {
     setLoadingRecipients(true)
     let q = supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep, region')
+      .select('id, first_name, last_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep, region')
       .order('last_name', { ascending: true })
     if (scope === 'class') {
       if (!selectedClassId) {
@@ -181,12 +181,15 @@ export default function GroupMessages() {
     }
   }, [recipients, smsBody, emailSubject, emailBody])
 
-  // Per-channel reachable counts (SMS needs phone, email needs email).
+  // Per-channel reachable counts. Email recipients have EITHER a
+  // company email (preferred for graduates) OR a personal email (the
+  // bulk-import fallback). Count both so we know who'd actually receive.
   const reach = useMemo(() => {
     const sms = recipients.filter((r) => !!r.phone).length
-    const email = recipients.filter((r) => !!r.email).length
+    const email = recipients.filter((r) => !!(r.company_email || r.email)).length
+    const usingCompany = recipients.filter((r) => !!r.company_email).length
     const noRegion = recipients.filter((r) => !r.region).length
-    return { sms, email, noRegion, total: recipients.length }
+    return { sms, email, usingCompany, noRegion, total: recipients.length }
   }, [recipients])
 
   const validationError = useMemo(() => {
@@ -337,6 +340,12 @@ export default function GroupMessages() {
               <strong>{reach.total}</strong> recipient{reach.total === 1 ? '' : 's'} matched ·{' '}
               <span className="text-slate-600">{reach.sms} have a phone</span> ·{' '}
               <span className="text-slate-600">{reach.email} have an email</span>
+              {wantEmail && reach.usingCompany > 0 && (
+                <span className="text-slate-500">
+                  {' '}({reach.usingCompany} via @shingleusa.com,{' '}
+                  {reach.email - reach.usingCompany} via personal email)
+                </span>
+              )}
               {wantSms && reach.sms < reach.total && (
                 <div className="mt-1 text-xs text-amber-700">
                   ⚠ {reach.total - reach.sms} recipient{reach.total - reach.sms === 1 ? '' : 's'}{' '}
@@ -489,6 +498,15 @@ export default function GroupMessages() {
             Showing how it'll render for the first recipient:{' '}
             <strong>{recipients[0].first_name} {recipients[0].last_name}</strong>.
             Each recipient gets their own substituted copy.
+            {wantEmail && (
+              <>
+                {' '}Email routes to{' '}
+                <code className="rounded bg-white px-1">
+                  {recipients[0].company_email || recipients[0].email || '(no email on file)'}
+                </code>
+                {recipients[0].company_email ? ' (company)' : recipients[0].email ? ' (personal — no company email yet)' : ''}.
+              </>
+            )}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {wantSms && (

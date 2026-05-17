@@ -34,7 +34,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, classes(region, week_start_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, classes(region, week_start_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -332,7 +332,21 @@ function RepRow({ t, active, saving, onToggle }) {
           )}
         </div>
         <div className="text-xs text-slate-500">
-          {t.phone || '—'} {t.email ? <>· {t.email}</> : null} · {classLabel}
+          {t.phone || '—'}
+          {t.company_email ? (
+            <>
+              {' · '}
+              <span className="text-emerald-700">{t.company_email}</span>
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-emerald-700">company</span>
+            </>
+          ) : t.email ? (
+            <>
+              {' · '}
+              {t.email}
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-slate-400">personal</span>
+            </>
+          ) : null}
+          {' · '}{classLabel}
         </div>
         {active && t.became_active_rep_at && (
           <div className="text-[10px] text-slate-400">

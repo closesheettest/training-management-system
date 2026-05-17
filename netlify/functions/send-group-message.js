@@ -108,11 +108,15 @@ export const handler = async (event) => {
     return json(400, { error: 'Email body is empty — provide email_body or a valid email_template_key' })
   }
 
-  // Resolve recipients based on scope.
+  // Resolve recipients based on scope. company_email takes precedence
+  // over email for graduates — once IT provisions a @shingleusa.com
+  // address, that's their work inbox and any company-wide comms should
+  // route there. Personal email is the fallback for un-provisioned reps
+  // (bulk imports who haven't been through training yet).
   let q = supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep',
+      'id, first_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep',
     )
 
   if (body.scope === 'class') {
@@ -153,11 +157,13 @@ export const handler = async (event) => {
         }).then((s) => ({ trainee_id: t.id, channel: 'sms', ok: s.ok, error: s.error })),
       )
     }
-    if (wantEmail && t.email) {
+    // Prefer company_email over personal email — see select-clause comment.
+    const targetEmail = t.company_email || t.email
+    if (wantEmail && targetEmail) {
       const subject = applyPlaceholders(emailSubject || 'Update from training', vars)
       const msg = applyPlaceholders(emailBody, vars)
       tasks.push(
-        sendEmail(t.email, subject, msg).then((s) => ({
+        sendEmail(targetEmail, subject, msg).then((s) => ({
           trainee_id: t.id, channel: 'email', ok: s.ok, error: s.error,
         })),
       )
