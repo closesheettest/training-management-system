@@ -233,6 +233,16 @@ alter table trainees add column if not exists itinerary_email_sent_at timestampt
 alter table trainees add column if not exists test_results_link_sent_at timestamptz;
 alter table trainees add column if not exists last_group_message_sent_at timestamptz;
 
+-- Active-sales-rep flag. Decouples "currently in a training class"
+-- (enrolled) from "on the sales team in the field" — the latter is
+-- what Group Messages broadcasts target. Auto-flipped to true when a
+-- trainee submits their final test. Bulk-imported reps + every past
+-- graduate are backfilled true in the 2026-05-17 migration. Editable
+-- on /active-reps.
+alter table trainees add column if not exists is_active_sales_rep boolean not null default false;
+alter table trainees add column if not exists became_active_rep_at timestamptz;
+create index if not exists trainees_active_rep_idx on trainees(is_active_sales_rep) where is_active_sales_rep = true;
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================

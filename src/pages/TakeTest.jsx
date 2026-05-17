@@ -158,6 +158,21 @@ export default function TakeTest() {
         .eq('id', attempt.id)
       if (uErr) throw uErr
 
+      // Submitting the final test is the moment a trainee graduates
+      // into "active sales rep" — they're now on the sales team in the
+      // field, eligible for company-wide group messages. Flip the flag
+      // unless it's already on (re-submitting an existing test).
+      // Best-effort: failure here doesn't block them from seeing their
+      // results page. Admin can also flip it manually on /active-reps.
+      await supabase
+        .from('trainees')
+        .update({
+          is_active_sales_rep: true,
+          became_active_rep_at: new Date().toISOString(),
+        })
+        .eq('id', trainee.id)
+        .eq('is_active_sales_rep', false)
+
       // Fire-and-forget review-request email. Best effort — never blocks
       // the trainee from seeing their results page. If the email fails
       // (no email on file, Resend down, etc.) the in-page CTAs on /test/:token/done

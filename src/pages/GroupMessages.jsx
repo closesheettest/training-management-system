@@ -5,10 +5,12 @@ import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
 // Group Messages — admin's broadcast composer.
 //
-// Use case: every rep we've ever imported now lives in trainees. Sometimes
-// admin wants to text ALL of them (e.g. "tomorrow's company meeting at 9am")
-// or just the ones in a specific class. Email works the same way for
-// anyone who has an email on file.
+// Use case: every active rep in the field lives in trainees with
+// is_active_sales_rep = true (auto-flipped on test submission, plus the
+// bulk-imported initial cohort). Sometimes admin wants to text ALL of
+// them (e.g. "tomorrow's company meeting at 9am") and sometimes just
+// the people in a specific training class (e.g. day-of reminder for
+// this week's cohort).
 //
 // The most common opener is "we just imported you — please fill in your
 // personal email + home address". That's pre-seeded as the
@@ -16,7 +18,7 @@ import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 // admin picks it from a dropdown and clicks Send — no typing required.
 //
 // Flow:
-//   1. Pick recipients: a single class OR everyone enrolled.
+//   1. Pick recipients: a single class OR every active sales rep.
 //   2. Pick channels: SMS, Email, or both.
 //   3. Pick a saved template (optional) — pre-fills the body/subject.
 //      Or write custom text. {firstName} and {link} are substituted per
@@ -27,7 +29,7 @@ import { formatDateRange, parseLocalDate } from '../lib/dates.js'
 
 export default function GroupMessages() {
   // Recipient picker
-  const [scope, setScope] = useState('class') // 'class' | 'all_enrolled'
+  const [scope, setScope] = useState('all_active_reps') // 'class' | 'all_active_reps'
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
 
@@ -84,9 +86,7 @@ export default function GroupMessages() {
     setLoadingRecipients(true)
     let q = supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at')
-      .neq('enrolled', false)
-      .is('declined_at', null)
+      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep')
       .order('last_name', { ascending: true })
     if (scope === 'class') {
       if (!selectedClassId) {
@@ -94,7 +94,11 @@ export default function GroupMessages() {
         setLoadingRecipients(false)
         return
       }
-      q = q.eq('class_id', selectedClassId)
+      // Class scope: every cohort member except explicit declines/unenrolls.
+      q = q.eq('class_id', selectedClassId).neq('enrolled', false).is('declined_at', null)
+    } else {
+      // All active reps: the durable "in the field" filter.
+      q = q.eq('is_active_sales_rep', true)
     }
     const { data } = await q
     setRecipients(data || [])
@@ -192,7 +196,7 @@ export default function GroupMessages() {
     setResult(null)
     try {
       const payload = {
-        scope,
+        scope, // 'class' | 'all_active_reps'
         ...(scope === 'class' ? { class_id: selectedClassId } : {}),
         channels: { sms: wantSms, email: wantEmail },
         ...(wantSms ? { sms_body: smsBody } : {}),
@@ -225,8 +229,9 @@ export default function GroupMessages() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Group messages</h1>
         <p className="mt-2 text-slate-600">
-          Broadcast SMS or email to a class or to every enrolled rep. Common use:
-          asking newly-imported reps to{' '}
+          Broadcast SMS or email to <Link to="/active-reps" className="underline">every active
+          sales rep</Link> or just to the cohort in one training class. Common use: ad-hoc blasts
+          ("company meeting tomorrow") or asking newly-imported reps to{' '}
           <Link to="/message-templates" className="underline">fill in their personal email + home address</Link>{' '}
           via the public <code className="rounded bg-slate-100 px-1 text-xs">/update-info</code> link.
         </p>
@@ -240,6 +245,25 @@ export default function GroupMessages() {
             <input
               type="radio"
               name="scope"
+              checked={scope === 'all_active_reps'}
+              onChange={() => setScope('all_active_reps')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-slate-800">All active sales reps</div>
+              <p className="text-xs text-slate-500">
+                Everyone on the sales team in the field — the bulk-imported initial cohort plus
+                every trainee who's graduated since. Auto-managed: each trainee who submits their
+                final test joins this list. Use for "company meeting tomorrow" or any company-wide
+                blast.{' '}
+                <Link to="/active-reps" className="underline">Manage the list →</Link>
+              </p>
+            </div>
+          </label>
+          <label className="flex items-start gap-3">
+            <input
+              type="radio"
+              name="scope"
               checked={scope === 'class'}
               onChange={() => setScope('class')}
               className="mt-1"
@@ -247,7 +271,8 @@ export default function GroupMessages() {
             <div className="flex-1">
               <div className="text-sm font-medium text-slate-800">Trainees in one class</div>
               <p className="text-xs text-slate-500">
-                Everyone enrolled in a specific training week or meeting.
+                Everyone in a specific training week or meeting (regardless of registration or
+                test status) — useful for day-of cohort reminders.
               </p>
               {scope === 'class' && (
                 <select
@@ -270,22 +295,6 @@ export default function GroupMessages() {
                   })}
                 </select>
               )}
-            </div>
-          </label>
-          <label className="flex items-start gap-3">
-            <input
-              type="radio"
-              name="scope"
-              checked={scope === 'all_enrolled'}
-              onChange={() => setScope('all_enrolled')}
-              className="mt-1"
-            />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-slate-800">All enrolled reps</div>
-              <p className="text-xs text-slate-500">
-                Every trainee in the system who hasn't declined or been unenrolled.
-                Use this for "company meeting tomorrow" or the initial info-update ask.
-              </p>
             </div>
           </label>
         </div>

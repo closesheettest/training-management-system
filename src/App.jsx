@@ -29,6 +29,7 @@ import WelcomeLinks from './pages/WelcomeLinks.jsx'
 import Results from './pages/Results.jsx'
 import UpdateInfo from './pages/UpdateInfo.jsx'
 import GroupMessages from './pages/GroupMessages.jsx'
+import ActiveReps from './pages/ActiveReps.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/welcome-links" element={<RouteGate pageKey="setup.welcome_links"><WelcomeLinks /></RouteGate>} />
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
+          <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
         </Route>
       </Routes>
     </PersonaProvider>
@@ -136,6 +138,7 @@ function AdminLayout() {
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
   ].filter((it) => show(it.key))
   const settingsItems = [
+    { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
     { key: 'settings.notifications', to: '/notifications', label: 'Notifications' },

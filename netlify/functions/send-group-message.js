@@ -3,7 +3,7 @@
 //
 // Request body:
 //   {
-//     scope: 'class' | 'all_enrolled',
+//     scope: 'class' | 'all_active_reps',
 //     class_id?: 'uuid',           // required when scope === 'class'
 //     channels: { sms?: bool, email?: bool },
 //     sms_body?: string,            // raw body OR with {firstName}/{link} placeholders
@@ -15,6 +15,15 @@
 //     sms_template_key?: string,
 //     email_template_key?: string,
 //   }
+//
+// Scope semantics:
+//   'class' = every enrolled/non-declined trainee assigned to that class
+//     (regardless of registration status or active-rep flag). Used for
+//     talking to a cohort during training week.
+//   'all_active_reps' = every trainee where is_active_sales_rep = true.
+//     This is the durable "on the sales team in the field" list —
+//     decoupled from training-week state so no-shows and unregistered
+//     trainees never get blasts meant for working reps.
 //
 // Per-recipient substitution:
 //   {firstName} → trainee.first_name
@@ -100,16 +109,21 @@ export const handler = async (event) => {
   let q = supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, email, registration_token, enrolled, declined_at',
+      'id, first_name, phone, email, registration_token, enrolled, declined_at, is_active_sales_rep',
     )
-    .neq('enrolled', false)
-    .is('declined_at', null)
 
   if (body.scope === 'class') {
     if (!body.class_id) return json(400, { error: 'class_id required when scope=class' })
-    q = q.eq('class_id', body.class_id)
-  } else if (body.scope !== 'all_enrolled') {
-    return json(400, { error: 'scope must be "class" or "all_enrolled"' })
+    q = q.eq('class_id', body.class_id).neq('enrolled', false).is('declined_at', null)
+  } else if (body.scope === 'all_active_reps') {
+    // The durable "in the field" list — independent of training-week state.
+    q = q.eq('is_active_sales_rep', true)
+  } else if (body.scope === 'all_enrolled') {
+    // Legacy alias — keep working for any cached client. New page sends
+    // all_active_reps but we accept the old value transparently.
+    q = q.eq('is_active_sales_rep', true)
+  } else {
+    return json(400, { error: 'scope must be "class" or "all_active_reps"' })
   }
 
   const { data: trainees, error } = await q
