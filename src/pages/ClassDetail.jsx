@@ -631,6 +631,15 @@ export default function ClassDetail() {
         <GraduationReportCard cls={cls} onReload={load} />
       )}
 
+      {!cls.attendance_only && (
+        <DropoutsCard
+          cls={cls}
+          enrolled={enrolled}
+          attemptsByTrainee={attemptsByTrainee}
+          onReload={load}
+        />
+      )}
+
       {/* Class week (dates + schedule) — editable inline */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-baseline justify-between">
@@ -2460,6 +2469,107 @@ function GraduationReportCard({ cls, onReload }) {
             {sending ? 'Sending…' : stampedAt ? 'Re-send report' : 'Send report now'}
           </button>
         </div>
+      </div>
+      {result && (
+        <div
+          className={
+            'mt-3 rounded-md border p-2 text-xs ' +
+            (result.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800')
+          }
+        >
+          {result.text}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// Card for marking enrolled trainees who never submitted a final test as
+// dropouts (sets enrolled=false). Only shown for non-attendance_only
+// classes whose week has ended — otherwise the rule doesn't apply and the
+// button would be confusing. Without this, no-shows pollute the "all
+// enrolled" broadcast list and any other "active trainees" report.
+function DropoutsCard({ cls, enrolled, attemptsByTrainee, onReload }) {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+
+  // Compute candidates locally (no extra DB call). Server re-verifies.
+  const noShows = enrolled.filter((t) => {
+    const a = attemptsByTrainee[t.id]
+    return !a || !a.submitted_at
+  })
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const end = cls.week_end_date ? new Date(cls.week_end_date + 'T00:00:00') : null
+  const weekEnded = end && end < today
+
+  // Hide entirely if there's nothing to do (saves visual noise on
+  // current/future classes that aren't ready for cleanup yet).
+  if (!weekEnded || noShows.length === 0) return null
+
+  async function fire() {
+    const msg =
+      `Mark ${noShows.length} no-show${noShows.length === 1 ? '' : 's'} as dropout${noShows.length === 1 ? '' : 's'}?\n\n` +
+      `This unenrolls them (enrolled=false) so they stop appearing in active reports + group broadcasts. ` +
+      `Reversible: HR can set enrolled=true again if anyone was flagged in error.`
+    if (!confirm(msg)) return
+    setBusy(true)
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/mark-class-dropouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setResult({ kind: 'error', text: body.error || `HTTP ${res.status}` })
+      } else {
+        setResult({
+          kind: 'success',
+          text: `Flagged ${body.flagged} trainee${body.flagged === 1 ? '' : 's'} as dropouts.`,
+        })
+        if (onReload) await onReload()
+      }
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message || 'Network error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold text-amber-900">⚠ No-shows from this ended class</h2>
+          <p className="mt-1 text-sm text-amber-900">
+            <strong>{noShows.length}</strong> enrolled trainee{noShows.length === 1 ? '' : 's'}{' '}
+            never submitted a final test. The class week ended on{' '}
+            <strong>{cls.week_end_date}</strong> — these are effectively dropouts and should be
+            removed from the active list so they stop showing up in "All enrolled" group
+            broadcasts and other active-trainee reports.
+          </p>
+          <ul className="mt-2 max-h-32 overflow-auto text-xs text-amber-800">
+            {noShows.map((t) => (
+              <li key={t.id}>
+                · {t.first_name} {t.last_name} {t.phone ? <span className="text-amber-700">({t.phone})</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button
+          type="button"
+          onClick={fire}
+          disabled={busy}
+          className="shrink-0 rounded-md bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+        >
+          {busy
+            ? 'Flagging…'
+            : `Mark ${noShows.length} as dropout${noShows.length === 1 ? '' : 's'}`}
+        </button>
       </div>
       {result && (
         <div

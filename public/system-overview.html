@@ -496,6 +496,9 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 <!-- ─────────────────────────────────────────────────────────── -->
 <h2 id="dropouts">6. When someone drops out mid-week</h2>
 
+<p>Two distinct flows handle dropouts, depending on when they bail:</p>
+
+<h3>Mid-week (provisioned then no-showed)</h3>
 <p>If a trainee has been set up with a company email and apps, then doesn't show up to class for the day, the system handles cleanup automatically:</p>
 
 <div class="flow">
@@ -507,6 +510,16 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <li>The trainee is marked <em>notified</em> so they aren't reported again on subsequent days.</li>
   </ol>
 </div>
+
+<h3>End-of-week (class ended, no final test submitted)</h3>
+<p>The harder case: a trainee was enrolled, the class week ended, and they never submitted a final test. They didn't graduate — but until recently they still counted as "enrolled" and would have shown up in things like the Group Messages "all enrolled" broadcast list.</p>
+
+<ul>
+  <li>The <strong>Class detail page</strong> now shows a "⚠ No-shows from this ended class" card on any past, non-attendance-only class with un-graduated enrollees. One click marks them all as dropouts (sets <code>enrolled = false</code>, stamps <code>unenrolled_reason = "Auto: class ended without final test submission"</code> so HR can tell auto-flags from manual unenrollments).</li>
+  <li>A daily cron at <code>/.netlify/functions/mark-class-dropouts</code> does the same scan automatically — so even if admin forgets, the list stays clean overnight.</li>
+  <li><strong>Attendance-only meetings are skipped.</strong> Missing one company meeting doesn't make someone a dropout — the rule only applies to actual training weeks where there's a final test.</li>
+  <li>Reversible: HR can flip <code>enrolled</code> back to <code>true</code> on any trainee record to bring them back into the active list.</li>
+</ul>
 
 <!-- ─────────────────────────────────────────────────────────── -->
 <h2 id="graduation">7. End-of-week graduation report</h2>
