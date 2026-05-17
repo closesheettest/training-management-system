@@ -1947,16 +1947,29 @@ function BulkImportModal({ classId, onClose, onImported }) {
   async function importAll() {
     setSaving(true)
     setError(null)
+    // The trainees table requires phone (NOT NULL). For rows without a
+    // phone (or where the CSV column was blank), substitute an empty
+    // string to satisfy the constraint — attendance-only flow doesn't
+    // text the trainee so the value is never actually used.
+    // The email column (CSV "Company Email") lands in company_email
+    // since the data is @shingleusa.com addresses.
     const payload = parsed.map((p) => ({
       class_id: classId,
       first_name: p.first_name,
       last_name: p.last_name,
-      phone: p.phone || null,
-      // Attendance-only attendees come in already "enrolled". They never
-      // go through registration since the class skips automations —
-      // setting registered=true here lets them appear on a real-training
-      // kiosk too if someone ever flips the class flag, harmless either
-      // way because the attendance_only kiosk path doesn't filter on it.
+      phone: p.phone || '',
+      // If the CSV has a @shingleusa.com address, treat it as a
+      // company_email. Otherwise it's a personal email.
+      ...(p.email && /@shingleusa\.com$/i.test(p.email)
+        ? { company_email: p.email }
+        : p.email
+          ? { email: p.email }
+          : {}),
+      // Attendance-only attendees come in already "enrolled" and (for
+      // the attendance-only kiosk path) we don't require them to go
+      // through registration. Setting registered=true here lets them
+      // also appear if someone flips this class to a real training week
+      // later — harmless either way.
       enrolled: true,
       needs_hotel: false,
     }))
@@ -1977,13 +1990,27 @@ function BulkImportModal({ classId, onClose, onImported }) {
           <div>
             <h2 className="text-lg font-semibold">📋 Bulk import attendees</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Upload a CSV file <strong>or</strong> paste the list below — one attendee per
-              line. Optional phone separated by a comma. Examples:
+              Upload a CSV file <strong>or</strong> paste the list below. Two formats work:
             </p>
-            <pre className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 whitespace-pre">{`John Doe
+            <p className="mt-2 text-xs font-semibold text-slate-600">
+              Format 1 — simple (no header, one attendee per line):
+            </p>
+            <pre className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 whitespace-pre">{`John Doe
 Jane Smith, 555-123-4567
-Mary Williams
 Bob Johnson, (727) 555-0142`}</pre>
+            <p className="mt-2 text-xs font-semibold text-slate-600">
+              Format 2 — with header row (auto-detected, any column order):
+            </p>
+            <pre className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 whitespace-pre">{`First Name,Last Name,Company Number,Personal Number,Company Email
+Aaron,Doster,,(305) 979-8248,aaron.doster@shingleusa.com
+Anthony,Alongi,(904) 560-5717,(443) 797-3758,AnthonyAlongi@shingleusa.com`}</pre>
+            <p className="mt-2 text-xs text-slate-500">
+              Recognized columns: <code>First Name</code>, <code>Last Name</code>,{' '}
+              <code>Phone</code>/<code>Personal Number</code>/<code>Cell</code>,{' '}
+              <code>Company Number</code>, <code>Email</code>/<code>Company Email</code>.
+              Personal Number is preferred when both are present; Company Number is the
+              fallback. Empty rows are skipped automatically.
+            </p>
           </div>
           <button
             type="button"
@@ -2044,6 +2071,7 @@ Bob Johnson, (727) 555-0142`}</pre>
                     <li key={i}>
                       {i + 1}. {p.first_name} {p.last_name}
                       {p.phone && <span className="text-slate-500"> · {p.phone}</span>}
+                      {p.email && <span className="text-slate-500"> · {p.email}</span>}
                     </li>
                   ))}
                   {parsed.length > 20 && (
@@ -2087,30 +2115,69 @@ Bob Johnson, (727) 555-0142`}</pre>
 // Parses a pasted/CSV list into [{first_name, last_name, phone}, ...].
 // Tolerates: header row, empty lines, commas vs tabs, single-name lines,
 // "First Last, 555-1234" or "First,Last,555-1234".
+// Parses pasted text OR a CSV file into [{first_name, last_name, phone, email}, ...].
+// Handles the rich case (5+ columns, header row, quoted fields with
+// embedded commas/quotes like "James ""Jimmy""") AND the simple case
+// (one name per line, no header).
+//
+// Header detection: if the first line contains tokens like
+// "first name", "phone", "email" etc., we treat it as a header and
+// map columns by name. Otherwise we assume a positional layout
+// (Name, Phone) and split on the first space.
 function parseAttendeeList(text) {
   if (!text) return []
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-  const out = []
-  for (const [idx, line] of lines.entries()) {
-    const cells = line.split(/[,\t]/).map((c) => c.trim())
-    // Skip a likely header row on the very first line.
-    if (
-      idx === 0 &&
-      cells.some((c) => /^(name|first[_\s-]?name|last[_\s-]?name|phone)$/i.test(c))
-    ) {
-      continue
-    }
-    if (cells.length === 0 || !cells[0]) continue
+  const rows = parseCsv(text)
+  if (rows.length === 0) return []
 
+  const headerCells = rows[0].map(normalizeHeader)
+  const headerLooksReal = headerCells.some(
+    (h) =>
+      /name/.test(h) ||
+      /phone|number/.test(h) ||
+      /email/.test(h),
+  )
+
+  const out = []
+  if (headerLooksReal) {
+    // Build column index map. Each known field can have multiple
+    // header aliases. First column matching wins.
+    const idx = mapHeaderColumns(headerCells)
+    for (let i = 1; i < rows.length; i++) {
+      const cells = rows[i]
+      if (!cells.some((c) => c && c.trim())) continue // empty row
+      const fullName = (cells[idx.full_name] || '').trim()
+      let first = (cells[idx.first_name] || '').trim()
+      let last = (cells[idx.last_name] || '').trim()
+      if (!first && !last && fullName) {
+        const parts = fullName.split(/\s+/)
+        first = parts[0] || ''
+        last = parts.slice(1).join(' ')
+      }
+      if (!first) continue
+      // Personal phone wins, fall back to company phone.
+      const phone =
+        (cells[idx.personal_phone] || '').trim() ||
+        (cells[idx.phone] || '').trim() ||
+        (cells[idx.company_phone] || '').trim()
+      const email =
+        (cells[idx.email] || '').trim() ||
+        (cells[idx.company_email] || '').trim()
+      out.push({
+        first_name: first,
+        last_name: last,
+        phone: phone || '',
+        email: email || '',
+      })
+    }
+    return out
+  }
+
+  // No header → fall back to simple positional parsing.
+  for (const cells of rows) {
+    if (!cells.length || !cells[0]) continue
     let first_name = ''
     let last_name = ''
     let phone = ''
-
-    // Detect shape:
-    //   1 column: "Full Name" — split on space
-    //   2 columns: either "First Last, Phone" (second cell is digits/parens)
-    //              OR "First, Last"
-    //   3+ columns: First, Last, Phone, [ignore rest]
     if (cells.length === 1) {
       const parts = cells[0].split(/\s+/)
       first_name = parts[0]
@@ -2135,9 +2202,97 @@ function parseAttendeeList(text) {
       first_name: first_name.trim(),
       last_name: (last_name || '').trim(),
       phone: phone ? phone.replace(/\s+/g, ' ').trim() : '',
+      email: '',
     })
   }
   return out
+}
+
+// Minimal CSV parser — handles quoted fields with embedded commas and
+// escaped quotes ("" inside a quoted field). Returns rows as arrays
+// of trimmed strings.
+function parseCsv(text) {
+  const out = []
+  let row = []
+  let cell = ''
+  let inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        cell += ch
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',' || ch === '\t') {
+        row.push(cell.trim())
+        cell = ''
+      } else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++
+        row.push(cell.trim())
+        cell = ''
+        // Skip rows where every cell is empty.
+        if (row.some((c) => c)) out.push(row)
+        row = []
+      } else {
+        cell += ch
+      }
+    }
+  }
+  // Flush the final row if no trailing newline.
+  if (cell || row.length) {
+    row.push(cell.trim())
+    if (row.some((c) => c)) out.push(row)
+  }
+  return out
+}
+
+function normalizeHeader(h) {
+  return String(h || '').toLowerCase().replace(/[_\s-]+/g, ' ').trim()
+}
+
+function mapHeaderColumns(headerCells) {
+  // For each known field, list the header aliases that should map to it.
+  // Order matters within an alias group — first matching column wins.
+  const aliasMap = {
+    full_name: ['full name', 'name'],
+    first_name: ['first name', 'firstname', 'first'],
+    last_name: ['last name', 'lastname', 'last'],
+    personal_phone: [
+      'personal number',
+      'personal phone',
+      'cell',
+      'cell phone',
+      'mobile',
+      'mobile phone',
+    ],
+    company_phone: ['company number', 'company phone', 'work phone', 'office phone'],
+    phone: ['phone', 'phone number', 'number'],
+    email: ['email', 'email address', 'personal email'],
+    company_email: ['company email', 'work email'],
+  }
+  const idx = {
+    full_name: -1, first_name: -1, last_name: -1,
+    personal_phone: -1, company_phone: -1, phone: -1,
+    email: -1, company_email: -1,
+  }
+  for (const [field, aliases] of Object.entries(aliasMap)) {
+    for (let i = 0; i < headerCells.length; i++) {
+      if (aliases.includes(headerCells[i])) {
+        idx[field] = i
+        break
+      }
+    }
+  }
+  return idx
 }
 
 // Manual "Send / re-send graduation report" button. The auto-cron fires
