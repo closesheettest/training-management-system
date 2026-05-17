@@ -205,7 +205,17 @@ export default function ActiveReps() {
       return full.includes(searchLower) || (t.phone || '').includes(searchLower)
     })
   }
-  const activeFiltered = filterList(active)
+  // Active reps: group by info-update status (updated first, then
+  // never-updated) so admin can scroll past the "done" pile and focus
+  // on the stragglers. Each group stays alphabetical within itself.
+  const activeFiltered = filterList(active).slice().sort((a, b) => {
+    const aHas = !!a.info_updated_at
+    const bHas = !!b.info_updated_at
+    if (aHas !== bHas) return aHas ? -1 : 1
+    return `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(
+      `${b.last_name || ''} ${b.first_name || ''}`,
+    )
+  })
   const notYetActiveFiltered = filterList(notYetActive)
   const dropoutsFiltered = filterList(dropouts)
 
