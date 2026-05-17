@@ -1941,7 +1941,7 @@ function BulkImportModal({ classId, onClose, onImported }) {
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [done, setDone] = useState(null) // { inserted, skipped }
+  const [done, setDone] = useState(null) // { inserted, updated, skipped }
 
   function onFile(e) {
     const f = e.target.files?.[0]
@@ -1956,39 +1956,97 @@ function BulkImportModal({ classId, onClose, onImported }) {
   async function importAll() {
     setSaving(true)
     setError(null)
-    // The trainees table requires phone (NOT NULL). For rows without a
-    // phone (or where the CSV column was blank), substitute an empty
-    // string to satisfy the constraint — attendance-only flow doesn't
-    // text the trainee so the value is never actually used.
-    // The email column (CSV "Company Email") lands in company_email
-    // since the data is @shingleusa.com addresses.
-    const payload = parsed.map((p) => ({
-      class_id: classId,
-      first_name: p.first_name,
-      last_name: p.last_name,
-      phone: p.phone || '',
-      // If the CSV has a @shingleusa.com address, treat it as a
-      // company_email. Otherwise it's a personal email.
-      ...(p.email && /@shingleusa\.com$/i.test(p.email)
-        ? { company_email: p.email }
-        : p.email
-          ? { email: p.email }
-          : {}),
-      // Attendance-only attendees come in already "enrolled" and (for
-      // the attendance-only kiosk path) we don't require them to go
-      // through registration. Setting registered=true here lets them
-      // also appear if someone flips this class to a real training week
-      // later — harmless either way.
-      enrolled: true,
-      needs_hotel: false,
-    }))
-    const { error: err } = await supabase.from('trainees').insert(payload)
-    setSaving(false)
-    if (err) {
-      setError(err.message)
+
+    // Dedupe by phone (normalized to digits-only) against existing
+    // trainees so we never create ghost rows for graduates or anyone
+    // already in the system. If a row matches an existing trainee:
+    //   - never re-insert
+    //   - opportunistically fill in missing company_email / email from
+    //     the CSV if the existing record was blank (small upgrade pass)
+    // If a row has no phone OR matches no existing trainee → insert.
+    const { data: existingRows, error: fetchErr } = await supabase
+      .from('trainees')
+      .select('id, phone, email, company_email, is_active_sales_rep')
+    if (fetchErr) {
+      setSaving(false)
+      setError(`Couldn't check for existing trainees: ${fetchErr.message}`)
       return
     }
-    setDone({ inserted: payload.length })
+    const existingByPhone = new Map()
+    for (const row of existingRows || []) {
+      const norm = normalizePhoneForDedup(row.phone)
+      if (norm) existingByPhone.set(norm, row)
+    }
+
+    const toInsert = []
+    const updates = [] // { id, patch }
+    let skipped = 0
+
+    for (const p of parsed) {
+      const norm = normalizePhoneForDedup(p.phone)
+      const existing = norm ? existingByPhone.get(norm) : null
+
+      // CSV email might be company or personal — pre-split it.
+      const isCompany = p.email && /@shingleusa\.com$/i.test(p.email)
+      const csvCompanyEmail = isCompany ? p.email : null
+      const csvPersonalEmail = !isCompany ? p.email : null
+
+      if (existing) {
+        // Don't recreate. Optionally backfill missing emails.
+        const patch = {}
+        if (csvCompanyEmail && !existing.company_email) patch.company_email = csvCompanyEmail
+        if (csvPersonalEmail && !existing.email) patch.email = csvPersonalEmail
+        if (Object.keys(patch).length > 0) updates.push({ id: existing.id, patch })
+        else skipped++
+        continue
+      }
+
+      // Brand-new trainee — insert into this class.
+      toInsert.push({
+        class_id: classId,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        phone: p.phone || '',
+        ...(csvCompanyEmail
+          ? { company_email: csvCompanyEmail }
+          : csvPersonalEmail
+            ? { email: csvPersonalEmail }
+            : {}),
+        // Attendance-only attendees come in already "enrolled" and (for
+        // the attendance-only kiosk path) we don't require them to go
+        // through registration. Setting registered=true here lets them
+        // also appear if someone flips this class to a real training week
+        // later — harmless either way.
+        enrolled: true,
+        needs_hotel: false,
+      })
+    }
+
+    // Inserts in one batch
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase.from('trainees').insert(toInsert)
+      if (insErr) {
+        setSaving(false)
+        setError(insErr.message)
+        return
+      }
+    }
+    // Updates one-by-one (typically very small set)
+    for (const u of updates) {
+      const { error: upErr } = await supabase.from('trainees').update(u.patch).eq('id', u.id)
+      if (upErr) {
+        setSaving(false)
+        setError(`Insert succeeded but update for existing trainee failed: ${upErr.message}`)
+        return
+      }
+    }
+
+    setSaving(false)
+    setDone({
+      inserted: toInsert.length,
+      updated: updates.length,
+      skipped,
+    })
     if (onImported) await onImported()
   }
 
@@ -2020,6 +2078,13 @@ Anthony,Alongi,(904) 560-5717,(443) 797-3758,AnthonyAlongi@shingleusa.com`}</pre
               Personal Number is preferred when both are present; Company Number is the
               fallback. Empty rows are skipped automatically.
             </p>
+            <p className="mt-2 text-xs text-amber-700">
+              ⚠ <strong>Dedup by phone:</strong> any row whose phone matches an existing trainee
+              (graduate, active rep, prior import) is{' '}
+              <em>not</em> re-inserted. The existing record stays the source of truth — the only
+              thing that gets touched is missing company / personal email, which is back-filled
+              from the CSV if the existing record was blank.
+            </p>
           </div>
           <button
             type="button"
@@ -2032,8 +2097,26 @@ Anthony,Alongi,(904) 560-5717,(443) 797-3758,AnthonyAlongi@shingleusa.com`}</pre
 
         {done ? (
           <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-            <p className="font-semibold">✓ Imported {done.inserted} attendees.</p>
-            <p className="mt-1 text-xs">Close this dialog and you'll see them in the Attendees list.</p>
+            <p className="font-semibold">✓ Import done.</p>
+            <ul className="mt-2 space-y-0.5 text-xs">
+              <li><strong>{done.inserted}</strong> new attendee{done.inserted === 1 ? '' : 's'} added to this class.</li>
+              {done.updated > 0 && (
+                <li>
+                  <strong>{done.updated}</strong> existing trainee
+                  {done.updated === 1 ? '' : 's'} updated (missing email filled in from CSV).
+                </li>
+              )}
+              {done.skipped > 0 && (
+                <li>
+                  <strong>{done.skipped}</strong> row{done.skipped === 1 ? '' : 's'} skipped
+                  (already in the system with same phone — no changes needed).
+                </li>
+              )}
+            </ul>
+            <p className="mt-2 text-xs text-emerald-700">
+              Existing graduates and active reps were not duplicated — their original records stay
+              the source of truth.
+            </p>
             <button
               type="button"
               onClick={onClose}
@@ -2119,6 +2202,15 @@ Anthony,Alongi,(904) 560-5717,(443) 797-3758,AnthonyAlongi@shingleusa.com`}</pre
       </div>
     </div>
   )
+}
+
+// Normalize a phone number for dedup comparison. Strips everything that
+// isn't a digit so "(727) 555-0142", "727-555-0142", "7275550142", and
+// "+1 727 555 0142" all collapse to the same key. Returns '' for falsy
+// input or strings with no digits.
+function normalizePhoneForDedup(p) {
+  if (!p) return ''
+  return String(p).replace(/\D/g, '')
 }
 
 // Parses a pasted/CSV list into [{first_name, last_name, phone}, ...].
