@@ -34,7 +34,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, locations(*), trainees(*, attendance(attendance_date, confirmed)), test_attempts(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, graduation_report_sent_at, attendance_only, locations(*), trainees(*, attendance(attendance_date, confirmed)), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
