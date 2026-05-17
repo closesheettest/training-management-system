@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
-import { formatDateRange } from '../lib/dates.js'
+import { formatDateRange, formatDateLong } from '../lib/dates.js'
 
 export default function ClassDetail() {
   const { id } = useParams()
@@ -34,7 +34,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, graduation_report_sent_at, attendance_only, locations(*), trainees(*, attendance(attendance_date, confirmed)), test_attempts(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, graduation_report_sent_at, attendance_only, locations(*), trainees(*, info_updated_at, attendance(attendance_date, confirmed)), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
@@ -622,6 +622,10 @@ export default function ClassDetail() {
       )}
 
       <RosterSummary summary={summary} />
+
+      {cls.attendance_only && (
+        <MeetingReportCard cls={cls} enrolled={enrolled} onReload={load} />
+      )}
 
       {!cls.attendance_only && summary.testSubmitted > 0 && (
         <TestResults trainees={enrolled} attemptsByTrainee={attemptsByTrainee} classId={id} />
@@ -2575,6 +2579,283 @@ function GraduationReportCard({ cls, onReload }) {
         </div>
       )}
     </section>
+  )
+}
+
+// Meeting attendance + info-update breakdown for attendance-only
+// classes. Cross-tabs roster into four buckets (attended × updated)
+// and surfaces actions for the two buckets that need follow-up:
+//   * "Attended but still needs to update" — text them the update-info
+//     link RIGHT NOW so they fill it in while still at the meeting.
+//   * "Did not attend & still needs to update" — text them too so we
+//     don't lose the moment.
+// Plus a "📄 Download PDF report" button for record-keeping.
+function MeetingReportCard({ cls, enrolled, onReload }) {
+  const [busyKind, setBusyKind] = useState(null) // 'pdf' | 'send-attended' | 'send-noshow'
+  const [result, setResult] = useState(null)
+  const meetingDate = cls.week_start_date
+
+  // Bucket the enrolled roster. attendance is nested on each trainee
+  // (loaded in the main ClassDetail query). Compare attendance_date
+  // strings exactly — Postgres returns 'YYYY-MM-DD'.
+  const buckets = useMemo(() => {
+    const out = {
+      attendedUpdated: [],
+      attendedNotUpdated: [],
+      noShowUpdated: [],
+      noShowNotUpdated: [],
+    }
+    for (const t of enrolled) {
+      const attended = (t.attendance || []).some(
+        (a) => a.confirmed && a.attendance_date === meetingDate,
+      )
+      const updated = !!t.info_updated_at
+      if (attended && updated) out.attendedUpdated.push(t)
+      else if (attended) out.attendedNotUpdated.push(t)
+      else if (updated) out.noShowUpdated.push(t)
+      else out.noShowNotUpdated.push(t)
+    }
+    // Sort each bucket alphabetically for stable display.
+    const byName = (a, b) =>
+      `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+    for (const k of Object.keys(out)) out[k].sort(byName)
+    return out
+  }, [enrolled, meetingDate])
+
+  const totals = {
+    enrolled: enrolled.length,
+    attended: buckets.attendedUpdated.length + buckets.attendedNotUpdated.length,
+    noShow: buckets.noShowUpdated.length + buckets.noShowNotUpdated.length,
+    updated: buckets.attendedUpdated.length + buckets.noShowUpdated.length,
+    needsUpdate: buckets.attendedNotUpdated.length + buckets.noShowNotUpdated.length,
+  }
+
+  async function downloadPdf() {
+    setBusyKind('pdf')
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/download-meeting-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: cls.id, attendance_date: meetingDate }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        setResult({ kind: 'error', text: `Download failed: ${txt || res.status}` })
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const cd = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] || `meeting-report-${cls.region}-${meetingDate}.pdf`
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setResult({ kind: 'success', text: `Downloaded ${filename}` })
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message })
+    } finally {
+      setBusyKind(null)
+    }
+  }
+
+  // Fire the update-info SMS to a specific subset of trainees, using
+  // the existing send-group-message function in trainee_ids mode.
+  // Uses the saved update_info_request_sms template (wording editable
+  // on /message-templates).
+  async function sendUpdateInfoTo(traineeIds, kind, label) {
+    if (traineeIds.length === 0) return
+    if (!confirm(
+      `Send the /update-info link via SMS to ${traineeIds.length} ${label}?\n\n` +
+      `Uses the saved "update_info_request_sms" template (editable on /message-templates).`,
+    )) return
+    setBusyKind(kind)
+    setResult(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-group-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: 'all_active_reps', // overridden by trainee_ids on the server
+          trainee_ids: traineeIds,
+          channels: { sms: true, email: false },
+          sms_template_key: 'update_info_request_sms',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setResult({ kind: 'error', text: body.error || `HTTP ${res.status}` })
+        return
+      }
+      const sent = body.counts?.sms_sent ?? 0
+      const failed = body.counts?.sms_failed ?? 0
+      setResult({
+        kind: failed > 0 ? 'partial' : 'success',
+        text: `📱 SMS sent: ${sent}${failed ? ` · ${failed} failed` : ''}`,
+      })
+      if (onReload) await onReload()
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message })
+    } finally {
+      setBusyKind(null)
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">📊 Meeting attendance &amp; info-update</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Live breakdown for the meeting on{' '}
+            <strong>{formatDateLong(meetingDate)}</strong>. Updates as reps sign in (or close
+            sign-ins on the kiosk to lock the roster). The two "needs to update" buckets have
+            an "📧 Send link now" button — text them their <code>/update-info</code> link while
+            they're still at the meeting.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={downloadPdf}
+          disabled={!!busyKind}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {busyKind === 'pdf' ? 'Generating…' : '📄 Download PDF report'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <StatTile num={totals.enrolled} label="Enrolled" />
+        <StatTile num={totals.attended} label="Attended" tone="emerald" />
+        <StatTile num={totals.noShow} label="No-show" tone="slate" />
+        <StatTile num={totals.updated} label="Info updated" tone="emerald" />
+        <StatTile num={totals.needsUpdate} label="Info missing" tone="amber" />
+      </div>
+
+      <BucketBlock
+        title="✅ Attended & updated info"
+        tone="emerald"
+        trainees={buckets.attendedUpdated}
+      />
+      <BucketBlock
+        title="⚠️ Attended but still needs to update info"
+        tone="amber"
+        trainees={buckets.attendedNotUpdated}
+        actionLabel={`📧 Send update-info link to these ${buckets.attendedNotUpdated.length}`}
+        actionDesc="They're at the meeting — text them now and they can fill it in on their phone."
+        actionBusy={busyKind === 'send-attended'}
+        onAction={() =>
+          sendUpdateInfoTo(
+            buckets.attendedNotUpdated.map((t) => t.id),
+            'send-attended',
+            'attendee(s) at the meeting',
+          )
+        }
+      />
+      <BucketBlock
+        title="👻 Did not attend, info already updated"
+        tone="slate"
+        trainees={buckets.noShowUpdated}
+      />
+      <BucketBlock
+        title="❌ Did not attend & still needs to update info"
+        tone="rose"
+        trainees={buckets.noShowNotUpdated}
+        actionLabel={`📧 Send update-info link to these ${buckets.noShowNotUpdated.length}`}
+        actionDesc="Catch-up text — they missed the meeting and still owe their info."
+        actionBusy={busyKind === 'send-noshow'}
+        onAction={() =>
+          sendUpdateInfoTo(
+            buckets.noShowNotUpdated.map((t) => t.id),
+            'send-noshow',
+            'no-show(s)',
+          )
+        }
+      />
+
+      {result && (
+        <div
+          className={
+            'rounded-md border p-2 text-xs ' +
+            (result.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : result.kind === 'partial'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-red-200 bg-red-50 text-red-800')
+          }
+        >
+          {result.text}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function StatTile({ num, label, tone = 'slate' }) {
+  const toneMap = {
+    slate: 'border-slate-200 bg-slate-50 text-slate-700',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    amber: 'border-amber-200 bg-amber-50 text-amber-800',
+    rose: 'border-rose-200 bg-rose-50 text-rose-800',
+  }
+  return (
+    <div className={`rounded-md border px-3 py-2 ${toneMap[tone]}`}>
+      <div className="text-xl font-semibold leading-tight">{num}</div>
+      <div className="text-[10px] uppercase tracking-wide opacity-80">{label}</div>
+    </div>
+  )
+}
+
+function BucketBlock({ title, tone = 'slate', trainees, actionLabel, actionDesc, actionBusy, onAction }) {
+  const toneMap = {
+    slate: 'border-slate-200',
+    emerald: 'border-emerald-200',
+    amber: 'border-amber-300 bg-amber-50',
+    rose: 'border-rose-300 bg-rose-50',
+  }
+  return (
+    <details className={`rounded-md border ${toneMap[tone]} p-3`}>
+      <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-semibold">
+        <span>
+          {title}{' '}
+          <span className="ml-1 font-normal text-slate-500">({trainees.length})</span>
+        </span>
+        {trainees.length > 0 && (
+          <span className="text-xs font-normal text-slate-500">click to expand</span>
+        )}
+      </summary>
+      {trainees.length === 0 ? (
+        <p className="mt-2 text-xs italic text-slate-500">— none —</p>
+      ) : (
+        <>
+          <ul className="mt-2 grid gap-1 text-xs sm:grid-cols-2 md:grid-cols-3">
+            {trainees.map((t) => (
+              <li key={t.id} className="text-slate-700">
+                · {t.first_name} {t.last_name}
+              </li>
+            ))}
+          </ul>
+          {onAction && actionLabel && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onAction}
+                disabled={actionBusy}
+                className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+              >
+                {actionBusy ? 'Sending…' : actionLabel}
+              </button>
+              {actionDesc && <span className="text-xs text-slate-600">{actionDesc}</span>}
+            </div>
+          )}
+        </>
+      )}
+    </details>
   )
 }
 

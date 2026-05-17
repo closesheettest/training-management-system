@@ -210,6 +210,21 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </div>
 
 <div class="callout">
+  <strong>Meeting-day report &amp; "send to attendees" action.</strong> On every attendance-only
+  Class detail page, a <strong>📊 Meeting attendance &amp; info-update</strong> card cross-tabs
+  the roster into four buckets: <em>attended × info-updated</em>. Stats tiles up top
+  (Enrolled / Attended / No-show / Info updated / Info missing), then four expandable
+  bucket sections. The two "needs to update" buckets each have a one-click
+  <strong>"📧 Send update-info link to these N"</strong> button — admin closes sign-ins on
+  the kiosk when the meeting starts, opens this card on their laptop, and texts the
+  attendees who haven't filled in <code>/update-info</code> yet. They get the link on their
+  phone <em>while still at the meeting</em> and can fill it in right there. Same template
+  (<code>update_info_request_sms</code>) as the manual blast, scoped to the trainee_ids
+  selected. A <strong>"📄 Download PDF report"</strong> button at the top generates a printable
+  one-pager with the same breakdown for record-keeping.
+</div>
+
+<div class="callout">
   <strong>Role-based views.</strong> When someone opens the app, a "Who are you?" splash
   asks them to pick their name (from the Notifications list). The nav then shows only the
   pages that role uses — IT sees Provisioning, HR sees Hotels + Schedule, the Hiring Manager
