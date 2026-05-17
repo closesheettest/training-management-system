@@ -63,6 +63,12 @@ export default function GroupMessages() {
   // Live progress while batches are in flight: { processed, total } so the
   // user sees "Sending 23 of 83..." instead of a frozen "Sending..." button.
   const [progress, setProgress] = useState(null)
+  // When admin clicks "Email these N instead" after an SMS broadcast,
+  // we stash the targeted trainee_ids + a draft subject/body here so the
+  // compose modal can open with those defaults. null = modal closed.
+  const [emailFallback, setEmailFallback] = useState(null)
+  const [emailFallbackSending, setEmailFallbackSending] = useState(false)
+  const [emailFallbackResult, setEmailFallbackResult] = useState(null)
 
   useEffect(() => {
     loadClasses()
@@ -625,18 +631,45 @@ export default function GroupMessages() {
                   <li className="text-xs text-slate-600">Recipients matched: {result.counts?.recipients ?? 0}</li>
                 </ul>
                 {result.failures && result.failures.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs font-semibold">
-                      {result.failures.length} failure{result.failures.length === 1 ? '' : 's'} — click for details
-                    </summary>
-                    <ul className="mt-1 space-y-0.5 text-xs">
-                      {result.failures.map((f, i) => (
-                        <li key={i}>
-                          {f.channel}: trainee {f.trainee_id} — {f.error || 'unknown'}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
+                  <>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs font-semibold">
+                        {result.failures.length} failure{result.failures.length === 1 ? '' : 's'} — click for details
+                      </summary>
+                      <ul className="mt-1 space-y-0.5 text-xs">
+                        {result.failures.map((f, i) => (
+                          <li key={i}>
+                            {f.channel}: trainee {f.trainee_id} — {f.error || 'unknown'}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                    {/* If any SMS failed (DND / unsubscribed / bad number)
+                        let admin re-route to email in one click. Opens the
+                        compose modal pre-filled with the SMS body. */}
+                    {result.failures.some((f) => f.channel === 'sms') && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setEmailFallback({
+                            traineeIds: Array.from(new Set(
+                              result.failures.filter((f) => f.channel === 'sms').map((f) => f.trainee_id),
+                            )),
+                            subject: 'Important update from U.S. Shingle Training',
+                            body: smsBody || '',
+                          })}
+                          className="rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                        >
+                          📧 Email these {result.failures.filter((f) => f.channel === 'sms').length} instead
+                        </button>
+                        <p className="mt-1 text-xs text-emerald-800">
+                          DND / unsubscribed reps can't be texted. Email them the same message in
+                          one click — opens a compose modal pre-filled with the SMS body so you
+                          can tweak the wording for the email format.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : (
@@ -658,6 +691,142 @@ export default function GroupMessages() {
           sending={sending}
         />
       )}
+
+      {emailFallback && (
+        <EmailFallbackModal
+          draft={emailFallback}
+          setDraft={setEmailFallback}
+          sending={emailFallbackSending}
+          result={emailFallbackResult}
+          onCancel={() => {
+            if (emailFallbackSending) return
+            setEmailFallback(null)
+            setEmailFallbackResult(null)
+          }}
+          onSend={async () => {
+            setEmailFallbackSending(true)
+            setEmailFallbackResult(null)
+            try {
+              const res = await fetch('/.netlify/functions/send-group-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  // trainee_ids overrides scope on the server, so the
+                  // scope value is irrelevant — we still send a valid
+                  // one to satisfy the validation branches.
+                  scope: 'all_active_reps',
+                  trainee_ids: emailFallback.traineeIds,
+                  channels: { sms: false, email: true },
+                  email_subject: emailFallback.subject,
+                  email_body: emailFallback.body,
+                }),
+              })
+              const body = await res.json().catch(() => ({}))
+              if (!res.ok) {
+                setEmailFallbackResult({ kind: 'error', text: body.error || `HTTP ${res.status}` })
+              } else {
+                setEmailFallbackResult({
+                  kind: 'success',
+                  sent: body.counts?.email_sent ?? 0,
+                  failed: body.counts?.email_failed ?? 0,
+                  failures: body.failures || [],
+                })
+              }
+            } catch (err) {
+              setEmailFallbackResult({ kind: 'error', text: err.message })
+            } finally {
+              setEmailFallbackSending(false)
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function EmailFallbackModal({ draft, setDraft, sending, result, onCancel, onSend }) {
+  const update = (key, value) => setDraft({ ...draft, [key]: value })
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">
+          📧 Email {draft.traineeIds.length} rep{draft.traineeIds.length === 1 ? '' : 's'} instead
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Pre-filled with the SMS body you just sent. Edit the subject and tweak the wording
+          for email format if you want.
+        </p>
+        <label className="mt-3 block">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Subject
+          </span>
+          <input
+            type="text"
+            value={draft.subject}
+            onChange={(e) => update('subject', e.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            disabled={sending}
+          />
+        </label>
+        <label className="mt-3 block">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Email body
+          </span>
+          <textarea
+            rows={6}
+            value={draft.body}
+            onChange={(e) => update('body', e.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+            disabled={sending}
+          />
+        </label>
+        {result && (
+          <div
+            className={
+              'mt-3 rounded-md border p-2 text-xs ' +
+              (result.kind === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-800')
+            }
+          >
+            {result.kind === 'success' ? (
+              <>
+                ✓ Email sent: <strong>{result.sent}</strong>
+                {result.failed ? ` · ${result.failed} failed` : ''}
+                {result.failures && result.failures.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {result.failures.map((f, i) => (
+                      <li key={i}>{f.channel}: trainee {f.trainee_id} — {f.error}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <>✗ {result.text}</>
+            )}
+          </div>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {result?.kind === 'success' ? 'Close' : 'Cancel'}
+          </button>
+          {result?.kind !== 'success' && (
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={sending || !draft.subject.trim() || !draft.body.trim()}
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : `Send email to ${draft.traineeIds.length}`}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

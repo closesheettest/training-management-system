@@ -20,6 +20,11 @@
 //     // the response has next_offset = null. Each call processes up to
 //     // BATCH_SIZE=20 recipients to fit in Netlify's 10s function timeout.
 //     offset?: number,             // default 0
+//     // Optional override: when provided, recipients are scoped to these
+//     // exact trainees (ignoring scope/class_id/region). Used by the UI's
+//     // "Email these failures" button to re-route an SMS broadcast that
+//     // bounced (DND, unsubscribed) over to email instead.
+//     trainee_ids?: string[],
 //   }
 //
 // Response:
@@ -132,7 +137,13 @@ export const handler = async (event) => {
       'id, first_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep',
     )
 
-  if (body.scope === 'class') {
+  // trainee_ids overrides every other scope — used by "Email these
+  // failures" to re-send via the other channel to a specific subset.
+  // No active-rep / enrolled filters apply; if admin passed the IDs in,
+  // we trust them.
+  if (Array.isArray(body.trainee_ids) && body.trainee_ids.length > 0) {
+    q = q.in('id', body.trainee_ids)
+  } else if (body.scope === 'class') {
     if (!body.class_id) return json(400, { error: 'class_id required when scope=class' })
     q = q.eq('class_id', body.class_id).neq('enrolled', false).is('declined_at', null)
   } else if (body.scope === 'all_active_reps' || body.scope === 'all_enrolled') {
@@ -145,7 +156,7 @@ export const handler = async (event) => {
       q = q.eq('region', body.region)
     }
   } else {
-    return json(400, { error: 'scope must be "class" or "all_active_reps"' })
+    return json(400, { error: 'scope must be "class" or "all_active_reps", or pass trainee_ids' })
   }
 
   const { data: trainees, error } = await q
