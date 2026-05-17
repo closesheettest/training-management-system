@@ -181,7 +181,7 @@
     <li><a href="#week">A training week, day by day</a></li>
     <li><a href="#messages">Every automated text &amp; email</a></li>
     <li><a href="#pages">Key pages — staff &amp; trainees</a></li>
-    <li><a href="#dropouts">When someone drops out</a></li>
+    <li><a href="#dropouts">Dropouts, departures, and people who leave the team</a></li>
     <li><a href="#graduation">End-of-week graduation report</a></li>
     <li><a href="#group-broadcasts">Group broadcasts (ad-hoc SMS &amp; email)</a></li>
     <li><a href="#stack">Where everything lives</a></li>
@@ -470,7 +470,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Personas</strong></td><td>Admin</td><td>Pick which pages each role can access. Grid of role × page checkboxes, like Notifications but for pages. Unchecked pages are hidden from the nav AND block direct URL navigation. Live (no redeploy). Role-based gating, not auth — anyone can switch personas to gain different access.</td></tr>
     <tr><td><strong>Message templates</strong></td><td>Admin</td><td>Editable text of the automated SMS messages (currently the 3 registration texts — initial + 2 paced follow-ups). Edit the wording, save, done — next text uses the new copy. No redeploy. Placeholders like <code>{firstName}</code> are substituted at send time.</td></tr>
     <tr><td><strong>Handoff contacts</strong></td><td>Admin</td><td>Manages the people that get saved to each trainee's phone via vCard after they finish their final test. Universal contacts (helpline, support) plus region-specific ones (Sales Manager — St Pete, Sales Manager — Orlando, etc.).</td></tr>
-    <tr><td><strong>Active sales reps</strong></td><td>Admin · HR</td><td>Master list of people on the sales team in the field — separate from "currently in a training class." Auto-managed: every trainee who submits their final test joins the list. Manual add/remove for hand-curating (someone left the company, someone slipped through the auto-flip). This is the list Group Messages "All active reps" sends to.</td></tr>
+    <tr><td><strong>Active sales reps</strong></td><td>Admin · HR</td><td>Master list of people on the sales team in the field — separate from "currently in a training class." Three live sections on one page: <strong>⭐ Active</strong> (the broadcast list, auto-grows on test submission), <strong>⏳ In the pipeline</strong> (trainees in current / upcoming classes who'll graduate to active soon), and <strong>❌ Dropouts</strong> (past trainees who never finished — dead leads, kept for record-keeping). Plus a <strong>🚪 Cleanup pending</strong> section when anyone's marked "departed" — punch list of external systems (GHL / RepCard / JobNimbus / Sales Academy / Google Workspace) to deactivate them in. Filters: by region (St Pete / Jacksonville / Orlando / Miami / no-region-yet), and "📋 Never updated their info" (active reps who still haven't filled in <code>/update-info</code>) with a one-click bulk re-send to that subset.</td></tr>
     <tr><td><strong>Group messages</strong></td><td>Admin · HR</td><td>Manually broadcast SMS or email to every active sales rep OR to the cohort in one training class. Pick a saved template (or write custom), preview against a real recipient, and click Send. Substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> to <code>/update-info/&lt;token&gt;</code>. Designed for ad-hoc blasts ("company meeting tomorrow") and the post-import "please fill in your personal email + home address" ask.</td></tr>
     <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place. Also shows live status of the paced social-post queue (pending count + next scheduled time per network) with a "Post next now" override button to skip the schedule and publish the next queued item immediately.</td></tr>
   </tbody>
@@ -495,9 +495,9 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </table>
 
 <!-- ─────────────────────────────────────────────────────────── -->
-<h2 id="dropouts">6. When someone drops out mid-week</h2>
+<h2 id="dropouts">6. Dropouts, departures, and people who leave the team</h2>
 
-<p>Two distinct flows handle dropouts, depending on when they bail:</p>
+<p>Three distinct flows handle people leaving — by stage of the lifecycle:</p>
 
 <h3>Mid-week (provisioned then no-showed)</h3>
 <p>If a trainee has been set up with a company email and apps, then doesn't show up to class for the day, the system handles cleanup automatically:</p>
@@ -520,7 +520,22 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li>A daily cron at <code>/.netlify/functions/mark-class-dropouts</code> does the same scan automatically — so even if admin forgets, the list stays clean overnight.</li>
   <li><strong>Attendance-only meetings are skipped.</strong> Missing one company meeting doesn't make someone a dropout — the rule only applies to actual training weeks where there's a final test.</li>
   <li>Reversible: HR can flip <code>enrolled</code> back to <code>true</code> on any trainee record to bring them back into the active list.</li>
+  <li>Dropouts surface in the <strong>❌ Dropouts / dead</strong> section on <code>/active-reps</code> (muted styling — they're informational, not actionable). Each row has an "Add as active rep" button for the rare override.</li>
 </ul>
+
+<h3>An active rep leaving the company (turnover)</h3>
+<p>Different from a dropout. A rep who completed training and was working in the field — but has now quit, been terminated, or moved on — needs to be deactivated everywhere, not just on this system. The flow:</p>
+
+<div class="flow">
+  <ol>
+    <li>On <code>/active-reps</code>, admin clicks <strong>"Mark as departed →"</strong> next to the rep's row.</li>
+    <li>A modal asks for an optional reason (quit / terminated / moved out of state / etc). Saved to <code>left_company_reason</code> for HR audit later.</li>
+    <li>Confirm flips <code>is_active_sales_rep = false</code> and stamps <code>left_company_at</code>. They drop off the broadcast list immediately.</li>
+    <li>They appear in a new amber <strong>🚪 Cleanup pending</strong> section at the top of <code>/active-reps</code>, with a per-row checklist of external systems to deactivate them in: GoHighLevel, Google Workspace (their <code>@shingleusa.com</code> email shown), RepCard, JobNimbus, Sales Academy.</li>
+    <li>Admin walks through each external system manually (the app can't reach into those tools), then clicks <strong>"✓ All cleanup done"</strong> on the row to clear it from the pending list.</li>
+    <li>Reversible at any step via <strong>"Undo (still active)"</strong> — restores them to the active list and clears all three flags.</li>
+  </ol>
+</div>
 
 <!-- ─────────────────────────────────────────────────────────── -->
 <h2 id="graduation">7. End-of-week graduation report</h2>
@@ -567,13 +582,26 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <ol>
     <li><strong>Pick recipients:</strong> every active sales rep (the durable list) OR a single class week (the cohort, useful for day-of training reminders). The page shows a live count and warns when some recipients are missing a phone or email.</li>
     <li><strong>Pick channels:</strong> SMS, email, or both. Each channel has its own body editor.</li>
-    <li><strong>Pick a saved template</strong> (optional): pre-fills the body and email subject. Three are seeded — <em>Update info request — SMS</em>, <em>Update info request — email</em>, and <em>Group meeting reminder — SMS</em>. All editable on <code>/message-templates</code>.</li>
-    <li><strong>Preview:</strong> a live preview substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> (pointing to <code>/update-info/&lt;their token&gt;</code>) so you see exactly what the first recipient will get before clicking Send.</li>
-    <li><strong>Send:</strong> a confirmation modal shows the final count and channels. After sending, the page reports per-channel sent / failed counts and stamps <code>last_group_message_sent_at</code> on each recipient who got at least one successful send.</li>
+    <li><strong>Pick a saved template</strong> (optional): pre-fills the body and email subject. Three are seeded — <em>Update info request — SMS</em>, <em>Update info request — email</em>, and <em>Company meeting reminder — SMS</em>. All editable on <code>/message-templates</code>.</li>
+    <li><strong>Preview:</strong> a live preview substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> (pointing to <code>/update-info/&lt;their token&gt;</code>) so you see exactly what the first recipient will get before clicking Send. The preview also shows the exact email address it'll route to and labels it as <em>(company)</em> or <em>(personal)</em> — see routing rule below.</li>
+    <li><strong>Send:</strong> a confirmation modal shows the final count and channels. The function processes recipients in batches of 20 with a concurrency cap of 3 (under GHL's ~10/sec rate limit) — a live progress card shows "23 of 83 processed" with a percent bar. SMS errors get retried automatically on 429 with exponential backoff. After sending, the page reports per-channel sent / failed counts and stamps <code>last_group_message_sent_at</code> on each recipient who got at least one successful send.</li>
+    <li><strong>Failure fallback:</strong> if any SMS failed (DND / unsubscribed / bad number), a <strong>"📧 Email these N instead"</strong> button appears in the result card. One click opens a compose modal pre-filled with the SMS body — admin tweaks the subject + body for email format, hits Send, and the system routes the same message via email to just that failed subset.</li>
   </ol>
 </div>
 
+<div class="callout">
+  <strong>Email routing — company first:</strong> When a rep has both a personal email and a <code>company_email</code> on file, broadcasts route to the company email. Rationale: once IT provisions someone's <code>@shingleusa.com</code> address, that's their work inbox and company-wide comms should land there. Personal email is the fallback for un-provisioned reps (bulk imports who haven't been through training yet). The recipient-count box on the composer shows the split: <em>"X have an email (Y via @shingleusa.com, Z via personal)"</em> so admin sees the routing breakdown before clicking Send.
+</div>
+
+<div class="callout">
+  <strong>Tracking who responded:</strong> When a rep submits the <code>/update-info</code> form, <code>info_updated_at</code> stamps on their trainee row (and on every other row with the same phone — dedup-aware sync, so duplicates from CSV imports stay in step). The <code>/active-reps</code> page shows "Info updated 3 days ago" / "📋 Never updated their info" badges per row, plus a "Never updated (N)" filter chip and a one-click <strong>"Re-send update-info request to N"</strong> button that scopes the next blast to only the stragglers. The "9 graduates updated, 65 imports to go" loop runs without admin having to track it manually.
+</div>
+
 <p>The most common use right now is the <strong>"please update your info"</strong> blast. After bulk-importing reps via CSV, most have a company phone but no personal email or home address. The blast points each rep to their own <code>/update-info/&lt;token&gt;</code> page where they fill in those fields and save. The data flows back into the same <code>trainees</code> row that drives everything else (registration emails, hotel info, graduation reports), so it's a one-and-done cleanup.</p>
+
+<div class="callout">
+  <strong>CSV import safety net:</strong> The bulk-import modal on each class detail page dedupes by phone number (digits-only normalized, so different formatting still matches). If a CSV row's phone matches an existing trainee, the importer either updates their missing email fields or skips them entirely — never creates a duplicate row. The success modal reports the breakdown: <em>"65 new added, 2 existing updated, 9 skipped (already in system)."</em> This is what fixed the original "92 active reps instead of 83" inflation, where past graduates got double-rowed by the import. Future re-imports of the same CSV are now idempotent.
+</div>
 
 <!-- ─────────────────────────────────────────────────────────── -->
 <h2 id="stack">9. Where everything lives</h2>
