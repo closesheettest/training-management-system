@@ -23,7 +23,15 @@ import { FL_REGIONS } from '../lib/locations.js'
 
 export default function ActiveReps() {
   const [active, setActive] = useState([])
-  const [inactive, setInactive] = useState([])
+  // 'Not yet active' = inactive trainees scheduled for a CURRENT or
+  // FUTURE training class — i.e. people still in the pipeline. Once
+  // they submit their final test they'll auto-flip to active.
+  const [notYetActive, setNotYetActive] = useState([])
+  // 'Dropouts' = inactive trainees whose training class has ENDED but
+  // they never graduated (no test submission, or auto-flagged as a
+  // no-show). Effectively dead leads. Kept around for record-keeping
+  // and the rare "actually they did make it, promote them anyway" case.
+  const [dropouts, setDropouts] = useState([])
   // Reps flagged "no longer a sales rep" but admin hasn't yet finished
   // cleaning them up in GHL / RepCard / etc. Surfaced as a separate
   // section with a checklist + "✓ All cleanup done" button.
@@ -47,7 +55,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, classes(region, week_start_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, classes(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -55,18 +63,42 @@ export default function ActiveReps() {
       return
     }
     const all = data || []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    // Classify each inactive trainee by their class state:
+    //   - past TRAINING class (week_end < today, NOT attendance_only) → dropout
+    //   - current/future training class                              → notYetActive
+    //   - attendance-only or no class                                 → hidden
+    //     (these are bulk-import dupes etc — not interesting here)
+    function classifyInactive(t) {
+      if (t.is_active_sales_rep) return null
+      if (t.declined_at) return null
+      if (t.left_company_at) return null
+      const c = t.classes
+      // attendance-only classes (meetings) don't graduate anyone, so
+      // anyone inactive with that class type isn't a "trainee" or a
+      // "dropout" — they're either a dedup'd row or just stuck there.
+      // Hide from both new sections.
+      if (c?.attendance_only) return null
+      if (!c?.week_end_date) {
+        // No class scheduled — treat as not-yet-active.
+        return 'notYet'
+      }
+      const end = new Date(c.week_end_date + 'T23:59:59')
+      if (end < today) return 'dropout'
+      return 'notYet'
+    }
+
     setActive(all.filter((t) => t.is_active_sales_rep))
-    // Inactive list excludes explicit declines, manual unenrollments,
-    // AND people we've marked as "left the company" (those have their
-    // own bucket below).
-    setInactive(
-      all.filter(
-        (t) =>
-          !t.is_active_sales_rep &&
-          t.enrolled !== false &&
-          !t.declined_at &&
-          !t.left_company_at,
-      ),
+    setNotYetActive(all.filter((t) => classifyInactive(t) === 'notYet'))
+    setDropouts(
+      all
+        .filter((t) => classifyInactive(t) === 'dropout')
+        // Most recent first — newest dropouts are most actionable.
+        .sort((a, b) =>
+          new Date(b.classes?.week_end_date || 0) -
+          new Date(a.classes?.week_end_date || 0),
+        ),
     )
     setPendingCleanup(
       all
@@ -166,7 +198,8 @@ export default function ActiveReps() {
     })
   }
   const activeFiltered = filterList(active)
-  const inactiveFiltered = filterList(inactive)
+  const notYetActiveFiltered = filterList(notYetActive)
+  const dropoutsFiltered = filterList(dropouts)
 
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
@@ -387,7 +420,8 @@ export default function ActiveReps() {
         />
         <div className="text-sm text-slate-600">
           <strong className="text-emerald-700">{active.length}</strong> active ·{' '}
-          <strong className="text-slate-500">{inactive.length}</strong> inactive
+          <strong className="text-slate-500">{notYetActive.length}</strong> not yet active ·{' '}
+          <strong className="text-slate-500">{dropouts.length}</strong> dropouts
         </div>
       </div>
 
@@ -443,22 +477,53 @@ export default function ActiveReps() {
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">
-          Other trainees (not yet active) ({inactiveFiltered.length})
+          ⏳ Trainees in the pipeline ({notYetActiveFiltered.length})
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          People in the system who aren't on the active-rep list — typically current trainees who
-          haven't taken their final test yet. Listed here so you can promote anyone manually if
-          needed.
+          People scheduled for a current or upcoming training class. They'll auto-flip to active
+          reps when they submit their final test. Listed here so you can promote anyone manually
+          if needed.
         </p>
         {loading ? (
           <p className="mt-3 text-sm text-slate-500">Loading…</p>
-        ) : inactiveFiltered.length === 0 ? (
+        ) : notYetActiveFiltered.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">
-            {search ? 'No matches.' : 'Nobody pending.'}
+            {search ? 'No matches.' : 'No trainees currently in the pipeline.'}
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-slate-100">
-            {inactiveFiltered.map((t) => (
+            {notYetActiveFiltered.map((t) => (
+              <RepRow
+                key={t.id}
+                t={t}
+                active={false}
+                saving={savingId === t.id}
+                onPromote={() => toggle(t, true)}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+        <h2 className="text-lg font-semibold text-slate-700">
+          ❌ Dropouts / dead ({dropoutsFiltered.length})
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Trainees whose class week ended without them graduating — never submitted the final
+          test, or no-showed entirely. Kept here for record-keeping. If someone in this list
+          actually did make it through and should be active, click <strong>Add as active rep</strong>{' '}
+          to override.
+        </p>
+        {loading ? (
+          <p className="mt-3 text-sm text-slate-500">Loading…</p>
+        ) : dropoutsFiltered.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            {search ? 'No matches.' : 'No dropouts on record. 🎉'}
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-200">
+            {dropoutsFiltered.map((t) => (
               <RepRow
                 key={t.id}
                 t={t}
