@@ -251,6 +251,19 @@ create index if not exists trainees_active_rep_idx on trainees(is_active_sales_r
 alter table trainees add column if not exists region text;
 create index if not exists trainees_region_idx on trainees(region);
 
+-- Former-rep tracking. When admin clicks "No longer a sales rep" on
+-- /active-reps, we stamp left_company_at (+ optional reason). The
+-- cleanup-pending list surfaces these reps with a checklist of other
+-- systems (GHL, RepCard, JobNimbus, Sales Academy, Google Workspace)
+-- to manually deactivate them in. cleanup_done_at hides them from the
+-- visible list once admin has finished the cleanup elsewhere.
+alter table trainees add column if not exists left_company_at timestamptz;
+alter table trainees add column if not exists left_company_reason text;
+alter table trainees add column if not exists cleanup_done_at timestamptz;
+create index if not exists trainees_pending_cleanup_idx
+  on trainees(left_company_at)
+  where left_company_at is not null and cleanup_done_at is null;
+
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout
 -- ============================================================
