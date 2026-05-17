@@ -16,6 +16,19 @@
 //     // the admin picked "Update info request" instead of free-text.
 //     sms_template_key?: string,
 //     email_template_key?: string,
+//     // Batching: client loops calling this with increasing offset until
+//     // the response has next_offset = null. Each call processes up to
+//     // BATCH_SIZE=20 recipients to fit in Netlify's 10s function timeout.
+//     offset?: number,             // default 0
+//   }
+//
+// Response:
+//   {
+//     ok: true,
+//     counts: { sms_sent, sms_failed, email_sent, email_failed, recipients },
+//     next_offset: number | null,  // null when no more batches remain
+//     total: number,               // total recipients across all batches
+//     failures?: [{trainee_id, channel, error}, ...]
 //   }
 //
 // Scope semantics:
@@ -141,36 +154,49 @@ export const handler = async (event) => {
     return json(200, { ok: true, message: 'No recipients matched.', counts: { sms: 0, email: 0 } })
   }
 
-  // Fan out in parallel, one promise per (recipient, channel).
-  const tasks = []
-  for (const t of trainees) {
+  // Slice the recipient list to the requested batch. Client loops with
+  // increasing offsets so each function call fits in Netlify's 10s
+  // budget — see GroupMessages.jsx for the loop.
+  const BATCH_SIZE = 20
+  const offset = Math.max(0, parseInt(body.offset ?? 0, 10) || 0)
+  const traineesBatch = trainees.slice(offset, offset + BATCH_SIZE)
+  const nextOffset = offset + BATCH_SIZE < trainees.length ? offset + BATCH_SIZE : null
+
+  // Build task factories (deferred promises) so we can run them with
+  // bounded concurrency — sending all 20 at once still trips GHL's rate
+  // limit even with retry. CONCURRENCY of 3 gives roughly 6-9 calls/sec
+  // to GHL (each SMS = upsert contact + send message = 2 calls), which
+  // fits inside GHL's ~10/sec ceiling with headroom.
+  const CONCURRENCY = 3
+  const taskFactories = []
+  for (const t of traineesBatch) {
     const vars = {
       firstName: t.first_name || 'there',
       link: t.registration_token ? `${siteUrl}/update-info/${t.registration_token}` : '',
     }
     if (wantSms && t.phone) {
-      const msg = applyPlaceholders(smsBody, vars)
-      tasks.push(
-        sendSmsViaGhl(t.phone, msg, {
+      taskFactories.push(async () => {
+        const msg = applyPlaceholders(smsBody, vars)
+        const s = await sendSmsViaGhl(t.phone, msg, {
           firstName: t.first_name || 'Trainee',
           lastName: 'Group',
-        }).then((s) => ({ trainee_id: t.id, channel: 'sms', ok: s.ok, error: s.error })),
-      )
+        })
+        return { trainee_id: t.id, channel: 'sms', ok: s.ok, error: s.error }
+      })
     }
     // Prefer company_email over personal email — see select-clause comment.
     const targetEmail = t.company_email || t.email
     if (wantEmail && targetEmail) {
-      const subject = applyPlaceholders(emailSubject || 'Update from training', vars)
-      const msg = applyPlaceholders(emailBody, vars)
-      tasks.push(
-        sendEmail(targetEmail, subject, msg).then((s) => ({
-          trainee_id: t.id, channel: 'email', ok: s.ok, error: s.error,
-        })),
-      )
+      taskFactories.push(async () => {
+        const subject = applyPlaceholders(emailSubject || 'Update from training', vars)
+        const msg = applyPlaceholders(emailBody, vars)
+        const s = await sendEmail(targetEmail, subject, msg)
+        return { trainee_id: t.id, channel: 'email', ok: s.ok, error: s.error }
+      })
     }
   }
 
-  const results = await Promise.all(tasks)
+  const results = await runWithConcurrency(taskFactories, CONCURRENCY)
 
   // Stamp last_group_message_sent_at for every trainee who got at least
   // one successful send. Single batch update for efficiency.
@@ -189,15 +215,35 @@ export const handler = async (event) => {
     sms_failed: results.filter((r) => r.channel === 'sms' && !r.ok).length,
     email_sent: results.filter((r) => r.channel === 'email' && r.ok).length,
     email_failed: results.filter((r) => r.channel === 'email' && !r.ok).length,
-    recipients: trainees.length,
+    recipients: traineesBatch.length,
   }
   const failures = results.filter((r) => !r.ok)
 
   return json(200, {
     ok: true,
     counts,
+    next_offset: nextOffset,
+    total: trainees.length,
     ...(failures.length ? { failures: failures.slice(0, 50) } : {}),
   })
+}
+
+// Simple bounded-concurrency runner. Each worker pulls the next factory
+// off a shared index counter and awaits it. With N workers, at most N
+// tasks are in-flight at any moment. Avoids the "fire all N at once"
+// pattern that lights up GHL's rate limit.
+async function runWithConcurrency(factories, limit) {
+  const results = new Array(factories.length)
+  let nextIdx = 0
+  const workers = Array.from({ length: Math.min(limit, factories.length) }, async () => {
+    while (true) {
+      const myIdx = nextIdx++
+      if (myIdx >= factories.length) return
+      results[myIdx] = await factories[myIdx]()
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
 
 function applyPlaceholders(str, vars) {

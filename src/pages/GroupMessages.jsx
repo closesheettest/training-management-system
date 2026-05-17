@@ -60,6 +60,9 @@ export default function GroupMessages() {
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Live progress while batches are in flight: { processed, total } so the
+  // user sees "Sending 23 of 83..." instead of a frozen "Sending..." button.
+  const [progress, setProgress] = useState(null)
 
   useEffect(() => {
     loadClasses()
@@ -205,31 +208,62 @@ export default function GroupMessages() {
   async function send() {
     setSending(true)
     setResult(null)
+    setProgress({ processed: 0, total: reach.total })
+    setConfirmOpen(false)
+
+    const basePayload = {
+      scope, // 'class' | 'all_active_reps'
+      ...(scope === 'class' ? { class_id: selectedClassId } : {}),
+      ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
+      channels: { sms: wantSms, email: wantEmail },
+      ...(wantSms ? { sms_body: smsBody } : {}),
+      ...(wantEmail ? { email_subject: emailSubject, email_body: emailBody } : {}),
+    }
+
+    // Batch loop: the function processes up to BATCH_SIZE recipients per
+    // call (server-side constant — currently 20) and returns next_offset.
+    // We accumulate counts + failures across batches so the user sees one
+    // unified "X sent / Y failed" result at the end. Progress card updates
+    // after every batch so they can watch a 90-recipient blast tick up
+    // instead of staring at a frozen spinner.
+    let offset = 0
+    let total = reach.total
+    const totals = { sms_sent: 0, sms_failed: 0, email_sent: 0, email_failed: 0, recipients: 0 }
+    const allFailures = []
     try {
-      const payload = {
-        scope, // 'class' | 'all_active_reps'
-        ...(scope === 'class' ? { class_id: selectedClassId } : {}),
-        ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
-        channels: { sms: wantSms, email: wantEmail },
-        ...(wantSms ? { sms_body: smsBody } : {}),
-        ...(wantEmail ? { email_subject: emailSubject, email_body: emailBody } : {}),
+      // Cap iterations as a safety net — in theory we always exit when
+      // next_offset is null, but if the server misbehaves we don't want
+      // to loop forever.
+      for (let iter = 0; iter < 200; iter++) {
+        const res = await fetch('/.netlify/functions/send-group-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...basePayload, offset }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setResult({ kind: 'error', message: body.error || `HTTP ${res.status}`, raw: body })
+          return
+        }
+        // Accumulate
+        totals.sms_sent += body.counts?.sms_sent || 0
+        totals.sms_failed += body.counts?.sms_failed || 0
+        totals.email_sent += body.counts?.email_sent || 0
+        totals.email_failed += body.counts?.email_failed || 0
+        totals.recipients += body.counts?.recipients || 0
+        if (body.failures) allFailures.push(...body.failures)
+        if (typeof body.total === 'number') total = body.total
+        const processed = totals.recipients
+        setProgress({ processed, total })
+        if (body.next_offset == null) break
+        offset = body.next_offset
       }
-      const res = await fetch('/.netlify/functions/send-group-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setResult({ kind: 'error', message: body.error || `HTTP ${res.status}`, raw: body })
-      } else {
-        setResult({ kind: 'success', counts: body.counts, failures: body.failures || [] })
-      }
+      setResult({ kind: 'success', counts: totals, failures: allFailures })
     } catch (err) {
       setResult({ kind: 'error', message: err.message || 'Network error' })
     } finally {
       setSending(false)
-      setConfirmOpen(false)
+      setProgress(null)
     }
   }
 
@@ -551,6 +585,27 @@ export default function GroupMessages() {
         >
           {sending ? 'Sending…' : 'Send broadcast'}
         </button>
+
+        {sending && progress && (
+          <div className="mt-3 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+            <div className="flex items-center justify-between">
+              <span>
+                Sending in batches to stay under GHL's rate limit —{' '}
+                <strong>{progress.processed}</strong> of <strong>{progress.total}</strong>{' '}
+                processed.
+              </span>
+              <span className="text-xs text-sky-700">
+                {Math.round((progress.processed / Math.max(1, progress.total)) * 100)}%
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-200">
+              <div
+                className="h-full bg-sky-600 transition-all duration-200"
+                style={{ width: `${Math.round((progress.processed / Math.max(1, progress.total)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {result && (
           <div
