@@ -23,7 +23,7 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name), trainees(id, registered, last_sms_sent_at, enrolled)',
+        'id, region, week_start_date, week_end_date, attendance_only, locations(name), trainees(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)
@@ -124,6 +124,7 @@ export default function Calendar() {
               classes={past}
               emptyText=""
               subtitle="Past classes — click any to view test results, re-send the graduation report, or browse attendance."
+              isPast
             />
           )}
         </>
@@ -320,7 +321,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
   )
 }
 
-function Section({ title, classes, emptyText, subtitle }) {
+function Section({ title, classes, emptyText, subtitle, isPast = false }) {
   if (classes.length === 0) {
     return emptyText ? (
       <section>
@@ -344,7 +345,7 @@ function Section({ title, classes, emptyText, subtitle }) {
           </h3>
           <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
             {items.map((cls) => (
-              <ClassRow key={cls.id} cls={cls} />
+              <ClassRow key={cls.id} cls={cls} isPast={isPast} />
             ))}
           </ul>
         </div>
@@ -353,13 +354,19 @@ function Section({ title, classes, emptyText, subtitle }) {
   )
 }
 
-function ClassRow({ cls }) {
+function ClassRow({ cls, isPast = false }) {
   // Match ClassDetail: only count enrolled trainees (unenrolled people are hidden there too).
   const enrolledTrainees = cls.trainees?.filter((t) => t.enrolled !== false) ?? []
   const total = enrolledTrainees.length
   const registered = enrolledTrainees.filter((t) => t.registered).length
   const sent = enrolledTrainees.filter((t) => !t.registered && t.last_sms_sent_at).length
   const notSent = enrolledTrainees.filter((t) => !t.registered && !t.last_sms_sent_at).length
+  // For past classes we surface the full funnel: how many were
+  // scheduled, how many registered, how many actually graduated
+  // (= submitted the final test). Tells the success story at a glance.
+  const graduated = enrolledTrainees.filter((t) =>
+    (t.test_attempts || []).some((a) => a.submitted_at),
+  ).length
   const locationLabel = cls.locations?.name || `${cls.region || 'Region'} — TBD`
   const isTBD = !cls.locations?.name
 
@@ -377,7 +384,7 @@ function ClassRow({ cls }) {
                 {cls.region}
               </span>
             )}
-            {isTBD && (
+            {isTBD && !isPast && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                 Location TBD
               </span>
@@ -393,10 +400,25 @@ function ClassRow({ cls }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-end">
-          <Badge color="green" label={`${registered} registered`} hide={registered === 0} />
-          <Badge color="amber" label={`${sent} pending`} hide={sent === 0} />
-          <Badge color="slate" label={`${notSent} not sent`} hide={notSent === 0} />
-          <Badge color="slate" label="No trainees yet" hide={total > 0} />
+          {isPast ? (
+            <>
+              <Badge color="slate" label={`${total} scheduled`} hide={total === 0} />
+              <Badge color="sky" label={`${registered} registered`} hide={total === 0} />
+              {/* For attendance-only classes there's no final test, so
+                  "graduated" isn't meaningful — hide that badge. */}
+              {!cls.attendance_only && (
+                <Badge color="green" label={`${graduated} graduated`} hide={total === 0} />
+              )}
+              <Badge color="slate" label="No trainees" hide={total > 0} />
+            </>
+          ) : (
+            <>
+              <Badge color="green" label={`${registered} registered`} hide={registered === 0} />
+              <Badge color="amber" label={`${sent} pending`} hide={sent === 0} />
+              <Badge color="slate" label={`${notSent} not sent`} hide={notSent === 0} />
+              <Badge color="slate" label="No trainees yet" hide={total > 0} />
+            </>
+          )}
         </div>
       </Link>
     </li>
@@ -408,6 +430,7 @@ function Badge({ color, label, hide }) {
   const palette = {
     green: 'bg-green-100 text-green-800',
     amber: 'bg-amber-100 text-amber-800',
+    sky: 'bg-sky-100 text-sky-800',
     slate: 'bg-slate-100 text-slate-700',
   }[color] || 'bg-slate-100 text-slate-700'
   return <span className={`rounded-full px-2 py-0.5 font-medium ${palette}`}>{label}</span>
