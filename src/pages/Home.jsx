@@ -14,6 +14,8 @@ export default function Home() {
         <Tile to="/attendance" title="Daily Attendance" desc="HR view: who signed in today, every class, every region." />
         <Tile to="/manager" title="Hiring Manager Portal" desc="Create a new training class and add trainees." />
         <Tile to="/locations" title="Locations" desc="Manage your training locations — hotels, offices, training sites — by region." />
+        <Tile to="/group-messages" title="Group Messages" desc="Broadcast SMS or email to every active sales rep, a region, or one class — for company meetings and ad-hoc blasts." />
+        <Tile to="/active-reps" title="Active Sales Reps" desc="Master list of reps in the field. Promote, deactivate, and track who needs cleanup in other systems." />
       </div>
     </div>
   )
