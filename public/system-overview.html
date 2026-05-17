@@ -183,6 +183,7 @@
     <li><a href="#pages">Key pages — staff &amp; trainees</a></li>
     <li><a href="#dropouts">When someone drops out</a></li>
     <li><a href="#graduation">End-of-week graduation report</a></li>
+    <li><a href="#group-broadcasts">Group broadcasts (ad-hoc SMS &amp; email)</a></li>
     <li><a href="#stack">Where everything lives</a></li>
   </ol>
 </section>
@@ -469,6 +470,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><td><strong>Personas</strong></td><td>Admin</td><td>Pick which pages each role can access. Grid of role × page checkboxes, like Notifications but for pages. Unchecked pages are hidden from the nav AND block direct URL navigation. Live (no redeploy). Role-based gating, not auth — anyone can switch personas to gain different access.</td></tr>
     <tr><td><strong>Message templates</strong></td><td>Admin</td><td>Editable text of the automated SMS messages (currently the 3 registration texts — initial + 2 paced follow-ups). Edit the wording, save, done — next text uses the new copy. No redeploy. Placeholders like <code>{firstName}</code> are substituted at send time.</td></tr>
     <tr><td><strong>Handoff contacts</strong></td><td>Admin</td><td>Manages the people that get saved to each trainee's phone via vCard after they finish their final test. Universal contacts (helpline, support) plus region-specific ones (Sales Manager — St Pete, Sales Manager — Orlando, etc.).</td></tr>
+    <tr><td><strong>Group messages</strong></td><td>Admin · HR</td><td>Manually broadcast SMS or email to a class or to every enrolled rep. Pick a saved template (or write custom), preview against a real recipient, and click Send. Substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> to <code>/update-info/&lt;token&gt;</code>. Designed for ad-hoc blasts ("company meeting tomorrow") and the post-import "please fill in your personal email + home address" ask.</td></tr>
     <tr><td><strong>Messages</strong></td><td>Admin · Leadership</td><td>Preview every text, email, and trainee-facing page in one place. Also shows live status of the paced social-post queue (pending count + next scheduled time per network) with a "Post next now" override button to skip the schedule and publish the next queued item immediately.</td></tr>
   </tbody>
 </table>
@@ -479,6 +481,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     <tr><th>Page</th><th>When</th><th>What's on it</th></tr>
   </thead>
   <tbody>
+    <tr><td><strong>Update your info</strong></td><td>Anytime — manual blast from Group Messages</td><td>Self-service page for reps to fill in their personal email + home address. Linked from the "Update info request" SMS / email blasts. Pre-fills with whatever's already on file so they just confirm or correct, then save. Token-gated like every other trainee-facing page.</td></tr>
     <tr><td><strong>Registration</strong></td><td>After enrollment</td><td>Confirm name + personal email (required), set sales experience, fill home address. Includes a small "Can't make it? Let us know" link at the bottom — clicking it opens a confirmation modal with an optional reason textbox so trainees who change their mind can cleanly opt out instead of ghosting.</td></tr>
     <tr><td><strong>Confirmation reminder</strong></td><td>24h before class</td><td>"Can you make it tomorrow?" — they tap Yes / No.</td></tr>
     <tr><td><strong>Kiosk sign-in</strong></td><td>Every morning of class</td><td>Tablet at the training location. Trainee taps their name. Trainer can hit "🔒 Close sign-in" once class starts to lock out late arrivals — kiosk shows a big red "Sign-in closed for today" banner instead of name tiles. Tomorrow's kiosk opens automatically.</td></tr>
@@ -534,7 +537,24 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </ul>
 
 <!-- ─────────────────────────────────────────────────────────── -->
-<h2 id="stack">8. Where everything lives</h2>
+<h2 id="group-broadcasts">8. Group broadcasts (ad-hoc SMS &amp; email)</h2>
+
+<p>Beyond all the workflow-triggered messages above, the system has a manual broadcast tool at <code>/group-messages</code> for the moments admin wants to talk to a group of reps directly — not tied to a specific class event.</p>
+
+<div class="flow">
+  <ol>
+    <li><strong>Pick recipients:</strong> a single class week (e.g. just next week's trainees) or every enrolled rep across the system. The page shows a live count and warns when some recipients are missing a phone or email.</li>
+    <li><strong>Pick channels:</strong> SMS, email, or both. Each channel has its own body editor.</li>
+    <li><strong>Pick a saved template</strong> (optional): pre-fills the body and email subject. Three are seeded — <em>Update info request — SMS</em>, <em>Update info request — email</em>, and <em>Group meeting reminder — SMS</em>. All editable on <code>/message-templates</code>.</li>
+    <li><strong>Preview:</strong> a live preview substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> (pointing to <code>/update-info/&lt;their token&gt;</code>) so you see exactly what the first recipient will get before clicking Send.</li>
+    <li><strong>Send:</strong> a confirmation modal shows the final count and channels. After sending, the page reports per-channel sent / failed counts and stamps <code>last_group_message_sent_at</code> on each recipient who got at least one successful send.</li>
+  </ol>
+</div>
+
+<p>The most common use right now is the <strong>"please update your info"</strong> blast. After bulk-importing reps via CSV, most have a company phone but no personal email or home address. The blast points each rep to their own <code>/update-info/&lt;token&gt;</code> page where they fill in those fields and save. The data flows back into the same <code>trainees</code> row that drives everything else (registration emails, hotel info, graduation reports), so it's a one-and-done cleanup.</p>
+
+<!-- ─────────────────────────────────────────────────────────── -->
+<h2 id="stack">9. Where everything lives</h2>
 
 <table>
   <thead>

@@ -27,6 +27,8 @@ import Personas from './pages/Personas.jsx'
 import Welcome from './pages/Welcome.jsx'
 import WelcomeLinks from './pages/WelcomeLinks.jsx'
 import Results from './pages/Results.jsx'
+import UpdateInfo from './pages/UpdateInfo.jsx'
+import GroupMessages from './pages/GroupMessages.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
@@ -65,6 +67,11 @@ export default function App() {
             wrong on the multiple choice, plus their essay answers. */}
         <Route path="/results/:token" element={<MinimalLayout><Results /></MinimalLayout>} />
 
+        {/* Public self-service info update — reps tap a link from the
+            Group Messages broadcast and fill in personal email + home
+            address. Token-gated. */}
+        <Route path="/update-info/:token" element={<MinimalLayout><UpdateInfo /></MinimalLayout>} />
+
         {/* Internal admin routes — full chrome (gated by persona splash).
             Each top-nav route is wrapped in <RouteGate> which checks the
             current persona's visiblePages set against the route's page
@@ -92,6 +99,7 @@ export default function App() {
           <Route path="/hotels" element={<RouteGate pageKey="setup.hotels"><Hotels /></RouteGate>} />
           <Route path="/welcome-links" element={<RouteGate pageKey="setup.welcome_links"><WelcomeLinks /></RouteGate>} />
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
+          <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
         </Route>
       </Routes>
     </PersonaProvider>
@@ -128,6 +136,7 @@ function AdminLayout() {
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
   ].filter((it) => show(it.key))
   const settingsItems = [
+    { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
     { key: 'settings.notifications', to: '/notifications', label: 'Notifications' },
     { key: 'settings.templates', to: '/message-templates', label: 'Message templates' },

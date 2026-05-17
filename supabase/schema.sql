@@ -231,6 +231,7 @@ alter table trainees add column if not exists registration_followup_1_sent_at ti
 alter table trainees add column if not exists registration_followup_2_sent_at timestamptz;
 alter table trainees add column if not exists itinerary_email_sent_at timestamptz;
 alter table trainees add column if not exists test_results_link_sent_at timestamptz;
+alter table trainees add column if not exists last_group_message_sent_at timestamptz;
 
 -- ============================================================
 -- SIGN-IN CLOSURES — per-day kiosk lockout

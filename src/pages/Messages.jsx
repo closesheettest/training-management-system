@@ -246,6 +246,13 @@ Reply to this text if anything looks wrong. — U.S. Shingle Training`,
 
 const TRAINEE_FACING = [
   {
+    label: 'Update your info',
+    desc: 'Self-service page where reps fill in their personal email + home address. Linked from the Group Messages "update info request" template. Pre-fills with whatever\'s on file, validates email shape, saves to trainees row.',
+    url: '/update-info/demo',
+    linkable: true,
+    note: 'Live demo pre-fills with sample data — saves go nowhere.',
+  },
+  {
     label: 'Registration form',
     desc: 'First text the trainee gets after enrollment. They confirm name, set sales-experience tag, fill home address. Pre-filled with whatever HR entered.',
     url: '/register/demo',
@@ -382,6 +389,74 @@ export default function Messages() {
             <PageCard key={p.label} page={p} />
           ))}
         </div>
+      </section>
+
+      {/* Group broadcasts */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Group broadcasts (manual)</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Manually-triggered SMS / email blasts from the{' '}
+            <Link to="/group-messages" className="underline">Group messages</Link> page.
+            Picks a class or "all enrolled," substitutes <code>{'{firstName}'}</code> /{' '}
+            <code>{'{link}'}</code> per recipient, and surfaces sent/failed counts.
+          </p>
+        </div>
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold">
+            📱 / ✉️ Update info request (newly-imported reps){' '}
+            <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+              manual
+            </span>
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Default template for asking reps who came in via CSV import to fill in their personal
+            email + home address. Editable on{' '}
+            <Link to="/message-templates" className="underline">Message templates</Link>{' '}
+            (keys: <code>update_info_request_sms</code> / <code>update_info_request_email</code>).
+            Link points to <code>/update-info/&lt;token&gt;</code>.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">📱 Text</div>
+              <pre className="whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample, we're updating our records — please take 30 seconds to enter your personal email + home address: ${SAMPLE.registerLink.replace('/register/<token>', '/update-info/<token>')}`}</pre>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">✉️ Email</div>
+              <p className="text-xs font-semibold text-slate-800">
+                Subject: <span className="font-normal">Quick favor — update your info (Sample)</span>
+              </p>
+              <pre className="mt-1 whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample,
+
+We're keeping our records up to date in the new training system. Please take 30 seconds to enter your personal email + home address using your private link below:
+
+${SAMPLE.registerLink.replace('/register/<token>', '/update-info/<token>')}
+
+It pre-fills with what we already have on file — just confirm or correct, then save.
+
+Thanks!
+— U.S. Shingle Training Team`}</pre>
+            </div>
+          </div>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold">
+            📱 Group meeting reminder{' '}
+            <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+              manual
+            </span>
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Generic SMS template for one-off blasts ("tomorrow's company meeting at 9 AM").
+            Edit the wording on the Group Messages page before sending, or in{' '}
+            <Link to="/message-templates" className="underline">Message templates</Link>{' '}
+            (key: <code>group_meeting_reminder_sms</code>).
+          </p>
+          <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 max-w-sm">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">📱 Text</div>
+            <pre className="whitespace-pre-wrap text-xs text-slate-800 font-sans leading-snug">{`Hi Sample, reminder about our company meeting tomorrow. See you there!`}</pre>
+          </div>
+        </article>
       </section>
 
       {/* Reports */}
