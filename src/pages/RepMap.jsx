@@ -66,14 +66,19 @@ const STATUS = {
   departed:  { label: '🚪 Departed (cleanup pending)', color: '#f59e0b' },
 }
 
-// Build a colored circle marker icon. Leaflet's default marker icons need
-// asset bundling fixes; using a small inline SVG sidesteps that and lets
-// us color by status with no extra files.
-function makeIcon(color) {
+// Build a colored marker icon. Two variants per status:
+//   solid  — geocoded from real address (full status color fill)
+//   hollow — approximated to region center (outline only, no fill)
+// Lets admin distinguish real locations from region-jittered placeholders
+// at a glance, while still seeing status color in both cases.
+function makeIcon(color, { hollow = false } = {}) {
+  const fill = hollow ? 'white' : color
+  const stroke = hollow ? color : 'white'
+  const strokeWidth = hollow ? 3 : 2
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="32">
-      <path d="M16 0C8.27 0 2 6.27 2 14c0 9.5 14 18 14 18s14-8.5 14-18c0-7.73-6.27-14-14-14z" fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="16" cy="13" r="5" fill="white"/>
+      <path d="M16 0C8.27 0 2 6.27 2 14c0 9.5 14 18 14 18s14-8.5 14-18c0-7.73-6.27-14-14-14z" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+      <circle cx="16" cy="13" r="5" fill="${hollow ? color : 'white'}"/>
     </svg>
   `.trim()
   return L.divIcon({
@@ -85,8 +90,15 @@ function makeIcon(color) {
   })
 }
 
+// Lookup table: ICONS[status][solid|hollow]
 const ICONS = Object.fromEntries(
-  Object.entries(STATUS).map(([key, v]) => [key, makeIcon(v.color)]),
+  Object.entries(STATUS).map(([key, v]) => [
+    key,
+    {
+      solid: makeIcon(v.color, { hollow: false }),
+      hollow: makeIcon(v.color, { hollow: true }),
+    },
+  ]),
 )
 
 export default function RepMap() {
@@ -257,6 +269,25 @@ export default function RepMap() {
             </label>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide text-slate-500">Pin style:</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
+              style={{ backgroundColor: '#10b981' }}
+              aria-hidden="true"
+            />
+            <strong>Solid</strong> = geocoded from real address
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-3 w-3 rounded-full border-2"
+              style={{ backgroundColor: 'white', borderColor: '#10b981' }}
+              aria-hidden="true"
+            />
+            <strong>Hollow</strong> = approximated (region center, no address yet)
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="font-semibold uppercase tracking-wide text-slate-500">Region:</span>
           <button
@@ -339,8 +370,9 @@ export default function RepMap() {
           />
           {visible.map(({ trainee, status }) => {
             const loc = locationForTrainee(trainee)
+            const icon = loc.geocoded ? ICONS[status].solid : ICONS[status].hollow
             return (
-              <Marker key={trainee.id} position={[loc.lat, loc.lng]} icon={ICONS[status]}>
+              <Marker key={trainee.id} position={[loc.lat, loc.lng]} icon={icon}>
                 <Popup>
                   <div className="text-sm">
                     <div className="font-semibold">
