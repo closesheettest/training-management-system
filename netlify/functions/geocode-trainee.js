@@ -96,6 +96,14 @@ export const handler = async (event) => {
     if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
       return json(200, { ok: false, error: 'No coords in Google response' })
     }
+    // Pull county out of address_components. Google labels US counties
+    // as administrative_area_level_2 with the "long_name" being the
+    // bare county name without the " County" suffix (e.g. "Pinellas").
+    const components = data.results[0].address_components || []
+    const countyComp = components.find((c) =>
+      Array.isArray(c.types) && c.types.includes('administrative_area_level_2'),
+    )
+    const county = countyComp?.long_name?.replace(/\s+County$/i, '').trim() || null
     const { error: uErr } = await supabase
       .from('trainees')
       .update({
@@ -103,10 +111,11 @@ export const handler = async (event) => {
         longitude: loc.lng,
         geocoded_at: new Date().toISOString(),
         geocoded_address: addr,
+        county,
       })
       .eq('id', body.trainee_id)
     if (uErr) return json(500, { error: `Supabase update: ${uErr.message}` })
-    return json(200, { ok: true, lat: loc.lat, lng: loc.lng, address: addr })
+    return json(200, { ok: true, lat: loc.lat, lng: loc.lng, address: addr, county })
   } catch (err) {
     return json(200, { ok: false, error: err.message || 'Unknown' })
   }

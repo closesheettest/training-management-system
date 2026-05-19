@@ -280,6 +280,10 @@ alter table trainees add column if not exists latitude double precision;
 alter table trainees add column if not exists longitude double precision;
 alter table trainees add column if not exists geocoded_at timestamptz;
 alter table trainees add column if not exists geocoded_address text;
+-- US county captured from Google's administrative_area_level_2. Surfaced
+-- on /regions so HR can see which county a rep lives in while deciding
+-- which region to assign them to.
+alter table trainees add column if not exists county text;
 create index if not exists trainees_needs_geocode_idx
   on trainees(id)
   where latitude is null
