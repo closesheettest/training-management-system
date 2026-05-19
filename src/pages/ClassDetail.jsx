@@ -2591,7 +2591,7 @@ function GraduationReportCard({ cls, onReload }) {
 //     don't lose the moment.
 // Plus a "📄 Download PDF report" button for record-keeping.
 function MeetingReportCard({ cls, enrolled, onReload }) {
-  const [busyKind, setBusyKind] = useState(null) // 'pdf' | 'send-attended' | 'send-noshow'
+  const [busyKind, setBusyKind] = useState(null) // 'pdf' | 'send-attended' | 'send-noshow' | 'deactivate-noshow'
   const [result, setResult] = useState(null)
   const meetingDate = cls.week_start_date
 
@@ -2657,6 +2657,42 @@ function MeetingReportCard({ cls, enrolled, onReload }) {
       a.remove()
       URL.revokeObjectURL(url)
       setResult({ kind: 'success', text: `Downloaded ${filename}` })
+    } catch (err) {
+      setResult({ kind: 'error', text: err.message })
+    } finally {
+      setBusyKind(null)
+    }
+  }
+
+  // Bulk-deactivate a set of trainees — flips is_active_sales_rep=false
+  // so they drop off the Group Messages "All active sales reps" list
+  // immediately. Used for the "Did not attend & didn't update info"
+  // bucket — these reps clearly aren't engaging with the system, so
+  // we stop wasting broadcast slots on them. Reversible: HR can flip
+  // them back to active on /active-reps if they re-engage later.
+  async function deactivateTrainees(traineeIds, kind, label) {
+    if (traineeIds.length === 0) return
+    if (!confirm(
+      `Mark ${traineeIds.length} ${label} as no-longer-active sales reps?\n\n` +
+      `They'll be removed from Group Messages "All active sales reps" broadcasts. ` +
+      `Reversible: you can re-activate any of them on /active-reps if they re-engage.`,
+    )) return
+    setBusyKind(kind)
+    setResult(null)
+    try {
+      const { error } = await supabase
+        .from('trainees')
+        .update({ is_active_sales_rep: false, became_active_rep_at: null })
+        .in('id', traineeIds)
+      if (error) {
+        setResult({ kind: 'error', text: error.message })
+        return
+      }
+      setResult({
+        kind: 'success',
+        text: `Marked ${traineeIds.length} rep${traineeIds.length === 1 ? '' : 's'} as no-longer-active. They're off the broadcast list.`,
+      })
+      if (onReload) await onReload()
     } catch (err) {
       setResult({ kind: 'error', text: err.message })
     } finally {
@@ -2776,6 +2812,16 @@ function MeetingReportCard({ cls, enrolled, onReload }) {
             'no-show(s)',
           )
         }
+        secondaryLabel={`🚪 Mark these ${buckets.noShowNotUpdated.length} as no-longer-active`}
+        secondaryDesc="No meeting + no info update = not engaged. Drops them from future broadcasts. Reversible on /active-reps."
+        secondaryBusy={busyKind === 'deactivate-noshow'}
+        onSecondary={() =>
+          deactivateTrainees(
+            buckets.noShowNotUpdated.map((t) => t.id),
+            'deactivate-noshow',
+            'no-show(s) who haven\'t updated',
+          )
+        }
       />
 
       {result && (
@@ -2811,7 +2857,21 @@ function StatTile({ num, label, tone = 'slate' }) {
   )
 }
 
-function BucketBlock({ title, tone = 'slate', trainees, actionLabel, actionDesc, actionBusy, onAction }) {
+function BucketBlock({
+  title,
+  tone = 'slate',
+  trainees,
+  actionLabel,
+  actionDesc,
+  actionBusy,
+  onAction,
+  // Optional secondary action — e.g. "Mark as no-longer-active" on
+  // the no-show bucket, sitting next to the primary "Send link" action.
+  secondaryLabel,
+  secondaryDesc,
+  secondaryBusy,
+  onSecondary,
+}) {
   const toneMap = {
     slate: 'border-slate-200',
     emerald: 'border-emerald-200',
@@ -2845,12 +2905,25 @@ function BucketBlock({ title, tone = 'slate', trainees, actionLabel, actionDesc,
               <button
                 type="button"
                 onClick={onAction}
-                disabled={actionBusy}
+                disabled={actionBusy || secondaryBusy}
                 className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
               >
                 {actionBusy ? 'Sending…' : actionLabel}
               </button>
               {actionDesc && <span className="text-xs text-slate-600">{actionDesc}</span>}
+            </div>
+          )}
+          {onSecondary && secondaryLabel && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onSecondary}
+                disabled={actionBusy || secondaryBusy}
+                className="rounded-md border border-slate-400 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {secondaryBusy ? 'Working…' : secondaryLabel}
+              </button>
+              {secondaryDesc && <span className="text-xs text-slate-600">{secondaryDesc}</span>}
             </div>
           )}
         </>
