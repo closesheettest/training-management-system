@@ -211,6 +211,95 @@ export default function Regions() {
     await reloadRegions()
   }
 
+  // "Possible new regions to add" — cluster geocoded reps by county,
+  // surface clusters that are >GAP_MILES from the closest existing
+  // region and have 2+ reps. The system isn't picking a region for
+  // anyone; it's just showing admin "you have 5 reps in Hillsborough
+  // County and the closest existing region is 35 miles away — consider
+  // adding a Tampa region." One-click button pre-fills the Add Region
+  // form above with the cluster's centroid + a sensible name.
+  const GAP_MILES = 30
+  const farClusters = (() => {
+    const eligible = reps.filter(
+      (r) =>
+        typeof r.latitude === 'number' &&
+        typeof r.longitude === 'number' &&
+        r.county,
+    )
+    const farReps = eligible.filter((r) => {
+      const closest = suggestRegionFor(r, regions)
+      // If no existing region has coords, treat all geocoded reps as
+      // "far" — admin almost certainly wants to see clusters in that
+      // state too (it's the first thing they'll act on).
+      if (!closest) return true
+      return closest.miles > GAP_MILES
+    })
+    const byCounty = new Map()
+    for (const r of farReps) {
+      if (!byCounty.has(r.county)) byCounty.set(r.county, [])
+      byCounty.get(r.county).push(r)
+    }
+    const out = []
+    for (const [county, repsInCounty] of byCounty) {
+      if (repsInCounty.length < 2) continue
+      // Cluster centroid (average lat/lng).
+      const lat = repsInCounty.reduce((s, r) => s + r.latitude, 0) / repsInCounty.length
+      const lng = repsInCounty.reduce((s, r) => s + r.longitude, 0) / repsInCounty.length
+      // Most common city — used as the suggested region name since
+      // cities map to how sales teams usually talk about territory.
+      // Falls back to "<County> County" if no city has 2+ reps.
+      const cityCount = new Map()
+      for (const r of repsInCounty) {
+        if (!r.city) continue
+        const k = r.city
+        cityCount.set(k, (cityCount.get(k) || 0) + 1)
+      }
+      let topCity = null
+      let topCount = 0
+      for (const [city, n] of cityCount) {
+        if (n > topCount) { topCity = city; topCount = n }
+      }
+      const suggestedName = topCount >= 2 ? topCity : `${county} County`
+      const distances = repsInCounty.map((r) => {
+        const c = suggestRegionFor(r, regions)
+        return c ? c.miles : null
+      }).filter((d) => d != null)
+      const avgDist = distances.length
+        ? distances.reduce((s, d) => s + d, 0) / distances.length
+        : null
+      out.push({
+        county,
+        repsInCounty,
+        lat,
+        lng,
+        suggestedName,
+        avgDist,
+      })
+    }
+    // Biggest clusters first; then by furthest-from-existing.
+    out.sort(
+      (a, b) =>
+        b.repsInCounty.length - a.repsInCounty.length ||
+        (b.avgDist || 0) - (a.avgDist || 0),
+    )
+    return out
+  })()
+
+  // One-click: prefill the Add Region form with a cluster's suggested
+  // name + centroid coords, then scroll up so admin can review and
+  // click Add region. Doesn't auto-insert — admin always sees the
+  // proposed name and lat/lng before committing.
+  function prefillFromCluster(cluster) {
+    setNewName(cluster.suggestedName)
+    setNewLat(cluster.lat.toFixed(6))
+    setNewLng(cluster.lng.toFixed(6))
+    setMatchedAddress(
+      `Centroid of ${cluster.repsInCounty.length} reps in ${cluster.county} County`,
+    )
+    setFlash(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   // Group reps by region name. Reps with no region or with a region
   // that isn't in the managed list land in a synthetic "Unassigned"
   // bucket so admin can see them and assign them properly.
@@ -496,6 +585,64 @@ export default function Regions() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Possible new regions to add — cluster analysis of reps' actual
+          locations. Shown when 2+ reps live in the same county and are
+          >30 mi from the closest existing region. */}
+      {farClusters.length > 0 && (
+        <section className="rounded-lg border border-purple-200 bg-purple-50 p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-purple-900">
+            💡 Possible new regions to add
+          </h2>
+          <p className="mt-1 text-xs text-purple-800">
+            These groups of reps live in clusters that aren't close to any existing region (more
+            than 30 mi from the nearest one). Consider adding a region for each cluster so the
+            Suggested-region tool can route them properly. Click <strong>➕ Add as region</strong>{' '}
+            to pre-fill the Add Region form above with the cluster's center and a suggested name —
+            you can edit it before saving.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {farClusters.map((c) => (
+              <li
+                key={c.county}
+                className="rounded-md bg-white p-3 text-sm shadow-sm ring-1 ring-purple-100"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-900">
+                      {c.suggestedName}
+                      {c.suggestedName !== `${c.county} County` && (
+                        <span className="ml-1 font-normal text-slate-500">
+                          ({c.county} County)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      <strong>{c.repsInCounty.length}</strong> rep{c.repsInCounty.length === 1 ? '' : 's'} here
+                      {c.avgDist != null && (
+                        <>
+                          {' '}· avg <strong>{Math.round(c.avgDist)} mi</strong> from closest existing region
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      {c.repsInCounty.slice(0, 5).map((r) => `${r.first_name} ${r.last_name}`).join(', ')}
+                      {c.repsInCounty.length > 5 && ` +${c.repsInCounty.length - 5} more`}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => prefillFromCluster(c)}
+                    className="rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-900 hover:bg-purple-100"
+                  >
+                    ➕ Add as region
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
