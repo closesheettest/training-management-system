@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
@@ -238,6 +238,19 @@ export default function Regions() {
     else if (targetK > maxK) setTargetK(maxK)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxK])
+  // Re-default K to current region count once the regions context finishes
+  // loading — useState's initializer runs before the regions table has been
+  // fetched, so without this the slider would stick at 2 on first load even
+  // though admin almost always wants K = current_region_count to start.
+  const initedKRef = useRef(false)
+  useEffect(() => {
+    if (initedKRef.current) return
+    if (regions.length > 0 && geocodedReps.length > 0) {
+      setTargetK(Math.min(maxK, Math.max(minK, regions.length)))
+      initedKRef.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions.length, geocodedReps.length])
 
   const layoutClusters = (() => {
     if (geocodedReps.length < minK) return []
@@ -247,7 +260,7 @@ export default function Regions() {
       _rep: r,
     }))
     const raw = kMeansCluster(points, targetK)
-    return raw.map((cluster) => {
+    const built = raw.map((cluster) => {
       const members = cluster.members.map((p) => p._rep)
       // Suggested name: most common city among members (needs 2+ for a
       // confident pick), else most common county + " County", else
@@ -279,28 +292,268 @@ export default function Regions() {
       const avgRadius = distances.length
         ? distances.reduce((s, d) => s + d, 0) / distances.length
         : 0
-      // Does this cluster mostly overlap an existing region? If 50%+
-      // of its members are currently in the same existing region, we
-      // flag it as "≈ <ExistingRegionName>" — useful for the user to
-      // see "this k-means cluster IS basically your existing St Pete
-      // region, just with a tighter / shifted center."
+      // Count which existing regions this cluster's members currently
+      // belong to. Used by the pairing pass below to decide which
+      // existing region each cluster "really is" (greedy bipartite
+      // match, so each existing region pairs to at most one cluster —
+      // no two clusters both try to replace St Pete).
       const existingRegionCount = new Map()
       for (const r of members) {
         if (r.region) existingRegionCount.set(r.region, (existingRegionCount.get(r.region) || 0) + 1)
       }
-      const topExisting = topPair(existingRegionCount)
-      const overlapPct = members.length ? topExisting.count / members.length : 0
-      const mapsToExisting = overlapPct >= 0.5 ? { name: topExisting.key, pct: overlapPct } : null
       return {
         suggestedName,
         members,
         lat: cluster.lat,
         lng: cluster.lng,
         avgRadius,
-        mapsToExisting,
+        existingRegionCount,
       }
     })
+    // Greedy pairing: walk clusters by size desc and grab each one's
+    // most-overlapping existing region that's still unpaired. This is
+    // what turns "k-means says here are 4 clusters" into "your existing
+    // 4 regions should be renamed/recentered to look like this."
+    const remainingExisting = regions.filter((r) => r.id)
+    const indexed = built.map((c, idx) => ({ c, idx }))
+    indexed.sort((a, b) => b.c.members.length - a.c.members.length)
+    const pairings = new Map()
+    for (const { c, idx } of indexed) {
+      let best = null
+      let bestCount = 0
+      for (const r of remainingExisting) {
+        const count = c.existingRegionCount.get(r.name) || 0
+        if (count > bestCount) {
+          best = r
+          bestCount = count
+        }
+      }
+      if (best && bestCount > 0) {
+        pairings.set(idx, {
+          region: best,
+          overlapCount: bestCount,
+          overlapPct: bestCount / c.members.length,
+        })
+        const removeAt = remainingExisting.indexOf(best)
+        remainingExisting.splice(removeAt, 1)
+      }
+    }
+    // Fallback pass: any cluster that didn't pair via overlap now
+    // grabs any remaining existing region in arbitrary order. This is
+    // what lets the user "have exactly K regions even if we have to
+    // rename all of them" — every cluster gets paired to an existing
+    // region when K = existing count, so canApplyLayout fires.
+    for (const { c, idx } of indexed) {
+      if (pairings.has(idx)) continue
+      if (remainingExisting.length === 0) break
+      const fallback = remainingExisting.shift()
+      pairings.set(idx, {
+        region: fallback,
+        overlapCount: 0,
+        overlapPct: 0,
+      })
+    }
+    return built.map((c, idx) => ({ ...c, pairedWith: pairings.get(idx) || null }))
   })()
+
+
+  // Rename + recenter an existing region to match a k-means cluster,
+  // AND move every cluster member into the new region (even reps that
+  // were originally in OTHER regions). This is what "use this k-means
+  // split for one of my regions" really means — not just a name change
+  // but pulling in the right reps from wherever they currently live.
+  async function replaceExistingWithCluster(cluster, existingRegion) {
+    if (!existingRegion?.id) return
+    const oldName = existingRegion.name
+    const newName = cluster.suggestedName
+    const center = `${cluster.lat.toFixed(4)}, ${cluster.lng.toFixed(4)}`
+    const renaming = oldName !== newName
+    const recentering =
+      existingRegion.latitude !== cluster.lat ||
+      existingRegion.longitude !== cluster.lng
+    const externalMembers = cluster.members.filter((m) => m.region !== oldName)
+    const willMoveExternal = externalMembers.length
+    if (!renaming && !recentering && willMoveExternal === 0) {
+      setFlash({ kind: 'success', text: `"${oldName}" already matches this cluster.` })
+      return
+    }
+    const lines = []
+    if (renaming) lines.push(`• Rename "${oldName}" → "${newName}"`)
+    if (recentering) lines.push(`• Recenter to ${center}`)
+    if (willMoveExternal > 0) {
+      lines.push(`• Move ${willMoveExternal} rep${willMoveExternal === 1 ? '' : 's'} into "${newName}" from other regions`)
+    }
+    if (!confirm(`Apply these changes?\n\n${lines.join('\n')}\n\nContinue?`)) return
+    setBusyId(existingRegion.id)
+    // Two-step rename to dodge the unique-name constraint when names swap.
+    if (renaming) {
+      const tmp = `__tmp_${existingRegion.id.slice(0, 8)}`
+      const { error: tmpErr } = await supabase
+        .from('regions')
+        .update({ name: tmp })
+        .eq('id', existingRegion.id)
+      if (tmpErr) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: tmpErr.message })
+        return
+      }
+      const { error: trnErr } = await supabase
+        .from('trainees')
+        .update({ region: tmp })
+        .eq('region', oldName)
+      if (trnErr) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: trnErr.message })
+        return
+      }
+      const { error: finalRegionErr } = await supabase
+        .from('regions')
+        .update({ name: newName, latitude: cluster.lat, longitude: cluster.lng })
+        .eq('id', existingRegion.id)
+      if (finalRegionErr) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: finalRegionErr.message })
+        return
+      }
+      const { error: finalTrnErr } = await supabase
+        .from('trainees')
+        .update({ region: newName })
+        .eq('region', tmp)
+      if (finalTrnErr) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: finalTrnErr.message })
+        return
+      }
+    } else {
+      // Just recenter — no name change.
+      const { error } = await supabase
+        .from('regions')
+        .update({ latitude: cluster.lat, longitude: cluster.lng })
+        .eq('id', existingRegion.id)
+      if (error) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: error.message })
+        return
+      }
+    }
+    // Pull in any cluster members not yet in this region — by id.
+    // After the rename, reps originally in oldName already have the
+    // right region string; this step catches the ones who lived
+    // somewhere else and need to be moved into the new region.
+    if (externalMembers.length > 0) {
+      const { error: moveErr } = await supabase
+        .from('trainees')
+        .update({ region: newName })
+        .in('id', externalMembers.map((m) => m.id))
+      if (moveErr) {
+        setBusyId(null)
+        setFlash({ kind: 'error', text: moveErr.message })
+        return
+      }
+    }
+    setBusyId(null)
+    const movedSuffix = willMoveExternal > 0 ? ` (${willMoveExternal} rep${willMoveExternal === 1 ? '' : 's'} moved in)` : ''
+    setFlash({
+      kind: 'success',
+      text: renaming
+        ? `Updated "${oldName}" → "${newName}"${movedSuffix}.`
+        : `Re-centered "${oldName}"${movedSuffix}.`,
+    })
+    await reloadRegions()
+    await loadReps()
+  }
+
+  // Apply the entire k-means layout in one click. Only makes sense
+  // when targetK === regions.length (so every cluster pairs to exactly
+  // one existing region — no leftovers either way). Renames + recenters
+  // each paired existing region, in two phases to dodge unique-name
+  // collisions when names swap.
+  const canApplyLayout =
+    layoutClusters.length === regions.filter((r) => r.id).length &&
+    layoutClusters.every((c) => c.pairedWith)
+  const [applyingLayout, setApplyingLayout] = useState(false)
+  async function applyEntireLayout() {
+    if (!canApplyLayout) return
+    const ops = layoutClusters.map((c) => ({
+      cluster: c,
+      existing: c.pairedWith.region,
+      renaming: c.suggestedName !== c.pairedWith.region.name,
+    }))
+    const preview = ops
+      .map((o) => {
+        const total = o.cluster.members.length
+        const moving = o.cluster.members.filter((m) => m.region !== o.existing.name).length
+        const fragments = []
+        if (o.renaming) fragments.push(`Rename "${o.existing.name}" → "${o.cluster.suggestedName}"`)
+        fragments.push(`re-center to ${o.cluster.lat.toFixed(4)}, ${o.cluster.lng.toFixed(4)}`)
+        fragments.push(`${total} reps total (${moving} moving in from other regions)`)
+        return `  • ${fragments.join(', ')}`
+      })
+      .join('\n')
+    if (!confirm(
+      `Apply this layout? Will make these changes:\n\n${preview}\n\n` +
+      `Reps will be reassigned to match the k-means clusters — including ones moving in from other regions. ` +
+      `This is reversible — you can edit names + move reps individually after.`,
+    )) return
+    setApplyingLayout(true)
+    let errors = 0
+    // Phase 1: rename every paired region to a tmp name + move its reps to that tmp.
+    // Dodges the unique-name constraint when two regions swap names.
+    for (const o of ops) {
+      if (!o.renaming) continue
+      const tmp = `__tmp_${o.existing.id.slice(0, 8)}`
+      const { error: e1 } = await supabase
+        .from('regions')
+        .update({ name: tmp })
+        .eq('id', o.existing.id)
+      if (e1) { errors++; continue }
+      const { error: e2 } = await supabase
+        .from('trainees')
+        .update({ region: tmp })
+        .eq('region', o.existing.name)
+      if (e2) errors++
+    }
+    // Phase 2: set final name + lat/lng + move tmp reps to final name.
+    for (const o of ops) {
+      const finalName = o.cluster.suggestedName
+      const { error: e3 } = await supabase
+        .from('regions')
+        .update({ name: finalName, latitude: o.cluster.lat, longitude: o.cluster.lng })
+        .eq('id', o.existing.id)
+      if (e3) { errors++; continue }
+      if (o.renaming) {
+        const tmp = `__tmp_${o.existing.id.slice(0, 8)}`
+        const { error: e4 } = await supabase
+          .from('trainees')
+          .update({ region: finalName })
+          .eq('region', tmp)
+        if (e4) errors++
+      }
+    }
+    // Phase 3: reassign each cluster's geocoded members by id. This
+    // moves reps that were originally in OTHER existing regions into
+    // their k-means cluster's region — the real "apply the layout"
+    // part. Overrides any region string set by the rename pass.
+    for (const o of ops) {
+      const memberIds = o.cluster.members.map((m) => m.id)
+      if (memberIds.length === 0) continue
+      const { error } = await supabase
+        .from('trainees')
+        .update({ region: o.cluster.suggestedName })
+        .in('id', memberIds)
+      if (error) errors++
+    }
+    setApplyingLayout(false)
+    setFlash({
+      kind: errors === 0 ? 'success' : 'error',
+      text:
+        errors === 0
+          ? `Applied ${ops.length} region update${ops.length === 1 ? '' : 's'} — your regions now match the suggested layout.`
+          : `Done with ${errors} error${errors === 1 ? '' : 's'} — check region names + try again.`,
+    })
+    await reloadRegions()
+    await loadReps()
+  }
 
   // One-click: prefill the Add Region form with a cluster's suggested
   // name + centroid coords, then scroll up so admin can review and
@@ -657,6 +910,28 @@ export default function Regions() {
               </span>
             ))}
           </div>
+          {/* "Apply this entire layout" — only available when K matches
+              the existing region count AND every cluster pairs cleanly
+              to an existing region. Single click renames + recenters
+              every region to match its k-means cluster (with reps
+              following the renames). */}
+          {canApplyLayout && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-purple-300 bg-white p-3 shadow-sm">
+              <div className="min-w-0 flex-1 text-xs text-purple-900">
+                <strong>🚀 Ready to apply:</strong> these {layoutClusters.length} clusters pair 1:1
+                with your existing {layoutClusters.length} regions. One click below renames /
+                re-centers each one — and reps follow the rename automatically.
+              </div>
+              <button
+                type="button"
+                onClick={applyEntireLayout}
+                disabled={applyingLayout}
+                className="rounded-md bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-800 disabled:opacity-50"
+              >
+                {applyingLayout ? 'Applying…' : '🚀 Apply this entire layout'}
+              </button>
+            </div>
+          )}
           <ul className="mt-3 space-y-2">
             {layoutClusters.map((c, idx) => (
               <li
@@ -667,9 +942,12 @@ export default function Regions() {
                   <div className="min-w-0">
                     <div className="font-semibold text-slate-900">
                       {c.suggestedName}
-                      {c.mapsToExisting && (
+                      {c.pairedWith && (
                         <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                          ≈ your current <strong>{c.mapsToExisting.name}</strong> ({Math.round(c.mapsToExisting.pct * 100)}% overlap)
+                          pairs with your current <strong>{c.pairedWith.region.name}</strong>{' '}
+                          {c.pairedWith.overlapCount > 0
+                            ? `(${Math.round(c.pairedWith.overlapPct * 100)}% overlap)`
+                            : '(no overlap — would be a full rename)'}
                         </span>
                       )}
                     </div>
@@ -686,13 +964,29 @@ export default function Regions() {
                       {c.members.length > 5 && ` +${c.members.length - 5} more`}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => prefillFromCluster(c)}
-                    className="rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-900 hover:bg-purple-100"
-                  >
-                    ➕ Add as region
-                  </button>
+                  <div className="flex flex-col items-end gap-1.5">
+                    {c.pairedWith ? (
+                      <button
+                        type="button"
+                        onClick={() => replaceExistingWithCluster(c, c.pairedWith.region)}
+                        disabled={busyId === c.pairedWith.region.id}
+                        className="rounded-md border border-purple-400 bg-purple-100 px-3 py-1.5 text-xs font-semibold text-purple-900 hover:bg-purple-200 disabled:opacity-50"
+                        title={`Rename "${c.pairedWith.region.name}" to "${c.suggestedName}" and recenter it.`}
+                      >
+                        {busyId === c.pairedWith.region.id
+                          ? 'Updating…'
+                          : `📍 Replace ${c.pairedWith.region.name}`}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => prefillFromCluster(c)}
+                        className="rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-900 hover:bg-purple-100"
+                      >
+                        ➕ Add as region
+                      </button>
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
