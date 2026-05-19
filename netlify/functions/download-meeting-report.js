@@ -48,7 +48,7 @@ export const handler = async (event) => {
       locations(name),
       trainees(
         id, first_name, last_name, phone, enrolled, declined_at,
-        info_updated_at
+        info_updated_at, region
       )
     `)
     .eq('id', classId)
@@ -132,38 +132,85 @@ function formatDate(iso) {
   })
 }
 
+// Florida regions in display order. Reps without a region land under
+// a "Region not set yet" bucket at the bottom — usually CSV imports
+// that haven't filled in /update-info.
+const REGION_ORDER = ['St Pete', 'Jacksonville', 'Orlando', 'Miami']
+const NO_REGION = '— Region not set yet —'
+
+function groupByRegion(trainees) {
+  const map = new Map()
+  // Pre-seed in display order so we render St Pete first, then Jax, etc.
+  for (const r of REGION_ORDER) map.set(r, [])
+  for (const t of trainees) {
+    const r = t.region && REGION_ORDER.includes(t.region) ? t.region : NO_REGION
+    if (!map.has(r)) map.set(r, [])
+    map.get(r).push(t)
+  }
+  // Drop empty regions for a tighter PDF. Sort within each region
+  // alphabetically by last name + first name.
+  const out = []
+  for (const [region, list] of map.entries()) {
+    if (list.length === 0) continue
+    const sorted = [...list].sort((a, b) =>
+      `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(
+        `${b.last_name || ''} ${b.first_name || ''}`,
+      ),
+    )
+    out.push({ region, trainees: sorted })
+  }
+  return out
+}
+
 function renderBucket({ title, color, trainees, showPhone, note }) {
-  const rows = trainees.length
-    ? trainees
-        .map((t, i) => {
-          const phone = showPhone ? formatPhone(t.phone) : ''
+  const grouped = groupByRegion(trainees)
+  const sections = grouped.length
+    ? grouped
+        .map((g) => {
+          const rows = g.trainees
+            .map((t, i) => {
+              const phone = showPhone ? formatPhone(t.phone) : ''
+              return `
+                <tr>
+                  <td style="text-align:center;color:#94a3b8;width:32px;">${i + 1}</td>
+                  <td><div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div></td>
+                  ${
+                    showPhone
+                      ? `<td style="white-space:nowrap;">${phone ? esc(phone) : '<span style="color:#94a3b8;">—</span>'}</td>`
+                      : ''
+                  }
+                </tr>`
+            })
+            .join('')
+          const isUnknown = g.region === NO_REGION
+          const regionLabel = isUnknown
+            ? esc(g.region)
+            : `📍 ${esc(g.region)}`
           return `
-            <tr>
-              <td style="text-align:center;color:#94a3b8;width:32px;">${i + 1}</td>
-              <td><div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div></td>
-              ${
-                showPhone
-                  ? `<td style="white-space:nowrap;">${phone ? esc(phone) : '<span style="color:#94a3b8;">—</span>'}</td>`
-                  : ''
-              }
-            </tr>`
+            <div style="margin-top:14px;">
+              <div style="font-size:12px;font-weight:700;color:${isUnknown ? '#92400e' : '#334155'};margin:0 0 4px;text-transform:uppercase;letter-spacing:0.04em;font-family:-apple-system,sans-serif;">
+                ${regionLabel} <span style="color:#64748b;font-weight:500;text-transform:none;letter-spacing:0;">(${g.trainees.length})</span>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                <thead>
+                  <tr>
+                    <th style="text-align:center;width:32px;background:#13294b;color:white;padding:5px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;">#</th>
+                    <th style="text-align:left;background:#13294b;color:white;padding:5px 10px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;">Name</th>
+                    ${showPhone ? `<th style="text-align:left;background:#13294b;color:white;padding:5px 10px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;width:30%;">Phone</th>` : ''}
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          `
         })
         .join('')
-    : `<tr><td colspan="${showPhone ? 3 : 2}" style="text-align:center;color:#94a3b8;padding:14px;">— none —</td></tr>`
+    : `<div style="text-align:center;color:#94a3b8;padding:14px;font-size:11px;">— none —</div>`
   return `
     <section style="margin-top:20px;">
       <h2 style="font-size:14px;color:${color};margin:0 0 4px;">${esc(title)} <span style="color:#64748b;font-weight:500;">(${trainees.length})</span></h2>
       ${note ? `<p style="font-size:11px;color:#475569;margin:0 0 8px;">${esc(note)}</p>` : ''}
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
-        <thead>
-          <tr>
-            <th style="text-align:center;width:32px;background:#13294b;color:white;padding:6px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;">#</th>
-            <th style="text-align:left;background:#13294b;color:white;padding:6px 10px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;">Name</th>
-            ${showPhone ? `<th style="text-align:left;background:#13294b;color:white;padding:6px 10px;text-transform:uppercase;font-size:10px;letter-spacing:0.04em;width:30%;">Phone</th>` : ''}
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+      ${sections}
     </section>
   `
 }
