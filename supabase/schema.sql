@@ -611,3 +611,31 @@ create policy "attendance_public_select" on attendance for select using (true);
 create policy "attendance_public_insert" on attendance for insert with check (true);
 create policy "attendance_public_update" on attendance for update using (true);
 create policy "attendance_public_delete" on attendance for delete using (true);
+
+-- Regions — managed list of FL sales regions. Replaces the hardcoded
+-- FL_REGIONS constant. Admin adds/removes via /regions page; that page
+-- is also where reps get moved between regions.
+create table if not exists regions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order int not null default 100,
+  latitude double precision,
+  longitude double precision,
+  created_at timestamptz not null default now()
+);
+create index if not exists regions_sort_order_idx on regions(sort_order);
+insert into regions (name, sort_order, latitude, longitude) values
+  ('St Pete',      10, 27.7676, -82.6403),
+  ('Jacksonville', 20, 30.3322, -81.6557),
+  ('Orlando',      30, 28.5383, -81.3792),
+  ('Miami',        40, 25.7617, -80.1918)
+on conflict (name) do nothing;
+alter table regions enable row level security;
+drop policy if exists "regions_public_select" on regions;
+drop policy if exists "regions_public_insert" on regions;
+drop policy if exists "regions_public_update" on regions;
+drop policy if exists "regions_public_delete" on regions;
+create policy "regions_public_select" on regions for select using (true);
+create policy "regions_public_insert" on regions for insert with check (true);
+create policy "regions_public_update" on regions for update using (true);
+create policy "regions_public_delete" on regions for delete using (true);

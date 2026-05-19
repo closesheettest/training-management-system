@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { US_STATES, ZIP_PATTERN, FL_REGIONS } from '../lib/locations.js'
+import { US_STATES, ZIP_PATTERN } from '../lib/locations.js'
+import { useRegions } from '../lib/RegionsContext.jsx'
 
 // Public self-service page for sales reps to update their personal
 // email + home address. Reached via a tap-friendly link texted from
@@ -18,6 +19,7 @@ import { US_STATES, ZIP_PATTERN, FL_REGIONS } from '../lib/locations.js'
 
 export default function UpdateInfo() {
   const { token } = useParams()
+  const { regionNames } = useRegions()
   const [status, setStatus] = useState('loading') // loading | not_found | form | submitting | done
   const [errorMsg, setErrorMsg] = useState(null)
   const [trainee, setTrainee] = useState(null)
@@ -247,7 +249,7 @@ export default function UpdateInfo() {
               className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">— Pick your region —</option>
-              {FL_REGIONS.map((r) => (
+              {regionNames.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>

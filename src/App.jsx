@@ -31,13 +31,16 @@ import UpdateInfo from './pages/UpdateInfo.jsx'
 import GroupMessages from './pages/GroupMessages.jsx'
 import ActiveReps from './pages/ActiveReps.jsx'
 import RepMap from './pages/RepMap.jsx'
+import Regions from './pages/Regions.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
+import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
 import { roleLabel } from './lib/personas.js'
 
 export default function App() {
   return (
     <PersonaProvider>
+      <RegionsProvider>
       <Routes>
         {/* Public trainee-facing registration — minimal chrome */}
         <Route path="/register/:token" element={<MinimalLayout><Register /></MinimalLayout>} />
@@ -104,8 +107,10 @@ export default function App() {
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
+          <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
         </Route>
       </Routes>
+      </RegionsProvider>
     </PersonaProvider>
   )
 }
@@ -142,6 +147,7 @@ function AdminLayout() {
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
+    { key: 'team.regions', to: '/regions', label: 'Regions' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
   ].filter((it) => show(it.key))
   const settingsItems = [

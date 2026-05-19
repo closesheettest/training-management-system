@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { FL_REGIONS } from '../lib/locations.js'
+import { useRegions } from '../lib/RegionsContext.jsx'
 
 // Active Sales Reps page — admin's master list of "in the field" reps.
 //
@@ -22,6 +22,7 @@ import { FL_REGIONS } from '../lib/locations.js'
 // the list shown here is exactly who'd be reached by a company-wide blast.
 
 export default function ActiveReps() {
+  const { regionNames } = useRegions()
   const [active, setActive] = useState([])
   // 'Not yet active' = inactive trainees scheduled for a CURRENT or
   // FUTURE training class — i.e. people still in the pipeline. Once
@@ -230,7 +231,7 @@ export default function ActiveReps() {
   // Per-region active-rep counts for the breakdown card.
   const activeByRegion = useMemo(() => {
     const counts = { __none: 0 }
-    for (const r of FL_REGIONS) counts[r] = 0
+    for (const r of regionNames) counts[r] = 0
     for (const t of active) {
       if (t.region && counts[t.region] !== undefined) counts[t.region]++
       else if (t.region) counts[t.region] = (counts[t.region] || 0) + 1
@@ -378,7 +379,7 @@ export default function ActiveReps() {
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="font-semibold uppercase tracking-wide text-slate-500">Active by region:</span>
-          {FL_REGIONS.map((r) => (
+          {regionNames.map((r) => (
             <button
               key={r}
               type="button"

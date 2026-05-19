@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase.js'
-import { FL_REGIONS } from '../lib/locations.js'
+import { useRegions } from '../lib/RegionsContext.jsx'
 
 // Sales Team Map.
 //
@@ -23,15 +23,11 @@ import { FL_REGIONS } from '../lib/locations.js'
 // individual reps show at their actual homes. The skeleton is here — just
 // add a lat/lng column to trainees and a Nominatim geocode helper.
 
-// Region → metro-center coordinates (rough city centers, FL).
-// Used as anchors for pin scattering until per-rep geocoding ships.
-const REGION_CENTERS = {
-  'St Pete':       { lat: 27.7676, lng: -82.6403 },
-  Jacksonville:    { lat: 30.3322, lng: -81.6557 },
-  Orlando:         { lat: 28.5383, lng: -81.3792 },
-  Miami:           { lat: 25.7617, lng: -80.1918 },
-}
-// Fallback for reps with no region — the corporate office in Pinellas Park.
+// Fallback for reps with no region (or with a region that has no
+// latitude/longitude on its regions-table row) — the corporate office
+// in Pinellas Park. New regions added via the /regions page can
+// include their own lat/lng so reps there get a sensible jittered
+// pin instead of all clustering at corporate.
 const CORPORATE_OFFICE = { lat: 27.8636, lng: -82.7298 }
 
 // Stable deterministic jitter from a string seed (the trainee id). Returns
@@ -47,13 +43,16 @@ function seededJitter(seed) {
   return { dLat: r1 * 0.05, dLng: r2 * 0.05 }
 }
 
-function locationForTrainee(t) {
+function locationForTrainee(t, regions) {
   // Real geocoded coords win — set by /.netlify/functions/geocode-trainee
   // when the rep submits /update-info (or via the bulk backfill button).
   if (typeof t.latitude === 'number' && typeof t.longitude === 'number') {
     return { lat: t.latitude, lng: t.longitude, geocoded: true }
   }
-  const center = REGION_CENTERS[t.region] || CORPORATE_OFFICE
+  const region = regions.find((r) => r.name === t.region)
+  const center = region && typeof region.latitude === 'number' && typeof region.longitude === 'number'
+    ? { lat: region.latitude, lng: region.longitude }
+    : CORPORATE_OFFICE
   const j = seededJitter(t.id || '')
   return { lat: center.lat + j.dLat, lng: center.lng + j.dLng, geocoded: false }
 }
@@ -102,6 +101,7 @@ const ICONS = Object.fromEntries(
 )
 
 export default function RepMap() {
+  const { regions, regionNames } = useRegions()
   const [trainees, setTrainees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -303,7 +303,7 @@ export default function RepMap() {
           >
             All regions
           </button>
-          {FL_REGIONS.map((r) => (
+          {regionNames.map((r) => (
             <button
               key={r}
               type="button"
@@ -370,7 +370,7 @@ export default function RepMap() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {visible.map(({ trainee, status }) => {
-            const loc = locationForTrainee(trainee)
+            const loc = locationForTrainee(trainee, regions)
             const icon = loc.geocoded ? ICONS[status].solid : ICONS[status].hollow
             return (
               <Marker key={trainee.id} position={[loc.lat, loc.lng]} icon={icon}>
@@ -413,7 +413,7 @@ export default function RepMap() {
               </Marker>
             )
           })}
-          <FitOnce points={visible.map(({ trainee }) => locationForTrainee(trainee))} />
+          <FitOnce points={visible.map(({ trainee }) => locationForTrainee(trainee, regions))} />
         </MapContainer>
       </div>
     </div>

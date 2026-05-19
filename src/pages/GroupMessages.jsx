@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateRange, parseLocalDate } from '../lib/dates.js'
-import { FL_REGIONS } from '../lib/locations.js'
+import { useRegions } from '../lib/RegionsContext.jsx'
 
 // Group Messages — admin's broadcast composer.
 //
@@ -29,6 +29,7 @@ import { FL_REGIONS } from '../lib/locations.js'
 //   5. Send → calls the function, surfaces per-channel sent/failed counts.
 
 export default function GroupMessages() {
+  const { regionNames } = useRegions()
   // Recipient picker
   const [scope, setScope] = useState('all_active_reps') // 'class' | 'all_active_reps'
   const [classes, setClasses] = useState([])
@@ -321,7 +322,7 @@ export default function GroupMessages() {
                     className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:max-w-xs"
                   >
                     <option value="">All regions (company-wide)</option>
-                    {FL_REGIONS.map((r) => (
+                    {regionNames.map((r) => (
                       <option key={r} value={r}>{r} only</option>
                     ))}
                   </select>
