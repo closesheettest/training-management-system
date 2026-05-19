@@ -164,6 +164,53 @@ export default function Regions() {
     await reloadRegions()
   }
 
+  // Regions in the managed list that don't have map-center coords yet.
+  // Until every region has lat/lng the suggested-region badge can't run
+  // (haversine needs both endpoints), so this list drives the "Set all
+  // missing centers" bulk-backfill button.
+  const regionsMissingCenter = regions.filter(
+    (r) => !(typeof r.latitude === 'number' && typeof r.longitude === 'number'),
+  )
+  const [bulkCentering, setBulkCentering] = useState(null) // null | { processed, total, errors }
+
+  async function setAllMissingCenters() {
+    if (regionsMissingCenter.length === 0) return
+    if (!confirm(
+      `Look up the map center for ${regionsMissingCenter.length} region${regionsMissingCenter.length === 1 ? '' : 's'} ` +
+      `(${regionsMissingCenter.map((r) => r.name).join(', ')}) using Google? ` +
+      `Once this finishes, the 💡 Suggested-region badge will start appearing on rep rows.`,
+    )) return
+    setBulkCentering({ processed: 0, total: regionsMissingCenter.length, errors: 0 })
+    let processed = 0
+    let errors = 0
+    for (const r of regionsMissingCenter) {
+      const result = await findCenter(r.name)
+      if (!result.ok) {
+        errors++
+      } else {
+        const { error } = await supabase
+          .from('regions')
+          .update({ latitude: result.lat, longitude: result.lng })
+          .eq('id', r.id)
+        if (error) errors++
+      }
+      processed++
+      setBulkCentering({ processed, total: regionsMissingCenter.length, errors })
+      if (processed < regionsMissingCenter.length) {
+        await new Promise((res) => setTimeout(res, 120))
+      }
+    }
+    setBulkCentering(null)
+    setFlash({
+      kind: errors === 0 ? 'success' : 'error',
+      text:
+        errors === 0
+          ? `Set map centers for ${processed} region${processed === 1 ? '' : 's'}. Suggested-region badges should now appear on rep rows.`
+          : `Finished — ${processed - errors} updated, ${errors} couldn't be matched (check region names).`,
+    })
+    await reloadRegions()
+  }
+
   // Group reps by region name. Reps with no region or with a region
   // that isn't in the managed list land in a synthetic "Unassigned"
   // bucket so admin can see them and assign them properly.
@@ -408,6 +455,50 @@ export default function Regions() {
         </section>
       )}
 
+      {/* Bulk map-center backfill — only shown when one or more regions
+          are missing lat/lng. Without coords the suggested-region badge
+          can't fire, so this is the fastest path from "no suggestions"
+          to "suggestions everywhere." */}
+      {(regionsMissingCenter.length > 0 || bulkCentering) && (
+        <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-amber-900">
+              <strong>⚠️ Missing map centers:</strong>{' '}
+              {regionsMissingCenter.length} region{regionsMissingCenter.length === 1 ? '' : 's'}{' '}
+              ({regionsMissingCenter.map((r) => r.name).join(', ') || '—'}) don't have a latitude/longitude.
+              Until they do, the 💡 Suggested-region badge can't appear on rep rows. One click below
+              will look them all up via Google.
+            </div>
+            {!bulkCentering ? (
+              <button
+                type="button"
+                onClick={setAllMissingCenters}
+                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              >
+                🔄 Set centers for {regionsMissingCenter.length} region{regionsMissingCenter.length === 1 ? '' : 's'}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-amber-900">
+                <span>
+                  <strong>{bulkCentering.processed}</strong> / <strong>{bulkCentering.total}</strong>
+                  {bulkCentering.errors > 0 && (
+                    <span className="ml-1 text-red-700">({bulkCentering.errors} errored)</span>
+                  )}
+                </span>
+                <div className="h-1.5 w-32 overflow-hidden rounded-full bg-amber-200">
+                  <div
+                    className="h-full bg-amber-600 transition-all duration-200"
+                    style={{
+                      width: `${Math.round((bulkCentering.processed / Math.max(1, bulkCentering.total)) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Region cards */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">📍 Regions ({regions.length})</h2>
@@ -450,7 +541,7 @@ export default function Regions() {
                     className="rounded-md border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-40"
                     title="Use Google to look up this region's map center based on its name. Updates the saved lat/lng."
                   >
-                    {centeringId === r.id ? 'Finding…' : (r.latitude && r.longitude ? '📍 Re-set center' : '📍 Set map center')}
+                    {centeringId && centeringId === r.id ? 'Finding…' : (r.latitude && r.longitude ? '📍 Re-set center' : '📍 Set map center')}
                   </button>
                   <button
                     type="button"
@@ -468,7 +559,7 @@ export default function Regions() {
                     className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
                     title={!r.id ? 'Reload after running the regions migration' : undefined}
                   >
-                    {busyId === r.id ? '…' : 'Delete'}
+                    {busyId && busyId === r.id ? '…' : 'Delete'}
                   </button>
                 </div>
               </div>
