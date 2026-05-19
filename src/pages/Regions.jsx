@@ -98,6 +98,72 @@ export default function Regions() {
     loadReps()
   }, [loadReps])
 
+  // Geocode a free-text place name via /.netlify/functions/geocode-place.
+  // Returns { ok, lat, lng, formatted_address } or { ok: false, error }.
+  // Used by both the Add form's "📍 Find center" button and the
+  // per-region "Set map center" backfill button.
+  async function findCenter(query) {
+    if (!query || !query.trim()) {
+      return { ok: false, error: 'Region name is required.' }
+    }
+    try {
+      const res = await fetch('/.netlify/functions/geocode-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim() }),
+      })
+      return await res.json().catch(() => ({ ok: false, error: 'Bad response' }))
+    } catch (err) {
+      return { ok: false, error: err.message || 'Network error' }
+    }
+  }
+
+  // Add-form: "📍 Find center" button state + matched-address feedback.
+  const [findingNew, setFindingNew] = useState(false)
+  const [matchedAddress, setMatchedAddress] = useState(null)
+  async function findCenterForNew() {
+    setFindingNew(true)
+    setMatchedAddress(null)
+    const result = await findCenter(newName)
+    setFindingNew(false)
+    if (!result.ok) {
+      setFlash({ kind: 'error', text: `Couldn't find "${newName}": ${result.error}` })
+      return
+    }
+    setNewLat(String(result.lat))
+    setNewLng(String(result.lng))
+    setMatchedAddress(result.formatted_address)
+  }
+
+  // Per-region: set map center for an existing region (used when the
+  // region was created without lat/lng so the map can't generate
+  // suggestions for reps living near it). Geocodes the region's name
+  // and patches the regions row directly.
+  const [centeringId, setCenteringId] = useState(null)
+  async function setRegionCenter(region) {
+    setCenteringId(region.id)
+    const result = await findCenter(region.name)
+    if (!result.ok) {
+      setCenteringId(null)
+      setFlash({ kind: 'error', text: `Couldn't find "${region.name}": ${result.error}` })
+      return
+    }
+    const { error } = await supabase
+      .from('regions')
+      .update({ latitude: result.lat, longitude: result.lng })
+      .eq('id', region.id)
+    setCenteringId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `Set "${region.name}" map center to ${result.formatted_address || `${result.lat}, ${result.lng}`}.`,
+    })
+    await reloadRegions()
+  }
+
   // Group reps by region name. Reps with no region or with a region
   // that isn't in the managed list land in a synthetic "Unassigned"
   // bucket so admin can see them and assign them properly.
@@ -220,59 +286,82 @@ export default function Regions() {
         <h2 className="text-lg font-semibold text-slate-900">➕ Add a new region</h2>
         <p className="mt-1 text-xs text-slate-500">
           Reps will see this region in their <code>/update-info</code> picker the next time they
-          load the page. Lat/lng are optional — they only affect the Sales Team Map pin
-          placement for reps in this region who haven't filled in their home address yet.
+          load the page. Type the region's name (e.g. "Miami") and click <strong>📍 Find center</strong>{' '}
+          to autofill the map-center latitude/longitude — those coords are what the suggested-region
+          distance calculation needs.
         </p>
-        <form onSubmit={addRegion} className="mt-3 grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end">
-          <label className="text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Region name *
-            </span>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Tampa"
-              required
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={adding}
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Latitude (optional)
-            </span>
-            <input
-              type="number"
-              step="any"
-              value={newLat}
-              onChange={(e) => setNewLat(e.target.value)}
-              placeholder="27.9506"
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={adding}
-            />
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Longitude (optional)
-            </span>
-            <input
-              type="number"
-              step="any"
-              value={newLng}
-              onChange={(e) => setNewLng(e.target.value)}
-              placeholder="-82.4572"
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={adding}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={adding || !newName.trim()}
-            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50"
-          >
-            {adding ? 'Adding…' : 'Add region'}
-          </button>
+        <form onSubmit={addRegion} className="mt-3 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[2fr_auto] sm:items-end">
+            <label className="text-sm">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Region name *
+              </span>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => {
+                  setNewName(e.target.value)
+                  setMatchedAddress(null)
+                }}
+                placeholder="e.g. Tampa"
+                required
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={adding}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={findCenterForNew}
+              disabled={adding || findingNew || !newName.trim()}
+              className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+              title="Use Google to look up this region's center latitude/longitude based on its name."
+            >
+              {findingNew ? 'Finding…' : '📍 Find center'}
+            </button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <label className="text-sm">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Latitude
+              </span>
+              <input
+                type="number"
+                step="any"
+                value={newLat}
+                onChange={(e) => setNewLat(e.target.value)}
+                placeholder="(auto-filled by Find center)"
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={adding}
+              />
+            </label>
+            <label className="text-sm">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Longitude
+              </span>
+              <input
+                type="number"
+                step="any"
+                value={newLng}
+                onChange={(e) => setNewLng(e.target.value)}
+                placeholder="(auto-filled by Find center)"
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={adding}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={adding || !newName.trim()}
+              className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50"
+            >
+              {adding ? 'Adding…' : 'Add region'}
+            </button>
+          </div>
+          {matchedAddress && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
+              ✓ Matched: <strong>{matchedAddress}</strong>{' '}
+              <span className="opacity-70">— review the lat/lng above and click Add region.</span>
+            </div>
+          )}
         </form>
       </section>
 
@@ -338,18 +427,31 @@ export default function Regions() {
                     <div className="font-semibold text-slate-900">{r.name}</div>
                     <div className="text-xs text-slate-500">
                       {repsInRegion.length} active rep{repsInRegion.length === 1 ? '' : 's'}
-                      {r.latitude && r.longitude && (
+                      {r.latitude && r.longitude ? (
                         <>
                           {' '}· map center{' '}
                           <code className="rounded bg-slate-100 px-1 text-[10px]">
                             {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
                           </code>
                         </>
+                      ) : (
+                        <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                          ⚠️ no map center — suggested-region won't work for this region
+                        </span>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRegionCenter(r)}
+                    disabled={centeringId === r.id || !r.id}
+                    className="rounded-md border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-40"
+                    title="Use Google to look up this region's map center based on its name. Updates the saved lat/lng."
+                  >
+                    {centeringId === r.id ? 'Finding…' : (r.latitude && r.longitude ? '📍 Re-set center' : '📍 Set map center')}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setOpenRegionId(isOpen ? null : r.id)}
