@@ -211,78 +211,95 @@ export default function Regions() {
     await reloadRegions()
   }
 
-  // "Possible new regions to add" — cluster geocoded reps by county,
-  // surface clusters that are >GAP_MILES from the closest existing
-  // region and have 2+ reps. The system isn't picking a region for
-  // anyone; it's just showing admin "you have 5 reps in Hillsborough
-  // County and the closest existing region is 35 miles away — consider
-  // adding a Tampa region." One-click button pre-fills the Add Region
-  // form above with the cluster's centroid + a sensible name.
-  const GAP_MILES = 30
-  const farClusters = (() => {
-    const eligible = reps.filter(
-      (r) =>
-        typeof r.latitude === 'number' &&
-        typeof r.longitude === 'number' &&
-        r.county,
-    )
-    const farReps = eligible.filter((r) => {
-      const closest = suggestRegionFor(r, regions)
-      // If no existing region has coords, treat all geocoded reps as
-      // "far" — admin almost certainly wants to see clusters in that
-      // state too (it's the first thing they'll act on).
-      if (!closest) return true
-      return closest.miles > GAP_MILES
-    })
-    const byCounty = new Map()
-    for (const r of farReps) {
-      if (!byCounty.has(r.county)) byCounty.set(r.county, [])
-      byCounty.get(r.county).push(r)
-    }
-    const out = []
-    for (const [county, repsInCounty] of byCounty) {
-      if (repsInCounty.length < 2) continue
-      // Cluster centroid (average lat/lng).
-      const lat = repsInCounty.reduce((s, r) => s + r.latitude, 0) / repsInCounty.length
-      const lng = repsInCounty.reduce((s, r) => s + r.longitude, 0) / repsInCounty.length
-      // Most common city — used as the suggested region name since
-      // cities map to how sales teams usually talk about territory.
-      // Falls back to "<County> County" if no city has 2+ reps.
+  // "Suggested region layout" — k-means clustering across every
+  // geocoded rep. The user picks K (how many regions they want to plan
+  // for), and the system splits all reps into K clusters as evenly /
+  // tightly as possible. Each cluster gets a suggested name (most
+  // common city among its members), a centroid (the average lat/lng of
+  // all members — this becomes the proposed map center), and the list
+  // of reps inside it. One-click "Add as region" pre-fills the Add
+  // Region form so admin reviews before saving.
+  //
+  // Default K = existing region count, so the first thing admin sees
+  // is "if we redrew the 4 regions from scratch, here's how reps would
+  // split." Bumping K up shows "what if we added a 5th, 6th, 7th
+  // region" — useful for planning growth.
+  const geocodedReps = reps.filter(
+    (r) => typeof r.latitude === 'number' && typeof r.longitude === 'number',
+  )
+  const minK = 2
+  const maxK = Math.min(10, Math.max(2, geocodedReps.length))
+  const defaultK = Math.min(maxK, Math.max(minK, regions.length || 4))
+  const [targetK, setTargetK] = useState(defaultK)
+  // Re-clamp if the data changes (e.g., regions reload). Keeps targetK
+  // in a valid range without forcing a remount.
+  useEffect(() => {
+    if (targetK < minK) setTargetK(minK)
+    else if (targetK > maxK) setTargetK(maxK)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxK])
+
+  const layoutClusters = (() => {
+    if (geocodedReps.length < minK) return []
+    const points = geocodedReps.map((r) => ({
+      lat: r.latitude,
+      lng: r.longitude,
+      _rep: r,
+    }))
+    const raw = kMeansCluster(points, targetK)
+    return raw.map((cluster) => {
+      const members = cluster.members.map((p) => p._rep)
+      // Suggested name: most common city among members (needs 2+ for a
+      // confident pick), else most common county + " County", else
+      // generic "Cluster".
       const cityCount = new Map()
-      for (const r of repsInCounty) {
-        if (!r.city) continue
-        const k = r.city
-        cityCount.set(k, (cityCount.get(k) || 0) + 1)
+      const countyCount = new Map()
+      for (const r of members) {
+        if (r.city) cityCount.set(r.city, (cityCount.get(r.city) || 0) + 1)
+        if (r.county) countyCount.set(r.county, (countyCount.get(r.county) || 0) + 1)
       }
-      let topCity = null
-      let topCount = 0
-      for (const [city, n] of cityCount) {
-        if (n > topCount) { topCity = city; topCount = n }
+      const topPair = (m) => {
+        let topKey = null
+        let topVal = 0
+        for (const [k, v] of m) {
+          if (v > topVal) { topKey = k; topVal = v }
+        }
+        return { key: topKey, count: topVal }
       }
-      const suggestedName = topCount >= 2 ? topCity : `${county} County`
-      const distances = repsInCounty.map((r) => {
-        const c = suggestRegionFor(r, regions)
-        return c ? c.miles : null
-      }).filter((d) => d != null)
-      const avgDist = distances.length
+      const topCity = topPair(cityCount)
+      const topCounty = topPair(countyCount)
+      let suggestedName = 'New region'
+      if (topCity.count >= 2) suggestedName = topCity.key
+      else if (topCounty.key) suggestedName = `${topCounty.key} County`
+      // Average distance from each member to this centroid — gives a
+      // sense of how tight/loose the cluster is.
+      const distances = members.map((r) =>
+        milesBetween(r.latitude, r.longitude, cluster.lat, cluster.lng),
+      )
+      const avgRadius = distances.length
         ? distances.reduce((s, d) => s + d, 0) / distances.length
-        : null
-      out.push({
-        county,
-        repsInCounty,
-        lat,
-        lng,
+        : 0
+      // Does this cluster mostly overlap an existing region? If 50%+
+      // of its members are currently in the same existing region, we
+      // flag it as "≈ <ExistingRegionName>" — useful for the user to
+      // see "this k-means cluster IS basically your existing St Pete
+      // region, just with a tighter / shifted center."
+      const existingRegionCount = new Map()
+      for (const r of members) {
+        if (r.region) existingRegionCount.set(r.region, (existingRegionCount.get(r.region) || 0) + 1)
+      }
+      const topExisting = topPair(existingRegionCount)
+      const overlapPct = members.length ? topExisting.count / members.length : 0
+      const mapsToExisting = overlapPct >= 0.5 ? { name: topExisting.key, pct: overlapPct } : null
+      return {
         suggestedName,
-        avgDist,
-      })
-    }
-    // Biggest clusters first; then by furthest-from-existing.
-    out.sort(
-      (a, b) =>
-        b.repsInCounty.length - a.repsInCounty.length ||
-        (b.avgDist || 0) - (a.avgDist || 0),
-    )
-    return out
+        members,
+        lat: cluster.lat,
+        lng: cluster.lng,
+        avgRadius,
+        mapsToExisting,
+      }
+    })
   })()
 
   // One-click: prefill the Add Region form with a cluster's suggested
@@ -294,7 +311,7 @@ export default function Regions() {
     setNewLat(cluster.lat.toFixed(6))
     setNewLng(cluster.lng.toFixed(6))
     setMatchedAddress(
-      `Centroid of ${cluster.repsInCounty.length} reps in ${cluster.county} County`,
+      `Centroid of ${cluster.members.length} reps`,
     )
     setFlash(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -588,48 +605,85 @@ export default function Regions() {
         </section>
       )}
 
-      {/* Possible new regions to add — cluster analysis of reps' actual
-          locations. Shown when 2+ reps live in the same county and are
-          >30 mi from the closest existing region. */}
-      {farClusters.length > 0 && (
+      {/* Suggested region layout — k-means split of every geocoded
+          rep. Adjustable K so admin can see "what if we had 4 / 5 / 6
+          regions" and pick the layout that splits reps most usefully. */}
+      {layoutClusters.length > 0 && (
         <section className="rounded-lg border border-purple-200 bg-purple-50 p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-purple-900">
-            💡 Possible new regions to add
-          </h2>
-          <p className="mt-1 text-xs text-purple-800">
-            These groups of reps live in clusters that aren't close to any existing region (more
-            than 30 mi from the nearest one). Consider adding a region for each cluster so the
-            Suggested-region tool can route them properly. Click <strong>➕ Add as region</strong>{' '}
-            to pre-fill the Add Region form above with the cluster's center and a suggested name —
-            you can edit it before saving.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-purple-900">
+                🎯 Suggested region layout
+              </h2>
+              <p className="mt-1 text-xs text-purple-800">
+                Computed by clustering every geocoded rep ({geocodedReps.length} total) into{' '}
+                <strong>{targetK}</strong> groups that minimize each rep's distance to their
+                region's center. Bump K up to see "what if we had one more region?" — bump it
+                down to see "what if we had fewer?" Click <strong>➕ Add as region</strong> on any
+                cluster to pre-fill the Add Region form above. The app never changes anything on
+                its own — you always confirm.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-md bg-white px-2 py-1 shadow-sm ring-1 ring-purple-100">
+              <button
+                type="button"
+                onClick={() => setTargetK(Math.max(minK, targetK - 1))}
+                disabled={targetK <= minK}
+                className="rounded border border-purple-300 bg-purple-50 px-2 py-0.5 text-sm font-semibold text-purple-900 hover:bg-purple-100 disabled:opacity-40"
+                aria-label="Fewer regions"
+              >
+                −
+              </button>
+              <span className="min-w-[1.5rem] text-center text-sm font-semibold text-purple-900">{targetK}</span>
+              <button
+                type="button"
+                onClick={() => setTargetK(Math.min(maxK, targetK + 1))}
+                disabled={targetK >= maxK}
+                className="rounded border border-purple-300 bg-purple-50 px-2 py-0.5 text-sm font-semibold text-purple-900 hover:bg-purple-100 disabled:opacity-40"
+                aria-label="More regions"
+              >
+                +
+              </button>
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-purple-700">regions</span>
+            </div>
+          </div>
+          {/* Balance summary — at a glance, are the clusters evenly sized? */}
+          <div className="mt-3 text-xs text-purple-900">
+            <strong>Split:</strong>{' '}
+            {layoutClusters.map((c, i) => (
+              <span key={i}>
+                {i > 0 ? ' · ' : ''}
+                <strong>{c.members.length}</strong> in {c.suggestedName}
+              </span>
+            ))}
+          </div>
           <ul className="mt-3 space-y-2">
-            {farClusters.map((c) => (
+            {layoutClusters.map((c, idx) => (
               <li
-                key={c.county}
+                key={idx}
                 className="rounded-md bg-white p-3 text-sm shadow-sm ring-1 ring-purple-100"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-slate-900">
                       {c.suggestedName}
-                      {c.suggestedName !== `${c.county} County` && (
-                        <span className="ml-1 font-normal text-slate-500">
-                          ({c.county} County)
+                      {c.mapsToExisting && (
+                        <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                          ≈ your current <strong>{c.mapsToExisting.name}</strong> ({Math.round(c.mapsToExisting.pct * 100)}% overlap)
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-slate-600">
-                      <strong>{c.repsInCounty.length}</strong> rep{c.repsInCounty.length === 1 ? '' : 's'} here
-                      {c.avgDist != null && (
-                        <>
-                          {' '}· avg <strong>{Math.round(c.avgDist)} mi</strong> from closest existing region
-                        </>
-                      )}
+                      <strong>{c.members.length}</strong> rep{c.members.length === 1 ? '' : 's'}
+                      {' '}· avg <strong>{Math.round(c.avgRadius)} mi</strong> from cluster center
+                      {' '}· center at{' '}
+                      <code className="rounded bg-slate-100 px-1 text-[10px]">
+                        {c.lat.toFixed(3)}, {c.lng.toFixed(3)}
+                      </code>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500">
-                      {c.repsInCounty.slice(0, 5).map((r) => `${r.first_name} ${r.last_name}`).join(', ')}
-                      {c.repsInCounty.length > 5 && ` +${c.repsInCounty.length - 5} more`}
+                      {c.members.slice(0, 5).map((r) => `${r.first_name} ${r.last_name}`).join(', ')}
+                      {c.members.length > 5 && ` +${c.members.length - 5} more`}
                     </div>
                   </div>
                   <button
@@ -800,6 +854,89 @@ function milesBetween(lat1, lng1, lat2, lng2) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+// K-means clustering of geocoded reps. Returns K clusters with their
+// centroid + member list. Used by the "Suggested region layout"
+// section to show how reps would split if regions were drawn from
+// scratch around their actual locations.
+//
+// Uses k-means++ for initial centroid placement (better than random —
+// picks each next centroid as the point furthest from existing
+// centroids, weighted toward more-spread-out starts). Then runs
+// Lloyd's algorithm: assign each point to nearest centroid, recompute
+// centroid as the mean of its assigned points, repeat until stable.
+//
+// Stable on ~80 points in well under 10ms; runs synchronously inside
+// the render so the user gets instant feedback when changing K.
+export function kMeansCluster(points, k, maxIter = 50) {
+  if (k <= 0 || points.length === 0) return []
+  if (points.length <= k) {
+    return points.map((p) => ({ lat: p.lat, lng: p.lng, members: [p] }))
+  }
+  // k-means++ initialization
+  const centers = [{ lat: points[0].lat, lng: points[0].lng }]
+  for (let i = 1; i < k; i++) {
+    let bestPoint = null
+    let bestDist = -1
+    for (const p of points) {
+      let minDist = Infinity
+      for (const c of centers) {
+        const d = milesBetween(p.lat, p.lng, c.lat, c.lng)
+        if (d < minDist) minDist = d
+      }
+      if (minDist > bestDist) {
+        bestDist = minDist
+        bestPoint = p
+      }
+    }
+    centers.push({ lat: bestPoint.lat, lng: bestPoint.lng })
+  }
+  // Lloyd's algorithm
+  for (let iter = 0; iter < maxIter; iter++) {
+    const assignments = points.map((p) => {
+      let best = 0
+      let bestDist = Infinity
+      for (let i = 0; i < k; i++) {
+        const d = milesBetween(p.lat, p.lng, centers[i].lat, centers[i].lng)
+        if (d < bestDist) {
+          bestDist = d
+          best = i
+        }
+      }
+      return best
+    })
+    let changed = false
+    for (let i = 0; i < k; i++) {
+      const members = points.filter((_, idx) => assignments[idx] === i)
+      if (members.length === 0) continue
+      const newLat = members.reduce((s, p) => s + p.lat, 0) / members.length
+      const newLng = members.reduce((s, p) => s + p.lng, 0) / members.length
+      if (
+        Math.abs(newLat - centers[i].lat) > 0.0001 ||
+        Math.abs(newLng - centers[i].lng) > 0.0001
+      ) {
+        changed = true
+      }
+      centers[i] = { lat: newLat, lng: newLng }
+    }
+    if (!changed) break
+  }
+  // Final assignment + build cluster objects
+  const clusters = centers.map((c) => ({ lat: c.lat, lng: c.lng, members: [] }))
+  for (const p of points) {
+    let best = 0
+    let bestDist = Infinity
+    for (let i = 0; i < clusters.length; i++) {
+      const d = milesBetween(p.lat, p.lng, clusters[i].lat, clusters[i].lng)
+      if (d < bestDist) {
+        bestDist = d
+        best = i
+      }
+    }
+    clusters[best].members.push(p)
+  }
+  return clusters.filter((c) => c.members.length > 0).sort((a, b) => b.members.length - a.members.length)
 }
 
 // Given a rep with lat/lng + the managed regions list (each potentially
