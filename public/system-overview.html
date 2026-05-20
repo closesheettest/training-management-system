@@ -596,6 +596,10 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </div>
 
 <div class="callout">
+  <strong>Cancel-class notifications:</strong> Cancelling a class fires <code>/.netlify/functions/notify-class-cancelled</code>, which fans out TWO events. <strong>class_cancelled</strong> is a short office-wide broadcast (admin / HR / trainer / IT / VA / Hiring Manager subscribe): "🗑️ Training cancelled: [class · dates]. Cancelled by [name]. N trainees rescheduled — see Hiring Manager for details." <strong>class_cancelled_reschedule_detail</strong> goes only to the Hiring Manager with the full breakdown: every rescheduled trainee → their destination (general holding pool, or "Tampa holding list (May 25)" etc.). Both are configurable per recipient on <code>/notifications</code>, with the usual SMS-or-email opt-ins.
+</div>
+
+<div class="callout">
   <strong>Region per rep:</strong> Each rep has their own <code>region</code> field — separate from the region of any class they attended, since most of the bulk-imported reps came in via a single Florida-wide meeting and need to be sliced by where they actually live. The <code>/update-info</code> page makes them pick this themselves; HR can also set it on <code>/active-reps</code>. Group Messages has an optional region filter that lets you blast just one region (regional-manager fanout) or skip the filter for company-wide. Future regional managers will use this same flag to fence off their own broadcasts. The list of regions is <strong>managed at <code>/regions</code></strong> — admin / HR can add a new region (with optional lat/lng for the map pin center), delete an unused region, or move reps between regions. The dropdowns on <code>/active-reps</code>, <code>/update-info</code>, the sales team map filter, and the Group Messages region filter all pull from this single managed list, so adding a new region (e.g. when expanding outside Florida) takes one form submission and propagates everywhere automatically.
 </div>
 

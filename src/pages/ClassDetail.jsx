@@ -3,9 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 import { formatDateRange, formatDateLong } from '../lib/dates.js'
+import { usePersona } from '../lib/PersonaContext.jsx'
 
 export default function ClassDetail() {
   const { id } = useParams()
+  const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
   const [locations, setLocations] = useState([])
@@ -254,12 +256,24 @@ export default function ClassDetail() {
     return true
   }
 
+  // Build the human-readable "→ destination" label for one trainee
+  // given the chosen target class id (or null = general pool). Used
+  // by the cancel-class notifier to text/email the Hiring Manager a
+  // breakdown of where each trainee ended up.
+  function destinationLabel(targetClassId, upcomingList) {
+    if (targetClassId == null) return 'General holding pool'
+    const target = upcomingList.find((c) => c.id === targetClassId)
+    if (!target) return 'Selected class holding list'
+    const where = target.locations?.name || `${target.region || 'Region'} — TBD`
+    return `${where} holding list (${target.week_start_date || ''})`
+  }
+
   // Cancel the entire class. Stamps cancelled_at on the class row and
-  // moves every currently-enrolled trainee to the general holding pool
-  // (holding=true, class_id=null) so the Hiring Manager can reassign
-  // them later. This is the "default destination" — the modal also
-  // lets the user pick a different target per trainee before
-  // confirming. (Implemented as the bulk handler in the modal below.)
+  // moves every currently-enrolled trainee to their chosen destination
+  // (general pool by default — the modal lets admin pick per trainee).
+  // After the DB updates land, fire the cancel-class notifier as a
+  // fire-and-forget call so the office is texted and the Hiring
+  // Manager gets the full reschedule breakdown.
   async function cancelClass(perTraineeTargets) {
     setMessage(null)
     // perTraineeTargets is a Map<trainee_id, targetClassId|null>
@@ -307,6 +321,34 @@ export default function ClassDetail() {
         text: `Class cancelled. ${perTraineeTargets.size} trainee${perTraineeTargets.size === 1 ? '' : 's'} moved to their chosen destinations.`,
       })
     }
+    // Build the breakdown summary and fire the notifier. Looks up each
+    // trainee's chosen destination + name, then POSTs the array. Fire-
+    // and-forget — the cancel itself already succeeded; notification
+    // failures shouldn't block the UI from settling.
+    const traineeMap = new Map(trainees.map((t) => [t.id, t]))
+    const summary = []
+    for (const [tid, target] of perTraineeTargets) {
+      const trainee = traineeMap.get(tid)
+      if (!trainee) continue
+      summary.push({
+        name: `${trainee.first_name} ${trainee.last_name}`,
+        destination: destinationLabel(target, upcomingClasses),
+      })
+    }
+    fetch('/.netlify/functions/notify-class-cancelled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        class_id: id,
+        cancelled_by: persona?.name || 'Admin',
+        reschedule_summary: summary,
+      }),
+    }).catch((err) => {
+      // Surface a tiny note but don't undo the cancel — the DB is
+      // already updated. Admin can re-fire from /notifications or
+      // just text people manually if this failed.
+      console.warn('Cancel-class notifier failed (non-fatal):', err)
+    })
     load()
   }
 

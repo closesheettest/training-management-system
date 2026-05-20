@@ -109,6 +109,18 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires when a trainee taps "Can\'t make it" on their registration page and confirms. Includes their name, class week, and any reason they typed in. Subscribers should be Hiring Manager + Admin so they can fill the spot or follow up.',
   },
+  {
+    key: 'class_cancelled',
+    label: 'Training class cancelled (office broadcast)',
+    desc:
+      'Fires when admin / trainer / Hiring Manager clicks "Cancel class" on a class detail page. Short office-wide notification with the class info + how many trainees were rescheduled. Subscribers should be the whole office team — admin, HR, trainer, IT, VA, Hiring Manager — so everyone knows the training isn\'t happening.',
+  },
+  {
+    key: 'class_cancelled_reschedule_detail',
+    label: 'Training class cancelled — full reschedule breakdown',
+    desc:
+      'Fires alongside the office broadcast on cancel. Includes every rescheduled trainee\'s destination (general holding pool, or the specific class they were moved to). Subscribers should be Hiring Manager — they own the holding pool and need the full list to plan admissions.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',
