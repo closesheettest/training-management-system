@@ -592,7 +592,7 @@ export default function ClassDetail() {
       } else {
         setMessage({
           type: 'error',
-          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}.${dropoutNote}`,
+          text: `Sent ${successes}, failed ${failures.length}: ${formatFailures(failures, trainees)}.${dropoutNote}`,
         })
       }
       load()
@@ -630,7 +630,7 @@ export default function ClassDetail() {
       } else {
         setMessage({
           type: 'error',
-          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}`,
+          text: `Sent ${successes}, failed ${failures.length}: ${formatFailures(failures, trainees)}`,
         })
       }
       load()
@@ -666,7 +666,7 @@ export default function ClassDetail() {
       } else {
         setMessage({
           type: 'error',
-          text: `Sent ${successes}, failed ${failures.length}. First error: ${failures[0].error}`,
+          text: `Sent ${successes}, failed ${failures.length}: ${formatFailures(failures, trainees)}`,
         })
       }
       load() // refresh statuses (last_sms_sent_at from DB)
@@ -1565,6 +1565,39 @@ function BackLink() {
       ← Back to schedule
     </Link>
   )
+}
+
+// Pretty-print the failed sends from a bulk SMS call, naming each
+// trainee instead of showing only the first raw error. Also detects
+// GHL's DND-blocked error and labels it cleanly so admin sees
+// "John Doe (DND)" rather than the verbose Bad Request message.
+// Caps at the first 4 names with a "+N more" suffix to keep the
+// flash readable.
+function formatFailures(failures, allTrainees) {
+  const byId = new Map((allTrainees || []).map((t) => [t.id, t]))
+  const items = failures.map((f) => {
+    const t = byId.get(f.trainee_id)
+    const name = t ? `${t.first_name} ${t.last_name}` : 'Unknown'
+    const reason = classifyError(f.error || '')
+    return `${name} (${reason})`
+  })
+  const head = items.slice(0, 4).join(', ')
+  const tail = items.length > 4 ? ` +${items.length - 4} more` : ''
+  return head + tail
+}
+
+// Map a raw GHL/Resend error string to a short admin-friendly label.
+function classifyError(raw) {
+  const lc = String(raw).toLowerCase()
+  if (lc.includes('dnd') || lc.includes('do not disturb') || lc.includes('opted out')) return 'DND'
+  if (lc.includes('invalid phone')) return 'Invalid phone'
+  if (lc.includes('contact upsert')) return 'Contact create failed'
+  if (lc.includes('sms send') || lc.includes('messages')) return 'GHL send failed'
+  if (lc.includes('rate') || lc.includes('429')) return 'Rate limited'
+  // Fall back to the first 30 chars of the raw error so admin still
+  // has something to act on.
+  const trimmed = String(raw).trim().slice(0, 30)
+  return trimmed || 'Unknown'
 }
 
 function todayLocalIso() {
