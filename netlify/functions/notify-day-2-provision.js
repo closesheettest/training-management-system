@@ -49,6 +49,7 @@ export const handler = async (event) => {
     .from('classes')
     .select('id, region, week_start_date, week_end_date, day_2_it_notified_at, locations(name), attendance(attendance_date, confirmed)')
     .is('day_2_it_notified_at', null)
+    .is('cancelled_at', null)
     .eq('attendance_only', false)
     .lte('week_start_date', today)
     .gte('week_end_date', today)

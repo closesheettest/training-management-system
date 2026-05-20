@@ -71,7 +71,7 @@ export const handler = async (event) => {
   if (singleClassId) {
     cq = cq.eq('id', singleClassId)
   } else {
-    cq = cq.lt('week_end_date', today).eq('attendance_only', false)
+    cq = cq.lt('week_end_date', today).eq('attendance_only', false).is('cancelled_at', null)
   }
   const { data: classes, error: cErr } = await cq
   if (cErr) return json(500, { error: `Supabase classes: ${cErr.message}` })

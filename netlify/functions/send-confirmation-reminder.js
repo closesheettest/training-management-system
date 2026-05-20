@@ -60,6 +60,7 @@ export const handler = async (event) => {
     )
     .eq('week_start_date', targetDate)
     .eq('attendance_only', false)
+    .is('cancelled_at', null)
 
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })
 
