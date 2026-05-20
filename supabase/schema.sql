@@ -284,6 +284,19 @@ alter table trainees add column if not exists geocoded_address text;
 -- on /regions so HR can see which county a rep lives in while deciding
 -- which region to assign them to.
 alter table trainees add column if not exists county text;
+
+-- Reschedule + holding workflow (2026-05-20). See
+-- supabase/migrations/2026-05-20-reschedule-holding.sql for the full
+-- state model. holding=true means the trainee is waiting in a holding
+-- list — either of a specific class (when class_id is set) or in the
+-- general unassigned pool (when class_id is null).
+alter table trainees add column if not exists holding boolean not null default false;
+alter table trainees add column if not exists rescheduled_from_class_id uuid references classes(id);
+alter table classes  add column if not exists cancelled_at timestamptz;
+create index if not exists trainees_general_holding_idx
+  on trainees(holding)
+  where class_id is null and holding = true;
+
 create index if not exists trainees_needs_geocode_idx
   on trainees(id)
   where latitude is null

@@ -16,10 +16,79 @@ export default function HiringManager() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState(null)
   const [lastCreated, setLastCreated] = useState(null) // { class, trainees: [] }
+  const [holding, setHolding] = useState([]) // every holding-true trainee, any class
+  const [movingHoldingId, setMovingHoldingId] = useState(null) // shows the move dropdown inline
 
   useEffect(() => {
     loadClasses()
+    loadHolding()
   }, [])
+
+  // Pull every trainee currently in holding (whether class-assigned or
+  // in the general pool). Used by the Holding Pool section at the top
+  // of this page — the manager admits / moves / clears each row from
+  // there.
+  async function loadHolding() {
+    const { data, error } = await supabase
+      .from('trainees')
+      .select(
+        'id, first_name, last_name, phone, email, class_id, holding, rescheduled_from_class_id, ' +
+        'classes:class_id(week_start_date, week_end_date, region, locations(name)), ' +
+        'rescheduled_from:rescheduled_from_class_id(week_start_date, week_end_date, region, locations(name))',
+      )
+      .eq('holding', true)
+      .order('last_name', { ascending: true })
+    if (!error) setHolding(data || [])
+  }
+
+  // Manager actions on a holding-pool row.
+  async function admitHolding(t) {
+    if (!t.class_id) {
+      setMessage({ type: 'error', text: 'Pick a class first — this trainee is in the general pool.' })
+      return
+    }
+    setMessage(null)
+    const { error } = await supabase.from('trainees').update({ holding: false }).eq('id', t.id)
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+      return
+    }
+    setMessage({ type: 'success', text: `Admitted ${t.first_name} ${t.last_name} to the active roster.` })
+    await loadHolding()
+    await loadClasses()
+  }
+  async function moveHolding(t, targetClassId) {
+    setMessage(null)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ class_id: targetClassId || null, holding: true })
+      .eq('id', t.id)
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+      return
+    }
+    const where = targetClassId ? 'the selected class' : 'the general holding pool'
+    setMessage({ type: 'success', text: `Moved ${t.first_name} ${t.last_name} to ${where}.` })
+    setMovingHoldingId(null)
+    await loadHolding()
+    await loadClasses()
+  }
+  async function clearHolding(t) {
+    if (!confirm(
+      `Remove ${t.first_name} ${t.last_name} from holding? They'll go back to the active roster ` +
+      `of whichever class they're assigned to (or the unassigned pool if none). This doesn't ` +
+      `delete them — you can re-add them later from a class's detail page.`,
+    )) return
+    setMessage(null)
+    const { error } = await supabase.from('trainees').update({ holding: false }).eq('id', t.id)
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+      return
+    }
+    setMessage({ type: 'success', text: `Removed ${t.first_name} ${t.last_name} from holding.` })
+    await loadHolding()
+    await loadClasses()
+  }
 
   async function loadClasses() {
     // Show all weeks that haven't ended yet (today or in the future)
@@ -143,6 +212,21 @@ export default function HiringManager() {
 
       {lastCreated && (
         <LastCreatedCard data={lastCreated} onDismiss={() => setLastCreated(null)} />
+      )}
+
+      {/* Holding pool — every trainee marked holding=true, grouped by
+          their target class (or "General pool" if class_id is null).
+          Each row has Admit / Move / Remove from holding actions. */}
+      {holding.length > 0 && (
+        <HoldingPool
+          holding={holding}
+          availableClasses={availableClasses}
+          movingId={movingHoldingId}
+          setMovingId={setMovingHoldingId}
+          onAdmit={admitHolding}
+          onMove={moveHolding}
+          onClear={clearHolding}
+        />
       )}
 
       {availableClasses.length === 0 ? (
@@ -548,5 +632,168 @@ function NeedsHotelToggle({ value, onChange }) {
         No
       </button>
     </div>
+  )
+}
+
+// Holding pool section — top-of-page on the Hiring Manager page when
+// any trainees are in holding. Grouped into:
+//   • General pool (class_id is null) — needs class assignment
+//   • Per-class holding lists — needs admit or move
+// Per-row: Admit (if class assigned), Move (open inline dropdown to
+// pick another class or the general pool), Remove from holding.
+function HoldingPool({ holding, availableClasses, movingId, setMovingId, onAdmit, onMove, onClear }) {
+  const general = holding.filter((t) => !t.class_id)
+  const byClass = new Map()
+  for (const t of holding) {
+    if (!t.class_id) continue
+    if (!byClass.has(t.class_id)) byClass.set(t.class_id, [])
+    byClass.get(t.class_id).push(t)
+  }
+  return (
+    <section className="rounded-lg border-2 border-purple-200 bg-purple-50 p-6 shadow-sm">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-purple-900">📥 Holding pool ({holding.length})</h2>
+          <p className="text-xs text-purple-800">
+            Trainees waiting to be placed. <strong>General pool</strong> = unassigned (e.g. their
+            class was cancelled). <strong>Per-class lists</strong> = rescheduled INTO that class
+            and waiting for you to admit them.
+          </p>
+        </div>
+      </div>
+
+      {general.length > 0 && (
+        <div className="mt-3 rounded-md border border-purple-300 bg-white p-3 shadow-sm">
+          <h3 className="text-sm font-semibold text-purple-900">
+            🆓 General pool — unassigned ({general.length})
+          </h3>
+          <p className="text-xs text-purple-700">
+            Pick a class for each, or remove from holding to set them aside.
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {general.map((t) => (
+              <HoldingRow
+                key={t.id}
+                t={t}
+                availableClasses={availableClasses}
+                movingId={movingId}
+                setMovingId={setMovingId}
+                onAdmit={onAdmit}
+                onMove={onMove}
+                onClear={onClear}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {[...byClass.entries()].map(([cid, arr]) => {
+        const c = arr[0].classes // joined class info from the query
+        return (
+          <div key={cid} className="mt-3 rounded-md border border-purple-300 bg-white p-3 shadow-sm">
+            <h3 className="text-sm font-semibold text-purple-900">
+              🎯 Holding for{' '}
+              {c?.locations?.name || `${c?.region || 'Region'} — TBD`}
+              {c?.week_start_date && (
+                <span className="ml-1 font-normal text-purple-700">
+                  · {formatDateRange(c.week_start_date, c.week_end_date)}
+                </span>
+              )}
+              <span className="ml-1 font-normal text-purple-700">({arr.length})</span>
+            </h3>
+            <ul className="mt-2 space-y-1.5">
+              {arr.map((t) => (
+                <HoldingRow
+                  key={t.id}
+                  t={t}
+                  availableClasses={availableClasses}
+                  movingId={movingId}
+                  setMovingId={setMovingId}
+                  onAdmit={onAdmit}
+                  onMove={onMove}
+                  onClear={onClear}
+                />
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+function HoldingRow({ t, availableClasses, movingId, setMovingId, onAdmit, onMove, onClear }) {
+  const moving = movingId === t.id
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+      <div className="min-w-0">
+        <div className="font-medium">
+          {t.first_name} {t.last_name}
+        </div>
+        <div className="text-[11px] text-slate-500">
+          {t.phone || '—'}
+          {t.rescheduled_from?.locations?.name && (
+            <> · was in {t.rescheduled_from.locations.name}</>
+          )}
+        </div>
+      </div>
+      {moving ? (
+        <div className="flex items-center gap-2">
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (!e.target.value) return
+              if (e.target.value === '__general__') onMove(t, null)
+              else onMove(t, e.target.value)
+            }}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+          >
+            <option value="">— Pick destination —</option>
+            <option value="__general__">📥 General pool (no class)</option>
+            {availableClasses.map((c) => (
+              <option key={c.id} value={c.id} disabled={c.id === t.class_id}>
+                {formatDateRange(c.week_start_date, c.week_end_date)} ·{' '}
+                {c.locations?.name || `${c.region || 'Region'} — TBD`}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setMovingId(null)}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {t.class_id && (
+            <button
+              type="button"
+              onClick={() => onAdmit(t)}
+              className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+              title="Admit to the active roster of the assigned class"
+            >
+              ✓ Admit
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMovingId(t.id)}
+            className="rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-50"
+          >
+            🔄 Move
+          </button>
+          <button
+            type="button"
+            onClick={() => onClear(t)}
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            title="Stop holding this trainee — they'll go to the active roster (or unassigned if no class)"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+    </li>
   )
 }

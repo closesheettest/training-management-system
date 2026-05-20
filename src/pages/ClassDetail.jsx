@@ -22,6 +22,13 @@ export default function ClassDetail() {
   const [addingTrainee, setAddingTrainee] = useState(false)
   const [newTraineeDraft, setNewTraineeDraft] = useState(blankTrainee())
   const [startingTest, setStartingTest] = useState(false)
+  // Reschedule + cancel-class state. reschedulingTrainee is the row
+  // being moved; cancellingClass is a boolean toggling the
+  // bulk-reschedule modal that fires when admin cancels the whole
+  // class. upcomingClasses powers the target-class picker in both.
+  const [reschedulingTrainee, setReschedulingTrainee] = useState(null)
+  const [cancellingClass, setCancellingClass] = useState(false)
+  const [upcomingClasses, setUpcomingClasses] = useState([])
 
   useEffect(() => {
     load()
@@ -192,6 +199,133 @@ export default function ClassDetail() {
       return
     }
     setMessage({ type: 'success', text: `Removed ${t.first_name} ${t.last_name}.` })
+    load()
+  }
+
+  // Pulled when the Reschedule or Cancel Class modal opens — list of
+  // upcoming, non-cancelled classes (excluding this one) the rep can
+  // target. Sorted soonest-first.
+  async function loadUpcomingClasses() {
+    const todayIso = new Date().toISOString().slice(0, 10)
+    const { data, error: err } = await supabase
+      .from('classes')
+      .select('id, region, week_start_date, week_end_date, cancelled_at, locations(name, city), trainees(id)')
+      .gte('week_end_date', todayIso)
+      .is('cancelled_at', null)
+      .neq('id', id)
+      .order('week_start_date', { ascending: true })
+    if (err) {
+      setMessage({ type: 'error', text: `Couldn't load upcoming classes: ${err.message}` })
+      return []
+    }
+    return data || []
+  }
+
+  // Reschedule one trainee. targetClassId === null means the general
+  // holding pool (no class assigned). Either way, holding=true and we
+  // stamp rescheduled_from_class_id so admin/HM can see where they
+  // came from later.
+  async function rescheduleTrainee(t, targetClassId) {
+    setMessage(null)
+    const { error: err } = await supabase
+      .from('trainees')
+      .update({
+        class_id: targetClassId, // null = general pool
+        holding: true,
+        rescheduled_from_class_id: id,
+        // Re-enable enrolled in case they had previously been unenrolled —
+        // rescheduling is an intentional re-engagement.
+        enrolled: true,
+      })
+      .eq('id', t.id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return false
+    }
+    const where = targetClassId
+      ? `the holding list of the selected class`
+      : `the general holding pool`
+    setMessage({
+      type: 'success',
+      text: `Moved ${t.first_name} ${t.last_name} to ${where}.`,
+    })
+    setReschedulingTrainee(null)
+    load()
+    return true
+  }
+
+  // Cancel the entire class. Stamps cancelled_at on the class row and
+  // moves every currently-enrolled trainee to the general holding pool
+  // (holding=true, class_id=null) so the Hiring Manager can reassign
+  // them later. This is the "default destination" — the modal also
+  // lets the user pick a different target per trainee before
+  // confirming. (Implemented as the bulk handler in the modal below.)
+  async function cancelClass(perTraineeTargets) {
+    setMessage(null)
+    // perTraineeTargets is a Map<trainee_id, targetClassId|null>
+    // First, stamp the class as cancelled.
+    const { error: cErr } = await supabase
+      .from('classes')
+      .update({ cancelled_at: new Date().toISOString() })
+      .eq('id', id)
+    if (cErr) {
+      setMessage({ type: 'error', text: `Couldn't cancel class: ${cErr.message}` })
+      return
+    }
+    // Then move each trainee to their chosen destination. Batched by
+    // target so we issue one update per group of trainees with the
+    // same destination — keeps it fast even with 40+ trainees.
+    const byTarget = new Map() // targetClassId(null|uuid) -> [traineeId, ...]
+    for (const [tid, target] of perTraineeTargets) {
+      const key = target == null ? '__null__' : target
+      if (!byTarget.has(key)) byTarget.set(key, [])
+      byTarget.get(key).push(tid)
+    }
+    let errors = 0
+    for (const [key, ids] of byTarget) {
+      const targetClassId = key === '__null__' ? null : key
+      const { error: tErr } = await supabase
+        .from('trainees')
+        .update({
+          class_id: targetClassId,
+          holding: true,
+          rescheduled_from_class_id: id,
+          enrolled: true,
+        })
+        .in('id', ids)
+      if (tErr) errors++
+    }
+    setCancellingClass(false)
+    if (errors > 0) {
+      setMessage({
+        type: 'error',
+        text: `Class cancelled, but ${errors} trainee group${errors === 1 ? '' : 's'} couldn't be moved. Refresh and try again.`,
+      })
+    } else {
+      setMessage({
+        type: 'success',
+        text: `Class cancelled. ${perTraineeTargets.size} trainee${perTraineeTargets.size === 1 ? '' : 's'} moved to their chosen destinations.`,
+      })
+    }
+    load()
+  }
+
+  // Hiring-Manager-side action: admit a holding trainee into the
+  // active roster of this class. Just flips holding=false.
+  async function admitFromHolding(t) {
+    setMessage(null)
+    const { error: err } = await supabase
+      .from('trainees')
+      .update({ holding: false })
+      .eq('id', t.id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({
+      type: 'success',
+      text: `Admitted ${t.first_name} ${t.last_name} to the active roster.`,
+    })
     load()
   }
 
@@ -520,9 +654,16 @@ export default function ClassDetail() {
   const declined = trainees.filter((t) => t.declined_at)
   const enrolled = trainees.filter((t) => t.enrolled !== false)
   const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at)
-  const registered = enrolled.filter((t) => t.registered)
-  const sentNoResponse = enrolled.filter((t) => !t.registered && t.last_sms_sent_at)
-  const notSent = enrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
+  // Holding bucket — trainees rescheduled INTO this class who haven't
+  // been admitted to the active roster yet. They keep their existing
+  // registration status (registered, sent-no-response, or not-sent),
+  // but they get their own section in the UI so admin/HM can see them
+  // separately and admit them when ready.
+  const holdingHere = enrolled.filter((t) => t.holding)
+  const activeEnrolled = enrolled.filter((t) => !t.holding)
+  const registered = activeEnrolled.filter((t) => t.registered)
+  const sentNoResponse = activeEnrolled.filter((t) => !t.registered && t.last_sms_sent_at)
+  const notSent = activeEnrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
   const isTBD = !cls.locations
   const unsentIds = enrolled.filter((t) => !t.registered).map((t) => t.id)
 
@@ -558,8 +699,30 @@ export default function ClassDetail() {
           >
             Open kiosk →
           </Link>
+          {!cls.cancelled_at && (
+            <button
+              onClick={async () => {
+                const list = await loadUpcomingClasses()
+                setUpcomingClasses(list)
+                setCancellingClass(true)
+              }}
+              className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+              title="Cancel this entire training and reschedule its trainees"
+            >
+              🗑️ Cancel class
+            </button>
+          )}
         </div>
       </div>
+
+      {cls.cancelled_at && (
+        <div className="rounded-md border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <strong>🗑️ This class was cancelled</strong> on{' '}
+          {new Date(cls.cancelled_at).toLocaleDateString()}. Trainees who were enrolled have been
+          moved to the general holding pool or to their chosen target classes — visit{' '}
+          <Link to="/manager" className="underline">Hiring Manager</Link> to manage them.
+        </div>
+      )}
 
       {/* Header */}
       <header>
@@ -851,7 +1014,7 @@ export default function ClassDetail() {
           title="Attendees"
           emoji="👥"
           color="slate"
-          trainees={enrolled}
+          trainees={activeEnrolled}
           empty="No attendees added yet. Click + Add trainee to add one."
           sending={sending}
           hideSend
@@ -864,6 +1027,11 @@ export default function ClassDetail() {
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
           onUnenroll={unenrollTrainee}
+          onReschedule={async (t) => {
+            const list = await loadUpcomingClasses()
+            setUpcomingClasses(list)
+            setReschedulingTrainee(t)
+          }}
         />
       ) : (
       [
@@ -889,8 +1057,44 @@ export default function ClassDetail() {
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
           onUnenroll={unenrollTrainee}
+          onReschedule={async (t) => {
+            const list = await loadUpcomingClasses()
+            setUpcomingClasses(list)
+            setReschedulingTrainee(t)
+          }}
         />
       ))
+      )}
+
+      {/* Holding list — trainees rescheduled INTO this class who
+          haven't been admitted to the active roster yet. Section only
+          renders when there's at least one. */}
+      {holdingHere.length > 0 && (
+        <TraineeGroup
+          title="Holding (rescheduled in)"
+          emoji="🅿️"
+          color="purple"
+          trainees={holdingHere}
+          empty="No trainees in holding."
+          sending={sending}
+          showResend
+          onSend={(tid) => sendSms([tid], tid)}
+          editingTraineeId={editingTraineeId}
+          traineeDraft={traineeDraft}
+          onStartEdit={startEditTrainee}
+          onCancelEdit={cancelEditTrainee}
+          onSaveEdit={saveEditTrainee}
+          onDraftChange={setTraineeDraft}
+          onDelete={deleteTrainee}
+          onUnenroll={unenrollTrainee}
+          onReschedule={async (t) => {
+            const list = await loadUpcomingClasses()
+            setUpcomingClasses(list)
+            setReschedulingTrainee(t)
+          }}
+          onAdmit={admitFromHolding}
+          isHolding
+        />
       )}
 
       {declined.length > 0 && (
@@ -997,6 +1201,24 @@ export default function ClassDetail() {
           </ul>
         </section>
       )}
+
+      {reschedulingTrainee && (
+        <RescheduleModal
+          trainee={reschedulingTrainee}
+          upcomingClasses={upcomingClasses}
+          onConfirm={(targetClassId) => rescheduleTrainee(reschedulingTrainee, targetClassId)}
+          onCancel={() => setReschedulingTrainee(null)}
+        />
+      )}
+
+      {cancellingClass && (
+        <CancelClassModal
+          trainees={enrolled}
+          upcomingClasses={upcomingClasses}
+          onConfirm={cancelClass}
+          onCancel={() => setCancellingClass(false)}
+        />
+      )}
     </div>
   )
 }
@@ -1021,11 +1243,15 @@ function TraineeGroup({
   onDraftChange,
   onDelete,
   onUnenroll,
+  onReschedule,
+  onAdmit,
+  isHolding = false,
 }) {
   const palette = {
     green: 'border-green-200 bg-green-50',
     amber: 'border-amber-200 bg-amber-50',
     slate: 'border-slate-200 bg-white',
+    purple: 'border-purple-200 bg-purple-50',
   }[color] || 'border-slate-200 bg-white'
 
   return (
@@ -1119,6 +1345,26 @@ function TraineeGroup({
                       >
                         Unenroll
                       </button>
+                      {onReschedule && (
+                        <button
+                          onClick={() => onReschedule(t)}
+                          disabled={editingTraineeId !== null}
+                          className="rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+                          title="Move this trainee to a different class or to the general holding pool"
+                        >
+                          🔄 Reschedule
+                        </button>
+                      )}
+                      {isHolding && onAdmit && (
+                        <button
+                          onClick={() => onAdmit(t)}
+                          disabled={editingTraineeId !== null}
+                          className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                          title="Admit this rescheduled trainee into the active roster"
+                        >
+                          ✓ Admit to class
+                        </button>
+                      )}
                       <button
                         onClick={() => onDelete(t)}
                         disabled={editingTraineeId !== null}
@@ -3069,6 +3315,216 @@ function NeedsHotelToggle({ value, onChange }) {
       >
         No
       </button>
+    </div>
+  )
+}
+
+// Modal for rescheduling a single trainee. Two destination options:
+//   • General holding pool (no class) — class_id becomes null, holding=true
+//   • A specific class — class_id = that class, holding=true (lands in
+//     that class's holding list, waiting for hiring manager admit)
+// Empty upcomingClasses list still lets you pick general holding.
+function RescheduleModal({ trainee, upcomingClasses, onConfirm, onCancel }) {
+  const [choice, setChoice] = useState('general') // 'general' | classId string
+  const [submitting, setSubmitting] = useState(false)
+  async function go() {
+    setSubmitting(true)
+    const targetId = choice === 'general' ? null : choice
+    const ok = await onConfirm(targetId)
+    if (!ok) setSubmitting(false)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 overflow-y-auto">
+      <div className="my-8 w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">🔄 Reschedule {trainee.first_name} {trainee.last_name}</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Move this trainee to a different class's holding list, or park them in the general
+              holding pool until you decide. They'll show up in the Hiring Manager page for
+              admission either way.
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="space-y-2">
+          <label className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 cursor-pointer hover:bg-slate-100">
+            <input
+              type="radio"
+              name="resched-dest"
+              checked={choice === 'general'}
+              onChange={() => setChoice('general')}
+              className="mt-0.5"
+            />
+            <div>
+              <div className="text-sm font-medium">📥 General holding pool (no class)</div>
+              <div className="text-xs text-slate-500">
+                Park them with no class assigned. The Hiring Manager can assign them to a specific
+                class later.
+              </div>
+            </div>
+          </label>
+          {upcomingClasses.length === 0 ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              No upcoming classes available to schedule into. Use the general holding pool above,
+              then assign from the Hiring Manager page once a class exists.
+            </p>
+          ) : (
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+              {upcomingClasses.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-start gap-2 rounded-md p-2 cursor-pointer hover:bg-slate-50"
+                >
+                  <input
+                    type="radio"
+                    name="resched-dest"
+                    checked={choice === c.id}
+                    onChange={() => setChoice(c.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      {c.locations?.name || `${c.region || 'Region'} — TBD`}
+                      {c.region && (
+                        <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800">
+                          {c.region}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {formatDateRange(c.week_start_date, c.week_end_date)}
+                      {' · '}{(c.trainees || []).length} trainee{(c.trainees || []).length === 1 ? '' : 's'} enrolled
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={go}
+            disabled={submitting}
+            className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50"
+          >
+            {submitting ? 'Moving…' : 'Reschedule'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Modal for cancelling the entire class. Lets admin pick a destination
+// per trainee (general holding or any upcoming class). Defaults all
+// trainees to general holding so a single click confirms in the
+// "I just want them all parked" case.
+function CancelClassModal({ trainees, upcomingClasses, onConfirm, onCancel }) {
+  // Map<trainee_id, targetClassId|null>. null = general holding.
+  const [targets, setTargets] = useState(() => new Map(trainees.map((t) => [t.id, null])))
+  const [submitting, setSubmitting] = useState(false)
+  function setTarget(traineeId, value) {
+    setTargets((prev) => {
+      const next = new Map(prev)
+      next.set(traineeId, value === 'general' ? null : value)
+      return next
+    })
+  }
+  async function go() {
+    setSubmitting(true)
+    await onConfirm(targets)
+    // onConfirm will close the modal on success via setCancellingClass(false)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 overflow-y-auto">
+      <div className="my-8 w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">🗑️ Cancel this entire class</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              The class will be marked cancelled and {trainees.length} trainee{trainees.length === 1 ? '' : 's'} will
+              be moved. Pick where each one goes — the default is the general holding pool, where
+              the Hiring Manager can assign them later.
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+          >
+            ✕
+          </button>
+        </div>
+        {trainees.length === 0 ? (
+          <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            This class has no enrolled trainees — cancelling it won't move anyone.
+          </p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto rounded-md border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 text-left">Trainee</th>
+                  <th className="px-3 py-2 text-left">Destination</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {trainees.map((t) => (
+                  <tr key={t.id}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{t.first_name} {t.last_name}</div>
+                      <div className="text-xs text-slate-500">{t.phone || '—'}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={targets.get(t.id) || 'general'}
+                        onChange={(e) => setTarget(t.id, e.target.value)}
+                        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="general">📥 General holding pool</option>
+                        {upcomingClasses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {(c.locations?.name || `${c.region || 'Region'} — TBD`)}
+                            {' · '}{formatDateRange(c.week_start_date, c.week_end_date)}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Keep class
+          </button>
+          <button
+            onClick={go}
+            disabled={submitting}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {submitting ? 'Cancelling…' : `Cancel class & move ${trainees.length}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
