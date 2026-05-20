@@ -84,7 +84,7 @@ export default function Register() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, email, phone, years_in_sales, street_address, city, state, zip, registered, declined_at, classes(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
+        'id, first_name, last_name, email, phone, years_in_sales, street_address, city, state, zip, registered, declined_at, classes!class_id(id, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, contact_info, schedule_template))',
       )
       .eq('registration_token', token)
       .maybeSingle()

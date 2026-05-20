@@ -63,7 +63,7 @@ export const handler = async (event) => {
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, registration_token, last_sms_sent_at, registration_followup_1_sent_at, registration_followup_2_sent_at, classes(id, week_start_date, locations(name))',
+      'id, first_name, last_name, phone, registration_token, last_sms_sent_at, registration_followup_1_sent_at, registration_followup_2_sent_at, classes!class_id(id, week_start_date, locations(name))',
     )
     .eq('registered', false)
     .eq('enrolled', true)

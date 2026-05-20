@@ -36,7 +36,7 @@ export const handler = async (event) => {
   if (!region && params.trainee_id) {
     const { data: trainee } = await supabase
       .from('trainees')
-      .select('classes(region)')
+      .select('classes!class_id(region)')
       .eq('id', params.trainee_id)
       .maybeSingle()
     region = trainee?.classes?.region || null

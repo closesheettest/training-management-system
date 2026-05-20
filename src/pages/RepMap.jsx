@@ -127,7 +127,7 @@ export default function RepMap() {
     setError(null)
     const { data, error: err } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, latitude, longitude, geocoded_at, street_address, city, state, zip, classes(week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, latitude, longitude, geocoded_at, street_address, city, state, zip, classes!class_id(week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (err) {
       setError(err.message)

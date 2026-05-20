@@ -25,7 +25,7 @@ export default function Confirm() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, confirmation_status, confirmation_at, classes(week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, schedule_template))',
+        'id, first_name, last_name, confirmation_status, confirmation_at, classes!class_id(week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, phone, schedule_template))',
       )
       .eq('registration_token', token)
       .maybeSingle()

@@ -89,7 +89,7 @@ export default function Results() {
 
     const { data: t, error: tErr } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, registration_token, classes(region, week_start_date)')
+      .select('id, first_name, last_name, registration_token, classes!class_id(region, week_start_date)')
       .eq('registration_token', token)
       .maybeSingle()
     if (tErr || !t) {

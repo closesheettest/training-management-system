@@ -25,7 +25,7 @@ export default function TakeTest() {
     // Look up trainee + their class
     const { data: t, error: trErr } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, registered, enrolled, class_id, classes(week_start_date, week_end_date, locations(name))')
+      .select('id, first_name, last_name, registered, enrolled, class_id, classes!class_id(week_start_date, week_end_date, locations(name))')
       .eq('registration_token', token)
       .maybeSingle()
     if (trErr || !t) {

@@ -48,7 +48,7 @@ export const handler = async (event) => {
   const { data: trainees, error: dbError } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, registration_token, classes(week_start_date, locations(name))',
+      'id, first_name, last_name, phone, registration_token, classes!class_id(week_start_date, locations(name))',
     )
     .in('id', trainee_ids)
 

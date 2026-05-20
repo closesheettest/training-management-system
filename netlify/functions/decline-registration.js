@@ -42,7 +42,7 @@ export const handler = async (event) => {
   const { data: trainee, error: tErr } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, email, declined_at, classes(id, region, week_start_date, locations(name))',
+      'id, first_name, last_name, phone, email, declined_at, classes!class_id(id, region, week_start_date, locations(name))',
     )
     .eq('registration_token', registration_token)
     .maybeSingle()

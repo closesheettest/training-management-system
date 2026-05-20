@@ -41,7 +41,7 @@ export const handler = async (event) => {
 
   const { data: trainee } = await supabase
     .from('trainees')
-    .select('id, class_id, first_name, last_name, years_in_sales, classes(locations(photo_urls))')
+    .select('id, class_id, first_name, last_name, years_in_sales, classes!class_id(locations(photo_urls))')
     .eq('id', trainee_id)
     .maybeSingle()
   if (!trainee) return json(404, { error: 'Trainee not found' })

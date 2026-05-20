@@ -71,7 +71,7 @@ export const handler = async (event) => {
     .from('trainees')
     .select(`
       id, first_name, last_name, company_email, class_id,
-      classes(id, region, week_start_date, week_end_date, locations(name)),
+      classes!class_id(id, region, week_start_date, week_end_date, locations(name)),
       attendance(attendance_date, confirmed)
     `)
     .eq('enrolled', true)

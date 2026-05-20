@@ -39,7 +39,7 @@ export const handler = async (event) => {
 
   const { data: trainee, error: tErr } = await supabase
     .from('trainees')
-    .select('id, first_name, phone, handoff_contacts_sent_at, classes(region)')
+    .select('id, first_name, phone, handoff_contacts_sent_at, classes!class_id(region)')
     .eq('id', trainee_id)
     .maybeSingle()
   if (tErr) return json(500, { error: `Supabase: ${tErr.message}` })

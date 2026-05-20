@@ -55,7 +55,7 @@ export const handler = async (event) => {
       first_name,
       last_name,
       hotel_alert_sent_at,
-      classes(week_start_date, week_end_date, region, locations(name)),
+      classes!class_id(week_start_date, week_end_date, region, locations(name)),
       attendance(attendance_date, confirmed)
     `)
     .eq('needs_hotel', true)
