@@ -46,7 +46,7 @@ export const handler = async (event) => {
     .select(`
       id, region, week_start_date, week_end_date, attendance_only,
       locations(name),
-      trainees(
+      trainees!class_id(
         id, first_name, last_name, phone, enrolled, declined_at,
         info_updated_at, region
       )

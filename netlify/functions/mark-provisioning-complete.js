@@ -39,7 +39,7 @@ export const handler = async (event) => {
 
   const { data: cls, error: clsErr } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name), trainees(id, enrolled, company_email)')
+    .select('id, region, week_start_date, locations(name), trainees!class_id(id, enrolled, company_email)')
     .eq('id', class_id)
     .maybeSingle()
   if (clsErr || !cls) return json(404, { error: 'Class not found' })

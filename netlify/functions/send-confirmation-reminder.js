@@ -56,7 +56,7 @@ export const handler = async (event) => {
   const { data: classes, error: clsErr } = await supabase
     .from('classes')
     .select(
-      'id, week_start_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, phone, registered, registration_token, last_reminder_sent_at)',
+      'id, week_start_date, locations(name, street_address, city, state, zip), trainees!class_id(id, first_name, last_name, phone, registered, registration_token, last_reminder_sent_at)',
     )
     .eq('week_start_date', targetDate)
     .eq('attendance_only', false)

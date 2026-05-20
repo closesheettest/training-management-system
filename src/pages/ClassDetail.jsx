@@ -43,7 +43,7 @@ export default function ClassDetail() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, graduation_report_sent_at, attendance_only, locations(*), trainees(*, info_updated_at, attendance(attendance_date, confirmed)), test_attempts(*)',
+        'id, region, week_start_date, week_end_date, location_id, schedule_details, day_2_it_notified_at, it_completed_at, graduation_report_sent_at, attendance_only, cancelled_at, locations(*), trainees!class_id(*, info_updated_at, attendance(attendance_date, confirmed)), test_attempts(*)',
       )
       .eq('id', id)
       .maybeSingle()
@@ -211,7 +211,7 @@ export default function ClassDetail() {
     const todayIso = new Date().toISOString().slice(0, 10)
     const { data, error: err } = await supabase
       .from('classes')
-      .select('id, region, week_start_date, week_end_date, cancelled_at, locations(name, city), trainees(id)')
+      .select('id, region, week_start_date, week_end_date, cancelled_at, locations(name, city), trainees!class_id(id)')
       .gte('week_end_date', todayIso)
       .is('cancelled_at', null)
       .neq('id', id)

@@ -23,7 +23,7 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, attendance_only, locations(name), trainees(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
+        'id, region, week_start_date, week_end_date, attendance_only, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)

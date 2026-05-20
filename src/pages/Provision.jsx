@@ -34,7 +34,7 @@ export default function Provision() {
     const { data: clsData, error: clsErr } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees(*), attendance(trainee_id, attendance_date, confirmed)',
+        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees!class_id(*), attendance(trainee_id, attendance_date, confirmed)',
       )
       .eq('id', class_id)
       .maybeSingle()

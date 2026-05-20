@@ -72,7 +72,7 @@ export const handler = async (event) => {
     .select(`
       id, region, week_start_date, week_end_date,
       locations(name, street_address, city, state, zip),
-      trainees(
+      trainees!class_id(
         id, first_name, last_name, company_email, enrolled,
         phone, street_address, city, state, zip,
         repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at,

@@ -25,7 +25,7 @@ export default function Attendance() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees(id, first_name, last_name, registered, confirmation_status, enrolled, dropout_notified_at, unenrolled_reason), attendance(trainee_id, attendance_date, confirmed, confirmed_at)',
+        'id, region, week_start_date, week_end_date, locations(name, street_address, city, state, zip), trainees!class_id(id, first_name, last_name, registered, confirmation_status, enrolled, dropout_notified_at, unenrolled_reason), attendance(trainee_id, attendance_date, confirmed, confirmed_at)',
       )
       .lte('week_start_date', date)
       .gte('week_end_date', date)

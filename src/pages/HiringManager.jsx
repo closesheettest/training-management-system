@@ -99,7 +99,7 @@ export default function HiringManager() {
     const { data, error } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, schedule_template, phone), trainees(id, first_name, last_name)',
+        'id, region, week_start_date, week_end_date, schedule_details, locations(name, street_address, city, state, zip, schedule_template, phone), trainees!class_id(id, first_name, last_name)',
       )
       .gte('week_end_date', isoToday)
       .order('week_start_date', { ascending: true })

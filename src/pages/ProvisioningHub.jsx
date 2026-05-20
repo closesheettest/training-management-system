@@ -36,7 +36,7 @@ export default function ProvisioningHub() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, day_2_it_notified_at, it_completed_at, locations(name), trainees(id, enrolled, company_email, email_assigned_at, attendance(attendance_date, confirmed))',
+        'id, region, week_start_date, week_end_date, day_2_it_notified_at, it_completed_at, locations(name), trainees!class_id(id, enrolled, company_email, email_assigned_at, attendance(attendance_date, confirmed))',
       )
       .lte('week_start_date', addDaysIso(today, -1)) // class started by yesterday (so day 2 has begun)
       .gte('week_end_date', today) // class still active
