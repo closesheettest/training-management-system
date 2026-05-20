@@ -73,16 +73,17 @@ export const handler = async (event) => {
     .filter(Boolean)
     .join(' ')
   const officeEmailSubject = `Training cancelled: ${classLabel}${dateRange ? ' · ' + dateRange : ''}`
-  const officeEmailBody = `
-    <p>The following training was cancelled:</p>
-    <ul>
-      <li><strong>${classLabel}</strong></li>
-      ${dateRange ? `<li>${dateRange}</li>` : ''}
-      ${cancelled_by ? `<li>Cancelled by: ${cancelled_by}</li>` : ''}
-    </ul>
-    <p>${movedCount} trainee${movedCount === 1 ? '' : 's'} ${movedCount === 1 ? 'has' : 'have'} been rescheduled.
-       The full breakdown went to the Hiring Manager.</p>
-  `.trim()
+  const officeEmailBody = [
+    `The following training was cancelled:`,
+    ``,
+    `  • ${classLabel}`,
+    dateRange ? `  • ${dateRange}` : null,
+    cancelled_by ? `  • Cancelled by: ${cancelled_by}` : null,
+    ``,
+    `${movedCount} trainee${movedCount === 1 ? '' : 's'} ${movedCount === 1 ? 'has' : 'have'} been rescheduled. The full breakdown went to the Hiring Manager.`,
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
 
   // Hiring Manager detail message — lists every rescheduled trainee
   // with their destination.
@@ -95,14 +96,18 @@ export const handler = async (event) => {
     `Reschedule breakdown:\n${detailLines}\n\n` +
     `Manage at /manager → Holding pool.`
   const hmEmailSubject = `Reschedule breakdown — ${classLabel}${dateRange ? ' · ' + dateRange : ''}`
-  const hmEmailBody = `
-    <p><strong>${classLabel}${dateRange ? ' · ' + dateRange : ''}</strong> was cancelled${cancelled_by ? ` by ${cancelled_by}` : ''}.</p>
-    <p>Here's where each trainee was rescheduled:</p>
-    <ul>
-      ${(reschedule_summary || []).map((r) => `<li>${escapeHtml(r.name)} → ${escapeHtml(r.destination)}</li>`).join('')}
-    </ul>
-    <p>Open the <a href="/manager">Hiring Manager page</a> → Holding pool to admit, move, or remove each one.</p>
-  `.trim()
+  const siteBase = (process.env.PUBLIC_SITE_URL || process.env.URL || '').replace(/\/$/, '')
+  const managerUrl = siteBase ? `${siteBase}/manager` : '/manager'
+  const hmEmailBody = [
+    `${classLabel}${dateRange ? ' · ' + dateRange : ''} was cancelled${cancelled_by ? ` by ${cancelled_by}` : ''}.`,
+    ``,
+    `Reschedule breakdown:`,
+    ...(reschedule_summary && reschedule_summary.length > 0
+      ? reschedule_summary.map((r) => `  • ${r.name} → ${r.destination}`)
+      : ['  • (No enrolled trainees were on this class.)']),
+    ``,
+    `Manage at ${managerUrl} → Holding pool to admit, move, or remove each one.`,
+  ].join('\n')
 
   // Fire both fan-outs sequentially. Each falls back to legacy roles
   // and ADMIN_PHONE if no subscriptions are configured yet.
@@ -147,14 +152,6 @@ function formatDateRangeShort(start, end) {
   const sStr = s.toLocaleDateString('en-US', opts)
   const eStr = e.toLocaleDateString('en-US', opts)
   return sStr === eStr ? sStr : `${sStr}–${eStr}`
-}
-
-function escapeHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function json(status, body) {
