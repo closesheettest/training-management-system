@@ -174,50 +174,28 @@ export default function Directory() {
                   </span>
                 )}
               </div>
-              <dl className="mt-3 space-y-1 text-sm">
+              <dl className="mt-3 space-y-1.5 text-sm">
                 {r.phone && (
-                  <div className="flex gap-2">
-                    <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
-                      Personal
-                    </dt>
-                    <dd className="min-w-0">
-                      <a href={`tel:${r.phone}`} className="text-brand-navy underline hover:text-brand-red">
-                        {r.phone}
-                      </a>
-                    </dd>
-                  </div>
+                  <ContactRow label="Personal">
+                    <ActionLink href={`tel:${r.phone}`} icon="📞" text="Call" />
+                    <ActionLink href={`sms:${r.phone}`} icon="💬" text="Text" />
+                  </ContactRow>
                 )}
                 {r.company_phone && (
-                  <div className="flex gap-2">
-                    <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
-                      Work
-                    </dt>
-                    <dd className="min-w-0">
-                      <a href={`tel:${r.company_phone}`} className="text-brand-navy underline hover:text-brand-red">
-                        {r.company_phone}
-                      </a>
-                    </dd>
-                  </div>
+                  <ContactRow label="Work">
+                    <ActionLink href={`tel:${r.company_phone}`} icon="📞" text="Call" />
+                    <ActionLink href={`sms:${r.company_phone}`} icon="💬" text="Text" />
+                  </ContactRow>
                 )}
                 {r.company_email && (
-                  <div className="flex gap-2">
-                    <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
-                      Email
-                    </dt>
-                    <dd className="min-w-0 break-all">
-                      <a href={`mailto:${r.company_email}`} className="text-brand-navy underline hover:text-brand-red">
-                        {r.company_email}
-                      </a>
-                    </dd>
-                  </div>
+                  <ContactRow label="Email">
+                    <ActionLink href={`mailto:${r.company_email}`} icon="📧" text="Send email" />
+                  </ContactRow>
                 )}
                 {r.company_number && (
-                  <div className="flex gap-2">
-                    <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
-                      Company #
-                    </dt>
-                    <dd className="min-w-0 font-mono text-xs">{r.company_number}</dd>
-                  </div>
+                  <ContactRow label="Company #">
+                    <span className="font-mono text-xs">{r.company_number}</span>
+                  </ContactRow>
                 )}
               </dl>
               {r.directory_note && (
@@ -237,5 +215,32 @@ export default function Directory() {
         </p>
       </main>
     </div>
+  )
+}
+
+// One row of the contact dl — a label on the left and one or more
+// action buttons on the right. Keeps spacing consistent across the
+// four contact types (personal / work / email / company #).
+function ContactRow({ label, children }) {
+  return (
+    <div className="flex items-center gap-2">
+      <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-center gap-1.5">{children}</dd>
+    </div>
+  )
+}
+
+// Pill-style action link that triggers the device's native handler
+// (tel: → dialer, sms: → messages app, mailto: → mail client). The
+// raw phone number / email never appears in the DOM text — viewers
+// see the action label and just tap to act. Privacy plus cleaner UI.
+function ActionLink({ href, icon, text }) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-1 rounded-full border border-brand-navy/30 bg-brand-navy/5 px-2.5 py-1 text-xs font-semibold text-brand-navy hover:bg-brand-navy hover:text-white"
+    >
+      <span aria-hidden="true">{icon}</span> {text}
+    </a>
   )
 }
