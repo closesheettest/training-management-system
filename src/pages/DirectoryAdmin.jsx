@@ -34,6 +34,7 @@ export default function DirectoryAdmin() {
   const [flash, setFlash] = useState(null)
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const [editPerson, setEditPerson] = useState(null)
   const [visibilityModal, setVisibilityModal] = useState(null)
   // { trainee, draft } while a note is being edited.
   const [noteModal, setNoteModal] = useState(null)
@@ -85,6 +86,35 @@ export default function DirectoryAdmin() {
       return false
     }
     setFlash({ kind: 'success', text: `Added ${row.first_name} ${row.last_name} to the directory.` })
+    await load()
+    return true
+  }
+
+  // Update an existing person from the edit modal — same payload shape
+  // as addStaff, just routes to UPDATE instead of INSERT and uses the
+  // existing id. Returns true on success so the modal can close itself.
+  async function updatePerson(person, payload) {
+    const row = {
+      first_name: payload.first_name.trim(),
+      last_name: payload.last_name.trim(),
+      phone: payload.phone?.trim() || null,
+      company_phone: payload.company_phone?.trim() || null,
+      company_email: payload.company_email?.trim() || null,
+      region: payload.region || null,
+      department: payload.department?.trim() || null,
+      company_number: payload.company_number?.trim() || null,
+      rep_level: payload.rep_level || 'non_field',
+      directory_hidden: payload.directory_hidden || {},
+      directory_note: payload.directory_note?.trim() || null,
+    }
+    setSavingId(person.id)
+    const { error } = await supabase.from('trainees').update(row).eq('id', person.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return false
+    }
+    setFlash({ kind: 'success', text: `Updated ${row.first_name} ${row.last_name}.` })
     await load()
     return true
   }
@@ -338,6 +368,15 @@ export default function DirectoryAdmin() {
                     <div className="flex justify-end gap-1.5">
                       <button
                         type="button"
+                        onClick={() => setEditPerson(p)}
+                        disabled={isSaving}
+                        className="rounded-md border border-brand-navy bg-white px-2 py-1 text-xs font-semibold text-brand-navy hover:bg-slate-50 disabled:opacity-50"
+                        title="Edit name, contact info, level, department, visibility, and note all at once."
+                      >
+                        ✏ Edit
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setNoteModal({ trainee: p, draft: p.directory_note || '' })}
                         disabled={isSaving}
                         className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -386,6 +425,18 @@ export default function DirectoryAdmin() {
           onSave={async (payload) => {
             const ok = await addStaff(payload)
             if (ok) setAddOpen(false)
+          }}
+        />
+      )}
+
+      {editPerson && (
+        <AddStaffModal
+          regionNames={regionNames}
+          initial={editPerson}
+          onCancel={() => setEditPerson(null)}
+          onSave={async (payload) => {
+            const ok = await updatePerson(editPerson, payload)
+            if (ok) setEditPerson(null)
           }}
         />
       )}

@@ -29,23 +29,27 @@ export function directoryHiddenLabel(hidden) {
   return `${shown} of ${total} fields shown`
 }
 
-// Modal for adding someone who isn't going through training (HR, ops,
-// leadership). Captures basic contact info and per-field directory
-// privacy choices, then calls onSave with the combined payload.
-export function AddStaffModal({ regionNames, onCancel, onSave }) {
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    phone: '',
-    company_phone: '',
-    company_email: '',
-    region: '',
-    department: '',
-    company_number: '',
-    rep_level: 'non_field',
-    directory_note: '',
-  })
-  const [hidden, setHidden] = useState({})
+// Modal for adding OR editing one person's directory record. Pass
+// `initial` with the existing trainee row to put it in edit mode
+// (prefills values, retitles, swaps the submit label). Otherwise it
+// opens as the "Add staff / management" form for non-trainee additions.
+// Either way the onSave callback receives the full payload — the
+// parent decides whether to insert or update.
+export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
+  const isEdit = !!initial
+  const [form, setForm] = useState(() => ({
+    first_name: initial?.first_name || '',
+    last_name: initial?.last_name || '',
+    phone: initial?.phone || '',
+    company_phone: initial?.company_phone || '',
+    company_email: initial?.company_email || '',
+    region: initial?.region || '',
+    department: initial?.department || '',
+    company_number: initial?.company_number || '',
+    rep_level: initial?.rep_level || 'non_field',
+    directory_note: initial?.directory_note || '',
+  }))
+  const [hidden, setHidden] = useState(() => ({ ...(initial?.directory_hidden || {}) }))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const canSave =
@@ -73,10 +77,13 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-slate-900">Add staff / management</h3>
+        <h3 className="text-lg font-semibold text-slate-900">
+          {isEdit ? `Edit ${initial.first_name} ${initial.last_name}` : 'Add staff / management'}
+        </h3>
         <p className="mt-1 text-sm text-slate-600">
-          For people who aren't going through training (HR, ops, leadership) but should appear in
-          the team directory. They skip the registration / class / test workflow.
+          {isEdit
+            ? 'Update contact info, department, level, directory visibility, and the "how to reach me" note.'
+            : 'For people who aren\'t going through training (HR, ops, leadership) but should appear in the team directory. They skip the registration / class / test workflow.'}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -226,7 +233,7 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
             disabled={!canSave}
             className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? 'Adding…' : 'Add to team'}
+            {saving ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add to team')}
           </button>
         </div>
       </div>
