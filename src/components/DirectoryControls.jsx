@@ -19,6 +19,65 @@ export const DIRECTORY_FIELDS = [
   { key: 'birthday', label: 'Birthday' },
 ]
 
+// Phones support sub-modes beyond simple show/hide: Call+Text, Call only,
+// Text only, or fully hidden. State lives in directory_hidden using
+// three keys per phone:
+//   '<phoneKey>'       (true) — hide entirely (no actions)
+//   '<phoneKey>_call'  (true) — block the Call action
+//   '<phoneKey>_text'  (true) — block the Text action
+// Missing keys = action enabled. So nothing set = Call+Text (default).
+export function getPhoneMode(hidden, phoneKey) {
+  if (hidden && hidden[phoneKey]) return 'hidden'
+  const noCall = !!(hidden && hidden[`${phoneKey}_call`])
+  const noText = !!(hidden && hidden[`${phoneKey}_text`])
+  if (noCall && noText) return 'hidden'
+  if (noCall) return 'text_only'
+  if (noText) return 'call_only'
+  return 'both'
+}
+
+export function setPhoneMode(hidden, phoneKey, mode) {
+  const next = { ...(hidden || {}) }
+  delete next[phoneKey]
+  delete next[`${phoneKey}_call`]
+  delete next[`${phoneKey}_text`]
+  if (mode === 'hidden') next[phoneKey] = true
+  else if (mode === 'call_only') next[`${phoneKey}_text`] = true
+  else if (mode === 'text_only') next[`${phoneKey}_call`] = true
+  // 'both' → leave all three keys absent
+  return next
+}
+
+// Renders the 4-option radio group for one phone's visibility.
+export function PhoneVisibilityChoice({ phoneKey, label, hidden, setHidden, disabled }) {
+  const mode = getPhoneMode(hidden, phoneKey)
+  const opts = [
+    { value: 'both', label: '📞 Call + 💬 Text' },
+    { value: 'call_only', label: '📞 Call only' },
+    { value: 'text_only', label: '💬 Text only' },
+    { value: 'hidden', label: 'Hidden' },
+  ]
+  return (
+    <div>
+      <div className="text-xs font-semibold text-slate-700">{label}</div>
+      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+        {opts.map((o) => (
+          <label key={o.value} className="flex items-center gap-1 text-sm">
+            <input
+              type="radio"
+              name={`vis-${phoneKey}`}
+              checked={mode === o.value}
+              onChange={() => setHidden(setPhoneMode(hidden, phoneKey, o.value))}
+              disabled={disabled}
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // One-line summary of a rep's directory visibility — "all 5 shown",
 // "3 of 5 shown", "name only", etc.
 export function directoryHiddenLabel(hidden) {
@@ -205,21 +264,35 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
 
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-            Hide in the /directory phone-book
+            Visibility in the /directory phone-book
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Check anything that should NOT appear in the shared directory. Name is always visible.
-            Example: Jenn from HR — check Phone, Region, Level, and Company number to expose only her email.
+            For phones, pick which actions are shown. Check any other field to HIDE it. Name is
+            always visible.
           </p>
-          <div className="mt-2 grid grid-cols-2 gap-1 text-sm">
-            {DIRECTORY_FIELDS.map((f) => (
+          <div className="mt-3 space-y-2">
+            <PhoneVisibilityChoice
+              phoneKey="phone"
+              label="Personal phone"
+              hidden={hidden}
+              setHidden={setHidden}
+            />
+            <PhoneVisibilityChoice
+              phoneKey="company_phone"
+              label="Work phone"
+              hidden={hidden}
+              setHidden={setHidden}
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-1 text-sm">
+            {DIRECTORY_FIELDS.filter((f) => f.key !== 'phone' && f.key !== 'company_phone').map((f) => (
               <label key={f.key} className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={!!hidden[f.key]}
                   onChange={() => toggleHidden(f.key)}
                 />
-                <span>{f.label}</span>
+                <span>Hide {f.label.toLowerCase()}</span>
               </label>
             ))}
           </div>
@@ -269,18 +342,34 @@ export function DirectoryVisibilityModal({ trainee, hidden, setHidden, sending, 
           Pick which fields appear on the shared <code>/directory</code> page. Check a field to
           HIDE it. Name is always visible.
         </p>
-        <div className="mt-4 space-y-2">
-          {DIRECTORY_FIELDS.map((f) => (
-            <label key={f.key} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={!!hidden[f.key]}
-                onChange={() => toggle(f.key)}
-                disabled={sending}
-              />
-              <span>Hide {f.label.toLowerCase()}</span>
-            </label>
-          ))}
+        <div className="mt-4 space-y-3">
+          <PhoneVisibilityChoice
+            phoneKey="phone"
+            label="Personal phone"
+            hidden={hidden}
+            setHidden={setHidden}
+            disabled={sending}
+          />
+          <PhoneVisibilityChoice
+            phoneKey="company_phone"
+            label="Work phone"
+            hidden={hidden}
+            setHidden={setHidden}
+            disabled={sending}
+          />
+          <div className="space-y-1 border-t border-slate-200 pt-2">
+            {DIRECTORY_FIELDS.filter((f) => f.key !== 'phone' && f.key !== 'company_phone').map((f) => (
+              <label key={f.key} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={!!hidden[f.key]}
+                  onChange={() => toggle(f.key)}
+                  disabled={sending}
+                />
+                <span>Hide {f.label.toLowerCase()}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button

@@ -176,16 +176,16 @@ export default function Directory() {
                 )}
               </div>
               <dl className="mt-3 space-y-1.5 text-sm">
-                {r.phone && (
+                {r.phone && (r.phone_actions?.call || r.phone_actions?.text) && (
                   <ContactRow label="Personal">
-                    <ActionLink href={`tel:${r.phone}`} icon="📞" text="Call" />
-                    <ActionLink href={`sms:${r.phone}`} icon="💬" text="Text" />
+                    {r.phone_actions?.call && <ActionLink href={`tel:${r.phone}`} icon="📞" text="Call" />}
+                    {r.phone_actions?.text && <ActionLink href={`sms:${r.phone}`} icon="💬" text="Text" />}
                   </ContactRow>
                 )}
-                {r.company_phone && (
+                {r.company_phone && (r.company_phone_actions?.call || r.company_phone_actions?.text) && (
                   <ContactRow label="Work">
-                    <ActionLink href={`tel:${r.company_phone}`} icon="📞" text="Call" />
-                    <ActionLink href={`sms:${r.company_phone}`} icon="💬" text="Text" />
+                    {r.company_phone_actions?.call && <ActionLink href={`tel:${r.company_phone}`} icon="📞" text="Call" />}
+                    {r.company_phone_actions?.text && <ActionLink href={`sms:${r.company_phone}`} icon="💬" text="Text" />}
                   </ContactRow>
                 )}
                 {r.company_email && (

@@ -62,6 +62,22 @@ export const handler = async (event) => {
     for (const [key, col] of Object.entries(FIELD_MAP)) {
       if (hidden[key]) out[col] = null
     }
+
+    // Phones support sub-modes: '<key>_call' or '<key>_text' set true
+    // means that specific action is blocked. Compute per-phone action
+    // flags. If BOTH actions are blocked (or the phone is fully hidden)
+    // null the phone too so it falls off the card entirely.
+    function phoneActions(key) {
+      if (hidden[key]) return { call: false, text: false }
+      const call = !hidden[`${key}_call`]
+      const text = !hidden[`${key}_text`]
+      return { call, text }
+    }
+    out.phone_actions = phoneActions('phone')
+    out.company_phone_actions = phoneActions('company_phone')
+    if (!out.phone_actions.call && !out.phone_actions.text) out.phone = null
+    if (!out.company_phone_actions.call && !out.company_phone_actions.text) out.company_phone = null
+
     // Strip the birth YEAR before sending to the browser — month + day
     // only is what the public directory shows. Year stays in the DB for
     // HR records but never leaves the server.
