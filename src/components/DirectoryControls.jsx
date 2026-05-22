@@ -18,6 +18,20 @@ export const DIRECTORY_FIELDS = [
   { key: 'birthday', label: 'Birthday' },
 ]
 
+// Department names get normalized on every write so casing/whitespace
+// differences ("office" vs "Office" vs "  Office  ") all collapse to
+// the same canonical Title Case ("Office"). Returns null for empty
+// input so empty strings clear the field cleanly.
+export function normalizeDepartment(raw) {
+  if (raw == null) return null
+  const trimmed = String(raw).trim().replace(/\s+/g, ' ')
+  if (!trimmed) return null
+  return trimmed
+    .split(' ')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(' ')
+}
+
 // Phones support sub-modes beyond simple show/hide: Call+Text, Call only,
 // Text only, or fully hidden. State lives in directory_hidden using
 // three keys per phone:
@@ -94,7 +108,7 @@ export function directoryHiddenLabel(hidden) {
 // opens as the "Add staff / management" form for non-trainee additions.
 // Either way the onSave callback receives the full payload — the
 // parent decides whether to insert or update.
-export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
+export function AddStaffModal({ regionNames, existingDepartments = [], initial, onCancel, onSave }) {
   const isEdit = !!initial
   const [form, setForm] = useState(() => ({
     first_name: initial?.first_name || '',
@@ -125,7 +139,11 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
     if (!canSave) return
     setSaving(true)
     try {
-      await onSave({ ...form, directory_hidden: hidden })
+      await onSave({
+        ...form,
+        department: normalizeDepartment(form.department),
+        directory_hidden: hidden,
+      })
     } catch (e) {
       setErr(e.message || String(e))
     } finally {
@@ -207,9 +225,22 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
               type="text"
               value={form.department}
               onChange={(e) => update('department', e.target.value)}
+              onBlur={(e) => {
+                const norm = normalizeDepartment(e.target.value)
+                if (norm !== e.target.value) update('department', norm || '')
+              }}
+              list="dept-options"
               placeholder="e.g. Production, HR, Sales"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
+            <datalist id="dept-options">
+              {existingDepartments.map((d) => (
+                <option key={d} value={d} />
+              ))}
+            </datalist>
+            <span className="mt-1 block text-[11px] text-slate-500">
+              Pick from the suggestions to avoid duplicates. Casing auto-normalizes ("office" → "Office").
+            </span>
           </Field>
           <Field label="Level">
             <select

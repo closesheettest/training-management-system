@@ -6,6 +6,7 @@ import {
   AddStaffModal,
   DirectoryVisibilityModal,
   directoryHiddenLabel,
+  normalizeDepartment,
 } from '../components/DirectoryControls.jsx'
 
 // Manage directory — focused admin panel for the shared /directory
@@ -69,7 +70,7 @@ export default function DirectoryAdmin() {
       company_email: payload.company_email?.trim() || null,
       email: null,
       region: payload.region || null,
-      department: payload.department?.trim() || null,
+      department: normalizeDepartment(payload.department),
       rep_level: payload.rep_level || 'non_field',
       rep_level_confirmed_at: new Date().toISOString(),
       birthday: payload.birthday || null,
@@ -101,7 +102,7 @@ export default function DirectoryAdmin() {
       company_phone: payload.company_phone?.trim() || null,
       company_email: payload.company_email?.trim() || null,
       region: payload.region || null,
-      department: payload.department?.trim() || null,
+      department: normalizeDepartment(payload.department),
       rep_level: payload.rep_level || 'non_field',
       birthday: payload.birthday || null,
       directory_hidden: payload.directory_hidden || {},
@@ -145,7 +146,7 @@ export default function DirectoryAdmin() {
   }
 
   async function setDepartment(person, value) {
-    const next = value.trim() || null
+    const next = normalizeDepartment(value)
     if ((person.department || null) === next) return
     setSavingId(person.id)
     const { error } = await supabase
@@ -213,6 +214,12 @@ export default function DirectoryAdmin() {
     setVisibilityModal(null)
     await load()
   }
+
+  const existingDepartments = useMemo(() => {
+    const set = new Set()
+    for (const p of people) if (p.department) set.add(p.department)
+    return Array.from(set).sort()
+  }, [people])
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase()
@@ -447,6 +454,7 @@ export default function DirectoryAdmin() {
       {addOpen && (
         <AddStaffModal
           regionNames={regionNames}
+          existingDepartments={existingDepartments}
           onCancel={() => setAddOpen(false)}
           onSave={async (payload) => {
             const ok = await addStaff(payload)
@@ -458,6 +466,7 @@ export default function DirectoryAdmin() {
       {editPerson && (
         <AddStaffModal
           regionNames={regionNames}
+          existingDepartments={existingDepartments}
           initial={editPerson}
           onCancel={() => setEditPerson(null)}
           onSave={async (payload) => {
