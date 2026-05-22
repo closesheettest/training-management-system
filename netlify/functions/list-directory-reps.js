@@ -34,7 +34,7 @@ export const handler = async (event) => {
   const { data, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, company_email, region, rep_level, company_number',
+      'id, first_name, last_name, phone, company_email, region, rep_level, company_number, directory_hidden',
     )
     .eq('is_active_sales_rep', true)
     .order('last_name', { ascending: true })
@@ -42,7 +42,28 @@ export const handler = async (event) => {
 
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 
-  return json(200, { reps: data || [] })
+  // Apply per-person privacy: anything keyed "true" in directory_hidden
+  // gets stripped before the browser sees it. directory_hidden itself
+  // is also dropped from the response — admin tooling on /active-reps
+  // is where it's managed.
+  const FIELD_MAP = {
+    phone: 'phone',
+    email: 'company_email',
+    region: 'region',
+    level: 'rep_level',
+    company_number: 'company_number',
+  }
+  const reps = (data || []).map((r) => {
+    const hidden = (r.directory_hidden && typeof r.directory_hidden === 'object') ? r.directory_hidden : {}
+    const out = { ...r }
+    for (const [key, col] of Object.entries(FIELD_MAP)) {
+      if (hidden[key]) out[col] = null
+    }
+    delete out.directory_hidden
+    return out
+  })
+
+  return json(200, { reps })
 }
 
 function json(statusCode, body) {
