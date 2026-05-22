@@ -127,7 +127,7 @@ export default function RepMap() {
     setError(null)
     const { data, error: err } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, latitude, longitude, geocoded_at, street_address, city, state, zip, classes!class_id(week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, declined_at, left_company_at, cleanup_done_at, info_updated_at, class_id, latitude, longitude, geocoded_at, street_address, city, state, zip, rep_level, rep_level_confirmed_at, classes!class_id(week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (err) {
       setError(err.message)
@@ -399,6 +399,14 @@ export default function RepMap() {
                       />
                       {STATUS[status].label}
                     </div>
+                    {trainee.rep_level && (
+                      <div className="text-xs">
+                        🎖 {trainee.rep_level === 'junior' ? 'Junior' : 'Senior'} rep
+                        {!trainee.rep_level_confirmed_at && (
+                          <span className="text-slate-500"> (auto, unconfirmed)</span>
+                        )}
+                      </div>
+                    )}
                     <div className="text-xs text-slate-500">
                       Region: {trainee.region || '— (defaulted to corporate)'}
                     </div>

@@ -164,11 +164,16 @@ export default function TakeTest() {
       // unless it's already on (re-submitting an existing test).
       // Best-effort: failure here doesn't block them from seeing their
       // results page. Admin can also flip it manually on /active-reps.
+      // Graduating here = Junior by default. Stays unconfirmed
+      // (rep_level_confirmed_at null) so admin sees them in the
+      // "Rep levels to confirm" list on /active-reps and can flip
+      // to Senior if it was actually a re-cert / refresher.
       await supabase
         .from('trainees')
         .update({
           is_active_sales_rep: true,
           became_active_rep_at: new Date().toISOString(),
+          rep_level: 'junior',
         })
         .eq('id', trainee.id)
         .eq('is_active_sales_rep', false)

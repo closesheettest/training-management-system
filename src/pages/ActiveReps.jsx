@@ -56,7 +56,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -175,6 +175,29 @@ export default function ActiveReps() {
     await load()
   }
 
+  // Confirm or change a rep's level (junior/senior). Stamping
+  // rep_level_confirmed_at removes them from the "to confirm" list.
+  async function setRepLevel(trainee, level) {
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({
+        rep_level: level,
+        rep_level_confirmed_at: new Date().toISOString(),
+      })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `${trainee.first_name} ${trainee.last_name} set to ${level === 'junior' ? 'Junior' : 'Senior'} rep.`,
+    })
+    await load()
+  }
+
   // Mark a former rep's other-system cleanup as done. They disappear
   // from the pending list once stamped. Reversible: clear cleanup_done_at
   // in Supabase if admin needs to redo.
@@ -225,6 +248,13 @@ export default function ActiveReps() {
   // "Re-send update-info request" button.
   const neverUpdatedCount = useMemo(
     () => active.filter((t) => !t.info_updated_at).length,
+    [active],
+  )
+
+  // Active reps whose auto-assigned Junior/Senior level admin hasn't
+  // confirmed yet. Drives the "Rep levels to confirm" section.
+  const unconfirmedLevel = useMemo(
+    () => active.filter((t) => t.rep_level && !t.rep_level_confirmed_at),
     [active],
   )
 
@@ -289,6 +319,57 @@ export default function ActiveReps() {
         >
           {flash.text}
         </div>
+      )}
+
+      {unconfirmedLevel.length > 0 && (
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+          <h2 className="text-lg font-semibold text-indigo-900">
+            🎖 Rep levels to confirm ({unconfirmedLevel.length})
+          </h2>
+          <p className="mt-1 text-sm text-indigo-900">
+            The system has auto-guessed Junior or Senior for each rep below — Junior if they
+            graduated through this system, Senior if they were already on the team when bulk-imported.
+            Confirm the guess (one click) or flip it to the other level.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unconfirmedLevel.map((t) => {
+              const guess = t.rep_level
+              const other = guess === 'junior' ? 'senior' : 'junior'
+              return (
+                <li
+                  key={t.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0">
+                    <strong>{t.first_name} {t.last_name}</strong>{' '}
+                    <span className="text-slate-500">{t.phone || ''}</span>
+                    <span className="ml-2 text-xs text-slate-600">
+                      Auto-guess: <strong>{guess === 'junior' ? 'Junior' : 'Senior'}</strong>
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, guess)}
+                      disabled={savingId === t.id}
+                      className="rounded-md bg-indigo-700 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
+                    >
+                      {savingId === t.id ? '…' : `✓ Confirm ${guess === 'junior' ? 'Junior' : 'Senior'}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, other)}
+                      disabled={savingId === t.id}
+                      className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      Change to {other === 'junior' ? 'Junior' : 'Senior'}
+                    </button>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
       )}
 
       {suggested.length > 0 && (
@@ -493,6 +574,7 @@ export default function ActiveReps() {
                 saving={savingId === t.id}
                 onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
                 onPromote={() => toggle(t, true)}
+                onSetLevel={(lvl) => setRepLevel(t, lvl)}
               />
             ))}
           </ul>
@@ -578,10 +660,11 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
+  const levelConfirmed = !!t.rep_level_confirmed_at
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
       <div className="min-w-0">
@@ -589,6 +672,14 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote }) {
           <span className="font-medium text-slate-900">
             {t.first_name} {t.last_name}
           </span>
+          {active && t.rep_level && (
+            <RepLevelBadge
+              level={t.rep_level}
+              confirmed={levelConfirmed}
+              onChange={onSetLevel}
+              busy={saving}
+            />
+          )}
           {t.region ? (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
               📍 {t.region}
@@ -651,6 +742,46 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote }) {
         </button>
       )}
     </li>
+  )
+}
+
+// Junior/Senior badge with an inline "Change to X" link for confirmed
+// levels. Unconfirmed levels render in the dedicated "Rep levels to
+// confirm" section instead — but if one slips through (race condition,
+// stale view) the badge tags it as auto so admin can spot it.
+function RepLevelBadge({ level, confirmed, onChange, busy }) {
+  const isJunior = level === 'junior'
+  const label = isJunior ? 'Junior' : 'Senior'
+  const other = isJunior ? 'senior' : 'junior'
+  const otherLabel = isJunior ? 'Senior' : 'Junior'
+  const cls = isJunior
+    ? 'bg-emerald-100 text-emerald-800'
+    : 'bg-violet-100 text-violet-800'
+  return (
+    <span
+      className={
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ' +
+        cls
+      }
+      title={confirmed ? `Confirmed ${label} rep` : `Auto-assigned ${label} — not yet confirmed`}
+    >
+      🎖 {label}
+      {!confirmed && <span className="opacity-70">(auto)</span>}
+      {onChange && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            if (busy) return
+            if (confirm(`Change ${label} → ${otherLabel}?`)) onChange(other)
+          }}
+          disabled={busy}
+          className="ml-1 text-[10px] font-normal normal-case underline opacity-70 hover:opacity-100 disabled:opacity-40"
+        >
+          change
+        </button>
+      )}
+    </span>
   )
 }
 
