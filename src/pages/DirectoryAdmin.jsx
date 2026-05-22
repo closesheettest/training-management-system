@@ -231,7 +231,7 @@ export default function DirectoryAdmin() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Manage directory</h1>
           <p className="mt-2 text-slate-600">
-            Add or remove people from the shared{' '}
+            Click any name (or the ✏ Edit button) to open the full edit form. Add or remove people from the shared{' '}
             <a href="/directory" target="_blank" rel="noopener noreferrer" className="underline">
               team directory ↗
             </a>{' '}
@@ -305,8 +305,16 @@ export default function DirectoryAdmin() {
               const isSaving = savingId === p.id
               return (
                 <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-900">
-                    {p.first_name} {p.last_name}
+                  <td className="px-3 py-2 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setEditPerson(p)}
+                      disabled={isSaving}
+                      className="text-left text-slate-900 underline decoration-dotted hover:decoration-solid disabled:opacity-50"
+                      title="Open the full edit form for this person."
+                    >
+                      {p.first_name} {p.last_name}
+                    </button>
                   </td>
                   <td className="px-3 py-2">
                     {p.rep_level ? (

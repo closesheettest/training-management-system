@@ -77,9 +77,9 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
+      <div className="my-8 w-full max-w-3xl rounded-lg border border-slate-200 bg-white p-6 shadow-xl sm:my-0">
+        <h3 className="text-xl font-semibold text-slate-900">
           {isEdit ? `Edit ${initial.first_name} ${initial.last_name}` : 'Add staff / management'}
         </h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -88,7 +88,7 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
             : 'For people who aren\'t going through training (HR, ops, leadership) but should appear in the team directory. They skip the registration / class / test workflow.'}
         </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="First name *">
             <input
               type="text"
