@@ -34,7 +34,7 @@ export const handler = async (event) => {
   const { data, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, company_phone, company_email, region, department, rep_level, birthday, directory_hidden, directory_note',
+      'id, first_name, last_name, phone, company_phone, company_email, region, departments, rep_level, birthday, directory_hidden, directory_note',
     )
     .eq('is_active_sales_rep', true)
     .order('last_name', { ascending: true })
@@ -51,7 +51,7 @@ export const handler = async (event) => {
     company_phone: 'company_phone',
     email: 'company_email',
     region: 'region',
-    department: 'department',
+    department: 'departments',
     level: 'rep_level',
     birthday: 'birthday',
   }

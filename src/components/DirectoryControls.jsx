@@ -32,6 +32,23 @@ export function normalizeDepartment(raw) {
     .join(' ')
 }
 
+// Comma-separated input → array of normalized, deduped department names.
+// Each token runs through normalizeDepartment so "office, OFFICE" yields
+// just ["Office"]. Returns [] for empty/whitespace input (the column is
+// text[] not null, so callers should treat [] as "no departments set").
+export function normalizeDepartments(raw) {
+  if (raw == null) return []
+  const parts = String(raw).split(',').map(normalizeDepartment).filter(Boolean)
+  const seen = new Set()
+  const out = []
+  for (const p of parts) {
+    if (seen.has(p)) continue
+    seen.add(p)
+    out.push(p)
+  }
+  return out
+}
+
 // Phones support sub-modes beyond simple show/hide: Call+Text, Call only,
 // Text only, or fully hidden. State lives in directory_hidden using
 // three keys per phone:
@@ -117,7 +134,7 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
     company_phone: initial?.company_phone || '',
     company_email: initial?.company_email || '',
     region: initial?.region || '',
-    department: initial?.department || '',
+    departments: Array.isArray(initial?.departments) ? initial.departments.join(', ') : '',
     rep_level: initial?.rep_level || 'non_field',
     birthday: initial?.birthday ? String(initial.birthday).slice(0, 10) : '',
     directory_note: initial?.directory_note || '',
@@ -141,7 +158,7 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
     try {
       await onSave({
         ...form,
-        department: normalizeDepartment(form.department),
+        departments: normalizeDepartments(form.departments),
         directory_hidden: hidden,
       })
     } catch (e) {
@@ -220,17 +237,17 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
               ))}
             </select>
           </Field>
-          <Field label="Department">
+          <Field label="Departments">
             <input
               type="text"
-              value={form.department}
-              onChange={(e) => update('department', e.target.value)}
+              value={form.departments}
+              onChange={(e) => update('departments', e.target.value)}
               onBlur={(e) => {
-                const norm = normalizeDepartment(e.target.value)
-                if (norm !== e.target.value) update('department', norm || '')
+                const norm = normalizeDepartments(e.target.value).join(', ')
+                if (norm !== e.target.value) update('departments', norm)
               }}
               list="dept-options"
-              placeholder="e.g. Production, HR, Sales"
+              placeholder="e.g. Sales, HR"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
             <datalist id="dept-options">
@@ -239,7 +256,7 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
               ))}
             </datalist>
             <span className="mt-1 block text-[11px] text-slate-500">
-              Pick from the suggestions to avoid duplicates. Casing auto-normalizes ("office" → "Office").
+              Comma-separated for multiple. Casing auto-normalizes ("office" → "Office"); duplicates collapse.
             </span>
           </Field>
           <Field label="Level">

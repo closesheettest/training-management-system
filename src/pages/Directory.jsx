@@ -64,7 +64,10 @@ export default function Directory() {
   const departments = useMemo(() => {
     if (!reps) return []
     const set = new Set()
-    for (const r of reps) if (r.department) set.add(r.department)
+    for (const r of reps) {
+      const list = Array.isArray(r.departments) ? r.departments : []
+      for (const d of list) if (d) set.add(d)
+    }
     return Array.from(set).sort()
   }, [reps])
 
@@ -79,10 +82,11 @@ export default function Directory() {
     if (!hasFilter) return []
     const s = search.trim().toLowerCase()
     return reps.filter((r) => {
+      const depts = Array.isArray(r.departments) ? r.departments : []
       if (regionFilter && r.region !== regionFilter) return false
-      if (deptFilter && r.department !== deptFilter) return false
+      if (deptFilter && !depts.includes(deptFilter)) return false
       if (!s) return true
-      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.department || ''}`.toLowerCase()
+      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${depts.join(' ')}`.toLowerCase()
       return hay.includes(s)
     })
   }, [reps, search, regionFilter, deptFilter, hasFilter])
@@ -181,7 +185,9 @@ export default function Directory() {
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
                     {r.region && <span>📍 {r.region}</span>}
-                    {r.department && <span>🏷 {r.department}</span>}
+                    {Array.isArray(r.departments) && r.departments.map((d) => (
+                      <span key={d}>🏷 {d}</span>
+                    ))}
                     {r.birthday && <span>🎂 {formatBirthdayShort(r.birthday)}</span>}
                   </div>
                 </div>

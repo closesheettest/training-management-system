@@ -6,7 +6,7 @@ import {
   AddStaffModal,
   DirectoryVisibilityModal,
   directoryHiddenLabel,
-  normalizeDepartment,
+  normalizeDepartments,
 } from '../components/DirectoryControls.jsx'
 
 // Manage directory — focused admin panel for the shared /directory
@@ -45,7 +45,7 @@ export default function DirectoryAdmin() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, company_phone, email, company_email, region, department, rep_level, rep_level_confirmed_at, company_number, birthday, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
+        'id, first_name, last_name, phone, company_phone, email, company_email, region, departments, rep_level, rep_level_confirmed_at, company_number, birthday, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
       )
       .eq('is_active_sales_rep', true)
       .order('last_name', { ascending: true })
@@ -70,7 +70,7 @@ export default function DirectoryAdmin() {
       company_email: payload.company_email?.trim() || null,
       email: null,
       region: payload.region || null,
-      department: normalizeDepartment(payload.department),
+      departments: Array.isArray(payload.departments) ? payload.departments : normalizeDepartments(payload.departments),
       rep_level: payload.rep_level || 'non_field',
       rep_level_confirmed_at: new Date().toISOString(),
       birthday: payload.birthday || null,
@@ -102,7 +102,7 @@ export default function DirectoryAdmin() {
       company_phone: payload.company_phone?.trim() || null,
       company_email: payload.company_email?.trim() || null,
       region: payload.region || null,
-      department: normalizeDepartment(payload.department),
+      departments: Array.isArray(payload.departments) ? payload.departments : normalizeDepartments(payload.departments),
       rep_level: payload.rep_level || 'non_field',
       birthday: payload.birthday || null,
       directory_hidden: payload.directory_hidden || {},
@@ -145,20 +145,21 @@ export default function DirectoryAdmin() {
     await load()
   }
 
-  async function setDepartment(person, value) {
-    const next = normalizeDepartment(value)
-    if ((person.department || null) === next) return
+  async function setDepartments(person, value) {
+    const next = normalizeDepartments(value)
+    const current = Array.isArray(person.departments) ? person.departments : []
+    if (sameArray(current, next)) return
     setSavingId(person.id)
     const { error } = await supabase
       .from('trainees')
-      .update({ department: next })
+      .update({ departments: next.length ? next : null })
       .eq('id', person.id)
     setSavingId(null)
     if (error) {
       setFlash({ kind: 'error', text: error.message })
       return
     }
-    setFlash({ kind: 'success', text: `Department updated for ${person.first_name} ${person.last_name}.` })
+    setFlash({ kind: 'success', text: `Departments updated for ${person.first_name} ${person.last_name}.` })
     await load()
   }
 
@@ -217,7 +218,10 @@ export default function DirectoryAdmin() {
 
   const existingDepartments = useMemo(() => {
     const set = new Set()
-    for (const p of people) if (p.department) set.add(p.department)
+    for (const p of people) {
+      const list = Array.isArray(p.departments) ? p.departments : []
+      for (const d of list) if (d) set.add(d)
+    }
     return Array.from(set).sort()
   }, [people])
 
@@ -225,7 +229,8 @@ export default function DirectoryAdmin() {
     const s = search.trim().toLowerCase()
     if (!s) return people
     return people.filter((p) => {
-      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.region || ''} ${p.department || ''} ${formatBirthday(p.birthday) || ''}`.toLowerCase()
+      const deptText = Array.isArray(p.departments) ? p.departments.join(' ') : ''
+      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.region || ''} ${deptText} ${formatBirthday(p.birthday) || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [people, search])
@@ -372,10 +377,10 @@ export default function DirectoryAdmin() {
                   </td>
                   <td className="px-3 py-2">
                     <EditableTextCell
-                      value={p.department}
+                      value={Array.isArray(p.departments) ? p.departments.join(', ') : ''}
                       hidden={hidden.department}
-                      placeholder="e.g. Production"
-                      onSave={(v) => setDepartment(p, v)}
+                      placeholder="e.g. Sales, HR"
+                      onSave={(v) => setDepartments(p, v)}
                       busy={isSaving}
                     />
                   </td>
@@ -576,6 +581,17 @@ function PhoneActions({ number }) {
       </a>
     </span>
   )
+}
+
+// Order-insensitive equality for string arrays. Used to skip a DB
+// write when the normalized departments list didn't actually change.
+function sameArray(a, b) {
+  if (a === b) return true
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((v, i) => v === sb[i])
 }
 
 // Format the DB date string ('YYYY-MM-DD') for admin display — full
