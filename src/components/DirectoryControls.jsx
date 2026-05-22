@@ -12,10 +12,11 @@ export const DIRECTORY_FIELDS = [
   { key: 'phone', label: 'Personal phone' },
   { key: 'company_phone', label: 'Work phone' },
   { key: 'email', label: 'Company email' },
-  { key: 'region', label: 'Region' },
+  { key: 'region', label: 'Territory' },
   { key: 'department', label: 'Department' },
   { key: 'level', label: 'Junior / Senior / Non-field badge' },
   { key: 'company_number', label: 'Company number' },
+  { key: 'birthday', label: 'Birthday' },
 ]
 
 // One-line summary of a rep's directory visibility — "all 5 shown",
@@ -47,6 +48,7 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
     department: initial?.department || '',
     company_number: initial?.company_number || '',
     rep_level: initial?.rep_level || 'non_field',
+    birthday: initial?.birthday ? String(initial.birthday).slice(0, 10) : '',
     directory_note: initial?.directory_note || '',
   }))
   const [hidden, setHidden] = useState(() => ({ ...(initial?.directory_hidden || {}) }))
@@ -131,7 +133,7 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
           </Field>
-          <Field label="Region">
+          <Field label="Territory">
             <select
               value={form.region}
               onChange={(e) => update('region', e.target.value)}
@@ -171,6 +173,17 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
               <option value="junior">Junior</option>
               <option value="senior">Senior</option>
             </select>
+          </Field>
+          <Field label="Birthday">
+            <input
+              type="date"
+              value={form.birthday}
+              onChange={(e) => update('birthday', e.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <span className="mt-1 block text-[11px] text-slate-500">
+              Public directory shows month + day only (year stays private).
+            </span>
           </Field>
         </div>
 

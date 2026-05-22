@@ -34,7 +34,7 @@ export const handler = async (event) => {
   const { data, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, company_phone, company_email, region, department, rep_level, company_number, directory_hidden, directory_note',
+      'id, first_name, last_name, phone, company_phone, company_email, region, department, rep_level, company_number, birthday, directory_hidden, directory_note',
     )
     .eq('is_active_sales_rep', true)
     .order('last_name', { ascending: true })
@@ -54,12 +54,22 @@ export const handler = async (event) => {
     department: 'department',
     level: 'rep_level',
     company_number: 'company_number',
+    birthday: 'birthday',
   }
   const reps = (data || []).map((r) => {
     const hidden = (r.directory_hidden && typeof r.directory_hidden === 'object') ? r.directory_hidden : {}
     const out = { ...r }
     for (const [key, col] of Object.entries(FIELD_MAP)) {
       if (hidden[key]) out[col] = null
+    }
+    // Strip the birth YEAR before sending to the browser — month + day
+    // only is what the public directory shows. Year stays in the DB for
+    // HR records but never leaves the server.
+    if (out.birthday) {
+      const parts = String(out.birthday).slice(0, 10).split('-')
+      if (parts.length === 3) {
+        out.birthday = `2000-${parts[1]}-${parts[2]}`
+      }
     }
     delete out.directory_hidden
     return out

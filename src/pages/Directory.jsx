@@ -110,7 +110,7 @@ export default function Directory() {
               onChange={(e) => setRegionFilter(e.target.value)}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
-              <option value="">All regions</option>
+              <option value="">All territories</option>
               {regions.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -161,6 +161,7 @@ export default function Directory() {
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
                     {r.region && <span>📍 {r.region}</span>}
                     {r.department && <span>🏷 {r.department}</span>}
+                    {r.birthday && <span>🎂 {formatBirthdayShort(r.birthday)}</span>}
                   </div>
                 </div>
                 {r.rep_level && (
@@ -216,6 +217,18 @@ export default function Directory() {
       </main>
     </div>
   )
+}
+
+// Format 'YYYY-MM-DD' as "Mar 15" — month + day only, no year. Used
+// on the public directory so birthdays can be celebrated without
+// revealing the year. Component-wise parse avoids `new Date(s)` UTC
+// shifts that can flip the day in some timezones.
+function formatBirthdayShort(s) {
+  if (!s) return ''
+  const parts = String(s).slice(0, 10).split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return ''
+  const d = new Date(parts[0], parts[1] - 1, parts[2])
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 // One row of the contact dl — a label on the left and one or more
