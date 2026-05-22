@@ -32,6 +32,7 @@ import GroupMessages from './pages/GroupMessages.jsx'
 import ActiveReps from './pages/ActiveReps.jsx'
 import RepMap from './pages/RepMap.jsx'
 import Regions from './pages/Regions.jsx'
+import Directory from './pages/Directory.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -76,6 +77,11 @@ export default function App() {
             Group Messages broadcast and fill in personal email + home
             address. Token-gated. */}
         <Route path="/update-info/:token" element={<MinimalLayout><UpdateInfo /></MinimalLayout>} />
+
+        {/* Public company directory — shareable phone-book of every
+            active team member. Its own self-contained layout (no admin
+            nav) so anyone given the URL stays scoped to this page only. */}
+        <Route path="/directory" element={<Directory />} />
 
         {/* Internal admin routes — full chrome (gated by persona splash).
             Each top-nav route is wrapped in <RouteGate> which checks the

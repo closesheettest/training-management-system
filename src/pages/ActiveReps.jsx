@@ -68,7 +68,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -210,6 +210,29 @@ export default function ActiveReps() {
     setFlash({
       kind: 'success',
       text: `Updated active-since date for ${trainee.first_name} ${trainee.last_name}.`,
+    })
+    await load()
+  }
+
+  // Set the company number — HR-managed identifier shown in the public
+  // /directory page (employee ID, badge number, work extension, etc.).
+  // Empty string clears it.
+  async function setCompanyNumber(trainee, value) {
+    const next = value.trim() || null
+    if ((trainee.company_number || null) === next) return
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ company_number: next })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `Updated company number for ${trainee.first_name} ${trainee.last_name}.`,
     })
     await load()
   }
@@ -640,6 +663,7 @@ export default function ActiveReps() {
                 onPromote={() => toggle(t, true)}
                 onSetLevel={(lvl) => setRepLevel(t, lvl)}
                 onSetActiveSince={(iso) => setActiveSince(t, iso)}
+                onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
               />
             ))}
           </ul>
@@ -673,6 +697,7 @@ export default function ActiveReps() {
                 onPromote={() => toggle(t, true)}
                 onSetLevel={(lvl) => setRepLevel(t, lvl)}
                 onSetActiveSince={(iso) => setActiveSince(t, iso)}
+                onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
               />
             ))}
           </ul>
@@ -758,7 +783,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -811,6 +836,13 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
             <EditableActiveSince
               value={t.became_active_rep_at}
               onSave={(iso) => onSetActiveSince && onSetActiveSince(iso)}
+              busy={saving}
+            />
+            {' · '}
+            Company #:{' '}
+            <EditableCompanyNumber
+              value={t.company_number}
+              onSave={(v) => onSetCompanyNumber && onSetCompanyNumber(v)}
               busy={saving}
             />
             {' · '}
@@ -998,6 +1030,47 @@ function EditableActiveSince({ value, onSave, busy }) {
       title="Click to edit the real 'active with us since' date — HR uses this for company tenure."
     >
       {value ? fmtDateString(value) : 'set date'}
+    </button>
+  )
+}
+
+// Click-to-edit company number (employee ID / badge / work extension —
+// free text). Saves on blur or Enter; empty string clears the field.
+function EditableCompanyNumber({ value, onSave, busy }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) {
+    return (
+      <input
+        type="text"
+        defaultValue={value || ''}
+        autoFocus
+        disabled={busy}
+        onBlur={(e) => {
+          setEditing(false)
+          onSave(e.target.value)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            setEditing(false)
+            onSave(e.currentTarget.value)
+          } else if (e.key === 'Escape') {
+            setEditing(false)
+          }
+        }}
+        placeholder="e.g. 1042"
+        className="w-24 rounded border border-slate-300 px-1 text-[11px]"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      disabled={busy}
+      className="underline decoration-dotted hover:decoration-solid disabled:opacity-50"
+      title="Click to edit company number (employee ID / badge / extension)."
+    >
+      {value || 'set'}
     </button>
   )
 }
