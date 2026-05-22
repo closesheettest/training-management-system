@@ -68,8 +68,15 @@ export default function Directory() {
     return Array.from(set).sort()
   }, [reps])
 
+  // Privacy default: the full roster doesn't appear until the visitor
+  // narrows by typing a name or picking a department / territory. Keeps
+  // the directory from doubling as a one-tap dump of everyone's contact
+  // info for anyone who happens to load the URL.
+  const hasFilter = !!search.trim() || !!deptFilter || !!regionFilter
+
   const filtered = useMemo(() => {
     if (!reps) return []
+    if (!hasFilter) return []
     const s = search.trim().toLowerCase()
     return reps.filter((r) => {
       if (regionFilter && r.region !== regionFilter) return false
@@ -78,7 +85,7 @@ export default function Directory() {
       const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.department || ''}`.toLowerCase()
       return hay.includes(s)
     })
-  }, [reps, search, regionFilter, deptFilter])
+  }, [reps, search, regionFilter, deptFilter, hasFilter])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -131,7 +138,9 @@ export default function Directory() {
           <div className="ml-auto text-xs text-slate-500">
             {reps === null
               ? 'Loading…'
-              : `${filtered.length} of ${reps.length} people`}
+              : !hasFilter
+                ? `${reps.length} people on the team`
+                : `${filtered.length} match${filtered.length === 1 ? '' : 'es'}`}
           </div>
         </div>
 
@@ -141,7 +150,19 @@ export default function Directory() {
           </div>
         )}
 
-        {reps !== null && filtered.length === 0 && !error && (
+        {reps !== null && !hasFilter && !error && (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-10 text-center">
+            <div className="text-3xl">🔎</div>
+            <p className="mt-2 text-sm font-medium text-slate-700">
+              Pick a department above or start typing a name to find someone.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              The full team list stays hidden until you narrow your search.
+            </p>
+          </div>
+        )}
+
+        {reps !== null && hasFilter && filtered.length === 0 && !error && (
           <p className="rounded-md border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
             No matches.
           </p>
