@@ -373,8 +373,16 @@ export default function RepMap() {
             const loc = locationForTrainee(trainee, regions)
             const icon = loc.geocoded ? ICONS[status].solid : ICONS[status].hollow
             return (
-              <Marker key={trainee.id} position={[loc.lat, loc.lng]} icon={icon}>
-                <Popup>
+              <Marker
+                key={trainee.id}
+                position={[loc.lat, loc.lng]}
+                icon={icon}
+                eventHandlers={{
+                  mouseover: (e) => e.target.openPopup(),
+                  mouseout: (e) => e.target.closePopup(),
+                }}
+              >
+                <Popup closeButton={false} autoPan={false}>
                   <div className="text-sm">
                     <div className="font-semibold">
                       {trainee.first_name} {trainee.last_name}
