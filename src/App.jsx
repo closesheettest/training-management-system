@@ -155,6 +155,11 @@ function AdminLayout() {
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
     { key: 'team.regions', to: '/regions', label: 'Regions' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
+    // External so the dropdown shows the ↗ arrow and opens in a new
+    // tab — matches the System Overview link pattern. The directory
+    // page intentionally has no admin nav of its own, so this is the
+    // only shortcut into it from the admin UI.
+    { key: 'settings.active_reps', href: '/directory', external: true, label: 'Team directory' },
   ].filter((it) => show(it.key))
   const settingsItems = [
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
