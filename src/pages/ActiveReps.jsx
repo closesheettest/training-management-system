@@ -3,6 +3,14 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
 
+// Display labels for rep_level values. Single source of truth so the
+// "to confirm" buttons, badges, and dropdowns all read the same.
+const LEVEL_LABEL = {
+  junior: 'Junior',
+  senior: 'Senior',
+  non_field: 'Non-field',
+}
+
 // Active Sales Reps page — admin's master list of "in the field" reps.
 //
 // The is_active_sales_rep flag on trainees is the durable "on the sales
@@ -28,6 +36,10 @@ export default function ActiveReps() {
   // FUTURE training class — i.e. people still in the pipeline. Once
   // they submit their final test they'll auto-flip to active.
   const [notYetActive, setNotYetActive] = useState([])
+  // 'Non-field' = on the company team but not a field sales rep
+  // (admin / ops / etc.). Excluded from the active sales rep section
+  // and from "All active sales reps" group blasts.
+  const [nonField, setNonField] = useState([])
   // 'Dropouts' = inactive trainees whose training class has ENDED but
   // they never graduated (no test submission, or auto-flagged as a
   // no-show). Effectively dead leads. Kept around for record-keeping
@@ -98,7 +110,11 @@ export default function ActiveReps() {
       return 'notYet'
     }
 
-    setActive(all.filter((t) => t.is_active_sales_rep))
+    // Active = on the team in the field (junior / senior / unset level).
+    // Non-field = on the team but rep_level = non_field. Both have
+    // is_active_sales_rep = true; we just split them visually.
+    setActive(all.filter((t) => t.is_active_sales_rep && t.rep_level !== 'non_field'))
+    setNonField(all.filter((t) => t.is_active_sales_rep && t.rep_level === 'non_field'))
     setNotYetActive(all.filter((t) => classifyInactive(t) === 'notYet'))
     setDropouts(
       all
@@ -242,6 +258,7 @@ export default function ActiveReps() {
   })
   const notYetActiveFiltered = filterList(notYetActive)
   const dropoutsFiltered = filterList(dropouts)
+  const nonFieldFiltered = filterList(nonField)
 
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
@@ -334,7 +351,7 @@ export default function ActiveReps() {
           <ul className="mt-3 space-y-2">
             {unconfirmedLevel.map((t) => {
               const guess = t.rep_level
-              const other = guess === 'junior' ? 'senior' : 'junior'
+              const otherFieldLevel = guess === 'junior' ? 'senior' : 'junior'
               return (
                 <li
                   key={t.id}
@@ -344,7 +361,7 @@ export default function ActiveReps() {
                     <strong>{t.first_name} {t.last_name}</strong>{' '}
                     <span className="text-slate-500">{t.phone || ''}</span>
                     <span className="ml-2 text-xs text-slate-600">
-                      Auto-guess: <strong>{guess === 'junior' ? 'Junior' : 'Senior'}</strong>
+                      Auto-guess: <strong>{LEVEL_LABEL[guess]}</strong>
                     </span>
                   </span>
                   <span className="flex flex-wrap gap-2">
@@ -354,15 +371,24 @@ export default function ActiveReps() {
                       disabled={savingId === t.id}
                       className="rounded-md bg-indigo-700 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
                     >
-                      {savingId === t.id ? '…' : `✓ Confirm ${guess === 'junior' ? 'Junior' : 'Senior'}`}
+                      {savingId === t.id ? '…' : `✓ Confirm ${LEVEL_LABEL[guess]}`}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRepLevel(t, other)}
+                      onClick={() => setRepLevel(t, otherFieldLevel)}
                       disabled={savingId === t.id}
                       className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50"
                     >
-                      Change to {other === 'junior' ? 'Junior' : 'Senior'}
+                      Change to {LEVEL_LABEL[otherFieldLevel]}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, 'non_field')}
+                      disabled={savingId === t.id}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      title="Not a field sales rep — admin / ops / other role. Removes them from /active-reps and from 'all active sales reps' broadcasts."
+                    >
+                      Move to Non-field
                     </button>
                   </span>
                 </li>
@@ -519,7 +545,8 @@ export default function ActiveReps() {
           className="w-full max-w-xs rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <div className="text-sm text-slate-600">
-          <strong className="text-emerald-700">{active.length}</strong> active ·{' '}
+          <strong className="text-emerald-700">{active.length}</strong> active field ·{' '}
+          <strong className="text-slate-500">{nonField.length}</strong> non-field ·{' '}
           <strong className="text-slate-500">{notYetActive.length}</strong> not yet active ·{' '}
           <strong className="text-slate-500">{dropouts.length}</strong> dropouts
           {(regionFilter || neverUpdatedOnly || search) && (
@@ -556,7 +583,7 @@ export default function ActiveReps() {
 
       <section className="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-emerald-900">
-          ⭐ Active sales reps ({activeFiltered.length})
+          ⭐ Active field sales reps ({activeFiltered.length})
         </h2>
         {loading ? (
           <p className="mt-3 text-sm text-slate-500">Loading…</p>
@@ -567,6 +594,38 @@ export default function ActiveReps() {
         ) : (
           <ul className="mt-3 divide-y divide-slate-100">
             {activeFiltered.map((t) => (
+              <RepRow
+                key={t.id}
+                t={t}
+                active
+                saving={savingId === t.id}
+                onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
+                onPromote={() => toggle(t, true)}
+                onSetLevel={(lvl) => setRepLevel(t, lvl)}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">
+          🧑‍💼 Non-field roles ({nonFieldFiltered.length})
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Still on the company team but not field sales reps (admin / ops / other). They don't
+          receive "All active sales reps" broadcasts and aren't counted in the field map. Use the
+          level dropdown to move someone back to Junior or Senior.
+        </p>
+        {loading ? (
+          <p className="mt-3 text-sm text-slate-500">Loading…</p>
+        ) : nonFieldFiltered.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">
+            {search ? 'No matches.' : 'No non-field roles yet.'}
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-100">
+            {nonFieldFiltered.map((t) => (
               <RepRow
                 key={t.id}
                 t={t}
@@ -745,41 +804,46 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel }) {
   )
 }
 
-// Junior/Senior badge with an inline "Change to X" link for confirmed
-// levels. Unconfirmed levels render in the dedicated "Rep levels to
-// confirm" section instead — but if one slips through (race condition,
-// stale view) the badge tags it as auto so admin can spot it.
+// Rep level badge with an inline native <select> for changing. Three
+// options: Junior, Senior, Non-field. Saving fires on change. Unconfirmed
+// levels show an "(auto)" tag so admin spots that they should still be
+// confirmed via the "Rep levels to confirm" section.
 function RepLevelBadge({ level, confirmed, onChange, busy }) {
-  const isJunior = level === 'junior'
-  const label = isJunior ? 'Junior' : 'Senior'
-  const other = isJunior ? 'senior' : 'junior'
-  const otherLabel = isJunior ? 'Senior' : 'Junior'
-  const cls = isJunior
-    ? 'bg-emerald-100 text-emerald-800'
-    : 'bg-violet-100 text-violet-800'
+  const label = LEVEL_LABEL[level] || level
+  const cls =
+    level === 'junior'
+      ? 'bg-emerald-100 text-emerald-800'
+      : level === 'senior'
+        ? 'bg-violet-100 text-violet-800'
+        : 'bg-slate-200 text-slate-700'
   return (
     <span
       className={
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ' +
         cls
       }
-      title={confirmed ? `Confirmed ${label} rep` : `Auto-assigned ${label} — not yet confirmed`}
+      title={confirmed ? `Confirmed ${label}` : `Auto-assigned ${label} — not yet confirmed`}
     >
       🎖 {label}
       {!confirmed && <span className="opacity-70">(auto)</span>}
       {onChange && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault()
+        <select
+          value={level}
+          onChange={(e) => {
+            const next = e.target.value
+            if (next === level) return
             if (busy) return
-            if (confirm(`Change ${label} → ${otherLabel}?`)) onChange(other)
+            if (confirm(`Change ${label} → ${LEVEL_LABEL[next]}?`)) onChange(next)
           }}
           disabled={busy}
-          className="ml-1 text-[10px] font-normal normal-case underline opacity-70 hover:opacity-100 disabled:opacity-40"
+          className="ml-1 bg-transparent text-[10px] font-normal normal-case underline opacity-70 hover:opacity-100 disabled:opacity-40"
+          aria-label="Change rep level"
+          title="Change level"
         >
-          change
-        </button>
+          <option value="junior">Junior</option>
+          <option value="senior">Senior</option>
+          <option value="non_field">Non-field</option>
+        </select>
       )}
     </span>
   )

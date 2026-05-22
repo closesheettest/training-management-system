@@ -134,7 +134,7 @@ export const handler = async (event) => {
   let q = supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep',
+      'id, first_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep, rep_level',
     )
 
   // trainee_ids overrides every other scope — used by "Email these
@@ -149,7 +149,12 @@ export const handler = async (event) => {
   } else if (body.scope === 'all_active_reps' || body.scope === 'all_enrolled') {
     // 'all_enrolled' is the legacy alias — kept so a cached client doesn't
     // 400. Both paths apply the same active-rep filter.
-    q = q.eq('is_active_sales_rep', true)
+    // Non-field staff (rep_level = 'non_field') are still on the team but
+    // not field sales — exclude them from "all active sales reps" blasts.
+    // .or() handles the null case (legacy rows without a level set).
+    q = q
+      .eq('is_active_sales_rep', true)
+      .or('rep_level.is.null,rep_level.neq.non_field')
     if (body.region) {
       // Optional region slice — regional-manager broadcasts. Skipped on
       // company-wide blasts.

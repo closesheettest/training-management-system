@@ -84,9 +84,12 @@ export const handler = async (event) => {
   const { data: candidates, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, registration_token, info_updated_at, last_update_reminder_sent_at, update_reminder_count, is_active_sales_rep',
+      'id, first_name, phone, registration_token, info_updated_at, last_update_reminder_sent_at, update_reminder_count, is_active_sales_rep, rep_level',
     )
     .eq('is_active_sales_rep', true)
+    // Skip non-field staff — they're not a field sales rep and the
+    // update-info ask (region, home address) doesn't apply.
+    .or('rep_level.is.null,rep_level.neq.non_field')
     .is('info_updated_at', null)
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 

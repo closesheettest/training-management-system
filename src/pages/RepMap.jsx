@@ -152,6 +152,9 @@ export default function RepMap() {
     function classify(t) {
       if (t.left_company_at && !t.cleanup_done_at) return 'departed'
       if (t.declined_at) return null // declined trainees not shown
+      // Non-field staff aren't field sales — they're hidden from the
+      // field map entirely (no status bucket).
+      if (t.rep_level === 'non_field') return null
       if (t.is_active_sales_rep) return 'active'
       const c = t.classes
       if (c?.attendance_only) return null // dedup'd dupes etc — hidden
