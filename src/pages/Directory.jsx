@@ -101,7 +101,7 @@ export default function Directory() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email, department, or company number…"
+            placeholder="Search by name, phone, email, department, or employee ID…"
             className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           {regions.length > 0 && (
@@ -194,7 +194,7 @@ export default function Directory() {
                   </ContactRow>
                 )}
                 {r.company_number && (
-                  <ContactRow label="Company #">
+                  <ContactRow label="Employee ID">
                     <span className="font-mono text-xs">{r.company_number}</span>
                   </ContactRow>
                 )}

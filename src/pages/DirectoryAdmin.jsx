@@ -266,7 +266,7 @@ export default function DirectoryAdmin() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, phone, email, territory, department, company #, or birthday…"
+          placeholder="Search by name, phone, email, territory, department, employee ID, or birthday…"
           className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <div className="text-xs text-slate-500">
@@ -285,7 +285,7 @@ export default function DirectoryAdmin() {
               <th className="px-3 py-2 text-left">Company email</th>
               <th className="px-3 py-2 text-left">Territory</th>
               <th className="px-3 py-2 text-left">Department</th>
-              <th className="px-3 py-2 text-left">Company #</th>
+              <th className="px-3 py-2 text-left">Employee ID</th>
               <th className="px-3 py-2 text-left">Birthday</th>
               <th className="px-3 py-2 text-left">Directory</th>
               <th className="px-3 py-2 text-left">Note</th>

@@ -940,7 +940,7 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               busy={saving}
             />
             {' · '}
-            Company #:{' '}
+            Employee ID:{' '}
             <EditableCompanyNumber
               value={t.company_number}
               onSave={(v) => onSetCompanyNumber && onSetCompanyNumber(v)}
