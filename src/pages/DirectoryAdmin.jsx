@@ -43,7 +43,7 @@ export default function DirectoryAdmin() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, company_phone, email, company_email, region, rep_level, rep_level_confirmed_at, company_number, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
+        'id, first_name, last_name, phone, company_phone, email, company_email, region, department, rep_level, rep_level_confirmed_at, company_number, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
       )
       .eq('is_active_sales_rep', true)
       .order('last_name', { ascending: true })
@@ -68,6 +68,7 @@ export default function DirectoryAdmin() {
       company_email: payload.company_email?.trim() || null,
       email: null,
       region: payload.region || null,
+      department: payload.department?.trim() || null,
       company_number: payload.company_number?.trim() || null,
       rep_level: payload.rep_level || 'non_field',
       rep_level_confirmed_at: new Date().toISOString(),
@@ -110,6 +111,23 @@ export default function DirectoryAdmin() {
       return
     }
     setFlash({ kind: 'success', text: `Removed ${person.first_name} ${person.last_name}.` })
+    await load()
+  }
+
+  async function setDepartment(person, value) {
+    const next = value.trim() || null
+    if ((person.department || null) === next) return
+    setSavingId(person.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ department: next })
+      .eq('id', person.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `Department updated for ${person.first_name} ${person.last_name}.` })
     await load()
   }
 
@@ -170,7 +188,7 @@ export default function DirectoryAdmin() {
     const s = search.trim().toLowerCase()
     if (!s) return people
     return people.filter((p) => {
-      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.company_number || ''} ${p.region || ''}`.toLowerCase()
+      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.company_number || ''} ${p.region || ''} ${p.department || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [people, search])
@@ -216,7 +234,7 @@ export default function DirectoryAdmin() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, phone, email, region, or company #…"
+          placeholder="Search by name, phone, email, region, department, or company #…"
           className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <div className="text-xs text-slate-500">
@@ -234,6 +252,7 @@ export default function DirectoryAdmin() {
               <th className="px-3 py-2 text-left">Work phone</th>
               <th className="px-3 py-2 text-left">Company email</th>
               <th className="px-3 py-2 text-left">Region</th>
+              <th className="px-3 py-2 text-left">Department</th>
               <th className="px-3 py-2 text-left">Company #</th>
               <th className="px-3 py-2 text-left">Directory</th>
               <th className="px-3 py-2 text-left">Note</th>
@@ -243,7 +262,7 @@ export default function DirectoryAdmin() {
           <tbody>
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-sm text-slate-500">
+                <td colSpan={11} className="px-3 py-6 text-center text-sm text-slate-500">
                   {search ? 'No matches.' : 'Nobody in the directory yet — click + Add person.'}
                 </td>
               </tr>
@@ -287,6 +306,15 @@ export default function DirectoryAdmin() {
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={p.region} hidden={hidden.region} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <EditableTextCell
+                      value={p.department}
+                      hidden={hidden.department}
+                      placeholder="e.g. Production"
+                      onSave={(v) => setDepartment(p, v)}
+                      busy={isSaving}
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={p.company_number} hidden={hidden.company_number} />

@@ -13,6 +13,7 @@ export const DIRECTORY_FIELDS = [
   { key: 'company_phone', label: 'Work phone' },
   { key: 'email', label: 'Company email' },
   { key: 'region', label: 'Region' },
+  { key: 'department', label: 'Department' },
   { key: 'level', label: 'Junior / Senior / Non-field badge' },
   { key: 'company_number', label: 'Company number' },
 ]
@@ -39,6 +40,7 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
     company_phone: '',
     company_email: '',
     region: '',
+    department: '',
     company_number: '',
     rep_level: 'non_field',
     directory_note: '',
@@ -133,6 +135,15 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+          </Field>
+          <Field label="Department">
+            <input
+              type="text"
+              value={form.department}
+              onChange={(e) => update('department', e.target.value)}
+              placeholder="e.g. Production, HR, Sales"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
           </Field>
           <Field label="Company number">
             <input

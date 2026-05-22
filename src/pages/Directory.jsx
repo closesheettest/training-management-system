@@ -27,6 +27,7 @@ export default function Directory() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [regionFilter, setRegionFilter] = useState('')
+  const [deptFilter, setDeptFilter] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -60,16 +61,24 @@ export default function Directory() {
     return Array.from(set).sort()
   }, [reps])
 
+  const departments = useMemo(() => {
+    if (!reps) return []
+    const set = new Set()
+    for (const r of reps) if (r.department) set.add(r.department)
+    return Array.from(set).sort()
+  }, [reps])
+
   const filtered = useMemo(() => {
     if (!reps) return []
     const s = search.trim().toLowerCase()
     return reps.filter((r) => {
       if (regionFilter && r.region !== regionFilter) return false
+      if (deptFilter && r.department !== deptFilter) return false
       if (!s) return true
-      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.company_number || ''}`.toLowerCase()
+      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.company_number || ''} ${r.department || ''}`.toLowerCase()
       return hay.includes(s)
     })
-  }, [reps, search, regionFilter])
+  }, [reps, search, regionFilter, deptFilter])
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -92,7 +101,7 @@ export default function Directory() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email, or company number…"
+            placeholder="Search by name, phone, email, department, or company number…"
             className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           {regions.length > 0 && (
@@ -104,6 +113,18 @@ export default function Directory() {
               <option value="">All regions</option>
               {regions.map((r) => (
                 <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          )}
+          {departments.length > 0 && (
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">All departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
               ))}
             </select>
           )}
@@ -137,9 +158,10 @@ export default function Directory() {
                   <div className="font-semibold text-slate-900">
                     {r.first_name} {r.last_name}
                   </div>
-                  {r.region && (
-                    <div className="mt-0.5 text-xs text-slate-500">📍 {r.region}</div>
-                  )}
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                    {r.region && <span>📍 {r.region}</span>}
+                    {r.department && <span>🏷 {r.department}</span>}
+                  </div>
                 </div>
                 {r.rep_level && (
                   <span
