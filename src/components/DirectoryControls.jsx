@@ -52,22 +52,25 @@ export function notesFromDb(raw) {
   return {}
 }
 
-// Strip empties and return either a clean object (for storage) or
-// null when nothing's left. Mirrors notesFromDb on the write path.
+// Strip empties and drop the legacy "_default" general-fallback key
+// (it's no longer shown anywhere — notes only render when a visitor
+// filters by a matching department). Returns null when nothing's
+// left so callers can store a clean null instead of `{}`.
 export function notesForDb(notes) {
   if (!notes || typeof notes !== 'object') return null
   const out = {}
   for (const [k, v] of Object.entries(notes)) {
+    if (k === '_default') continue
     if (typeof v === 'string' && v.trim()) out[k] = v.trim()
   }
   return Object.keys(out).length ? out : null
 }
 
-// Editor for the per-department notes. When the person has 0 or 1
-// departments, renders a single textarea (familiar single-note UX).
-// With 2+ departments, renders one textarea per department plus a
-// "general fallback" textarea — admin can leave dept-specific notes
-// empty and just write the fallback if they want one note for everyone.
+// Editor for per-department notes. Notes only render on the public
+// /directory page when a visitor has filtered by a matching department,
+// so the editor exposes one textarea per department and nothing else.
+// People with no departments get a hint instead — there's no context
+// to attach a note to.
 export function NoteEditor({ departments, notes, setNotes, disabled }) {
   const depts = Array.isArray(departments) ? departments.filter(Boolean) : []
   function setKey(key, text) {
@@ -76,23 +79,19 @@ export function NoteEditor({ departments, notes, setNotes, disabled }) {
     else delete next[key]
     setNotes(next)
   }
-  if (depts.length <= 1) {
+  if (depts.length === 0) {
     return (
-      <textarea
-        value={notes?._default || ''}
-        onChange={(e) => setKey('_default', e.target.value)}
-        placeholder="e.g. If this is about an install for one of your customers, file it in JobNimbus instead of emailing."
-        rows={4}
-        disabled={disabled}
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-      />
+      <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+        Add at least one department to write a note. Notes only show on the directory when a
+        visitor filters by the matching department.
+      </p>
     )
   }
   return (
     <div className="space-y-2">
       <p className="text-[11px] text-slate-500">
-        Per-department notes — leave any blank to skip that department, or fill in just the
-        General one to show one note everywhere.
+        Write one note per department. Each note only shows on the directory when the visitor
+        filters by that department.
       </p>
       {depts.map((d) => (
         <label key={d} className="block">
@@ -102,24 +101,13 @@ export function NoteEditor({ departments, notes, setNotes, disabled }) {
           <textarea
             value={notes?.[d] || ''}
             onChange={(e) => setKey(d, e.target.value)}
-            rows={2}
+            placeholder={d === 'Sales' ? 'e.g. For deal questions, text my work line.' : 'e.g. For install issues, file in JobNimbus instead of email.'}
+            rows={3}
             disabled={disabled}
             className="mt-0.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
         </label>
       ))}
-      <label className="block">
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          General (shown alongside the dept-specific ones)
-        </span>
-        <textarea
-          value={notes?._default || ''}
-          onChange={(e) => setKey('_default', e.target.value)}
-          rows={2}
-          disabled={disabled}
-          className="mt-0.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
-      </label>
     </div>
   )
 }

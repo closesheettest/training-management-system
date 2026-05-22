@@ -553,21 +553,24 @@ function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
 // count when multiple notes exist; otherwise the first line of the
 // single note. Always shows tooltip with the full set on hover.
 function NotePreview({ notes }) {
-  const entries = Object.entries(notes || {})
+  // Skip the legacy "_default" key — notes only render on /directory
+  // when filtered by department, so a general fallback has no path to
+  // display and shouldn't inflate the preview count either.
+  const entries = Object.entries(notes || {}).filter(([k, v]) =>
+    k !== '_default' && typeof v === 'string' && v.trim(),
+  )
   if (entries.length === 0) return <span className="text-xs text-slate-400">—</span>
-  const fullText = entries
-    .map(([k, v]) => (k === '_default' ? v : `[${k}] ${v}`))
-    .join('\n\n')
+  const fullText = entries.map(([k, v]) => `[${k}] ${v}`).join('\n\n')
   if (entries.length === 1) {
     return (
       <span className="block truncate text-xs text-slate-700" title={fullText}>
-        💡 {entries[0][1]}
+        💡 [{entries[0][0]}] {entries[0][1]}
       </span>
     )
   }
   return (
     <span className="block truncate text-xs text-slate-700" title={fullText}>
-      💡 {entries.length} notes ({entries.map(([k]) => k === '_default' ? 'general' : k).join(', ')})
+      💡 {entries.length} notes ({entries.map(([k]) => k).join(', ')})
     </span>
   )
 }
