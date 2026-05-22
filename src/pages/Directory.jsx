@@ -66,7 +66,7 @@ export default function Directory() {
     return reps.filter((r) => {
       if (regionFilter && r.region !== regionFilter) return false
       if (!s) return true
-      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_email || ''} ${r.company_number || ''}`.toLowerCase()
+      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.company_number || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [reps, search, regionFilter])
@@ -156,11 +156,23 @@ export default function Directory() {
                 {r.phone && (
                   <div className="flex gap-2">
                     <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
-                      Phone
+                      Personal
                     </dt>
                     <dd className="min-w-0">
                       <a href={`tel:${r.phone}`} className="text-brand-navy underline hover:text-brand-red">
                         {r.phone}
+                      </a>
+                    </dd>
+                  </div>
+                )}
+                {r.company_phone && (
+                  <div className="flex gap-2">
+                    <dt className="w-20 shrink-0 text-xs uppercase tracking-wide text-slate-500">
+                      Work
+                    </dt>
+                    <dd className="min-w-0">
+                      <a href={`tel:${r.company_phone}`} className="text-brand-navy underline hover:text-brand-red">
+                        {r.company_phone}
                       </a>
                     </dd>
                   </div>

@@ -43,7 +43,7 @@ export default function DirectoryAdmin() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, email, company_email, region, rep_level, rep_level_confirmed_at, company_number, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
+        'id, first_name, last_name, phone, company_phone, email, company_email, region, rep_level, rep_level_confirmed_at, company_number, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
       )
       .eq('is_active_sales_rep', true)
       .order('last_name', { ascending: true })
@@ -64,6 +64,7 @@ export default function DirectoryAdmin() {
       first_name: payload.first_name.trim(),
       last_name: payload.last_name.trim(),
       phone: payload.phone?.trim() || null,
+      company_phone: payload.company_phone?.trim() || null,
       company_email: payload.company_email?.trim() || null,
       email: null,
       region: payload.region || null,
@@ -112,6 +113,23 @@ export default function DirectoryAdmin() {
     await load()
   }
 
+  async function setCompanyPhone(person, value) {
+    const next = value.trim() || null
+    if ((person.company_phone || null) === next) return
+    setSavingId(person.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ company_phone: next })
+      .eq('id', person.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `Work phone updated for ${person.first_name} ${person.last_name}.` })
+    await load()
+  }
+
   async function saveNote(person, note) {
     const next = note?.trim() ? note.trim() : null
     setSavingId(person.id)
@@ -152,7 +170,7 @@ export default function DirectoryAdmin() {
     const s = search.trim().toLowerCase()
     if (!s) return people
     return people.filter((p) => {
-      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_email || ''} ${p.company_number || ''} ${p.region || ''}`.toLowerCase()
+      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.company_number || ''} ${p.region || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [people, search])
@@ -212,7 +230,8 @@ export default function DirectoryAdmin() {
             <tr>
               <th className="px-3 py-2 text-left">Name</th>
               <th className="px-3 py-2 text-left">Level</th>
-              <th className="px-3 py-2 text-left">Phone</th>
+              <th className="px-3 py-2 text-left">Personal phone</th>
+              <th className="px-3 py-2 text-left">Work phone</th>
               <th className="px-3 py-2 text-left">Company email</th>
               <th className="px-3 py-2 text-left">Region</th>
               <th className="px-3 py-2 text-left">Company #</th>
@@ -224,7 +243,7 @@ export default function DirectoryAdmin() {
           <tbody>
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-slate-500">
                   {search ? 'No matches.' : 'Nobody in the directory yet — click + Add person.'}
                 </td>
               </tr>
@@ -253,6 +272,15 @@ export default function DirectoryAdmin() {
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={p.phone} hidden={hidden.phone} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <EditableTextCell
+                      value={p.company_phone}
+                      hidden={hidden.company_phone}
+                      placeholder="(555) 987-6543"
+                      onSave={(v) => setCompanyPhone(p, v)}
+                      busy={isSaving}
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={p.company_email} hidden={hidden.email} />
@@ -404,6 +432,52 @@ function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Inline click-to-edit text cell for fields that DirectoryAdmin owns
+// (e.g. work phone). Click the value to swap to an input; saves on
+// blur or Enter. Renders with the same struck-through / 🔒 lock cue
+// as FieldCell when the field is currently hidden in /directory.
+function EditableTextCell({ value, hidden, placeholder, onSave, busy }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) {
+    return (
+      <input
+        type="text"
+        defaultValue={value || ''}
+        autoFocus
+        disabled={busy}
+        onBlur={(e) => {
+          setEditing(false)
+          onSave(e.target.value)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            setEditing(false)
+            onSave(e.currentTarget.value)
+          } else if (e.key === 'Escape') {
+            setEditing(false)
+          }
+        }}
+        placeholder={placeholder}
+        className="w-32 rounded border border-slate-300 px-1 text-xs"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      disabled={busy}
+      className={
+        'text-xs underline decoration-dotted hover:decoration-solid disabled:opacity-50 ' +
+        (hidden ? 'text-slate-400 line-through' : 'text-slate-700')
+      }
+      title={hidden ? 'Hidden in /directory · click to edit' : 'Click to edit'}
+    >
+      {value ? <>{value}{hidden && ' 🔒'}</> : 'set'}
+    </button>
   )
 }
 

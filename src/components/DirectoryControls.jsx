@@ -9,7 +9,8 @@ import { useState } from 'react'
 // modals. Single source of truth — matches the keys the
 // list-directory-reps Netlify function reads from directory_hidden.
 export const DIRECTORY_FIELDS = [
-  { key: 'phone', label: 'Phone' },
+  { key: 'phone', label: 'Personal phone' },
+  { key: 'company_phone', label: 'Work phone' },
   { key: 'email', label: 'Company email' },
   { key: 'region', label: 'Region' },
   { key: 'level', label: 'Junior / Senior / Non-field badge' },
@@ -35,6 +36,7 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
     first_name: '',
     last_name: '',
     phone: '',
+    company_phone: '',
     company_email: '',
     region: '',
     company_number: '',
@@ -93,12 +95,21 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
           </Field>
-          <Field label="Phone">
+          <Field label="Personal phone">
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => update('phone', e.target.value)}
               placeholder="(555) 123-4567"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Work phone">
+            <input
+              type="tel"
+              value={form.company_phone}
+              onChange={(e) => update('company_phone', e.target.value)}
+              placeholder="(555) 987-6543"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
           </Field>
