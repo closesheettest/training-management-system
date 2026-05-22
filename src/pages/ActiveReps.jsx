@@ -191,6 +191,29 @@ export default function ActiveReps() {
     await load()
   }
 
+  // Edit the "active with us since" date — what HR actually wants for
+  // real start-of-employment data, separate from when the system first
+  // saw the rep (graduation submission or bulk-import meeting). Stored
+  // as noon-UTC on the chosen date so the displayed date stays stable
+  // across US timezones.
+  async function setActiveSince(trainee, isoStamp) {
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ became_active_rep_at: isoStamp })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `Updated active-since date for ${trainee.first_name} ${trainee.last_name}.`,
+    })
+    await load()
+  }
+
   // Confirm or change a rep's level (junior/senior). Stamping
   // rep_level_confirmed_at removes them from the "to confirm" list.
   async function setRepLevel(trainee, level) {
@@ -369,6 +392,14 @@ export default function ActiveReps() {
                     {history && (
                       <div className="mt-0.5 text-[11px] text-slate-500">{history}</div>
                     )}
+                    <div className="mt-0.5 text-[11px] text-slate-600">
+                      Active with us since:{' '}
+                      <EditableActiveSince
+                        value={t.became_active_rep_at}
+                        onSave={(iso) => setActiveSince(t, iso)}
+                        busy={savingId === t.id}
+                      />
+                    </div>
                   </div>
                   <span className="flex flex-wrap gap-2">
                     <button
@@ -608,6 +639,7 @@ export default function ActiveReps() {
                 onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
                 onPromote={() => toggle(t, true)}
                 onSetLevel={(lvl) => setRepLevel(t, lvl)}
+                onSetActiveSince={(iso) => setActiveSince(t, iso)}
               />
             ))}
           </ul>
@@ -640,6 +672,7 @@ export default function ActiveReps() {
                 onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
                 onPromote={() => toggle(t, true)}
                 onSetLevel={(lvl) => setRepLevel(t, lvl)}
+                onSetActiveSince={(iso) => setActiveSince(t, iso)}
               />
             ))}
           </ul>
@@ -725,7 +758,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -772,9 +805,14 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel }) {
           ) : null}
           {' · '}{classLabel}
         </div>
-        {active && t.became_active_rep_at && (
-          <div className="text-[10px] text-slate-400">
-            Active since {new Date(t.became_active_rep_at).toLocaleDateString()}
+        {active && (
+          <div className="text-[10px] text-slate-500">
+            Active with us since:{' '}
+            <EditableActiveSince
+              value={t.became_active_rep_at}
+              onSave={(iso) => onSetActiveSince && onSetActiveSince(iso)}
+              busy={saving}
+            />
             {' · '}
             {t.info_updated_at ? (
               <span className="text-emerald-700">
@@ -923,6 +961,61 @@ function CleanupRow({ t, saving, onDone, onUndo }) {
       </details>
     </li>
   )
+}
+
+// Click-to-edit "Active since" date — HR's real start-with-company
+// date. Click the date to open a native date picker; saves on change.
+// Stores as noon-UTC of the chosen day so the displayed date is the
+// same regardless of viewer timezone.
+function EditableActiveSince({ value, onSave, busy }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) {
+    return (
+      <input
+        type="date"
+        defaultValue={isoToDateInput(value)}
+        autoFocus
+        disabled={busy}
+        onBlur={() => setEditing(false)}
+        onChange={(e) => {
+          const v = e.target.value
+          setEditing(false)
+          if (!v) return
+          const newIso = `${v}T12:00:00Z`
+          if (newIso === value) return
+          onSave(newIso)
+        }}
+        className="rounded border border-slate-300 px-1 text-[11px]"
+      />
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      disabled={busy}
+      className="underline decoration-dotted hover:decoration-solid disabled:opacity-50"
+      title="Click to edit the real 'active with us since' date — HR uses this for company tenure."
+    >
+      {value ? fmtDateString(value) : 'set date'}
+    </button>
+  )
+}
+
+// ISO timestamp → 'YYYY-MM-DD' string for an <input type="date">.
+// Slices directly off the ISO string to avoid timezone shifts that
+// `new Date(iso).toISOString().slice(0, 10)` would introduce for any
+// stamp near midnight.
+function isoToDateInput(iso) {
+  if (!iso) return ''
+  const s = String(iso)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ''
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 // One-line history label for a rep — used in the "to confirm" list so
