@@ -331,19 +331,37 @@ export default function DirectoryAdmin() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <FieldCell value={p.phone} hidden={hidden.phone} />
+                    <div className="flex items-center gap-1.5">
+                      <FieldCell value={p.phone} hidden={hidden.phone} />
+                      <PhoneActions number={p.phone} />
+                    </div>
                   </td>
                   <td className="px-3 py-2">
-                    <EditableTextCell
-                      value={p.company_phone}
-                      hidden={hidden.company_phone}
-                      placeholder="(555) 987-6543"
-                      onSave={(v) => setCompanyPhone(p, v)}
-                      busy={isSaving}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <EditableTextCell
+                        value={p.company_phone}
+                        hidden={hidden.company_phone}
+                        placeholder="(555) 987-6543"
+                        onSave={(v) => setCompanyPhone(p, v)}
+                        busy={isSaving}
+                      />
+                      <PhoneActions number={p.company_phone} />
+                    </div>
                   </td>
                   <td className="px-3 py-2">
-                    <FieldCell value={p.company_email} hidden={hidden.email} />
+                    <div className="flex items-center gap-1.5">
+                      <FieldCell value={p.company_email} hidden={hidden.email} />
+                      {p.company_email && (
+                        <a
+                          href={`mailto:${p.company_email}`}
+                          className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs hover:bg-slate-50"
+                          title="Send email"
+                          aria-label={`Email ${p.first_name} ${p.last_name}`}
+                        >
+                          📧
+                        </a>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={p.region} hidden={hidden.region} />
@@ -525,6 +543,35 @@ function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Inline call + text icons next to a phone number in the admin table.
+// Renders nothing when the number is empty. Tapping triggers the
+// device's dialer (tel:) or messages app (sms:) — same pattern as the
+// action pills on the public /directory page, just compact icons here
+// to fit the table density.
+function PhoneActions({ number }) {
+  if (!number) return null
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <a
+        href={`tel:${number}`}
+        className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs hover:bg-slate-50"
+        title={`Call ${number}`}
+        aria-label={`Call ${number}`}
+      >
+        📞
+      </a>
+      <a
+        href={`sms:${number}`}
+        className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs hover:bg-slate-50"
+        title={`Text ${number}`}
+        aria-label={`Text ${number}`}
+      >
+        💬
+      </a>
+    </span>
   )
 }
 
