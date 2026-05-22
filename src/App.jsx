@@ -33,6 +33,7 @@ import ActiveReps from './pages/ActiveReps.jsx'
 import RepMap from './pages/RepMap.jsx'
 import Regions from './pages/Regions.jsx'
 import Directory from './pages/Directory.jsx'
+import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
+          <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
         </Route>
@@ -155,11 +157,13 @@ function AdminLayout() {
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
     { key: 'team.regions', to: '/regions', label: 'Regions' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
+    // Internal admin panel for the shared directory.
+    { key: 'settings.active_reps', to: '/manage-directory', label: 'Manage directory' },
     // External so the dropdown shows the ↗ arrow and opens in a new
     // tab — matches the System Overview link pattern. The directory
     // page intentionally has no admin nav of its own, so this is the
     // only shortcut into it from the admin UI.
-    { key: 'settings.active_reps', href: '/directory', external: true, label: 'Team directory' },
+    { key: 'settings.active_reps', href: '/directory', external: true, label: 'Team directory (public)' },
   ].filter((it) => show(it.key))
   const settingsItems = [
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
