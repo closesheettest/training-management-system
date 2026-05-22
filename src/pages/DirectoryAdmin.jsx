@@ -35,13 +35,15 @@ export default function DirectoryAdmin() {
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [visibilityModal, setVisibilityModal] = useState(null)
+  // { trainee, draft } while a note is being edited.
+  const [noteModal, setNoteModal] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, email, company_email, region, rep_level, rep_level_confirmed_at, company_number, directory_hidden, became_active_rep_at, is_active_sales_rep, class_id',
+        'id, first_name, last_name, phone, email, company_email, region, rep_level, rep_level_confirmed_at, company_number, directory_hidden, directory_note, became_active_rep_at, is_active_sales_rep, class_id',
       )
       .eq('is_active_sales_rep', true)
       .order('last_name', { ascending: true })
@@ -73,6 +75,7 @@ export default function DirectoryAdmin() {
       enrolled: false,
       class_id: null,
       directory_hidden: payload.directory_hidden || {},
+      directory_note: payload.directory_note?.trim() || null,
     }
     const { error } = await supabase.from('trainees').insert(row)
     if (error) {
@@ -106,6 +109,26 @@ export default function DirectoryAdmin() {
       return
     }
     setFlash({ kind: 'success', text: `Removed ${person.first_name} ${person.last_name}.` })
+    await load()
+  }
+
+  async function saveNote(person, note) {
+    const next = note?.trim() ? note.trim() : null
+    setSavingId(person.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ directory_note: next })
+      .eq('id', person.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: next ? `Note updated for ${person.first_name} ${person.last_name}.` : `Note cleared for ${person.first_name} ${person.last_name}.`,
+    })
+    setNoteModal(null)
     await load()
   }
 
@@ -194,13 +217,14 @@ export default function DirectoryAdmin() {
               <th className="px-3 py-2 text-left">Region</th>
               <th className="px-3 py-2 text-left">Company #</th>
               <th className="px-3 py-2 text-left">Directory</th>
+              <th className="px-3 py-2 text-left">Note</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-500">
+                <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
                   {search ? 'No matches.' : 'Nobody in the directory yet — click + Add person.'}
                 </td>
               </tr>
@@ -242,8 +266,29 @@ export default function DirectoryAdmin() {
                   <td className="px-3 py-2 text-xs text-slate-600">
                     {directoryHiddenLabel(hidden)}
                   </td>
+                  <td className="px-3 py-2 max-w-xs">
+                    {p.directory_note ? (
+                      <span
+                        className="block truncate text-xs text-slate-700"
+                        title={p.directory_note}
+                      >
+                        💡 {p.directory_note}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setNoteModal({ trainee: p, draft: p.directory_note || '' })}
+                        disabled={isSaving}
+                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        title='Edit the "how to reach me" note shown publicly on /directory.'
+                      >
+                        💡 Note
+                      </button>
                       <button
                         type="button"
                         onClick={() => setVisibilityModal({ trainee: p, hidden: { ...hidden } })}
@@ -289,6 +334,17 @@ export default function DirectoryAdmin() {
         />
       )}
 
+      {noteModal && (
+        <NoteModal
+          trainee={noteModal.trainee}
+          draft={noteModal.draft}
+          setDraft={(v) => setNoteModal({ ...noteModal, draft: v })}
+          sending={savingId === noteModal.trainee.id}
+          onCancel={() => setNoteModal(null)}
+          onSave={() => saveNote(noteModal.trainee, noteModal.draft)}
+        />
+      )}
+
       {visibilityModal && (
         <DirectoryVisibilityModal
           trainee={visibilityModal.trainee}
@@ -299,6 +355,54 @@ export default function DirectoryAdmin() {
           onConfirm={() => saveVisibility(visibilityModal.trainee, visibilityModal.hidden)}
         />
       )}
+    </div>
+  )
+}
+
+// Edit modal for the "how to reach me" note shown on /directory. Empty
+// string clears the note (saves null) — the directory card hides the
+// callout entirely when the note is absent.
+function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">
+          How to reach me — {trainee.first_name} {trainee.last_name}
+        </h3>
+        <p className="mt-2 text-sm text-slate-600">
+          Free-text guidance shown in a 💡 callout on this person's directory card. Use it to tell
+          people the right channel for different topics so they don't guess.
+        </p>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="e.g. If this is about an install for one of your customers, file it in JobNimbus instead of emailing — installs aren't tracked through my inbox."
+          rows={5}
+          className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          autoFocus
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          Always shown when present. Clear the box and save to remove the note.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={sending}
+            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {sending ? 'Saving…' : 'Save note'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

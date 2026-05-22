@@ -39,6 +39,7 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
     region: '',
     company_number: '',
     rep_level: 'non_field',
+    directory_note: '',
   })
   const [hidden, setHidden] = useState({})
   const [saving, setSaving] = useState(false)
@@ -141,6 +142,22 @@ export function AddStaffModal({ regionNames, onCancel, onSave }) {
               <option value="junior">Junior</option>
               <option value="senior">Senior</option>
             </select>
+          </Field>
+        </div>
+
+        <div className="mt-3">
+          <Field label="How to reach me — note (optional)">
+            <textarea
+              value={form.directory_note}
+              onChange={(e) => update('directory_note', e.target.value)}
+              placeholder="e.g. For install issues, file in JobNimbus instead of email — installs aren't tracked through my inbox."
+              rows={3}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <span className="mt-1 block text-[11px] text-slate-500">
+              Free-text guidance shown to everyone on the directory page — tells people the right
+              channel for different topics so they don't guess.
+            </span>
           </Field>
         </div>
 

@@ -186,6 +186,14 @@ export default function Directory() {
                   </div>
                 )}
               </dl>
+              {r.directory_note && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                    💡 How to reach me
+                  </div>
+                  <p className="mt-0.5 whitespace-pre-wrap">{r.directory_note}</p>
+                </div>
+              )}
             </li>
           ))}
         </ul>
