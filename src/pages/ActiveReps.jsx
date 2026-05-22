@@ -352,18 +352,24 @@ export default function ActiveReps() {
             {unconfirmedLevel.map((t) => {
               const guess = t.rep_level
               const otherFieldLevel = guess === 'junior' ? 'senior' : 'junior'
+              const history = repHistoryLabel(t)
               return (
                 <li
                   key={t.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
                 >
-                  <span className="min-w-0">
-                    <strong>{t.first_name} {t.last_name}</strong>{' '}
-                    <span className="text-slate-500">{t.phone || ''}</span>
-                    <span className="ml-2 text-xs text-slate-600">
-                      Auto-guess: <strong>{LEVEL_LABEL[guess]}</strong>
-                    </span>
-                  </span>
+                  <div className="min-w-0">
+                    <div>
+                      <strong>{t.first_name} {t.last_name}</strong>{' '}
+                      <span className="text-slate-500">{t.phone || ''}</span>
+                      <span className="ml-2 text-xs text-slate-600">
+                        Auto-guess: <strong>{LEVEL_LABEL[guess]}</strong>
+                      </span>
+                    </div>
+                    {history && (
+                      <div className="mt-0.5 text-[11px] text-slate-500">{history}</div>
+                    )}
+                  </div>
                   <span className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -917,6 +923,37 @@ function CleanupRow({ t, saving, onDone, onUndo }) {
       </details>
     </li>
   )
+}
+
+// One-line history label for a rep — used in the "to confirm" list so
+// admin can see why the system guessed Junior vs Senior. For graduates
+// it's the training week they came through; for bulk imports it's the
+// import (attendance-only) meeting date; otherwise just "active since".
+function repHistoryLabel(t) {
+  const c = t.classes
+  if (c?.attendance_only && c?.week_start_date) {
+    return `Bulk-imported via meeting on ${fmtDateString(c.week_start_date)}`
+  }
+  if (c?.week_end_date && !c?.attendance_only) {
+    return `Graduated training week of ${fmtDateString(c.week_end_date)}`
+  }
+  if (t.became_active_rep_at) {
+    return `Active since ${fmtDateString(t.became_active_rep_at)}`
+  }
+  return ''
+}
+
+// Parse a 'YYYY-MM-DD' date string (or full ISO) as a local-midnight
+// Date and return a short locale date. Component-wise to avoid the
+// `new Date('2026-05-15')` UTC parsing trap.
+function fmtDateString(s) {
+  if (!s) return ''
+  const parts = String(s).slice(0, 10).split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    const d = new Date(s)
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString()
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString()
 }
 
 // Renders "5 days ago" / "today" / "yesterday" / "Jan 12, 2026" for a
