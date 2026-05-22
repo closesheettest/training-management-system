@@ -7,6 +7,9 @@ import {
   DirectoryVisibilityModal,
   directoryHiddenLabel,
   normalizeDepartments,
+  notesFromDb,
+  notesForDb,
+  NoteEditor,
 } from '../components/DirectoryControls.jsx'
 
 // Manage directory — focused admin panel for the shared /directory
@@ -79,7 +82,7 @@ export default function DirectoryAdmin() {
       enrolled: false,
       class_id: null,
       directory_hidden: payload.directory_hidden || {},
-      directory_note: payload.directory_note?.trim() || null,
+      directory_note: notesForDb(payload.directory_note),
     }
     const { error } = await supabase.from('trainees').insert(row)
     if (error) {
@@ -106,7 +109,7 @@ export default function DirectoryAdmin() {
       rep_level: payload.rep_level || 'non_field',
       birthday: payload.birthday || null,
       directory_hidden: payload.directory_hidden || {},
-      directory_note: payload.directory_note?.trim() || null,
+      directory_note: notesForDb(payload.directory_note),
     }
     setSavingId(person.id)
     const { error } = await supabase.from('trainees').update(row).eq('id', person.id)
@@ -180,8 +183,8 @@ export default function DirectoryAdmin() {
     await load()
   }
 
-  async function saveNote(person, note) {
-    const next = note?.trim() ? note.trim() : null
+  async function saveNote(person, notes) {
+    const next = notesForDb(notes)
     setSavingId(person.id)
     const { error } = await supabase
       .from('trainees')
@@ -391,16 +394,7 @@ export default function DirectoryAdmin() {
                     {directoryHiddenLabel(hidden)}
                   </td>
                   <td className="px-3 py-2 max-w-xs">
-                    {p.directory_note ? (
-                      <span
-                        className="block truncate text-xs text-slate-700"
-                        title={p.directory_note}
-                      >
-                        💡 {p.directory_note}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
+                    <NotePreview notes={notesFromDb(p.directory_note)} />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex justify-end gap-1.5">
@@ -415,7 +409,7 @@ export default function DirectoryAdmin() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setNoteModal({ trainee: p, draft: p.directory_note || '' })}
+                        onClick={() => setNoteModal({ trainee: p, draft: notesFromDb(p.directory_note) })}
                         disabled={isSaving}
                         className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                         title='Edit the "how to reach me" note shown publicly on /directory.'
@@ -506,9 +500,10 @@ export default function DirectoryAdmin() {
   )
 }
 
-// Edit modal for the "how to reach me" note shown on /directory. Empty
-// string clears the note (saves null) — the directory card hides the
-// callout entirely when the note is absent.
+// Edit modal for the "how to reach me" notes shown on /directory. For
+// people in multiple departments, NoteEditor renders one textarea per
+// department plus a general fallback. For 0 or 1 departments, it
+// collapses to a single textarea.
 function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -517,19 +512,19 @@ function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
           How to reach me — {trainee.first_name} {trainee.last_name}
         </h3>
         <p className="mt-2 text-sm text-slate-600">
-          Free-text guidance shown in a 💡 callout on this person's directory card. Use it to tell
-          people the right channel for different topics so they don't guess.
+          Free-text guidance shown in 💡 callouts on this person's directory card. Tell people the
+          right channel per topic so they don't have to guess.
         </p>
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="e.g. If this is about an install for one of your customers, file it in JobNimbus instead of emailing — installs aren't tracked through my inbox."
-          rows={5}
-          className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          autoFocus
-        />
+        <div className="mt-3">
+          <NoteEditor
+            departments={trainee.departments}
+            notes={draft}
+            setNotes={setDraft}
+            disabled={sending}
+          />
+        </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          Always shown when present. Clear the box and save to remove the note.
+          Empty boxes are skipped. Clear everything and save to remove all notes.
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <button
@@ -551,6 +546,29 @@ function NoteModal({ trainee, draft, setDraft, sending, onCancel, onSave }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Truncated preview for the Note column in the admin table. Shows the
+// count when multiple notes exist; otherwise the first line of the
+// single note. Always shows tooltip with the full set on hover.
+function NotePreview({ notes }) {
+  const entries = Object.entries(notes || {})
+  if (entries.length === 0) return <span className="text-xs text-slate-400">—</span>
+  const fullText = entries
+    .map(([k, v]) => (k === '_default' ? v : `[${k}] ${v}`))
+    .join('\n\n')
+  if (entries.length === 1) {
+    return (
+      <span className="block truncate text-xs text-slate-700" title={fullText}>
+        💡 {entries[0][1]}
+      </span>
+    )
+  }
+  return (
+    <span className="block truncate text-xs text-slate-700" title={fullText}>
+      💡 {entries.length} notes ({entries.map(([k]) => k === '_default' ? 'general' : k).join(', ')})
+    </span>
   )
 }
 

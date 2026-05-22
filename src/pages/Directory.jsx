@@ -221,14 +221,7 @@ export default function Directory() {
                   </ContactRow>
                 )}
               </dl>
-              {r.directory_note && (
-                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                    💡 How to reach me
-                  </div>
-                  <p className="mt-0.5 whitespace-pre-wrap">{r.directory_note}</p>
-                </div>
-              )}
+              {renderNotes(r.directory_note, deptFilter)}
             </li>
           ))}
         </ul>
@@ -237,6 +230,44 @@ export default function Directory() {
           Need to update someone's info? Reach out to HR.
         </p>
       </main>
+    </div>
+  )
+}
+
+// Render the "how to reach me" callouts. Per-department notes get a
+// labeled callout each ("How to reach me (Sales)"); the special
+// "_default" key renders as the plain "How to reach me" label. When
+// the visitor has filtered to a specific department, that department's
+// note (if any) renders first; orphan notes for departments the person
+// no longer belongs to are still shown so admin doesn't accidentally
+// orphan guidance.
+function renderNotes(raw, deptFilter) {
+  if (!raw) return null
+  // Tolerate the legacy text-column shape so old rows still render
+  // even before the per-department migration has been applied.
+  const notes = typeof raw === 'string'
+    ? { _default: raw }
+    : (typeof raw === 'object' ? raw : {})
+  const keys = Object.keys(notes).filter((k) => typeof notes[k] === 'string' && notes[k].trim())
+  if (keys.length === 0) return null
+  // Order: filtered department first, then other dept-specific notes
+  // (sorted), then the general fallback last.
+  const ordered = []
+  if (deptFilter && notes[deptFilter]) ordered.push(deptFilter)
+  for (const k of keys.filter((k) => k !== '_default' && k !== deptFilter).sort()) {
+    ordered.push(k)
+  }
+  if (notes._default) ordered.push('_default')
+  return (
+    <div className="mt-3 space-y-2">
+      {ordered.map((k) => (
+        <div key={k} className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+            💡 How to reach me{k !== '_default' ? ` (${k})` : ''}
+          </div>
+          <p className="mt-0.5 whitespace-pre-wrap">{notes[k]}</p>
+        </div>
+      ))}
     </div>
   )
 }

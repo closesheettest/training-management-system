@@ -32,6 +32,98 @@ export function normalizeDepartment(raw) {
     .join(' ')
 }
 
+// Normalize the directory_note value coming from the DB into a
+// plain object keyed by department (plus optional "_default" general
+// note). Tolerates legacy string values (wraps as { _default: str }),
+// null/undefined (returns {}), and stray non-string entries (dropped).
+export function notesFromDb(raw) {
+  if (raw == null) return {}
+  if (typeof raw === 'string') {
+    const t = raw.trim()
+    return t ? { _default: t } : {}
+  }
+  if (typeof raw === 'object') {
+    const out = {}
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v === 'string' && v.trim()) out[k] = v.trim()
+    }
+    return out
+  }
+  return {}
+}
+
+// Strip empties and return either a clean object (for storage) or
+// null when nothing's left. Mirrors notesFromDb on the write path.
+export function notesForDb(notes) {
+  if (!notes || typeof notes !== 'object') return null
+  const out = {}
+  for (const [k, v] of Object.entries(notes)) {
+    if (typeof v === 'string' && v.trim()) out[k] = v.trim()
+  }
+  return Object.keys(out).length ? out : null
+}
+
+// Editor for the per-department notes. When the person has 0 or 1
+// departments, renders a single textarea (familiar single-note UX).
+// With 2+ departments, renders one textarea per department plus a
+// "general fallback" textarea — admin can leave dept-specific notes
+// empty and just write the fallback if they want one note for everyone.
+export function NoteEditor({ departments, notes, setNotes, disabled }) {
+  const depts = Array.isArray(departments) ? departments.filter(Boolean) : []
+  function setKey(key, text) {
+    const next = { ...(notes || {}) }
+    if (text && text.trim()) next[key] = text
+    else delete next[key]
+    setNotes(next)
+  }
+  if (depts.length <= 1) {
+    return (
+      <textarea
+        value={notes?._default || ''}
+        onChange={(e) => setKey('_default', e.target.value)}
+        placeholder="e.g. If this is about an install for one of your customers, file it in JobNimbus instead of emailing."
+        rows={4}
+        disabled={disabled}
+        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+      />
+    )
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] text-slate-500">
+        Per-department notes — leave any blank to skip that department, or fill in just the
+        General one to show one note everywhere.
+      </p>
+      {depts.map((d) => (
+        <label key={d} className="block">
+          <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            For {d}
+          </span>
+          <textarea
+            value={notes?.[d] || ''}
+            onChange={(e) => setKey(d, e.target.value)}
+            rows={2}
+            disabled={disabled}
+            className="mt-0.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+        </label>
+      ))}
+      <label className="block">
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          General (shown alongside the dept-specific ones)
+        </span>
+        <textarea
+          value={notes?._default || ''}
+          onChange={(e) => setKey('_default', e.target.value)}
+          rows={2}
+          disabled={disabled}
+          className="mt-0.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+        />
+      </label>
+    </div>
+  )
+}
+
 // Comma-separated input → array of normalized, deduped department names.
 // Each token runs through normalizeDepartment so "office, OFFICE" yields
 // just ["Office"]. Returns [] for empty/whitespace input (the column is
@@ -137,8 +229,8 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
     departments: Array.isArray(initial?.departments) ? initial.departments.join(', ') : '',
     rep_level: initial?.rep_level || 'non_field',
     birthday: initial?.birthday ? String(initial.birthday).slice(0, 10) : '',
-    directory_note: initial?.directory_note || '',
   }))
+  const [notes, setNotes] = useState(() => notesFromDb(initial?.directory_note))
   const [hidden, setHidden] = useState(() => ({ ...(initial?.directory_hidden || {}) }))
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -160,6 +252,7 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
         ...form,
         departments: normalizeDepartments(form.departments),
         directory_hidden: hidden,
+        directory_note: notesForDb(notes),
       })
     } catch (e) {
       setErr(e.message || String(e))
@@ -285,16 +378,14 @@ export function AddStaffModal({ regionNames, existingDepartments = [], initial, 
 
         <div className="mt-3">
           <Field label="How to reach me — note (optional)">
-            <textarea
-              value={form.directory_note}
-              onChange={(e) => update('directory_note', e.target.value)}
-              placeholder="e.g. For install issues, file in JobNimbus instead of email — installs aren't tracked through my inbox."
-              rows={3}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            <NoteEditor
+              departments={normalizeDepartments(form.departments)}
+              notes={notes}
+              setNotes={setNotes}
             />
             <span className="mt-1 block text-[11px] text-slate-500">
-              Free-text guidance shown to everyone on the directory page — tells people the right
-              channel for different topics so they don't guess.
+              Free-text guidance shown on the directory card. With multiple departments you get
+              one box per department so you can give different instructions per context.
             </span>
           </Field>
         </div>
