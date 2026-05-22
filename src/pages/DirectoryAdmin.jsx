@@ -70,7 +70,6 @@ export default function DirectoryAdmin() {
       email: null,
       region: payload.region || null,
       department: payload.department?.trim() || null,
-      company_number: payload.company_number?.trim() || null,
       rep_level: payload.rep_level || 'non_field',
       rep_level_confirmed_at: new Date().toISOString(),
       birthday: payload.birthday || null,
@@ -103,7 +102,6 @@ export default function DirectoryAdmin() {
       company_email: payload.company_email?.trim() || null,
       region: payload.region || null,
       department: payload.department?.trim() || null,
-      company_number: payload.company_number?.trim() || null,
       rep_level: payload.rep_level || 'non_field',
       birthday: payload.birthday || null,
       directory_hidden: payload.directory_hidden || {},
@@ -220,7 +218,7 @@ export default function DirectoryAdmin() {
     const s = search.trim().toLowerCase()
     if (!s) return people
     return people.filter((p) => {
-      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.company_number || ''} ${p.region || ''} ${p.department || ''} ${formatBirthday(p.birthday) || ''}`.toLowerCase()
+      const hay = `${p.first_name || ''} ${p.last_name || ''} ${p.phone || ''} ${p.company_phone || ''} ${p.company_email || ''} ${p.region || ''} ${p.department || ''} ${formatBirthday(p.birthday) || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [people, search])
@@ -266,7 +264,7 @@ export default function DirectoryAdmin() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, phone, email, territory, department, employee ID, or birthday…"
+          placeholder="Search by name, phone, email, territory, department, or birthday…"
           className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <div className="text-xs text-slate-500">
@@ -285,7 +283,6 @@ export default function DirectoryAdmin() {
               <th className="px-3 py-2 text-left">Company email</th>
               <th className="px-3 py-2 text-left">Territory</th>
               <th className="px-3 py-2 text-left">Department</th>
-              <th className="px-3 py-2 text-left">Employee ID</th>
               <th className="px-3 py-2 text-left">Birthday</th>
               <th className="px-3 py-2 text-left">Directory</th>
               <th className="px-3 py-2 text-left">Note</th>
@@ -295,7 +292,7 @@ export default function DirectoryAdmin() {
           <tbody>
             {filtered.length === 0 && !loading && (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-500">
+                <td colSpan={11} className="px-3 py-6 text-center text-sm text-slate-500">
                   {search ? 'No matches.' : 'Nobody in the directory yet — click + Add person.'}
                 </td>
               </tr>
@@ -374,9 +371,6 @@ export default function DirectoryAdmin() {
                       onSave={(v) => setDepartment(p, v)}
                       busy={isSaving}
                     />
-                  </td>
-                  <td className="px-3 py-2">
-                    <FieldCell value={p.company_number} hidden={hidden.company_number} />
                   </td>
                   <td className="px-3 py-2">
                     <FieldCell value={formatBirthday(p.birthday)} hidden={hidden.birthday} />

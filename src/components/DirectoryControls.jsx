@@ -15,7 +15,6 @@ export const DIRECTORY_FIELDS = [
   { key: 'region', label: 'Territory' },
   { key: 'department', label: 'Department' },
   { key: 'level', label: 'Junior / Senior / Non-field badge' },
-  { key: 'company_number', label: 'Employee ID' },
   { key: 'birthday', label: 'Birthday' },
 ]
 
@@ -105,7 +104,6 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
     company_email: initial?.company_email || '',
     region: initial?.region || '',
     department: initial?.department || '',
-    company_number: initial?.company_number || '',
     rep_level: initial?.rep_level || 'non_field',
     birthday: initial?.birthday ? String(initial.birthday).slice(0, 10) : '',
     directory_note: initial?.directory_note || '',
@@ -212,18 +210,6 @@ export function AddStaffModal({ regionNames, initial, onCancel, onSave }) {
               placeholder="e.g. Production, HR, Sales"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
-          </Field>
-          <Field label="Employee ID">
-            <input
-              type="text"
-              value={form.company_number}
-              onChange={(e) => update('company_number', e.target.value)}
-              placeholder="e.g. 1042 or badge #"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <span className="mt-1 block text-[11px] text-slate-500">
-              Internal identifier — not a phone number. Use "Work phone" above for company lines.
-            </span>
           </Field>
           <Field label="Level">
             <select

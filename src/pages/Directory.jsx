@@ -75,7 +75,7 @@ export default function Directory() {
       if (regionFilter && r.region !== regionFilter) return false
       if (deptFilter && r.department !== deptFilter) return false
       if (!s) return true
-      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.company_number || ''} ${r.department || ''}`.toLowerCase()
+      const hay = `${r.first_name || ''} ${r.last_name || ''} ${r.phone || ''} ${r.company_phone || ''} ${r.company_email || ''} ${r.department || ''}`.toLowerCase()
       return hay.includes(s)
     })
   }, [reps, search, regionFilter, deptFilter])
@@ -101,7 +101,7 @@ export default function Directory() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email, department, or employee ID…"
+            placeholder="Search by name, phone, email, or department…"
             className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           {regions.length > 0 && (
@@ -191,11 +191,6 @@ export default function Directory() {
                 {r.company_email && (
                   <ContactRow label="Email">
                     <ActionLink href={`mailto:${r.company_email}`} icon="📧" text="Send email" />
-                  </ContactRow>
-                )}
-                {r.company_number && (
-                  <ContactRow label="Employee ID">
-                    <span className="font-mono text-xs">{r.company_number}</span>
                   </ContactRow>
                 )}
               </dl>

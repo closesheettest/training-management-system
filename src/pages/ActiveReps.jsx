@@ -940,13 +940,6 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               busy={saving}
             />
             {' · '}
-            Employee ID:{' '}
-            <EditableCompanyNumber
-              value={t.company_number}
-              onSave={(v) => onSetCompanyNumber && onSetCompanyNumber(v)}
-              busy={saving}
-            />
-            {' · '}
             <button
               type="button"
               onClick={onEditDirectory}
