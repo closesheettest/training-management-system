@@ -71,6 +71,12 @@ export default function ActiveReps() {
   // Extra filter chip: when true, list shows only reps whose
   // info_updated_at is null (haven't self-served via /update-info yet).
   const [neverUpdatedOnly, setNeverUpdatedOnly] = useState(false)
+  // Rep-level filter — applies to the Active field sales reps section.
+  //   '' = no filter (show all active field reps)
+  //   'junior' / 'senior' = only that confirmed level
+  //   'need_to_assign' = level not set OR not yet confirmed
+  //                      (i.e. anyone the admin still has to lock in)
+  const [levelFilter, setLevelFilter] = useState('')
   // Bulk re-send state for the "Re-send update-info request" button.
   // { traineeIds: [...], sending, result } while running.
   const [resendBatch, setResendBatch] = useState(null)
@@ -343,13 +349,27 @@ export default function ActiveReps() {
   }
 
   const searchLower = search.trim().toLowerCase()
-  const filterList = (list) => {
+  // Predicate for the level filter — pulled out so it's easy to reuse
+  // for both filtering and the chip counts.
+  function matchesLevelFilter(t) {
+    if (!levelFilter) return true
+    if (levelFilter === 'junior') return t.rep_level === 'junior' && !!t.rep_level_confirmed_at
+    if (levelFilter === 'senior') return t.rep_level === 'senior' && !!t.rep_level_confirmed_at
+    if (levelFilter === 'need_to_assign') return !t.rep_level || !t.rep_level_confirmed_at
+    return true
+  }
+  // Whether the level filter should apply to a given list — only the
+  // Active field-rep list has Junior/Senior/unconfirmed nuance worth
+  // slicing. For non-field / pipeline / dropouts, ignore the filter so
+  // those sections don't go empty when admin's slicing actives.
+  const filterList = (list, { applyLevel = false } = {}) => {
     return list.filter((t) => {
       // '__none' = "no region set yet" — useful for chasing bulk imports
       // who haven't filled in /update-info yet.
       if (regionFilter === '__none' && t.region) return false
       if (regionFilter && regionFilter !== '__none' && t.region !== regionFilter) return false
       if (neverUpdatedOnly && t.info_updated_at) return false
+      if (applyLevel && !matchesLevelFilter(t)) return false
       if (!searchLower) return true
       const full = `${t.first_name || ''} ${t.last_name || ''}`.toLowerCase()
       return full.includes(searchLower) || (t.phone || '').includes(searchLower)
@@ -358,7 +378,7 @@ export default function ActiveReps() {
   // Active reps: group by info-update status (updated first, then
   // never-updated) so admin can scroll past the "done" pile and focus
   // on the stragglers. Each group stays alphabetical within itself.
-  const activeFiltered = filterList(active).slice().sort((a, b) => {
+  const activeFiltered = filterList(active, { applyLevel: true }).slice().sort((a, b) => {
     const aHas = !!a.info_updated_at
     const bHas = !!b.info_updated_at
     if (aHas !== bHas) return aHas ? -1 : 1
@@ -384,6 +404,18 @@ export default function ActiveReps() {
     () => active.filter((t) => t.rep_level && !t.rep_level_confirmed_at),
     [active],
   )
+
+  // Per-level active-rep counts — drive the chip labels for the
+  // Junior / Senior / Need-to-assign filter row.
+  const activeByLevel = useMemo(() => {
+    const counts = { junior: 0, senior: 0, need_to_assign: 0 }
+    for (const t of active) {
+      if (!t.rep_level || !t.rep_level_confirmed_at) counts.need_to_assign++
+      else if (t.rep_level === 'junior') counts.junior++
+      else if (t.rep_level === 'senior') counts.senior++
+    }
+    return counts
+  }, [active])
 
   // Per-region active-rep counts for the breakdown card.
   const activeByRegion = useMemo(() => {
@@ -448,117 +480,68 @@ export default function ActiveReps() {
         </div>
       )}
 
-      {unconfirmedLevel.length > 0 && (
-        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
-          <h2 className="text-lg font-semibold text-indigo-900">
-            🎖 Rep levels to confirm ({unconfirmedLevel.length})
-          </h2>
-          <p className="mt-1 text-sm text-indigo-900">
-            The system has auto-guessed Junior or Senior for each rep below — Junior if they
-            graduated through this system, Senior if they were already on the team when bulk-imported.
-            Confirm the guess (one click) or flip it to the other level.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {unconfirmedLevel.map((t) => {
-              const guess = t.rep_level
-              const otherFieldLevel = guess === 'junior' ? 'senior' : 'junior'
-              const history = repHistoryLabel(t)
-              return (
-                <li
-                  key={t.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <div>
-                      <strong>{t.first_name} {t.last_name}</strong>{' '}
-                      <span className="text-slate-500">{t.phone || ''}</span>
-                      <span className="ml-2 text-xs text-slate-600">
-                        Auto-guess: <strong>{LEVEL_LABEL[guess]}</strong>
-                      </span>
-                    </div>
-                    {history && (
-                      <div className="mt-0.5 text-[11px] text-slate-500">{history}</div>
-                    )}
-                    <div className="mt-0.5 text-[11px] text-slate-600">
-                      Active with us since:{' '}
-                      <EditableActiveSince
-                        value={t.became_active_rep_at}
-                        onSave={(iso) => setActiveSince(t, iso)}
-                        busy={savingId === t.id}
-                      />
-                    </div>
-                  </div>
-                  <span className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRepLevel(t, guess)}
-                      disabled={savingId === t.id}
-                      className="rounded-md bg-indigo-700 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
-                    >
-                      {savingId === t.id ? '…' : `✓ Confirm ${LEVEL_LABEL[guess]}`}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRepLevel(t, otherFieldLevel)}
-                      disabled={savingId === t.id}
-                      className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50"
-                    >
-                      Change to {LEVEL_LABEL[otherFieldLevel]}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRepLevel(t, 'non_field')}
-                      disabled={savingId === t.id}
-                      className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      title="Not a field sales rep — admin / ops / other role. Removes them from /active-reps and from 'all active sales reps' broadcasts."
-                    >
-                      Move to Non-field
-                    </button>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
-
-      {suggested.length > 0 && (
-        <section className="rounded-lg border border-sky-200 bg-sky-50 p-5">
-          <h2 className="text-lg font-semibold text-sky-900">
-            🎓 Past graduates not yet flagged active ({suggested.length})
-          </h2>
-          <p className="mt-1 text-sm text-sky-900">
-            These trainees submitted their final test before the auto-flip rule existed (or it
-            missed them). One click each to promote — or skip if they've left the company since.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {suggested.map((t) => (
-              <li
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm"
-              >
-                <span>
-                  <strong>{t.first_name} {t.last_name}</strong>{' '}
-                  <span className="text-slate-500">{t.phone || ''}</span>{' '}
-                  <span className="text-xs text-slate-400">
-                    graduated {new Date(t.submitted_at).toLocaleDateString()}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => toggle(t, true)}
-                  disabled={savingId === t.id}
-                  className="rounded-md bg-sky-700 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
-                >
-                  {savingId === t.id ? 'Saving…' : 'Promote'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {/* Rep-level row: slice the Active list by Junior / Senior /
+            "Need to assign" (level missing OR auto-guessed but not yet
+            confirmed). Only affects the Active field reps section —
+            non-field, pipeline, and dropouts ignore it. */}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide text-slate-500">Level:</span>
+          <button
+            type="button"
+            onClick={() => setLevelFilter(levelFilter === 'junior' ? '' : 'junior')}
+            className={
+              'rounded-full border px-2.5 py-1 ' +
+              (levelFilter === 'junior'
+                ? 'border-emerald-700 bg-emerald-100 text-emerald-900'
+                : 'border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-800')
+            }
+            title="Show only confirmed Junior reps."
+          >
+            🎖 Junior <span className="ml-1 opacity-70">({activeByLevel.junior})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setLevelFilter(levelFilter === 'senior' ? '' : 'senior')}
+            className={
+              'rounded-full border px-2.5 py-1 ' +
+              (levelFilter === 'senior'
+                ? 'border-violet-700 bg-violet-100 text-violet-900'
+                : 'border-violet-300 bg-white hover:bg-violet-50 text-violet-800')
+            }
+            title="Show only confirmed Senior reps."
+          >
+            🎖 Senior <span className="ml-1 opacity-70">({activeByLevel.senior})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setLevelFilter(levelFilter === 'need_to_assign' ? '' : 'need_to_assign')
+            }
+            className={
+              'rounded-full border px-2.5 py-1 ' +
+              (levelFilter === 'need_to_assign'
+                ? 'border-amber-700 bg-amber-100 text-amber-900'
+                : activeByLevel.need_to_assign > 0
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-slate-300 bg-white text-slate-500 cursor-default')
+            }
+            disabled={activeByLevel.need_to_assign === 0}
+            title="Reps without a confirmed Junior/Senior level — the admin still needs to lock them in."
+          >
+            🛈 Need to assign <span className="ml-1 opacity-70">({activeByLevel.need_to_assign})</span>
+          </button>
+          {levelFilter && (
+            <button
+              type="button"
+              onClick={() => setLevelFilter('')}
+              className="ml-2 text-slate-500 underline hover:text-slate-700"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+
         {/* Info-status row: who still hasn't filled in /update-info? */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="font-semibold uppercase tracking-wide text-slate-500">Info status:</span>
@@ -683,37 +666,13 @@ export default function ActiveReps() {
           <strong className="text-slate-500">{nonField.length}</strong> non-field ·{' '}
           <strong className="text-slate-500">{notYetActive.length}</strong> not yet active ·{' '}
           <strong className="text-slate-500">{dropouts.length}</strong> dropouts
-          {(regionFilter || neverUpdatedOnly || search) && (
+          {(regionFilter || neverUpdatedOnly || levelFilter || search) && (
             <span className="ml-2 text-xs text-amber-700">
               ⚠ filters active — counts below reflect filters, totals above are unfiltered
             </span>
           )}
         </div>
       </div>
-
-      {pendingCleanup.length > 0 && (
-        <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-amber-900">
-            🚪 Cleanup pending — reps to remove from other systems ({pendingCleanup.length})
-          </h2>
-          <p className="mt-1 text-sm text-amber-900">
-            These reps are flagged "no longer with the company." Go deactivate them in each
-            external system below, then click <strong>✓ All cleanup done</strong> to clear them
-            from this list.
-          </p>
-          <ul className="mt-3 space-y-3">
-            {pendingCleanup.map((t) => (
-              <CleanupRow
-                key={t.id}
-                t={t}
-                saving={savingId === t.id}
-                onDone={() => markCleanupDone(t)}
-                onUndo={() => toggle(t, true)}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
 
       <section className="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-emerald-900">
@@ -744,6 +703,140 @@ export default function ActiveReps() {
           </ul>
         )}
       </section>
+
+      {unconfirmedLevel.length > 0 && (
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+          <h2 className="text-lg font-semibold text-indigo-900">
+            🎖 Rep levels to confirm ({unconfirmedLevel.length})
+          </h2>
+          <p className="mt-1 text-sm text-indigo-900">
+            The system has auto-guessed Junior or Senior for each rep below — Junior if they
+            graduated through this system, Senior if they were already on the team when bulk-imported.
+            Confirm the guess (one click) or flip it to the other level.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {unconfirmedLevel.map((t) => {
+              const guess = t.rep_level
+              const otherFieldLevel = guess === 'junior' ? 'senior' : 'junior'
+              const history = repHistoryLabel(t)
+              return (
+                <li
+                  key={t.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div>
+                      <strong>{t.first_name} {t.last_name}</strong>{' '}
+                      <span className="text-slate-500">{t.phone || ''}</span>
+                      <span className="ml-2 text-xs text-slate-600">
+                        Auto-guess: <strong>{LEVEL_LABEL[guess]}</strong>
+                      </span>
+                    </div>
+                    {history && (
+                      <div className="mt-0.5 text-[11px] text-slate-500">{history}</div>
+                    )}
+                    <div className="mt-0.5 text-[11px] text-slate-600">
+                      Active with us since:{' '}
+                      <EditableActiveSince
+                        value={t.became_active_rep_at}
+                        onSave={(iso) => setActiveSince(t, iso)}
+                        busy={savingId === t.id}
+                      />
+                    </div>
+                  </div>
+                  <span className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, guess)}
+                      disabled={savingId === t.id}
+                      className="rounded-md bg-indigo-700 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
+                    >
+                      {savingId === t.id ? '…' : `✓ Confirm ${LEVEL_LABEL[guess]}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, otherFieldLevel)}
+                      disabled={savingId === t.id}
+                      className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      Change to {LEVEL_LABEL[otherFieldLevel]}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepLevel(t, 'non_field')}
+                      disabled={savingId === t.id}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      title="Not a field sales rep — admin / ops / other role. Removes them from /active-reps and from 'all active sales reps' broadcasts."
+                    >
+                      Move to Non-field
+                    </button>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {suggested.length > 0 && (
+        <section className="rounded-lg border border-sky-200 bg-sky-50 p-5">
+          <h2 className="text-lg font-semibold text-sky-900">
+            🎓 Past graduates not yet flagged active ({suggested.length})
+          </h2>
+          <p className="mt-1 text-sm text-sky-900">
+            These trainees submitted their final test before the auto-flip rule existed (or it
+            missed them). One click each to promote — or skip if they've left the company since.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {suggested.map((t) => (
+              <li
+                key={t.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-white px-3 py-2 text-sm"
+              >
+                <span>
+                  <strong>{t.first_name} {t.last_name}</strong>{' '}
+                  <span className="text-slate-500">{t.phone || ''}</span>{' '}
+                  <span className="text-xs text-slate-400">
+                    graduated {new Date(t.submitted_at).toLocaleDateString()}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggle(t, true)}
+                  disabled={savingId === t.id}
+                  className="rounded-md bg-sky-700 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+                >
+                  {savingId === t.id ? 'Saving…' : 'Promote'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {pendingCleanup.length > 0 && (
+        <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-amber-900">
+            🚪 Cleanup pending — reps to remove from other systems ({pendingCleanup.length})
+          </h2>
+          <p className="mt-1 text-sm text-amber-900">
+            These reps are flagged "no longer with the company." Go deactivate them in each
+            external system below, then click <strong>✓ All cleanup done</strong> to clear them
+            from this list.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {pendingCleanup.map((t) => (
+              <CleanupRow
+                key={t.id}
+                t={t}
+                saving={savingId === t.id}
+                onDone={() => markCleanupDone(t)}
+                onUndo={() => toggle(t, true)}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">
