@@ -57,13 +57,18 @@ export default function Progress() {
       .from('classes')
       .select(
         // Pulling every per-trainee timestamp we need to compute the
-        // 8 stages, plus test_attempts + hotel_stays as joined arrays.
-        // Big query but it's one round-trip per page load and the
-        // tables are small.
+        // 8 stages, plus test_attempts + hotel_stays + sign_in_closures
+        // as joined arrays. Big query but it's one round-trip per page
+        // load and the tables are small.
+        //
+        // sign_in_closures is what tells us "Day X is officially over"
+        // — see the dropout rule in computeStages(). Without it we'd
+        // wait until the day after to mark a no-show as a dropout.
         `
         id, region, week_start_date, week_end_date, attendance_only,
         location_id, locations(name),
         day_2_it_notified_at, it_completed_at, graduation_report_sent_at, cancelled_at,
+        sign_in_closures(attendance_date),
         trainees!class_id(
           id, first_name, last_name,
           enrolled, registered, declined_at, needs_hotel, dropout_notified_at,
@@ -147,22 +152,14 @@ function ClassRow({ cls, expanded, onToggle }) {
     return { done, total: stages.length, pct: Math.round((done / stages.length) * 100) }
   }, [stages])
   const stuckCount = stages.filter((s) => s.state === 'stuck').length
-  // Enrolled = the planning-time roster. Active = the post-Day-1
-  // roster (per strict-attendance dropout rule). Show both when they
-  // diverge so admin sees at a glance "this class has dropouts."
+  // Enrolled = the planning-time roster. Active = applies the same
+  // dropout rule used in computeStages — anyone who missed an
+  // officially-over training day is a dropout. Show both numbers when
+  // they diverge so the dropout count is visible at the row level.
   const enrolledTrainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
   const traineeTotal = enrolledTrainees.length
-  const day1Iso = cls.week_start_date
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const start = parseLocalDate(cls.week_start_date)
-  const isPastDay1 = start && today >= start
-  const activeCount = isPastDay1
-    ? enrolledTrainees.filter((t) => {
-        if (t.dropout_notified_at) return false
-        return (t.attendance || []).some((a) => a.attendance_date === day1Iso && a.confirmed)
-      }).length
-    : traineeTotal
+  const overDates = getOfficiallyOverDates(cls)
+  const activeCount = enrolledTrainees.filter((t) => isActiveTrainee(t, overDates)).length
   const dropoutCount = traineeTotal - activeCount
   return (
     <li className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -330,21 +327,13 @@ function computeStages(cls) {
   // Full enrolled roster (excludes only manual unenroll + explicit decline).
   // Used for the Attendance stage so dropouts surface as missing.
   const trainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
-  // Active roster — applies Neal's strict policy: once Day 1 has passed,
-  // anyone who didn't sign in that day is officially a dropout and
-  // shouldn't count toward provisioning / credentials / graduation
-  // denominators. Also drops anyone the dropout cron has already flagged.
-  // Before Day 1 starts, "active" == "enrolled" — there's no attendance
-  // data yet to use.
+  // Active roster — Neal's strict policy: miss ANY officially-over
+  // training day and you're a dropout. See getOfficiallyOverDates +
+  // isActiveTrainee for the rule. Anyone the dropout cron has already
+  // flagged (dropout_notified_at) drops out regardless.
   const day1Iso = cls.week_start_date
-  const activeTrainees = trainees.filter((t) => {
-    if (t.dropout_notified_at) return false
-    if (!isPastDay1) return true
-    const signedInDay1 = (t.attendance || []).some(
-      (a) => a.attendance_date === day1Iso && a.confirmed,
-    )
-    return signedInDay1
-  })
+  const officiallyOverDates = getOfficiallyOverDates(cls)
+  const activeTrainees = trainees.filter((t) => isActiveTrainee(t, officiallyOverDates))
   const total = trainees.length
   const activeTotal = activeTrainees.length
   const namesOf = (rows) => rows.slice(0, 6).map((t) => `${t.first_name || ''} ${t.last_name || ''}`.trim() || '—')
@@ -535,6 +524,61 @@ function stageState(done, total, isStuckIfIncomplete) {
 function addDaysLocal(d, n) {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
   return x
+}
+
+// Every "officially over" training day for a class. A day counts as
+// over if EITHER:
+//   • the date is strictly before today (the day fully passed), OR
+//   • admin clicked "Close sign-in" for that day at the kiosk
+//     (sign_in_closures row exists).
+//
+// Today (in-progress) is intentionally NOT counted by default — a
+// trainee who hasn't signed in by noon might just be late. Admin
+// closes sign-in to commit "everyone who's getting in is in" and the
+// no-shows immediately become dropouts.
+//
+// Returns an array of YYYY-MM-DD strings (matching attendance_date
+// values from Postgres). Empty if class hasn't started.
+export function getOfficiallyOverDates(cls) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const start = parseLocalDate(cls.week_start_date)
+  const end = parseLocalDate(cls.week_end_date)
+  if (!start) return []
+  const todayIso = ymdLocal(today)
+  const closedDates = new Set((cls.sign_in_closures || []).map((c) => c.attendance_date))
+  const lastIso = end && today > end ? ymdLocal(end) : todayIso
+  const out = []
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  while (ymdLocal(cursor) <= lastIso) {
+    const iso = ymdLocal(cursor)
+    if (iso < todayIso || closedDates.has(iso)) out.push(iso)
+    cursor = addDaysLocal(cursor, 1)
+  }
+  return out
+}
+
+// True if this trainee is still part of the active roster — i.e. they
+// attended every officially-over day and the dropout cron hasn't
+// flagged them. Decoupled from class state so the same predicate
+// works for the header summary + the per-stage logic.
+export function isActiveTrainee(t, officiallyOverDates) {
+  if (t.dropout_notified_at) return false
+  if (officiallyOverDates.length === 0) return true
+  const dates = new Set(
+    (t.attendance || []).filter((a) => a.confirmed).map((a) => a.attendance_date),
+  )
+  return officiallyOverDates.every((d) => dates.has(d))
+}
+
+// Local-timezone YYYY-MM-DD, matching the format Postgres `date` columns
+// come back as. Used for cross-referencing attendance + sign_in_closures
+// rows (both keyed by attendance_date as YYYY-MM-DD).
+function ymdLocal(d) {
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 function fmtDate(iso) {
