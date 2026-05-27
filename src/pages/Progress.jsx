@@ -147,7 +147,23 @@ function ClassRow({ cls, expanded, onToggle }) {
     return { done, total: stages.length, pct: Math.round((done / stages.length) * 100) }
   }, [stages])
   const stuckCount = stages.filter((s) => s.state === 'stuck').length
-  const traineeTotal = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at).length
+  // Enrolled = the planning-time roster. Active = the post-Day-1
+  // roster (per strict-attendance dropout rule). Show both when they
+  // diverge so admin sees at a glance "this class has dropouts."
+  const enrolledTrainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
+  const traineeTotal = enrolledTrainees.length
+  const day1Iso = cls.week_start_date
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const start = parseLocalDate(cls.week_start_date)
+  const isPastDay1 = start && today >= start
+  const activeCount = isPastDay1
+    ? enrolledTrainees.filter((t) => {
+        if (t.dropout_notified_at) return false
+        return (t.attendance || []).some((a) => a.attendance_date === day1Iso && a.confirmed)
+      }).length
+    : traineeTotal
+  const dropoutCount = traineeTotal - activeCount
   return (
     <li className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <button
@@ -166,7 +182,20 @@ function ClassRow({ cls, expanded, onToggle }) {
               )}
             </div>
             <div className="mt-1 text-xs text-slate-500">
-              {traineeTotal} active trainee{traineeTotal === 1 ? '' : 's'} ·{' '}
+              {dropoutCount > 0 ? (
+                <>
+                  <span className="font-semibold text-slate-700">{activeCount} active</span>
+                  <span className="text-slate-400"> · </span>
+                  <span className="text-amber-700">
+                    {dropoutCount} dropout{dropoutCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="text-slate-400"> · </span>
+                  <span>({traineeTotal} originally enrolled)</span>
+                </>
+              ) : (
+                <>{traineeTotal} active trainee{traineeTotal === 1 ? '' : 's'}</>
+              )}
+              <span className="text-slate-400"> · </span>
               {overall.done}/{overall.total} stages complete ({overall.pct}%)
               {stuckCount > 0 && (
                 <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-800">
@@ -298,8 +327,26 @@ function computeStages(cls) {
   const isPastDay1 = start && today >= start
   const isPastDay2 = start && today >= addDaysLocal(start, 1)
   const isPastClass = end && today > end
+  // Full enrolled roster (excludes only manual unenroll + explicit decline).
+  // Used for the Attendance stage so dropouts surface as missing.
   const trainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
+  // Active roster — applies Neal's strict policy: once Day 1 has passed,
+  // anyone who didn't sign in that day is officially a dropout and
+  // shouldn't count toward provisioning / credentials / graduation
+  // denominators. Also drops anyone the dropout cron has already flagged.
+  // Before Day 1 starts, "active" == "enrolled" — there's no attendance
+  // data yet to use.
+  const day1Iso = cls.week_start_date
+  const activeTrainees = trainees.filter((t) => {
+    if (t.dropout_notified_at) return false
+    if (!isPastDay1) return true
+    const signedInDay1 = (t.attendance || []).some(
+      (a) => a.attendance_date === day1Iso && a.confirmed,
+    )
+    return signedInDay1
+  })
   const total = trainees.length
+  const activeTotal = activeTrainees.length
   const namesOf = (rows) => rows.slice(0, 6).map((t) => `${t.first_name || ''} ${t.last_name || ''}`.trim() || '—')
 
   // 1. Scheduled — location assigned
@@ -314,22 +361,27 @@ function computeStages(cls) {
     }
   })()
 
-  // 2. Registered
+  // 2. Registered. Once Day 1 has passed, the dropout(s) are out of the
+  // active roster — switch to activeTrainees so the count says
+  // "11/11 ✓" instead of "11/12 stuck because of the dropout".
   const stage2 = (() => {
-    const done = trainees.filter((t) => t.registered).length
-    const missing = trainees.filter((t) => !t.registered)
+    const roster = isPastDay1 ? activeTrainees : trainees
+    const rosterTotal = isPastDay1 ? activeTotal : total
+    const done = roster.filter((t) => t.registered).length
+    const missing = roster.filter((t) => !t.registered)
     return {
       key: 'registered', icon: '✉️', label: 'Registered',
-      state: stageState(done, total, isPastDay1),
-      done, total,
-      detail: `${done} of ${total} trainees confirmed via /register/<token>`,
+      state: stageState(done, rosterTotal, isPastDay1),
+      done, total: rosterTotal,
+      detail: `${done} of ${rosterTotal} trainees confirmed via /register/<token>`,
       missingNames: namesOf(missing),
     }
   })()
 
-  // 3. Hotels — among trainees needing hotels
+  // 3. Hotels — among trainees needing hotels (post-Day-1: active only)
   const stage3 = (() => {
-    const eligible = trainees.filter((t) => t.needs_hotel)
+    const roster = isPastDay1 ? activeTrainees : trainees
+    const eligible = roster.filter((t) => t.needs_hotel)
     const done = eligible.filter((t) => Array.isArray(t.trainee_hotel_stays) && t.trainee_hotel_stays.length > 0).length
     const totalH = eligible.length
     if (totalH === 0) {
@@ -351,9 +403,10 @@ function computeStages(cls) {
   })()
 
   // 4. Itinerary email sent (registered trainees only — itinerary cron
-  //    only fires after registration)
+  //    only fires after registration). Post-Day-1: active roster only.
   const stage4 = (() => {
-    const eligible = trainees.filter((t) => t.registered)
+    const roster = isPastDay1 ? activeTrainees : trainees
+    const eligible = roster.filter((t) => t.registered)
     const done = eligible.filter((t) => !!t.itinerary_email_sent_at).length
     const totalI = eligible.length
     if (totalI === 0) {
@@ -373,7 +426,8 @@ function computeStages(cls) {
     }
   })()
 
-  // 5. Attendance — Day 1 sign-ins
+  // 5. Attendance — Day 1 sign-ins. Intentionally uses the full
+  //    enrolled roster (not active) so dropouts surface as "missing".
   const stage5 = (() => {
     if (!isPastDay1) {
       return {
@@ -382,7 +436,6 @@ function computeStages(cls) {
         detail: 'Day 1 hasn\'t happened yet.',
       }
     }
-    const day1Iso = cls.week_start_date
     const done = trainees.filter((t) =>
       (t.attendance || []).some((a) => a.attendance_date === day1Iso && a.confirmed),
     ).length
@@ -393,29 +446,31 @@ function computeStages(cls) {
       key: 'attendance', icon: '👋', label: 'Attendance',
       state: done === total ? 'done' : (done > 0 ? 'partial' : 'stuck'),
       done, total,
-      detail: `${done} of ${total} signed in on Day 1 (${day1Iso}). Per strict policy, the others are dropouts.`,
+      detail: `${done} of ${total} signed in on Day 1 (${day1Iso}). Per strict policy, the ${total - done} no-show${total - done === 1 ? '' : 's'} ${total - done === 1 ? 'is a dropout' : 'are dropouts'} and ${total - done === 1 ? 'is' : 'are'} excluded from the stages below.`,
       missingNames: namesOf(missing),
       actionLink: { label: 'Open Attendance', to: () => '/attendance' },
     }
   })()
 
-  // 6. Provisioned — every trainee has company_email AND IT marked done
+  // 6. Provisioned — every ACTIVE trainee (post-Day-1 dropouts excluded
+  //    per the strict policy) has company_email AND IT marked done. The
+  //    denominator drops automatically once a no-show is identified.
   const stage6 = (() => {
-    const withEmail = trainees.filter((t) => !!t.company_email).length
-    const allEmails = withEmail === total && total > 0
+    const withEmail = activeTrainees.filter((t) => !!t.company_email).length
+    const allEmails = withEmail === activeTotal && activeTotal > 0
     const itComplete = !!cls.it_completed_at
     const done = (allEmails && itComplete) ? 1 : 0
     const totalP = 1
     let state, detail
     if (done) {
       state = 'done'
-      detail = `All ${total} emails assigned, IT marked complete ${fmtDate(cls.it_completed_at)}`
+      detail = `All ${activeTotal} active trainees' emails assigned, IT marked complete ${fmtDate(cls.it_completed_at)}`
     } else if (allEmails && !itComplete) {
       state = isPastDay2 ? 'stuck' : 'partial'
-      detail = `${withEmail} of ${total} emails assigned — IT hasn't clicked "Mark provisioning complete" yet.`
+      detail = `${withEmail} of ${activeTotal} active emails assigned — IT hasn't clicked "Mark provisioning complete" yet.`
     } else if (withEmail > 0) {
       state = isPastDay2 ? 'stuck' : 'partial'
-      detail = `${withEmail} of ${total} emails assigned`
+      detail = `${withEmail} of ${activeTotal} active emails assigned`
     } else {
       state = isPastDay2 ? 'stuck' : 'none'
       detail = cls.day_2_it_notified_at
@@ -429,9 +484,9 @@ function computeStages(cls) {
     }
   })()
 
-  // 7. Credentials — texted login info
+  // 7. Credentials — texted login info to the active roster only.
   const stage7 = (() => {
-    const eligible = trainees // sent to whoever attended; we count all
+    const eligible = activeTrainees
     const done = eligible.filter((t) => !!t.credentials_sent_at).length
     const totalC = eligible.length
     const missing = eligible.filter((t) => !t.credentials_sent_at)
@@ -439,27 +494,27 @@ function computeStages(cls) {
       key: 'credentials', icon: '🔑', label: 'Credentials',
       state: stageState(done, totalC, isPastDay2),
       done, total: totalC,
-      detail: `${done} of ${totalC} trainees were texted their credentials`,
+      detail: `${done} of ${totalC} active trainees were texted their credentials`,
       missingNames: namesOf(missing),
       actionLink: { label: 'Open class detail', to: (c) => `/class/${c.id}` },
     }
   })()
 
-  // 8. Graduated — final test submitted
+  // 8. Graduated — final test submitted. Active roster only.
   const stage8 = (() => {
-    const done = trainees.filter((t) =>
+    const done = activeTrainees.filter((t) =>
       Array.isArray(t.test_attempts) && t.test_attempts.some((a) => a.submitted_at),
     ).length
-    const missing = trainees.filter(
+    const missing = activeTrainees.filter(
       (t) => !(Array.isArray(t.test_attempts) && t.test_attempts.some((a) => a.submitted_at)),
     )
     return {
       key: 'graduated', icon: '🎓', label: 'Graduated',
-      state: done === total && total > 0
+      state: done === activeTotal && activeTotal > 0
         ? 'done'
         : (isPastClass ? 'stuck' : (done > 0 ? 'partial' : 'none')),
-      done, total,
-      detail: `${done} of ${total} submitted the final test`,
+      done, total: activeTotal,
+      detail: `${done} of ${activeTotal} active trainees submitted the final test`,
       missingNames: namesOf(missing),
     }
   })()
