@@ -35,6 +35,7 @@ import Regions from './pages/Regions.jsx'
 import Directory from './pages/Directory.jsx'
 import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
+import TrainingWeek from './pages/TrainingWeek.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
           <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
+          <Route path="/training-week" element={<RouteGate pageKey="setup.training_week"><TrainingWeek /></RouteGate>} />
         </Route>
       </Routes>
       </RegionsProvider>
@@ -153,6 +155,7 @@ function AdminLayout() {
     { key: 'setup.welcome_links', to: '/welcome-links', label: 'Welcome page links' },
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
+    { key: 'setup.training_week', to: '/training-week', label: 'Training Week' },
   ].filter((it) => show(it.key))
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
