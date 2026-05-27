@@ -36,6 +36,7 @@ import Directory from './pages/Directory.jsx'
 import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
+import Quiz from './pages/Quiz.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -80,6 +81,12 @@ export default function App() {
             Group Messages broadcast and fill in personal email + home
             address. Token-gated. */}
         <Route path="/update-info/:token" element={<MinimalLayout><UpdateInfo /></MinimalLayout>} />
+
+        {/* Public morning mini-quiz — trainees tap a link from the
+            kiosk-sign-in-triggered SMS. Token-gated; questions test the
+            previous day's training content. See send-training-quiz.js
+            for the fan-out logic. */}
+        <Route path="/quiz/:token" element={<MinimalLayout><Quiz /></MinimalLayout>} />
 
         {/* Public company directory — shareable phone-book of every
             active team member. Its own self-contained layout (no admin

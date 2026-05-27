@@ -29,26 +29,41 @@ export default function TrainingWeek() {
   const [flash, setFlash] = useState(null)
   // Per-day question list. Shape: { [dayNumber]: [{...question}, ...] }
   const [questionsByDay, setQuestionsByDay] = useState({})
+  // Per-day attempt stats. Shape: { [dayNumber]: {sent, completed, avgScore, total, attempts: [...]} }
+  // Phase 2 — drives the Results panel under each day card.
+  const [statsByDay, setStatsByDay] = useState({})
 
   useEffect(() => {
     load()
   }, [])
 
   async function load() {
-    const [{ data: dayRows, error: dayErr }, { data: qRows, error: qErr }] =
-      await Promise.all([
-        supabase
-          .from('training_day_lessons')
-          .select('*')
-          .order('day_number', { ascending: true }),
-        supabase
-          .from('training_day_quiz_questions')
-          .select('*')
-          .order('day_number', { ascending: true })
-          .order('position', { ascending: true }),
-      ])
-    if (dayErr || qErr) {
-      setFlash({ kind: 'error', text: (dayErr || qErr).message })
+    const [
+      { data: dayRows, error: dayErr },
+      { data: qRows, error: qErr },
+      { data: attempts, error: aErr },
+    ] = await Promise.all([
+      supabase
+        .from('training_day_lessons')
+        .select('*')
+        .order('day_number', { ascending: true }),
+      supabase
+        .from('training_day_quiz_questions')
+        .select('*')
+        .order('day_number', { ascending: true })
+        .order('position', { ascending: true }),
+      // Phase 2 — last ~14 days of attempts so the Results panel has
+      // something to show. Includes trainee name + class for the table.
+      supabase
+        .from('training_day_attempts')
+        .select(
+          'id, trainee_id, class_id, day_number, homework_sent_at, quiz_sent_at, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
+        )
+        .order('quiz_completed_at', { ascending: false, nullsFirst: false })
+        .limit(500),
+    ])
+    if (dayErr || qErr || aErr) {
+      setFlash({ kind: 'error', text: (dayErr || qErr || aErr).message })
       setDays([])
       return
     }
@@ -71,6 +86,21 @@ export default function TrainingWeek() {
       byDay[q.day_number].push(q)
     }
     setQuestionsByDay(byDay)
+    // Compute per-day stats from attempts.
+    const statsAcc = {}
+    for (const a of attempts || []) {
+      const k = a.day_number
+      if (!statsAcc[k]) statsAcc[k] = { sent: 0, completed: 0, scoreSum: 0, totalSum: 0, attempts: [] }
+      const s = statsAcc[k]
+      if (a.quiz_sent_at) s.sent++
+      if (a.quiz_completed_at) {
+        s.completed++
+        s.scoreSum += a.quiz_score || 0
+        s.totalSum += a.quiz_total || 0
+      }
+      s.attempts.push(a)
+    }
+    setStatsByDay(statsAcc)
   }
 
   // Update the draft state for one day without saving.
@@ -207,6 +237,7 @@ export default function TrainingWeek() {
             onAddQuestion={() => addQuestion(d.day_number)}
             onSaveQuestion={saveQuestion}
             onDeleteQuestion={deleteQuestion}
+            stats={statsByDay[d.day_number]}
           />
         ))
       )}
@@ -222,7 +253,9 @@ export default function TrainingWeek() {
 }
 
 // One day's editor card. Two sections: homework (top) + quiz (bottom).
-function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuestion, onSaveQuestion, onDeleteQuestion }) {
+// Stats panel (Phase 2 results) only renders when there's at least one
+// attempt row for this day.
+function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuestion, onSaveQuestion, onDeleteQuestion, stats }) {
   // Substitute {firstName} → "Sample" for the live preview so admin sees
   // a realistic example without thinking about the variable.
   const previewBody = (draft.homework_sms_body || '').replace(/\{firstName\}/g, 'Sample')
@@ -325,6 +358,13 @@ function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuest
         </div>
       </div>
 
+      {/* Results panel (Phase 2) — only renders when at least one attempt
+          row exists for this day. Shows aggregate counts + a per-trainee
+          table sorted newest-first. */}
+      {stats && stats.attempts && stats.attempts.length > 0 && (
+        <ResultsPanel dayNumber={day.day_number} stats={stats} />
+      )}
+
       {/* Quiz editor */}
       <div className="rounded-md border border-slate-200 bg-sky-50 p-4 space-y-3">
         <div className="flex items-center justify-between">
@@ -360,6 +400,83 @@ function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuest
       </div>
     </section>
   )
+}
+
+// Per-day Phase-2 results — homework sent count, quiz sent/completed
+// counts, average score, per-trainee table. Collapsed by default since
+// it's secondary to the authoring UI; admin clicks to expand.
+function ResultsPanel({ dayNumber, stats }) {
+  const [open, setOpen] = useState(false)
+  const avgPct = stats.totalSum > 0
+    ? Math.round((stats.scoreSum / stats.totalSum) * 100)
+    : null
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-emerald-900">
+          📊 Results · {stats.sent} sent · {stats.completed} completed
+          {avgPct !== null && (
+            <> · avg <strong>{avgPct}%</strong></>
+          )}
+        </h3>
+        <span className="text-xs text-emerald-800">{open ? 'Hide ▴' : 'Show ▾'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-emerald-300 text-left text-[10px] uppercase tracking-wide text-emerald-900">
+                <th className="py-1 pr-3">Trainee</th>
+                <th className="py-1 pr-3">Class</th>
+                <th className="py-1 pr-3">Homework</th>
+                <th className="py-1 pr-3">Quiz sent</th>
+                <th className="py-1 pr-3">Completed</th>
+                <th className="py-1 pr-3 text-right">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.attempts.map((a) => {
+                const t = a.trainees
+                const cls = a.classes
+                const name = t ? `${t.first_name || ''} ${t.last_name || ''}`.trim() || '—' : '—'
+                const classLabel = cls ? `${cls.region} · ${cls.week_start_date}` : '—'
+                const score = a.quiz_completed_at && a.quiz_total
+                  ? `${a.quiz_score}/${a.quiz_total} (${Math.round((a.quiz_score / a.quiz_total) * 100)}%)`
+                  : '—'
+                return (
+                  <tr key={a.id} className="border-b border-emerald-100">
+                    <td className="py-1.5 pr-3 font-semibold text-slate-900">{name}</td>
+                    <td className="py-1.5 pr-3 text-slate-600">{classLabel}</td>
+                    <td className="py-1.5 pr-3 text-slate-600">
+                      {a.homework_sent_at ? fmtTime(a.homework_sent_at) : '—'}
+                    </td>
+                    <td className="py-1.5 pr-3 text-slate-600">
+                      {a.quiz_sent_at ? fmtTime(a.quiz_sent_at) : '—'}
+                    </td>
+                    <td className="py-1.5 pr-3 text-slate-600">
+                      {a.quiz_completed_at ? fmtTime(a.quiz_completed_at) : '—'}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-semibold">{score}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function fmtTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString()
 }
 
 function Field({ label, children }) {

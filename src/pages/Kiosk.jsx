@@ -118,6 +118,15 @@ export default function Kiosk() {
     }
     setWelcome({ first_name: t.first_name })
     setTimeout(() => setWelcome(null), 3500)
+    // Fire the morning mini-quiz SMS for the previous day's content.
+    // Intentionally not awaited — the kiosk UX shouldn't wait on SMS.
+    // The function is no-op-safe on Day 1, missed-yesterday, or already-
+    // sent cases, so we just kick it off and ignore the result here.
+    fetch('/.netlify/functions/send-training-quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ class_id, trainee_id: t.id }),
+    }).catch((e) => console.warn('send-training-quiz failed (non-fatal):', e))
     load()
   }
 
