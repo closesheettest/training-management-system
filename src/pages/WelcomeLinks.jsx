@@ -65,10 +65,18 @@ export default function WelcomeLinks() {
       return
     }
     setSaving(true)
+    // Light URL normalization — auto-prepend https:// if the user pasted
+    // a bare hostname like "sites.google.com/...", which is how a lot of
+    // copy-pastes from the address bar arrive. Anything starting with a
+    // scheme (https://, http://, mailto:, tel:) is left alone.
+    let urlClean = draft.url.trim()
+    if (urlClean && !/^[a-z][a-z0-9+.-]*:/i.test(urlClean)) {
+      urlClean = 'https://' + urlClean
+    }
     const payload = {
       display_order: Number(draft.display_order) || 0,
       label: draft.label.trim(),
-      url: draft.url.trim(),
+      url: urlClean,
       description: draft.description?.trim() || null,
       icon: draft.icon?.trim() || null,
       requires_google_signin: !!draft.requires_google_signin,
@@ -268,6 +276,12 @@ export default function WelcomeLinks() {
             e.preventDefault()
             save()
           }}
+          // noValidate disables HTML5 form validation (required, type=url
+          // pattern check, etc.) so the form ALWAYS submits and our JS
+          // handler in save() decides what's valid. Without this, a URL
+          // input the browser dislikes (no scheme, weird chars from a
+          // paste) silently blocks submission with no error shown.
+          noValidate
           className="rounded-lg border-2 border-brand-navy bg-white p-5 shadow-lg space-y-4"
         >
           <h3 className="text-lg font-semibold text-brand-navy">
