@@ -34,6 +34,13 @@ export default function GroupMessages() {
   const [scope, setScope] = useState('all_active_reps') // 'class' | 'all_active_reps'
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
+  // When scope === 'class' and this is on, recipients are narrowed to
+  // trainees who've signed in (confirmed=true) on EVERY training day so
+  // far for this class. "Training days so far" = the set of distinct
+  // attendance_date values <= today that have any confirmed sign-in for
+  // this class. Trainees missing even one of those dates are dropped —
+  // i.e. no-shows + partial attendees skip the blast.
+  const [attendedEveryDayOnly, setAttendedEveryDayOnly] = useState(false)
   // Optional region filter — only applies when scope === 'all_active_reps'.
   // '' = no filter (all regions). Future: a regional manager persona could
   // default this to their own region.
@@ -79,7 +86,7 @@ export default function GroupMessages() {
   useEffect(() => {
     loadRecipients()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, selectedClassId, regionFilter])
+  }, [scope, selectedClassId, regionFilter, attendedEveryDayOnly])
 
   async function loadClasses() {
     const { data } = await supabase
@@ -111,6 +118,19 @@ export default function GroupMessages() {
       }
       // Class scope: every cohort member except explicit declines/unenrolls.
       q = q.eq('class_id', selectedClassId).neq('enrolled', false).is('declined_at', null)
+      // Showed-up filter — only trainees with a confirmed sign-in for
+      // every training day so far. Computed by fetching the attendance
+      // table for this class and intersecting in JS. Same logic runs in
+      // the send-group-message function so server-side enforcement matches.
+      if (attendedEveryDayOnly) {
+        const ids = await computeFullAttendeeIds(selectedClassId)
+        if (ids.length === 0) {
+          setRecipients([])
+          setLoadingRecipients(false)
+          return
+        }
+        q = q.in('id', ids)
+      }
     } else {
       // All active reps: the durable "in the field" filter, optionally
       // sliced to one region.
@@ -121,6 +141,49 @@ export default function GroupMessages() {
     setRecipients(data || [])
     setLoadingRecipients(false)
   }
+
+  // Fetch the attendance rows for a class and return the trainee_ids who
+  // have a confirmed sign-in on every distinct training day <= today.
+  // If no training day has been recorded yet, returns []. Mirror of the
+  // server-side logic in send-group-message.js.
+  async function computeFullAttendeeIds(classId) {
+    const today = new Date()
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('trainee_id, attendance_date, confirmed')
+      .eq('class_id', classId)
+      .eq('confirmed', true)
+    if (error || !data) return []
+    // Treat every distinct date with any confirmed sign-in as a training
+    // day that has happened. Sat/Sun naturally drop out because nobody
+    // signed in on those days.
+    const trainingDays = new Set()
+    const byTrainee = new Map()
+    for (const row of data) {
+      if (!row.attendance_date) continue
+      if (row.attendance_date > todayIso) continue
+      trainingDays.add(row.attendance_date)
+      const set = byTrainee.get(row.trainee_id) || new Set()
+      set.add(row.attendance_date)
+      byTrainee.set(row.trainee_id, set)
+    }
+    if (trainingDays.size === 0) return []
+    const needed = trainingDays.size
+    const ids = []
+    for (const [tid, days] of byTrainee.entries()) {
+      if (days.size === needed) ids.push(tid)
+    }
+    return ids
+  }
+
+  // Selected class object (for showing meeting-vs-training distinction
+  // in the UI — the attendance filter is hidden for attendance_only
+  // meetings since they don't have multi-day attendance).
+  const selectedClass = useMemo(
+    () => classes.find((c) => c.id === selectedClassId) || null,
+    [classes, selectedClassId],
+  )
 
   // Filter templates by channel — SMS templates have no subject, email
   // templates do. That makes the dropdowns naturally scoped.
@@ -221,6 +284,7 @@ export default function GroupMessages() {
     const basePayload = {
       scope, // 'class' | 'all_active_reps'
       ...(scope === 'class' ? { class_id: selectedClassId } : {}),
+      ...(scope === 'class' && attendedEveryDayOnly ? { attended_every_day: true } : {}),
       ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
       channels: { sms: wantSms, email: wantEmail },
       ...(wantSms ? { sms_body: smsBody } : {}),
@@ -369,6 +433,24 @@ export default function GroupMessages() {
                   })}
                 </select>
               )}
+              {/* Show-ups-only filter — hidden for attendance-only meetings,
+                  where "training days" doesn't apply. */}
+              {scope === 'class' && selectedClassId && !selectedClass?.attendance_only && (
+                <label className="mt-2 flex items-start gap-2 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={attendedEveryDayOnly}
+                    onChange={(e) => setAttendedEveryDayOnly(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-slate-800">Only people who've shown up every day so far</span>
+                    <span className="ml-1 text-slate-500">
+                      — drops no-shows + partial attendees. Based on confirmed kiosk sign-ins through today.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
           </label>
         </div>
@@ -378,7 +460,13 @@ export default function GroupMessages() {
             <span className="text-slate-500">Loading recipients…</span>
           ) : (
             <>
-              <strong>{reach.total}</strong> recipient{reach.total === 1 ? '' : 's'} matched ·{' '}
+              <strong>{reach.total}</strong> recipient{reach.total === 1 ? '' : 's'} matched
+              {scope === 'class' && attendedEveryDayOnly && (
+                <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
+                  ✓ showed up every day
+                </span>
+              )}
+              {' · '}
               <span className="text-slate-600">{reach.sms} have a phone</span> ·{' '}
               <span className="text-slate-600">{reach.email} have an email</span>
               {wantEmail && reach.usingCompany > 0 && (

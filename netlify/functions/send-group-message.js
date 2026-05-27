@@ -146,6 +146,23 @@ export const handler = async (event) => {
   } else if (body.scope === 'class') {
     if (!body.class_id) return json(400, { error: 'class_id required when scope=class' })
     q = q.eq('class_id', body.class_id).neq('enrolled', false).is('declined_at', null)
+    // Optional "showed up every day so far" filter — narrows the cohort
+    // to trainees with a confirmed sign-in on every distinct attendance
+    // date <= today for this class. Mirrors the client-side computation
+    // in GroupMessages.jsx so server enforces what the UI previews.
+    if (body.attended_every_day === true) {
+      const fullAttendeeIds = await getFullAttendeeIds(supabase, body.class_id)
+      if (fullAttendeeIds.length === 0) {
+        return json(200, {
+          ok: true,
+          message: 'No recipients matched — nobody has shown up every training day yet.',
+          counts: { sms_sent: 0, sms_failed: 0, email_sent: 0, email_failed: 0, recipients: 0 },
+          next_offset: null,
+          total: 0,
+        })
+      }
+      q = q.in('id', fullAttendeeIds)
+    }
   } else if (body.scope === 'all_active_reps' || body.scope === 'all_enrolled') {
     // 'all_enrolled' is the legacy alias — kept so a cached client doesn't
     // 400. Both paths apply the same active-rep filter.
@@ -267,6 +284,42 @@ function applyPlaceholders(str, vars) {
     const v = vars[name]
     return v === undefined || v === null || v === '' ? `{${name}}` : String(v)
   })
+}
+
+// Resolve the set of trainee_ids who've shown up every training day so
+// far for the given class. "Training day" = a date <= today on which any
+// trainee for this class has a confirmed=true attendance row. A trainee
+// is "full attendance" if they have a confirmed row for every such date.
+// Returns [] when no attendance is recorded yet — caller should treat
+// that as a zero-recipient outcome (nobody to send to).
+//
+// Note: weekends naturally fall out because nobody signs in on Sat/Sun.
+async function getFullAttendeeIds(supabase, classId) {
+  const today = new Date()
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('trainee_id, attendance_date')
+    .eq('class_id', classId)
+    .eq('confirmed', true)
+  if (error || !data) return []
+  const trainingDays = new Set()
+  const byTrainee = new Map()
+  for (const row of data) {
+    if (!row.attendance_date) continue
+    if (row.attendance_date > todayIso) continue
+    trainingDays.add(row.attendance_date)
+    const set = byTrainee.get(row.trainee_id) || new Set()
+    set.add(row.attendance_date)
+    byTrainee.set(row.trainee_id, set)
+  }
+  if (trainingDays.size === 0) return []
+  const needed = trainingDays.size
+  const ids = []
+  for (const [tid, days] of byTrainee.entries()) {
+    if (days.size === needed) ids.push(tid)
+  }
+  return ids
 }
 
 function json(status, body) {
