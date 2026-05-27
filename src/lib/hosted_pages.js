@@ -21,14 +21,27 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'day-1-retail-training',
+    title: 'Day 1 Retail Training — the whole curriculum',
+    url: '/training/day-1-retail-training.pdf',
+    description:
+      'The complete 118-slide Day 1 training deck Neal walks trainees through. ' +
+      'Source of truth for the 5-step framework, the 4 emotional drivers (HSN tactics), ' +
+      'Control Points, the Harvesting Script, slides 1-16 of the in-home pitch, the Energy ' +
+      'Package, the Ask, and the R.I.S.C objection-handling flow. Anything pitch-related ' +
+      'should match this document verbatim.',
+    created: '2026-05-27',
+    category: 'Internal docs',
+  },
+  {
     slug: 'day-2-homework',
-    title: 'Day 2 homework — Why U.S. Shingle + Products',
+    title: 'Day 2 homework — Memorize slides 6-16',
     url: '/day-2-homework/',
     description:
-      'Tonight\'s 3-part assignment for Day 2 of training: the 4 "Why U.S. Shingle" talking points ' +
-      'with explicit framing (experience matters → trust → social proof → 3rd-party finance), ' +
-      'Products PDF download for review, and a pointer to slides 1-5 of the in-home deck. ' +
-      'Quiz on this material fires Day 3 morning at kiosk sign-in.',
+      'Tonight\'s directive (page 89 of the training): "Memorize slides 6-16, incorporating ' +
+      'slides 1-5." Page surfaces the verbatim slide 1-5 talking-point quotes from training ' +
+      'pages 37-41, plus links to the Products PDF and the full Day 1 training deck. ' +
+      'Quiz on Products fires Day 3 morning at kiosk sign-in.',
     created: '2026-05-27',
     category: 'Trainee resources',
   },
