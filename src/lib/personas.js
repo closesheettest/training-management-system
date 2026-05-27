@@ -13,6 +13,7 @@ export const PAGES = [
   { key: 'home', label: 'Home', path: '/', menu: 'top' },
   { key: 'schedule', label: 'Schedule', path: '/calendar', menu: 'top' },
   { key: 'attendance', label: 'Attendance', path: '/attendance', menu: 'top' },
+  { key: 'progress', label: 'Progress', path: '/progress', menu: 'top' },
   { key: 'provisioning', label: 'Provisioning', path: '/provisioning', menu: 'top' },
   { key: 'setup.manager', label: 'Hiring Manager', path: '/manager', menu: 'setup' },
   { key: 'setup.locations', label: 'Locations', path: '/locations', menu: 'setup' },

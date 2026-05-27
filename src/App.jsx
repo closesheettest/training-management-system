@@ -37,6 +37,7 @@ import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import Quiz from './pages/Quiz.jsx'
+import Progress from './pages/Progress.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -106,6 +107,7 @@ export default function App() {
           <Route path="/calendar" element={<RouteGate pageKey="schedule"><Calendar /></RouteGate>} />
           <Route path="/class/:id" element={<ClassDetail />} />
           <Route path="/attendance" element={<RouteGate pageKey="attendance"><Attendance /></RouteGate>} />
+          <Route path="/progress" element={<RouteGate pageKey="progress"><Progress /></RouteGate>} />
           <Route path="/provisioning" element={<RouteGate pageKey="provisioning"><ProvisioningHub /></RouteGate>} />
           <Route path="/provision/:class_id" element={<Provision />} />
           <Route path="/setup/:class_id" element={<Setup />} />
@@ -206,6 +208,7 @@ function AdminLayout() {
           <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm sm:gap-x-6">
             {show('home') && <NavItem to="/" end>Home</NavItem>}
             {show('schedule') && <NavItem to="/calendar">Schedule</NavItem>}
+            {show('progress') && <NavItem to="/progress">Progress</NavItem>}
             {show('attendance') && <NavItem to="/attendance">Attendance</NavItem>}
             {show('provisioning') && <NavItem to="/provisioning">Provisioning</NavItem>}
             {setupItems.length > 0 && <NavDropdown label="Setup" items={setupItems} />}
