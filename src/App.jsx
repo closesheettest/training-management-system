@@ -34,6 +34,7 @@ import RepMap from './pages/RepMap.jsx'
 import Regions from './pages/Regions.jsx'
 import Directory from './pages/Directory.jsx'
 import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
+import HostedPages from './pages/HostedPages.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
 import { RegionsProvider } from './lib/RegionsContext.jsx'
 import PersonaSplash from './components/PersonaSplash.jsx'
@@ -116,6 +117,7 @@ export default function App() {
           <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
+          <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
         </Route>
       </Routes>
       </RegionsProvider>
@@ -171,6 +173,7 @@ function AdminLayout() {
     { key: 'settings.templates', to: '/message-templates', label: 'Message templates' },
     { key: 'settings.handoff', to: '/handoff-contacts', label: 'Handoff contacts' },
     { key: 'settings.personas', to: '/personas', label: 'Personas' },
+    { key: 'settings.hosted_pages', to: '/hosted-pages', label: 'Hosted pages' },
     { key: 'settings.overview', href: '/system-overview.html', external: true, label: 'System Overview' },
   ].filter((it) => show(it.key))
 
