@@ -21,6 +21,18 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'day-2-homework',
+    title: 'Day 2 homework — Why U.S. Shingle + Products',
+    url: '/day-2-homework/',
+    description:
+      'Tonight\'s 3-part assignment for Day 2 of training: the 4 "Why U.S. Shingle" talking points ' +
+      'with explicit framing (experience matters → trust → social proof → 3rd-party finance), ' +
+      'Products PDF download for review, and a pointer to slides 1-5 of the in-home deck. ' +
+      'Quiz on this material fires Day 3 morning at kiosk sign-in.',
+    created: '2026-05-27',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'sales-pitch',
     title: 'Free Inspection — sales pitch + resources',
     url: '/sales-pitch/',

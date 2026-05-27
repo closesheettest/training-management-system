@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 2 Homework — Why U.S. Shingle + Products</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: var(--slate-50);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .stripe { height: 4px; background: var(--red); }
+  .page { max-width: 700px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header.title {
+    margin-bottom: 18px;
+  }
+  header.title .eyebrow {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  header.title h1 {
+    color: var(--navy);
+    margin: 6px 0 6px;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  header.title p {
+    color: var(--slate-500);
+    margin: 0;
+    font-size: 15px;
+  }
+
+  h2 {
+    color: var(--navy);
+    margin: 36px 0 8px;
+    font-size: 21px;
+    line-height: 1.2;
+  }
+  h2.with-underline {
+    color: #fff;
+    background: var(--navy);
+    padding: 10px 14px;
+    border-radius: 10px;
+    display: inline-block;
+    border-bottom: 3px solid var(--red);
+  }
+
+  .section-sub {
+    color: var(--slate-500);
+    font-size: 14px;
+    margin: 4px 0 14px;
+  }
+
+  /* Talking-point cards */
+  .point {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-left: 6px solid var(--red);
+  }
+  .point h3 {
+    color: var(--navy);
+    margin: 0 0 4px;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .point .control {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .point p { margin: 8px 0; color: var(--slate-700); }
+  .point .quote {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    background: #fef9e7;
+    border-left: 3px solid var(--gold);
+    font-style: italic;
+    color: var(--navy-dark);
+    border-radius: 6px;
+    font-size: 14.5px;
+  }
+
+  /* PDF + reading list section */
+  .resource {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .resource h3 {
+    margin: 0 0 6px;
+    color: var(--navy);
+    font-size: 17px;
+  }
+  .resource p { margin: 6px 0; color: var(--slate-700); font-size: 14.5px; }
+
+  .btn {
+    display: inline-block;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn-primary:active { background: var(--navy-dark); }
+  .btn-secondary {
+    background: #fff;
+    color: var(--navy);
+    border: 1px solid var(--slate-300);
+    margin-right: 8px;
+  }
+
+  .callout {
+    margin-top: 30px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 14.5px;
+  }
+  .callout strong { color: #7c2d12; }
+
+  footer.foot {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-500);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<main class="page">
+  <header class="title">
+    <div class="eyebrow">Day 2 Homework</div>
+    <h1>Why U.S. Shingle + Products Review</h1>
+    <p>Tonight's three jobs: lock in the 4 "Why U.S. Shingle" talking points, review the Products PDF, and re-read slides 1-5 of the deck. Quiz on this material in the morning at sign-in.</p>
+  </header>
+
+  <h2 class="with-underline">Part 1 — Why U.S. Shingle? · 4 Talking Points</h2>
+  <p class="section-sub">Memorize the FRAMING for each one. The control-point label is what you're hammering home in the homeowner's mind.</p>
+
+  <!-- Card 1 -->
+  <article class="point">
+    <div class="control">Control point: EXPERIENCE MATTERS</div>
+    <h3>1️⃣ 15 Years in Business</h3>
+    <p>50% of companies don't make it to year 5. 80% don't see year 15. We're past both.</p>
+    <div class="quote">
+      "When you choose a roofing company, the company that's been around longest is the safest bet — because the company you hire today needs to still be here in 20 years when the warranty matters. We're past the 5-year mark where half of companies fail, and past the 15-year mark where 80% of companies fail. That means we'll still be here when you need us."
+    </div>
+  </article>
+
+  <!-- Card 2 -->
+  <article class="point">
+    <div class="control">Control point: TRUST</div>
+    <h3>2️⃣ Veteran Owned</h3>
+    <p>This is a credibility shortcut — homeowners already trust veterans.</p>
+    <div class="quote">
+      "If we can be trusted to protect freedom, we can certainly be trusted to protect your home."
+    </div>
+  </article>
+
+  <!-- Card 3 -->
+  <article class="point">
+    <div class="control">Control point: SOCIAL PROOF · LEADS INTO 3rd PARTY FINANCE</div>
+    <h3>3️⃣ 5 Star Google Reviews</h3>
+    <p>You're using this for <strong>two things</strong>:</p>
+    <p><strong>First</strong> — everything we're going over today is backed by what other homeowners are already saying. People are more likely to complain about a bad experience than praise a good one, so 5-star reviews are HARDER to earn than 1-star reviews are to avoid.</p>
+    <p><strong>Second</strong> — this naturally flows into the next point. As consumers, we're limited in how we can vet a company. Google reviews are one way. The other way is the financial vetting we get from 3rd-party finance.</p>
+    <div class="quote">
+      "Everything we're going to go over today is backed by our 5-star reviews on Google. You can verify what I'm telling you. And as a consumer, you only have so many ways to check on a company — Google reviews is one. Let me show you another one…"
+    </div>
+  </article>
+
+  <!-- Card 4 -->
+  <article class="point">
+    <div class="control">Control point: CONSUMERS ARE LIMITED · FINANCE COMPANIES AREN'T</div>
+    <h3>4️⃣ Vetted by 3rd Party Finance</h3>
+    <p>As consumers, we can only check so much. But finance companies put their <strong>own money</strong> on the line — they've done the homework for you.</p>
+    <div class="quote">
+      "If you were a bank lending money for a roof, you'd want to make sure you got paid back, right? So you'd only lend to homeowners whose roofing companies were solid — otherwise they walk away from the project and you lose your money. Well, several finance companies took over two months to approve us. They looked at our finances, our install record, our record with the State. The good news is they did the homework for you. Even if you don't finance through us, doing business with a company that can pass that kind of vetting is way better than a 'chuck in a truck'."
+    </div>
+  </article>
+
+  <h2 class="with-underline">Part 2 — Products Review</h2>
+  <p class="section-sub">Re-read the Products PDF tonight. You'll get tested on the key spec differences.</p>
+
+  <article class="resource">
+    <h3>📄 Products.pdf</h3>
+    <p>The 11-page reference covering Asphalt Shingle (GAF + Tamko Titan), Exposed Fastener Metal (Ultra Rib, PBR), Standing Seam Metal (TCM Lok), Stone Coated Metal, and Permalock.</p>
+    <p>Focus on:</p>
+    <ul>
+      <li><strong>Wind ratings</strong> — Permalock 185, Exposed Fastener 180, Tamko 160, Standing Seam 150, GAF 130, Stone Coated 130</li>
+      <li><strong>The "insurance leaves you alone"</strong> benefit — applies to Exposed Fastener AND Standing Seam metal (NOT asphalt)</li>
+      <li><strong>Fasteners exposed vs concealed</strong> — that's the difference between the two metal options</li>
+      <li><strong>The 10-15 year insurance letter</strong> — why metal beats asphalt on the insurance side</li>
+    </ul>
+    <a class="btn btn-primary" href="products.pdf" download>📥 Download Products.pdf</a>
+    <a class="btn btn-secondary" href="products.pdf" target="_blank" rel="noopener">Open in new tab</a>
+  </article>
+
+  <h2 class="with-underline">Part 3 — Re-read Slides 1-5</h2>
+  <p class="section-sub">From the in-home sales deck. These slides cover the early-presentation flow that everything else builds on.</p>
+
+  <article class="resource">
+    <h3>🎞 Sales Deck — slides 1-5</h3>
+    <p>The deck is hosted on the sales-pitch page. Open it on your phone and flip through the first five slides. Pay attention to how the talking points above show up in the slides themselves.</p>
+    <a class="btn btn-primary" href="/sales-pitch/" target="_blank" rel="noopener">↗ Open the sales deck</a>
+  </article>
+
+  <div class="callout">
+    <strong>🧠 Tomorrow morning's quiz</strong> — when you sign in at the kiosk tomorrow, you'll get a short text with a 5-question quiz on Products + tonight's talking points. Take 2 minutes to do it before class. It's how Neal checks who actually studied.
+  </div>
+
+  <footer class="foot">
+    U.S. Shingle &amp; Metal · Day 2 — Miami training, week of May 26, 2026
+  </footer>
+</main>
+</body>
+</html>
