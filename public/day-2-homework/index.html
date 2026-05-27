@@ -104,9 +104,47 @@
   }
   .point h3 {
     color: var(--navy);
-    margin: 0 0 8px;
+    margin: 0 0 10px;
     font-size: 18px;
     line-height: 1.2;
+  }
+  /* Control-point badge — bold red so trainees can't miss it.
+     The control point is what you're HAMMERING HOME in the
+     homeowner's mind. See Day 1 Training page 21. */
+  .control-point {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--red);
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+  }
+  .control-point .marker {
+    background: rgba(255,255,255,0.22);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+  .control-point-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    color: var(--slate-500);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border: 1px dashed var(--slate-300);
   }
   .point .verbatim {
     margin: 0;
@@ -130,6 +168,37 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+  }
+
+  /* "What is a Control Point?" explainer panel */
+  .cp-explainer {
+    background: linear-gradient(180deg, #fef2f2 0%, #fff 100%);
+    border: 2px solid var(--red);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .cp-explainer .tag {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .cp-explainer h3 {
+    color: var(--navy);
+    margin: 0 0 6px;
+    font-size: 18px;
+  }
+  .cp-explainer p {
+    margin: 6px 0 0;
+    color: var(--slate-700);
+    font-size: 14.5px;
   }
 
   .resource {
@@ -206,9 +275,17 @@
   <h2 class="with-underline">Slides 1-5 reference — the 4 talking points</h2>
   <p class="section-sub">Verbatim from the training (pages 37–41). These are the exact words to incorporate into your delivery of slides 6–16.</p>
 
+  <!-- Control Point explainer — this is the CRUCIAL part Neal hammers -->
+  <div class="cp-explainer">
+    <span class="tag">⚠ Don't skip this part</span>
+    <h3>Each talking point has a Control Point.</h3>
+    <p>The <strong>Control Point</strong> is the one idea you're hammering home in the homeowner's mind during that talking point. Neal covers what control points are and why they're crucial on Day 1 (training page 21). Lock in the control point — that's the takeaway the homeowner has to leave the room with.</p>
+  </div>
+
   <!-- Slide 1 — 15 Years -->
   <article class="point">
     <h3>1. 15 Years in Business</h3>
+    <div class="control-point"><span class="marker">Control Point</span> Experience Matters</div>
     <p class="verbatim">
       "When dealing with a company for your roof, how important is it to you that they are likely
       to be around in the future if you have a need or if something goes wrong?" <em>(Most will
@@ -224,6 +301,7 @@
   <!-- Slide — Veteran Owned -->
   <article class="point">
     <h3>2. Veteran Owned</h3>
+    <div class="control-point-pending"><span>Control Point</span> · Neal to fill in</div>
     <p class="verbatim">
       "We are also a Veteran owned company — how important is that to you?" <em>(If they say
       important, ask them why. It gets them to start selling themselves on us. Worst case, if they
@@ -236,6 +314,7 @@
   <!-- Slide — 5 Star Reviews -->
   <article class="point">
     <h3>3. 5 Star Google Reviews</h3>
+    <div class="control-point"><span class="marker">Control Point</span> Social Proof — backs up everything we cover today, AND leads into 3rd Party Finance</div>
     <p class="verbatim">
       "What did you do to research us before today? Would you agree that people are more likely to
       complain about companies when they had a bad experience than say good things about them when
@@ -248,6 +327,7 @@
   <!-- Transition — BBB/consumer vetting -->
   <article class="point">
     <h3>3a. The Consumer-Vetting Transition</h3>
+    <div class="control-point"><span class="marker">Control Point</span> We Are Limited As Consumers — bridge from Reviews into Finance</div>
     <p class="verbatim">
       "As consumers, we've gone from checking the BBB to now just seeing what others say on
       Google. Truthfully, we are pretty limited on ways to check on the viability of a business.
@@ -262,6 +342,7 @@
   <!-- Slide — 3rd Party Finance -->
   <article class="point">
     <h3>4. Vetted by 3rd Party Finance</h3>
+    <div class="control-point"><span class="marker">Control Point</span> Finance Companies Did The Vetting We Can't</div>
     <p class="verbatim">
       "Well, another feather in our cap is we are also one of just a few companies licensed by the
       State of Florida to offer direct-to-consumer financing. In fact, some of these finance
