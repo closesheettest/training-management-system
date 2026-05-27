@@ -124,7 +124,9 @@ function CategoryChip({ value }) {
         ? 'bg-sky-100 text-sky-800'
         : value === 'Public form'
           ? 'bg-violet-100 text-violet-800'
-          : 'bg-slate-100 text-slate-700'
+          : value === 'Trainee resources'
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-slate-100 text-slate-700'
   return (
     <span
       className={

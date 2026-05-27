@@ -32,6 +32,38 @@ export const HOSTED_PAGES = [
     category: 'Sales resources',
   },
   {
+    slug: 'apps',
+    title: 'Install your apps — RepCard + JobNimbus',
+    url: '/apps',
+    description:
+      'Public install guide trainees see right after they get their company credentials. ' +
+      'Auto-detects iOS vs Android and shows the right app-store link for RepCard + JobNimbus, ' +
+      'plus the password-reset workaround for the JobNimbus app. Linked from /credentials.',
+    created: '2026-05-13',
+    category: 'Trainee resources',
+  },
+  {
+    slug: 'welcome',
+    title: 'Welcome — quick links for new reps',
+    url: '/welcome',
+    description:
+      'Public quick-links page texted to every new rep daily for 7 days after they graduate. ' +
+      'Cards for Sales Rep Dashboard, How-to Videos, Daily Sales Meeting, Daily Prayer Call, ' +
+      'Sales Academy, and the Free Roof Inspection app. Edit the cards on /welcome-links.',
+    created: '2026-05-15',
+    category: 'Trainee resources',
+  },
+  {
+    slug: 'directory',
+    title: 'Team directory (public)',
+    url: '/directory',
+    description:
+      'Public phone-book of the whole team. Filterable by department/territory; ' +
+      'each person controls which of their fields are visible. Managed via Sales Team → Manage directory.',
+    created: '2026-05-22',
+    category: 'Internal docs',
+  },
+  {
     slug: 'system-overview',
     title: 'TMS system overview',
     url: '/system-overview.html',
