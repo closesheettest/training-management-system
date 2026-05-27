@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 
 // Admin page for editing the link cards that show up on the public
@@ -24,10 +24,26 @@ export default function WelcomeLinks() {
   const [draft, setDraft] = useState(blank())
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(null)
+  // Ref to the edit form so we can scroll it into view when Edit is
+  // clicked — the form renders below the list, and on a 6-row list with
+  // an active row near the top, the form opens off-screen and the Edit
+  // button looks dead.
+  const formRef = useRef(null)
 
   useEffect(() => {
     load()
   }, [])
+
+  // When the edit form opens (either Add or Edit), scroll it into view.
+  // requestAnimationFrame so React's already painted the form by the
+  // time we try to scroll.
+  useEffect(() => {
+    if (!editingId) return
+    const id = requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [editingId])
 
   async function load() {
     const { data, error } = await supabase
@@ -272,6 +288,7 @@ export default function WelcomeLinks() {
 
       {editingId && (
         <form
+          ref={formRef}
           onSubmit={(e) => {
             e.preventDefault()
             save()
