@@ -81,6 +81,7 @@ export const handler = async (event) => {
 
   const params = event.queryStringParameters || {}
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
+  const diagnose = params.diagnose || null  // e.g. ?diagnose=irina returns status of every trainee matching "irina"
 
   let targetClassId = null
   let postDate = null
@@ -98,6 +99,65 @@ export const handler = async (event) => {
   const today = params.date || postDate || computeFloridaToday()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+
+  // ─────────────────────────────────────────────────────────────
+  // Diagnostic mode: ?diagnose=<name>
+  // Returns the FULL state of every trainee whose first or last
+  // name matches the substring (case-insensitive). No filtering on
+  // enrolled, dropout_notified_at, or class window — shows
+  // everything so we can see WHY a trainee was or wasn't picked up
+  // as a no-show.
+  if (diagnose) {
+    const pattern = `%${diagnose.replace(/[%_]/g, '')}%`
+    const { data: rows, error } = await supabase
+      .from('trainees')
+      .select(`
+        id, first_name, last_name, company_email, enrolled,
+        registered, declined_at, unenrolled_at, unenrolled_reason,
+        dropout_notified_at, class_id,
+        classes!class_id(id, region, week_start_date, week_end_date, locations(name)),
+        attendance(attendance_date, confirmed)
+      `)
+      .or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`)
+    if (error) return json(500, { error: `Supabase: ${error.message}` })
+
+    const report = (rows || []).map((t) => {
+      const c = t.classes
+      const todayAtt = (t.attendance || []).find((a) => a.attendance_date === today)
+      const reasons = []
+      if (t.enrolled === false) reasons.push(`enrolled=false (unenrolled_at=${t.unenrolled_at}, reason=${t.unenrolled_reason})`)
+      if (t.declined_at) reasons.push(`declined_at=${t.declined_at}`)
+      if (t.dropout_notified_at) reasons.push(`dropout_notified_at=${t.dropout_notified_at}`)
+      if (!c) reasons.push('no class assigned')
+      else {
+        if (today < c.week_start_date) reasons.push(`class hasn't started (week_start_date=${c.week_start_date})`)
+        if (today > c.week_end_date) reasons.push(`class already ended (week_end_date=${c.week_end_date})`)
+      }
+      if (todayAtt?.confirmed) reasons.push(`attended today (confirmed=true on ${today})`)
+      else if (todayAtt) reasons.push(`attendance row exists for today but confirmed=${todayAtt.confirmed}`)
+      const wouldFlagAsDropout =
+        t.enrolled === true &&
+        !t.dropout_notified_at &&
+        c &&
+        today >= c.week_start_date &&
+        today <= c.week_end_date &&
+        !(todayAtt?.confirmed)
+      return {
+        name: `${t.first_name} ${t.last_name}`,
+        id: t.id,
+        enrolled: t.enrolled,
+        registered: t.registered,
+        company_email: t.company_email,
+        class: c ? `${c.region} ${c.week_start_date} – ${c.week_end_date} @ ${c.locations?.name || 'no location'}` : null,
+        today_attendance: todayAtt || null,
+        would_flag_as_dropout: wouldFlagAsDropout,
+        notes: reasons.length ? reasons : ['—'],
+      }
+    })
+
+    return json(200, { target_date: today, query: diagnose, matched: report.length, trainees: report })
+  }
+  // ─────────────────────────────────────────────────────────────
 
   // Pull every enrolled trainee in any class who hasn't been
   // dropout-flagged yet. We deliberately DO NOT filter by
