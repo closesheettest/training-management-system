@@ -116,6 +116,36 @@
     margin-top: 8px;
   }
   .btn:hover { background: var(--navy-dark); }
+  .btn-lg {
+    display: inline-block; background: var(--red); color: #fff;
+    text-decoration: none; padding: 14px 22px; border-radius: 10px;
+    font-weight: 800; font-size: 16px; letter-spacing: 0.01em;
+    margin-top: 6px;
+  }
+  .btn-lg:hover { background: #97203c; }
+
+  /* "Today's Lesson" card — sits above the homework steps so
+     trainees review the walkthrough before doing the practice deal. */
+  .lesson-card {
+    background: linear-gradient(180deg, #fff 0%, #fef9e7 100%);
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 6px rgba(212, 161, 66, 0.15);
+  }
+  .lesson-card .tag {
+    display: inline-block; background: var(--gold); color: var(--navy-dark);
+    font-weight: 800; font-size: 11px; letter-spacing: 0.08em;
+    padding: 4px 10px; border-radius: 4px; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .lesson-card h2 {
+    margin: 6px 0 6px; color: var(--navy); font-size: 20px;
+  }
+  .lesson-card p {
+    margin: 6px 0; color: var(--slate-700); font-size: 14.5px;
+  }
 
   .footer {
     margin-top: 32px; color: var(--slate-500);
@@ -132,6 +162,25 @@
     <p class="lede">Tonight's homework has two parts. Don't skip either — tomorrow morning I check both.</p>
   </header>
 
+  <!-- TODAY'S LESSON — the reference material for what we covered
+       in class today. Trainees should review this BEFORE running
+       the practice deal so the steps are fresh. -->
+  <div class="lesson-card">
+    <span class="tag">📘 Today's Lesson</span>
+    <h2>Job Nimbus walkthrough — Sections 1 through 5</h2>
+    <p>
+      The full step-by-step we covered in class today. Every screen with screenshots — creating
+      a contact, creating a job, building an appointment, building an estimate from scratch
+      (Layout → Price Details → line items → Job Details → Sign Now), and filling out every Edit
+      Job field after a sale.
+    </p>
+    <p>
+      <strong>Review this first.</strong> Then run the practice deal below using the same steps.
+      If you get stuck on any screen tonight, this is your reference.
+    </p>
+    <a class="btn-lg" href="/tools-training/" target="_blank" rel="noopener">📘 Open today's lesson →</a>
+  </div>
+
   <div class="step">
     <span class="num">Part 1</span>
     <h2>Get all three apps working</h2>
@@ -147,10 +196,7 @@
   <div class="step">
     <span class="num">Part 2</span>
     <h2>Run a full practice deal in Job Nimbus</h2>
-    <p>Use the tools-training guide — Sections 1 through 5 — and walk through every step on your phone. Make up a homeowner. Any name, any address, any phone, any email.</p>
-    <p>
-      <a class="btn" href="/tools-training/" target="_blank" rel="noopener">Open the Tools Training guide →</a>
-    </p>
+    <p>Open <a href="/tools-training/" target="_blank" rel="noopener"><strong>today's lesson</strong></a> on your phone and walk through every step. Make up a homeowner — any name, any address, any phone, any email — and run the full flow below.</p>
   </div>
 
   <div class="step">
