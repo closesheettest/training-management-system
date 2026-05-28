@@ -174,24 +174,43 @@ export const handler = async (event) => {
       .select(`
         id, first_name, last_name, company_email, class_id,
         dropout_notified_at,
-        classes!class_id(week_start_date, week_end_date)
+        classes!class_id(id, region, week_start_date, week_end_date)
       `)
       .eq('enrolled', true)
       .not('dropout_notified_at', 'is', null)
     if (error) return json(500, { error: `Supabase: ${error.message}` })
 
+    // Normalize t.classes — PostgREST sometimes returns embedded
+    // relations as an array even for many-to-one foreign keys. Pull
+    // the first element if it's an array.
+    function cls(t) {
+      if (!t.classes) return null
+      return Array.isArray(t.classes) ? t.classes[0] : t.classes
+    }
+
     const inWindow = (stuck || []).filter((t) => {
-      const c = t.classes
+      const c = cls(t)
       if (!c) return false
       return today >= c.week_start_date && today <= c.week_end_date
     })
 
     if (inWindow.length === 0) {
+      // Verbose debug so we can see WHY nothing matched. Lists every
+      // row scanned with its class window so the comparison is visible.
+      const sample = (stuck || []).slice(0, 10).map((t) => {
+        const c = cls(t)
+        return {
+          name: `${t.first_name} ${t.last_name}`,
+          class: c ? `${c.region || '?'} ${c.week_start_date} – ${c.week_end_date}` : 'NO CLASS JOINED',
+          raw_classes_field_type: Array.isArray(t.classes) ? 'array' : typeof t.classes,
+        }
+      })
       return json(200, {
         target_date: today,
         repair: true,
         message: 'No trainees stuck in half-processed state. Nothing to repair.',
         scanned: (stuck || []).length,
+        debug_first_10: sample,
       })
     }
 
@@ -207,7 +226,7 @@ export const handler = async (event) => {
     const nowIso = new Date().toISOString()
     await Promise.all(
       inWindow.map((t) => {
-        const c = t.classes
+        const c = cls(t)
         let dayN = null
         if (c?.week_start_date) {
           const ms = new Date(today + 'T12:00:00Z').getTime() - new Date(c.week_start_date + 'T12:00:00Z').getTime()
