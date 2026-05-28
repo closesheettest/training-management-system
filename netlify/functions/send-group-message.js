@@ -163,6 +163,27 @@ export const handler = async (event) => {
       }
       q = q.in('id', fullAttendeeIds)
     }
+  } else if (body.scope === 'class_attended_today') {
+    // Recap-email scope — narrows a class blast to ONLY trainees with
+    // a confirmed attendance row for today. Used for the "Day-of
+    // training recap" template so no-shows + dropouts don't get a
+    // summary of training they missed.
+    if (!body.class_id) return json(400, { error: 'class_id required when scope=class_attended_today' })
+    const todayAttendeeIds = await getTodayAttendeeIds(supabase, body.class_id)
+    if (todayAttendeeIds.length === 0) {
+      return json(200, {
+        ok: true,
+        message: 'No recipients matched — nobody has a confirmed attendance row for today in this class.',
+        counts: { sms_sent: 0, sms_failed: 0, email_sent: 0, email_failed: 0, recipients: 0 },
+        next_offset: null,
+        total: 0,
+      })
+    }
+    q = q
+      .eq('class_id', body.class_id)
+      .neq('enrolled', false)
+      .is('declined_at', null)
+      .in('id', todayAttendeeIds)
   } else if (body.scope === 'all_active_reps' || body.scope === 'all_enrolled') {
     // 'all_enrolled' is the legacy alias — kept so a cached client doesn't
     // 400. Both paths apply the same active-rep filter.
@@ -178,7 +199,7 @@ export const handler = async (event) => {
       q = q.eq('region', body.region)
     }
   } else {
-    return json(400, { error: 'scope must be "class" or "all_active_reps", or pass trainee_ids' })
+    return json(400, { error: 'scope must be "class", "class_attended_today", or "all_active_reps", or pass trainee_ids' })
   }
 
   const { data: trainees, error } = await q
@@ -294,6 +315,26 @@ function applyPlaceholders(str, vars) {
 // that as a zero-recipient outcome (nobody to send to).
 //
 // Note: weekends naturally fall out because nobody signs in on Sat/Sun.
+// Resolve the set of trainee_ids who have a confirmed attendance
+// row for TODAY in the given class. Used by the
+// `class_attended_today` scope so recap blasts only go to people
+// who actually showed up that day (skips no-shows + dropouts).
+//
+// Returns [] when nobody has signed in yet today — caller should
+// treat that as zero recipients.
+async function getTodayAttendeeIds(supabase, classId) {
+  const today = new Date()
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const { data, error } = await supabase
+    .from('attendance')
+    .select('trainee_id')
+    .eq('class_id', classId)
+    .eq('confirmed', true)
+    .eq('attendance_date', todayIso)
+  if (error || !data) return []
+  return data.map((r) => r.trainee_id).filter(Boolean)
+}
+
 async function getFullAttendeeIds(supabase, classId) {
   const today = new Date()
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`

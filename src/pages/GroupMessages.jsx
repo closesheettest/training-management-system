@@ -131,6 +131,23 @@ export default function GroupMessages() {
         }
         q = q.in('id', ids)
       }
+    } else if (scope === 'class_attended_today') {
+      if (!selectedClassId) {
+        setRecipients([])
+        setLoadingRecipients(false)
+        return
+      }
+      const ids = await computeTodayAttendeeIds(selectedClassId)
+      if (ids.length === 0) {
+        setRecipients([])
+        setLoadingRecipients(false)
+        return
+      }
+      q = q
+        .eq('class_id', selectedClassId)
+        .neq('enrolled', false)
+        .is('declined_at', null)
+        .in('id', ids)
     } else {
       // All active reps: the durable "in the field" filter, optionally
       // sliced to one region.
@@ -175,6 +192,24 @@ export default function GroupMessages() {
       if (days.size === needed) ids.push(tid)
     }
     return ids
+  }
+
+  // Trainee_ids with a confirmed attendance row for TODAY in this class.
+  // Used by the recap-email scope (scope === 'class_attended_today') —
+  // only people who actually showed up today get the day-of recap.
+  // Mirrors getTodayAttendeeIds in send-group-message.js so the
+  // UI count matches what the server enforces.
+  async function computeTodayAttendeeIds(classId) {
+    const today = new Date()
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('trainee_id')
+      .eq('class_id', classId)
+      .eq('confirmed', true)
+      .eq('attendance_date', todayIso)
+    if (error || !data) return []
+    return data.map((r) => r.trainee_id).filter(Boolean)
   }
 
   // Selected class object (for showing meeting-vs-training distinction
@@ -267,7 +302,7 @@ export default function GroupMessages() {
 
   const validationError = useMemo(() => {
     if (!wantSms && !wantEmail) return 'Pick at least one channel (SMS or email).'
-    if (scope === 'class' && !selectedClassId) return 'Pick a class.'
+    if ((scope === 'class' || scope === 'class_attended_today') && !selectedClassId) return 'Pick a class.'
     if (recipients.length === 0) return 'No recipients matched — nobody to send to.'
     if (wantSms && !smsBody.trim()) return 'SMS body is empty.'
     if (wantEmail && !emailBody.trim()) return 'Email body is empty.'
@@ -282,8 +317,8 @@ export default function GroupMessages() {
     setConfirmOpen(false)
 
     const basePayload = {
-      scope, // 'class' | 'all_active_reps'
-      ...(scope === 'class' ? { class_id: selectedClassId } : {}),
+      scope, // 'class' | 'class_attended_today' | 'all_active_reps'
+      ...((scope === 'class' || scope === 'class_attended_today') ? { class_id: selectedClassId } : {}),
       ...(scope === 'class' && attendedEveryDayOnly ? { attended_every_day: true } : {}),
       ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
       channels: { sms: wantSms, email: wantEmail },
@@ -453,6 +488,45 @@ export default function GroupMessages() {
               )}
             </div>
           </label>
+          <label className="flex items-start gap-3">
+            <input
+              type="radio"
+              name="scope"
+              checked={scope === 'class_attended_today'}
+              onChange={() => setScope('class_attended_today')}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-slate-800">Trainees who attended today's class</div>
+              <p className="text-xs text-slate-500">
+                Use this for the <strong>day-of training recap</strong> email. Only people with a
+                confirmed kiosk sign-in for today get the message — skips no-shows and dropouts
+                so they don't get a summary of training they missed. Pair with the{' '}
+                <em>"Day-of training recap"</em> email template below.
+              </p>
+              {scope === 'class_attended_today' && (
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">— Pick a class —</option>
+                  {classes.map((c) => {
+                    const end = parseLocalDate(c.week_end_date)
+                    const past = end && end < today
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.region} · {formatDateRange(c.week_start_date, c.week_end_date)}
+                        {c.locations?.name ? ` · ${c.locations.name}` : ''}
+                        {c.attendance_only ? ' · Meeting' : ''}
+                        {past ? ' (past)' : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              )}
+            </div>
+          </label>
         </div>
 
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -464,6 +538,11 @@ export default function GroupMessages() {
               {scope === 'class' && attendedEveryDayOnly && (
                 <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800">
                   ✓ showed up every day
+                </span>
+              )}
+              {scope === 'class_attended_today' && (
+                <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-800">
+                  ✓ here today
                 </span>
               )}
               {' · '}
