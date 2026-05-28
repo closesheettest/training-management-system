@@ -1,13 +1,16 @@
-// Netlify Function: daily trainee-dropout notification + auto-unenroll.
+// Netlify Function: no-show / dropout detection + auto-unenroll.
 //
-// Cron-triggered at 14:30 UTC daily (10:30 AM ET during EDT). Training
-// starts at 10 AM ET, so the cron runs 30 minutes after start — late
-// enough that anyone showing has signed in, early enough that we can
-// notify IT/HR and update counts the same morning.
+// Cron schedule: every 30 min from 14:00 to 22:30 UTC (see
+// netlify.toml). The function self-gates to the 10:30 AM – 5:30 PM
+// ET window via withinTrainingDayWindowET() — fires outside that
+// window are no-ops. Net effect: detection runs every 30 min from
+// 10:30 AM to 5:30 PM Eastern, year-round, DST-safe.
 //
-// **DST note:** 14:30 UTC = 10:30 AM during EDT (Mar–Nov) and 9:30 AM
-// during EST (Nov–Mar). When DST ends in November, change the cron
-// schedule in netlify.toml to "30 15 * * *" so it fires at 10:30 ET.
+// Why every 30 min instead of once daily: the first fire at 10:30 AM
+// catches everyone who didn't show in the morning, but subsequent
+// fires reconcile late attendance corrections (e.g. kiosk was down,
+// Neal entered an attendance row manually at noon) and catch any
+// trainee whose attendance got recorded after the morning sweep.
 //
 // For every enrolled, provisioned trainee in a class that's currently
 // active:
@@ -50,6 +53,23 @@ export const handler = async (event) => {
       event.queryStringParameters?.secret
     if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
       return json(401, { error: 'Unauthorized' })
+    }
+
+    // Self-gate to the 10:30 AM – 5:30 PM ET window so cron fires
+    // BEFORE the grace period (e.g. 14:00 UTC = 10:00 EDT) are no-ops.
+    // This is what makes the multi-fire schedule safe: training starts
+    // at 10 AM, we don't flag anyone before 10:30 AM ET. Bypassed for
+    // POST (admin button) and for the ?force=1 query param.
+    const forced = event.queryStringParameters?.force === '1'
+    if (!forced) {
+      const gate = withinTrainingDayWindowET()
+      if (!gate.inside) {
+        return json(200, {
+          skipped: true,
+          reason: 'outside 10:30 AM – 5:30 PM ET training-day window',
+          et_time: gate.et_time,
+        })
+      }
     }
   }
 
@@ -233,6 +253,29 @@ function computeFloridaToday() {
     year: 'numeric', month: '2-digit', day: '2-digit',
   })
   return fmt.format(new Date())
+}
+
+// Returns { inside: bool, et_time: 'HH:MM' }. inside === true only
+// when the current America/New_York time is between 10:30 and 17:30
+// inclusive — i.e. during the training day, after the 30-min grace
+// period for late arrivals. Used to gate the every-30-min cron so it
+// doesn't fire too early (and false-positive anyone running late) or
+// too late (when training is over).
+function withinTrainingDayWindowET() {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  // Some locales emit "24:00" for midnight; coerce.
+  const et = fmt.format(new Date()).replace('24:', '00:')
+  const [h, m] = et.split(':').map(Number)
+  const minutesFromMidnight = h * 60 + m
+  const start = 10 * 60 + 30  // 10:30 AM
+  const end   = 17 * 60 + 30  //  5:30 PM
+  return {
+    inside: minutesFromMidnight >= start && minutesFromMidnight <= end,
+    et_time: et,
+  }
 }
 
 function json(status, body) {
