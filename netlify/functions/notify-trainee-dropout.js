@@ -82,6 +82,7 @@ export const handler = async (event) => {
   const params = event.queryStringParameters || {}
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
   const diagnose = params.diagnose || null  // e.g. ?diagnose=irina returns status of every trainee matching "irina"
+  const repair = params.repair === '1' || params.repair === 'true'  // one-shot repair for trainees stuck in half-processed state
 
   let targetClassId = null
   let postDate = null
@@ -156,6 +157,80 @@ export const handler = async (event) => {
     })
 
     return json(200, { target_date: today, query: diagnose, matched: report.length, trainees: report })
+  }
+  // ─────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────
+  // Repair mode: ?repair=1
+  // One-shot cleanup for trainees stuck in a half-processed state:
+  // dropout_notified_at IS NOT NULL (an earlier cron flagged them)
+  // but enrolled IS STILL true (the auto-unenroll commit hadn't
+  // deployed yet when that cron fired). Flips enrolled=false on
+  // those trainees so the /progress count drops correctly. Does NOT
+  // re-send IT/HR alerts (they were already sent the first time).
+  if (repair) {
+    const { data: stuck, error } = await supabase
+      .from('trainees')
+      .select(`
+        id, first_name, last_name, company_email, class_id,
+        dropout_notified_at,
+        classes!class_id(week_start_date, week_end_date)
+      `)
+      .eq('enrolled', true)
+      .not('dropout_notified_at', 'is', null)
+    if (error) return json(500, { error: `Supabase: ${error.message}` })
+
+    const inWindow = (stuck || []).filter((t) => {
+      const c = t.classes
+      if (!c) return false
+      return today >= c.week_start_date && today <= c.week_end_date
+    })
+
+    if (inWindow.length === 0) {
+      return json(200, {
+        target_date: today,
+        repair: true,
+        message: 'No trainees stuck in half-processed state. Nothing to repair.',
+        scanned: (stuck || []).length,
+      })
+    }
+
+    if (dryRun) {
+      return json(200, {
+        target_date: today,
+        repair: true,
+        dry_run: true,
+        would_repair: inWindow.map((t) => `${t.first_name} ${t.last_name} (id=${t.id}, dropout_notified_at=${t.dropout_notified_at})`),
+      })
+    }
+
+    const nowIso = new Date().toISOString()
+    await Promise.all(
+      inWindow.map((t) => {
+        const c = t.classes
+        let dayN = null
+        if (c?.week_start_date) {
+          const ms = new Date(today + 'T12:00:00Z').getTime() - new Date(c.week_start_date + 'T12:00:00Z').getTime()
+          dayN = Math.floor(ms / 86_400_000) + 1
+        }
+        const reason = dayN ? `No-show on Day ${dayN} (repair backfill)` : 'No-show during active training week (repair backfill)'
+        return supabase
+          .from('trainees')
+          .update({
+            enrolled: false,
+            unenrolled_at: nowIso,
+            unenrolled_reason: reason,
+          })
+          .eq('id', t.id)
+      }),
+    )
+
+    return json(200, {
+      target_date: today,
+      repair: true,
+      repaired: inWindow.map((t) => `${t.first_name} ${t.last_name}`),
+      count: inWindow.length,
+    })
   }
   // ─────────────────────────────────────────────────────────────
 
