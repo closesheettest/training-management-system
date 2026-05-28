@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tools Training — JobNimbus · RepCard · Roofr</title>
+<title>Tools Training — Job Nimbus · RepCard · Roofr</title>
 <style>
   :root {
     --navy: #13294b;
@@ -217,13 +217,13 @@
 <main class="page">
   <header class="title">
     <div class="eyebrow">Tools Training · Deep Dive</div>
-    <h1>JobNimbus · RepCard · Roofr</h1>
+    <h1>Job Nimbus · RepCard · Roofr</h1>
     <p>Three tools you'll use every day in the field. This page is your study reference — Neal walks through each one in class. Bookmark it on your phone.</p>
   </header>
 
   <nav class="toc" aria-label="On this page">
     <h4>Jump to</h4>
-    <a href="#jobnimbus">▸ 1. JobNimbus — your CRM</a>
+    <a href="#jobnimbus">▸ 1. Job Nimbus — your CRM</a>
     <a href="#repcard">▸ 2. RepCard — your digital business card + follow-up</a>
     <a href="#roofr">▸ 3. Roofr — measurements + proposals</a>
     <a href="#workflow">▸ How they work together</a>
@@ -233,28 +233,28 @@
   <section class="tool" id="jobnimbus">
     <div class="tool-head jn">
       <span class="tag">Tool 1 of 3 · CRM</span>
-      <h2>JobNimbus</h2>
-      <p>The source of truth for every homeowner and every job. For most of the inspection flow, JN is hands-off — but when you convert a retail-cert customer to an appointment, this is where you do it.</p>
+      <h2>Job Nimbus</h2>
+      <p>The source of truth for every homeowner and every job. For most of the inspection flow, Job Nimbus is hands-off — but when you convert a retail-cert customer to an appointment, this is where you do it.</p>
     </div>
     <div class="tool-body">
 
-      <!-- TL;DR — when do you actually need to be in JN -->
+      <!-- TL;DR — when do you actually need to be in Job Nimbus -->
       <div class="uss-note">
-        <strong>When do you actually need to be in JobNimbus?</strong>
+        <strong>When do you actually need to be in Job Nimbus?</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
-          <li><strong>Free Roof Inspection flow:</strong> <em>You don't need to go to JN.</em> Everything is done automatically — the signed agreement, the inspection result (Damage / Retail / No Damage), the photos, the certificate PDF — all flow into JN by themselves.</li>
-          <li><strong>Three situations where you DO go into JN:</strong>
+          <li><strong>Free Roof Inspection flow:</strong> <em>You don't need to go to Job Nimbus.</em> Everything is done automatically — the signed agreement, the inspection result (Damage / Retail / No Damage), the photos, the certificate PDF — all flow into Job Nimbus by themselves.</li>
+          <li><strong>Three situations where you DO go into Job Nimbus:</strong>
             <ol style="margin:6px 0 0; padding-left:22px;">
               <li>The homeowner did the free inspection, came back as Retail, and now wants a real appointment.</li>
-              <li>The homeowner <em>declined</em> the free inspection at the door but DID agree to an appointment. (They're not in JN yet — you have to create them.)</li>
+              <li>The homeowner <em>declined</em> the free inspection at the door but DID agree to an appointment. (They're not in Job Nimbus yet — you have to create them.)</li>
               <li>You're at the in-home sit and need to build them an estimate.</li>
             </ol>
           </li>
         </ul>
       </div>
 
-      <h3>How JobNimbus is organized (so the next part makes sense)</h3>
-      <p>Everything in JobNimbus flows through three layers:</p>
+      <h3>How Job Nimbus is organized (so the next part makes sense)</h3>
+      <p>Everything in Job Nimbus flows through three layers:</p>
       <div class="feat jn">
         <div class="feat-name">1. Contact = the homeowner</div>
         <div class="feat-desc">A person. Has a name, address, phone, email. Everything starts here.</div>
@@ -268,27 +268,22 @@
         <div class="feat-desc">An appointment is just a task inside the job. So is a callback, a measurement order, or a "drop off keys" reminder. All of it lives on the job.</div>
       </div>
 
-      <h3>Workflow A: Retail-cert customer wants an appointment</h3>
-      <p>They already exist in JN (the free inspection created their Contact + Job automatically when they signed). You just need to find them and add a Task.</p>
-      <ol class="step-list">
-        <li>Open JobNimbus.</li>
-        <li>In the search bar, type the <strong>address</strong>. The homeowner will populate.</li>
-        <li>Click on them.</li>
-        <li><strong>Make sure you are in the JOB</strong> (not the contact). The job is the second level — if you're on the contact page, click into the job underneath. The top of the screen should read <strong>Job</strong>.</li>
-        <li>You're in the Job. Now follow the <a href="#jn-task-creation" style="color:var(--jn);">Task creation steps below</a> to set the appointment.</li>
-      </ol>
+      <nav class="toc" aria-label="Job Nimbus sections" style="margin-top:18px;">
+        <h4>Job Nimbus — jump to a section</h4>
+        <a href="#jn-section-1">▸ Section 1. Create a contact</a>
+        <a href="#jn-section-2">▸ Section 2. Create a job</a>
+        <a href="#jn-section-3">▸ Section 3. Create an appointment</a>
+        <a href="#jn-section-4">▸ Section 4. Create an estimate</a>
+        <a href="#jn-section-5">▸ Section 5. Fill out the fields from a sale</a>
+      </nav>
 
-      <div class="uss-note">
-        <strong>Why search by address (not name)?</strong> Addresses are unique; names aren't. Two Smiths on the same street will trip you up. Address gets you to the right homeowner in one search every time.
-      </div>
-
-      <h3>Workflow B: Homeowner declined the inspection but wants an appointment</h3>
-      <p>They aren't in JN yet because the Free Roof Inspection flow never ran. You have to create them from scratch: Contact first, then a Job for that Contact, then the Task.</p>
+      <h3 id="jn-section-1">Section 1: Create a contact</h3>
+      <p>Use Section 1 when the homeowner is <strong>not in Job Nimbus yet</strong> — for example, they declined the free inspection at the door but DID agree to a real appointment. If they already exist (the free inspection auto-created them when they signed), skip ahead to <a href="#jn-section-3" style="color:var(--jn);">Section 3</a> — you'll just search for them by address.</p>
       <ol class="step-list">
-        <li>Open JN. You're on the home screen.</li>
+        <li>Open Job Nimbus. You're on the home screen.</li>
         <li>Tap the <strong>+</strong> button in the top-right of the home screen.
           <a class="shot-link" href="img/jobnimbus/01-home-plus.png" target="_blank" rel="noopener">
-            <img class="shot" src="img/jobnimbus/01-home-plus.png" alt="JobNimbus home screen with the + button in the top right highlighted" loading="lazy">
+            <img class="shot" src="img/jobnimbus/01-home-plus.png" alt="Job Nimbus home screen with the + button in the top right highlighted" loading="lazy">
           </a>
           <span class="shot-cap">Home screen — tap the + in the top right</span>
         </li>
@@ -298,8 +293,13 @@
           </a>
           <span class="shot-cap">+ dropdown — tap Contact</span>
         </li>
-        <li>Fill in the homeowner's name, address, phone. Save.</li>
-        <li>You land on the new Contact's page. Scroll to the <strong>JOBS</strong> section and tap <strong>+ Create New</strong>.
+        <li>Fill in the homeowner's name, address, phone. Save. You'll land on the new Contact's page — continue to <a href="#jn-section-2" style="color:var(--jn);">Section 2</a> to create their Job.</li>
+      </ol>
+
+      <h3 id="jn-section-2">Section 2: Create a job</h3>
+      <p>A Contact alone isn't enough. <strong>Everything in Job Nimbus flows through the Job</strong> — photos, documents, status changes, appointments, estimates. After you've created the Contact (Section 1), you need to add a Job under that Contact.</p>
+      <ol class="step-list">
+        <li>You're on the Contact's page (where Section 1 left you). Scroll to the <strong>JOBS</strong> section and tap <strong>+ Create New</strong>.
           <a class="shot-link" href="img/jobnimbus/03-contact-create-job.png" target="_blank" rel="noopener">
             <img class="shot" src="img/jobnimbus/03-contact-create-job.png" alt="Contact page with the JOBS section + Create New button visible" loading="lazy">
           </a>
@@ -311,17 +311,33 @@
           </a>
           <span class="shot-cap">New Job — tap the ✓ checkmark to save</span>
         </li>
-        <li>You're now on the new Job page. Confirm the top of the screen says <strong>Job</strong> (with a # number).
+        <li>You're now on the new Job page. Confirm the top of the screen says <strong>Job</strong> (with a # number, e.g. <strong>#12017</strong>) — that's how you know you're inside the Job and not still on the Contact.
           <a class="shot-link" href="img/jobnimbus/05-job-page.png" target="_blank" rel="noopener">
             <img class="shot" src="img/jobnimbus/05-job-page.png" alt="Job page header showing Job #12017 confirmation" loading="lazy">
           </a>
           <span class="shot-cap">Job page — header reads "Job"</span>
         </li>
-        <li>You're in the Job. Now follow the <a href="#jn-task-creation" style="color:var(--jn);">Task creation steps below</a> to set the appointment.</li>
       </ol>
 
-      <h3 id="jn-task-creation">Setting the appointment (both workflows end here)</h3>
-      <p>Once you're inside a Job — whether you got there via search (A) or by creating it (B) — the steps to actually set the appointment are the same:</p>
+      <h3 id="jn-section-3">Section 3: Create an appointment</h3>
+      <p>An appointment in Job Nimbus is a <strong>Task</strong> inside a Job. So before you can create one, you need to be inside the right Job. There are two paths to get there:</p>
+      <ol class="step-list">
+        <li><strong>If they already exist in Job Nimbus</strong> (the free inspection auto-created their Contact + Job when they signed):
+          <ol style="margin:6px 0 0; padding-left:22px;">
+            <li>Open Job Nimbus.</li>
+            <li>In the search bar, type the <strong>address</strong>. The homeowner will populate.</li>
+            <li>Click on them.</li>
+            <li><strong>Make sure you are in the JOB</strong> (not the contact). The job is the second level — if you're on the contact page, click into the job underneath. The top of the screen should read <strong>Job</strong>.</li>
+          </ol>
+        </li>
+        <li><strong>If you just created them via Sections 1 + 2:</strong> you're already on the new Job page — go straight to the task-creation steps below.</li>
+      </ol>
+
+      <div class="uss-note">
+        <strong>Why search by address (not name)?</strong> Addresses are unique; names aren't. Two Smiths on the same street will trip you up. Address gets you to the right homeowner in one search every time.
+      </div>
+
+      <p style="margin-top:14px;">Once you're inside the Job (either path), the steps to actually create the appointment are the same:</p>
       <ol class="step-list">
         <li>On the Job page, tap the <strong>+</strong> in the top right (next to Edit).
           <a class="shot-link" href="img/jobnimbus/06-job-plus.png" target="_blank" rel="noopener">
@@ -351,8 +367,8 @@
         <li>Tap the <strong>✓ checkmark in the top right</strong> to save. Appointment created.</li>
       </ol>
 
-      <h3>Workflow D: Building an estimate from the in-home sit</h3>
-      <p>You're at the homeowner's house. You ran the presentation. They want pricing. JobNimbus has the entire estimate engine built in — product templates, line items, prices — you just plug in their squares.</p>
+      <h3 id="jn-section-4">Section 4: Create an estimate</h3>
+      <p>You're at the homeowner's house. You ran the presentation. They want pricing. Job Nimbus has the entire estimate engine built in — product templates, line items, prices — you just plug in their squares.</p>
       <ol class="step-list">
         <li>On the Job page, tap the <strong>+</strong> in the top right (same + you used to create the Task).
           <a class="shot-link" href="img/jobnimbus/10-job-plus-files.png" target="_blank" rel="noopener">
@@ -403,7 +419,7 @@
         <strong>Familiarize yourself with the FULL template before you sit a homeowner.</strong> The Exposed Fastener template has 11 items by default; other products have similar bundles. <strong>Radiant Barrier, Insulation, 2nd Floor Charge</strong> and the other add-ons all have pre-loaded prices — you only see them if you scroll through. You won't retain everything in class, so this page is your reference. Tap through every item on each product template at least once so nothing surprises you in front of a customer.
       </div>
 
-      <h3>Workflow D (cont.): The Job Details page — finalize the estimate</h3>
+      <h3>Section 4 (cont.): The Job Details page — finalize the estimate</h3>
       <p>After Price Details, the <strong>Job Details</strong> page is where you lock in the specifics of THIS house and THIS deal. Every field below has to be filled in — the office uses this page to schedule the install and to know what was promised.</p>
       <ol class="step-list">
         <li><strong>Color</strong> — Exposed Fastener Metal color. Enter the color the homeowner picked. Don't leave this blank; the office orders material off this field.
@@ -423,7 +439,7 @@
           </a>
           <span class="shot-cap">Back on Estimate Pages — tap the ✓ in the top right to finalize</span>
         </li>
-        <li>Tap the <strong>✓ checkmark in the top right</strong>. That saves and finalizes the whole estimate: products priced, color picked, all promises documented, payment method recorded, dates entered. JN totals everything across every section (Exposed Fastener + Flat Roofing + add-ons) and the homeowner sees a clean breakdown.</li>
+        <li>Tap the <strong>✓ checkmark in the top right</strong>. That saves and finalizes the whole estimate: products priced, color picked, all promises documented, payment method recorded, dates entered. Job Nimbus totals everything across every section (Exposed Fastener + Flat Roofing + add-ons) and the homeowner sees a clean breakdown.</li>
         <li>You'll land on the <strong>Estimate summary screen</strong>. At the top you'll see the total (e.g. <strong>$27,000.00</strong>), the estimate number (e.g. <strong>#12145</strong>), the status (<strong>Draft</strong>), the date, and the Sales Rep. Two buttons: <strong>Mark as Signed</strong> and <strong>Review &amp; Share</strong>. Tap <strong>Review &amp; Share</strong>.
           <a class="shot-link" href="img/jobnimbus/19-estimate-summary-review-share.png" target="_blank" rel="noopener">
             <img class="shot" src="img/jobnimbus/19-estimate-summary-review-share.png" alt="Estimate summary screen showing $27,000.00 total, #12145, Draft status, May 28 2026 date, Sales Rep Neal S, and Mark as Signed / Review & Share buttons" loading="lazy">
@@ -454,8 +470,8 @@
         <strong>Don't tap "Mark as Signed" yet.</strong> Mark as Signed is for AFTER the homeowner has actually reviewed the estimate and signed it. Always go through <strong>Review &amp; Share</strong> first so they see the full breakdown.
       </div>
 
-      <h3>Workflow E: Editing the Job fields after a sale</h3>
-      <p>Once you've made a sale, the Job in JN needs to reflect what was sold — status, scope, key details. You don't edit the estimate; you edit the <strong>Job</strong>. From the Job page, the <strong>Edit</strong> button in the top right opens every field on the job for editing.</p>
+      <h3 id="jn-section-5">Section 5: Fill out the fields from a sale</h3>
+      <p>Once you've made a sale, the Job in Job Nimbus needs to reflect what was sold — status, scope, key details. You don't edit the estimate; you edit the <strong>Job</strong>. From the Job page, the <strong>Edit</strong> button in the top right opens every field on the job for editing.</p>
       <ol class="step-list">
         <li>Open the Job (the one with the address you just sold — top of the screen will say <strong>Job</strong> and show the job number, e.g. <strong>#12017</strong>). Tap <strong>Edit</strong> in the top right.
           <a class="shot-link" href="img/jobnimbus/21-job-edit-top-right.png" target="_blank" rel="noopener">
@@ -556,11 +572,11 @@
             <li><strong>Everything between the two arrows</strong> (ISS Uploaded through Move Back to Retail) — office / production. Leave blank.</li>
           </ul>
         </li>
-        <li><strong>Tap the ✓ checkmark in the top right to save.</strong> Once everything you're responsible for is filled in (Sold Date, Payment Type, Preferred Communication, Roof Price ONLY, Pitch + Flat squares, # of Stories, Detached Structure / Solar Panels / Product toggle + color, IRBADS block if sold, Gate Code if applicable, Measurements Needed?, Credit Repair if denied), tap the ✓ in the top right to save the Job. <strong>And now your sale is complete in JobNimbus.</strong></li>
+        <li><strong>Tap the ✓ checkmark in the top right to save.</strong> Once everything you're responsible for is filled in (Sold Date, Payment Type, Preferred Communication, Roof Price ONLY, Pitch + Flat squares, # of Stories, Detached Structure / Solar Panels / Product toggle + color, IRBADS block if sold, Gate Code if applicable, Measurements Needed?, Credit Repair if denied), tap the ✓ in the top right to save the Job. <strong>And now your sale is complete in Job Nimbus.</strong></li>
       </ol>
 
       <div class="uss-note" style="margin-top:10px; background:#e6f4ea; border-color:#137333; color:#0c5b27;">
-        <strong>✅ Sale complete.</strong> At this point: estimate is signed, the Job is fully tagged with every detail the office needs, and production / warehouse / permitting can take it from here. From your phone, you've done everything a sales rep is supposed to do in JN. Anything beyond this point — permits, install dates, NOC, warranty — is handled by other teams off the fields they pull from the Job you just finished.
+        <strong>✅ Sale complete.</strong> At this point: estimate is signed, the Job is fully tagged with every detail the office needs, and production / warehouse / permitting can take it from here. From your phone, you've done everything a sales rep is supposed to do in Job Nimbus. Anything beyond this point — permits, install dates, NOC, warranty — is handled by other teams off the fields they pull from the Job you just finished.
       </div>
 
       <div class="pitfall" style="margin-top:10px;">
@@ -583,20 +599,20 @@
         <strong>⚠ Common pitfalls</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
           <li><strong>Working on the Contact instead of the Job.</strong> If you set a task on the Contact, it doesn't tie to the work. The top of the screen must say <strong>Job</strong> before you tap Tasks.</li>
-          <li><strong>Creating a new contact when the homeowner is already in JN.</strong> If they did the free inspection, they exist already — search by address first. Only use the + → Contact path for homeowners who DIDN'T do the inspection.</li>
-          <li><strong>Touching JN during the Free Roof Inspection flow.</strong> You don't need to. Signing, result, photos, cert — all automatic. Manual touching creates duplicates that the office has to clean up.</li>
+          <li><strong>Creating a new contact when the homeowner is already in Job Nimbus.</strong> If they did the free inspection, they exist already — search by address first. Only use the + → Contact path for homeowners who DIDN'T do the inspection.</li>
+          <li><strong>Touching Job Nimbus during the Free Roof Inspection flow.</strong> You don't need to. Signing, result, photos, cert — all automatic. Manual touching creates duplicates that the office has to clean up.</li>
         </ul>
       </div>
 
       <h3>Getting set up</h3>
       <ol class="step-list">
-        <li>IT provisions your @shingleusa.com email + JN login. Check your work email for the invite.</li>
-        <li>Install the JN mobile app — iOS or Android. Sign in.</li>
+        <li>IT provisions your @shingleusa.com email + Job Nimbus login. Check your work email for the invite.</li>
+        <li>Install the Job Nimbus mobile app — iOS or Android. Sign in.</li>
         <li>Run through the appointment walkthrough above with Neal on a real (or test) retail-cert customer.</li>
       </ol>
 
-      <h3>Other things JobNimbus does (for reference)</h3>
-      <p style="font-size:14px;color:var(--slate-500);margin:0 0 10px">You'll touch most of these later, not on Day 1. They're here so you know what JN's full surface looks like.</p>
+      <h3>Other things Job Nimbus does (for reference)</h3>
+      <p style="font-size:14px;color:var(--slate-500);margin:0 0 10px">You'll touch most of these later, not on Day 1. They're here so you know what Job Nimbus's full surface looks like.</p>
 
       <div class="feat jn">
         <div class="feat-name">Lead tracking + Sales boards</div>
@@ -608,7 +624,7 @@
       </div>
       <div class="feat jn">
         <div class="feat-name">Engage texting</div>
-        <div class="feat-desc">Text the homeowner directly from JN. Conversation history saves to the contact.</div>
+        <div class="feat-desc">Text the homeowner directly from Job Nimbus. Conversation history saves to the contact.</div>
       </div>
       <div class="feat jn">
         <div class="feat-name">Job share</div>
@@ -620,7 +636,7 @@
       </div>
       <div class="feat jn">
         <div class="feat-name">Integrated measurements (EagleView, HOVER, Roofr)</div>
-        <div class="feat-desc">Order a measurement directly from the JN job. The report comes back attached automatically.</div>
+        <div class="feat-desc">Order a measurement directly from the Job Nimbus job. The report comes back attached automatically.</div>
       </div>
       <div class="feat jn">
         <div class="feat-name">Proposals with digital signatures</div>
@@ -761,7 +777,7 @@
       </div>
       <div class="feat rf">
         <div class="feat-name">Roofr CRM (Kanban board)</div>
-        <div class="feat-desc">"All-in-one management with customizable job board stages." Pipeline view filtered by rep, value, date. Use this OR JobNimbus — we use JobNimbus, but Roofr's CRM exists if you ever need a second view.</div>
+        <div class="feat-desc">"All-in-one management with customizable job board stages." Pipeline view filtered by rep, value, date. Use this OR Job Nimbus — we use Job Nimbus, but Roofr's CRM exists if you ever need a second view.</div>
       </div>
       <div class="feat rf">
         <div class="feat-name">Supplier integrations</div>
@@ -778,7 +794,7 @@
           <li>Ordering the measurement only AFTER the homeowner asks for the quote — order it BEFORE the sit so you walk in with it ready</li>
           <li>Submitting a wrong address for measurement — the report comes back for someone else's roof and you wasted $13. Verify by satellite first</li>
           <li>Editing the pricing on the fly to "win" the deal. Talk to Neal first — we have a low-bid match guarantee, you don't have to discount</li>
-          <li>Forgetting to save the proposal PDF back to JN's Documents tab — keep everything for that homeowner in one place</li>
+          <li>Forgetting to save the proposal PDF back to Job Nimbus's Documents tab — keep everything for that homeowner in one place</li>
         </ul>
       </div>
 
@@ -803,9 +819,9 @@
         <p>Hand over (or tap) your RepCard. Homeowner's info captured automatically; they get your card on their phone.</p>
       </div>
       <div class="flow-step">
-        <span class="tag rc">RepCard → <span class="tag jn">JN</span></span>
+        <span class="tag rc">RepCard → <span class="tag jn">Job Nimbus</span></span>
         <h4>2. Book the sit</h4>
-        <p>Disposition the lead in RepCard. Sit booked → syncs to JobNimbus as a new contact + scheduled appointment.</p>
+        <p>Disposition the lead in RepCard. Sit booked → syncs to Job Nimbus as a new contact + scheduled appointment.</p>
       </div>
       <div class="flow-step">
         <span class="tag rf">Roofr</span>
@@ -818,14 +834,14 @@
         <p>Use the measurement + team pricing template to build a proposal. Print or load it on the iPad for the sit.</p>
       </div>
       <div class="flow-step">
-        <span class="tag jn">JobNimbus</span>
+        <span class="tag jn">Job Nimbus</span>
         <h4>5. Run the in-home</h4>
-        <p>Take before-photos with JN's camera. Present the proposal. If signed, JN marks the job sold.</p>
+        <p>Take before-photos with Job Nimbus's camera. Present the proposal. If signed, Job Nimbus marks the job sold.</p>
       </div>
       <div class="flow-step">
-        <span class="tag jn">JobNimbus</span>
+        <span class="tag jn">Job Nimbus</span>
         <h4>6. Handoff to install</h4>
-        <p>Job sits in JN under the right status. Office schedules the install. Photos + signed docs + measurement all live on the job for the crew.</p>
+        <p>Job sits in Job Nimbus under the right status. Office schedules the install. Photos + signed docs + measurement all live on the job for the crew.</p>
       </div>
     </div>
   </div>
