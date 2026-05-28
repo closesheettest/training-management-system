@@ -243,10 +243,11 @@
         <strong>When do you actually need to be in JobNimbus?</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
           <li><strong>Free Roof Inspection flow:</strong> <em>You don't need to go to JN.</em> Everything is done automatically — the signed agreement, the inspection result (Damage / Retail / No Damage), the photos, the certificate PDF — all flow into JN by themselves.</li>
-          <li><strong>Two situations where you DO go into JN:</strong>
+          <li><strong>Three situations where you DO go into JN:</strong>
             <ol style="margin:6px 0 0; padding-left:22px;">
               <li>The homeowner did the free inspection, came back as Retail, and now wants a real appointment.</li>
               <li>The homeowner <em>declined</em> the free inspection at the door but DID agree to an appointment. (They're not in JN yet — you have to create them.)</li>
+              <li>You're at the in-home sit and need to build them an estimate.</li>
             </ol>
           </li>
         </ul>
@@ -349,6 +350,53 @@
         <li><strong>Do NOT toggle "All day" on.</strong> All-day appointments lose the specific time — keep it off so the appointment is locked to the exact hour.</li>
         <li>Tap the <strong>✓ checkmark in the top right</strong> to save. Appointment created.</li>
       </ol>
+
+      <h3>Workflow D: Building an estimate from the in-home sit</h3>
+      <p>You're at the homeowner's house. You ran the presentation. They want pricing. JobNimbus has the entire estimate engine built in — product templates, line items, prices — you just plug in their squares.</p>
+      <ol class="step-list">
+        <li>On the Job page, tap the <strong>+</strong> in the top right (same + you used to create the Task).
+          <a class="shot-link" href="img/jobnimbus/10-job-plus-files.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/10-job-plus-files.png" alt="Job page + dropdown with Files option highlighted" loading="lazy">
+          </a>
+          <span class="shot-cap">Job + dropdown — tap Files</span>
+        </li>
+        <li>Tap <strong>Files</strong>. The Files row expands into a sub-menu: Document / Form / Estimate / Material Order / Work Order / Invoice / Budget. Tap <strong>Estimate</strong>.
+          <a class="shot-link" href="img/jobnimbus/11-files-submenu-estimate.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/11-files-submenu-estimate.png" alt="Files sub-menu showing Document, Form, Estimate, Material Order, Work Order, Invoice, Budget" loading="lazy">
+          </a>
+          <span class="shot-cap">Files sub-menu — tap Estimate</span>
+        </li>
+        <li>The <strong>Estimate Pages</strong> screen opens. At the top is a <strong>Layout</strong> dropdown — tap it and pick the product the homeowner wants (Exposed Fastener Metal, Standing Seam, Permalock, Shingle, etc.). Every product works the same way; just different descriptions and prices.
+          <a class="shot-link" href="img/jobnimbus/12-estimate-pages-layout.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/12-estimate-pages-layout.png" alt="Estimate Pages screen with Layout dropdown showing Exposed Fastener Metal" loading="lazy">
+          </a>
+          <span class="shot-cap">Estimate Pages — pick the product in Layout</span>
+        </li>
+        <li>Scroll to <strong>Price Details</strong> in the page list and open it. You'll see the product's <strong>Options</strong> section (e.g. "Exposed Fastener · $0.00 · 11 items"). Tap that card.
+          <a class="shot-link" href="img/jobnimbus/13-price-details-options.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/13-price-details-options.png" alt="Price Details screen with Exposed Fastener option card showing $0.00 and 11 items" loading="lazy">
+          </a>
+          <span class="shot-cap">Price Details — tap the product card</span>
+        </li>
+        <li>Each line item shows you the scope of work + a price field. The first item (e.g. <em>Exposed Fastener Metal Roof System</em>) is the bulk of the roof — all the standard work bundled into one description.
+          <a class="shot-link" href="img/jobnimbus/14-item-detail-scope.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/14-item-detail-scope.png" alt="Item detail showing the Roof Scope of Work bullet list (warranty, replace decking, lifetime screws, etc.)" loading="lazy">
+          </a>
+          <span class="shot-cap">Item detail — scope of work description</span>
+        </li>
+        <li>Scroll down to the <strong>Price</strong> field. Above it is <strong>Quantity</strong> — that's where you enter the number of <strong>squares</strong>. Once Quantity is filled in, the line Total calculates automatically (Quantity × Price).
+          <a class="shot-link" href="img/jobnimbus/15-quantity-price-total.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/15-quantity-price-total.png" alt="Item with Quantity, Price ($900.00), and Total ($0.00) fields visible" loading="lazy">
+          </a>
+          <span class="shot-cap">Quantity × Price = Total</span>
+        </li>
+        <li>Tap <strong>Add Item</strong> to bring in additional line items as needed for this house — Radiant Barrier, Insulation, 2nd Floor Charge, and any other add-ons the template has. Each one has its own Quantity + Price.</li>
+        <li>Save the estimate. JN totals the whole thing across all sections (Exposed Fastener + Flat Roofing + add-ons) and the homeowner sees a clean breakdown.</li>
+      </ol>
+
+      <div class="uss-note">
+        <strong>Familiarize yourself with the FULL template before you sit a homeowner.</strong> The Exposed Fastener template has 11 items by default; other products have similar bundles. <strong>Radiant Barrier, Insulation, 2nd Floor Charge</strong> and the other add-ons all have pre-loaded prices — you only see them if you scroll through. You won't retain everything in class, so this page is your reference. Tap through every item on each product template at least once so nothing surprises you in front of a customer.
+      </div>
 
       <div class="pitfall">
         <strong>⚠ Common pitfalls</strong>
