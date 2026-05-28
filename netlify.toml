@@ -13,6 +13,18 @@
 [functions."cron-training-homework"]
   schedule = "0 23 * * *"
 
+# Scheduled function: daily no-show / dropout detection. Fires at 14:30
+# UTC = 10:30 AM EDT (training starts 10 AM ET, this gives a 30-min
+# grace window). Detects every enrolled, provisioned trainee in an
+# active class who has no confirmed attendance today, then:
+#   1. auto-unenrolls them (enrolled=false, unenrolled_reason='No-show on Day N')
+#   2. notifies IT (delete Google Workspace email) and HR (remove from
+#      RepCard/JobNimbus/Sales Academy)
+# DST note: 14:30 UTC = 10:30 EDT (summer) but 9:30 EST (winter). When
+# DST ends in November, change to "30 15 * * *" so it fires at 10:30 ET.
+[functions."notify-trainee-dropout"]
+  schedule = "30 14 * * *"
+
 # SPA routing: any path that's not a real file goes to index.html
 # so React Router can handle it (otherwise /register/:token would 404 on a hard refresh).
 [[redirects]]
