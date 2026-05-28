@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 3 Homework — Apps setup + practice deal</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --green: #137333;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: var(--slate-50);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .stripe { height: 4px; background: var(--red); }
+  .page { max-width: 720px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header.title { margin-bottom: 18px; }
+  header.title .eyebrow {
+    color: var(--red); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  header.title h1 {
+    color: var(--navy); margin: 6px 0 6px;
+    font-size: 26px; letter-spacing: -0.01em; line-height: 1.15;
+  }
+  header.title p.lede {
+    margin: 4px 0 0; color: var(--slate-500); font-size: 15px;
+  }
+
+  .step {
+    background: #fff; border: 1px solid var(--slate-200);
+    border-radius: 12px; padding: 18px 18px 14px;
+    margin-bottom: 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .step .num {
+    display: inline-block; background: var(--navy); color: #fff;
+    font-weight: 700; font-size: 12px; letter-spacing: 0.06em;
+    padding: 4px 10px; border-radius: 4px; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .step h2 {
+    margin: 6px 0 6px; color: var(--navy); font-size: 19px;
+    letter-spacing: -0.005em;
+  }
+  .step p { margin: 6px 0; color: var(--slate-700); font-size: 14.5px; }
+  .step ol, .step ul { margin: 8px 0 4px 0; padding-left: 22px; color: var(--slate-700); font-size: 14.5px; }
+  .step li { margin: 6px 0; }
+  .step strong { color: var(--navy-dark); }
+  .step em.muted { color: var(--slate-500); font-style: normal; font-size: 13px; }
+
+  .estimate-table {
+    width: 100%; border-collapse: collapse;
+    margin: 10px 0 4px; font-size: 14px;
+    background: #fff; border: 1px solid var(--slate-200); border-radius: 8px;
+    overflow: hidden;
+  }
+  .estimate-table th, .estimate-table td {
+    padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--slate-100);
+  }
+  .estimate-table th {
+    background: var(--slate-50); color: var(--slate-500);
+    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .estimate-table tr:last-child td { border-bottom: 0; }
+  .estimate-table tr.total td {
+    background: #eef1f8; font-weight: 700; color: var(--navy);
+  }
+  .estimate-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .field-list { margin: 10px 0; padding-left: 0; list-style: none; }
+  .field-list li {
+    padding: 8px 0; border-bottom: 1px dashed var(--slate-200);
+    font-size: 14.5px; color: var(--slate-700);
+  }
+  .field-list li:last-child { border-bottom: 0; }
+  .field-list .label { font-weight: 700; color: var(--navy-dark); }
+
+  .callout {
+    background: linear-gradient(180deg, #fff8e1 0%, #fff 100%);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 14px 16px; margin: 16px 0;
+  }
+  .callout strong { color: var(--navy); }
+
+  .checkme {
+    background: linear-gradient(180deg, #e6f4ea 0%, #fff 100%);
+    border: 2px solid var(--green);
+    border-radius: 12px;
+    padding: 14px 16px; margin: 20px 0 8px;
+  }
+  .checkme strong { color: var(--green); }
+
+  .btn {
+    display: inline-block; background: var(--navy); color: #fff;
+    text-decoration: none; padding: 10px 18px; border-radius: 8px;
+    font-weight: 700; font-size: 14px;
+    margin-top: 8px;
+  }
+  .btn:hover { background: var(--navy-dark); }
+
+  .footer {
+    margin-top: 32px; color: var(--slate-500);
+    font-size: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="page">
+  <header class="title">
+    <div class="eyebrow">Day 3 Homework</div>
+    <h1>Apps + a full practice deal in Job Nimbus</h1>
+    <p class="lede">Tonight's homework has two parts. Don't skip either — tomorrow morning I check both.</p>
+  </header>
+
+  <div class="step">
+    <span class="num">Part 1</span>
+    <h2>Get all three apps working</h2>
+    <p>Before you can build a real deal, every tool has to be ready on your phone:</p>
+    <ul>
+      <li><strong>@shingleusa.com email</strong> — confirm you can send and receive on it</li>
+      <li><strong>Job Nimbus</strong> — installed, signed in, and you can search a contact</li>
+      <li><strong>RepCard</strong> — installed, signed in, and you can see the map</li>
+    </ul>
+    <p>If any of these don't work, <strong>text Neal tonight</strong> so we can fix it before tomorrow.</p>
+  </div>
+
+  <div class="step">
+    <span class="num">Part 2</span>
+    <h2>Run a full practice deal in Job Nimbus</h2>
+    <p>Use the tools-training guide — Sections 1 through 5 — and walk through every step on your phone. Make up a homeowner. Any name, any address, any phone, any email.</p>
+    <p>
+      <a class="btn" href="/tools-training/" target="_blank" rel="noopener">Open the Tools Training guide →</a>
+    </p>
+  </div>
+
+  <div class="step">
+    <span class="num">Setup</span>
+    <h2>The contact + the "test" flag</h2>
+    <ol>
+      <li>Create a Contact (Section 1) — make up the homeowner.</li>
+      <li><strong>On the Contact screen, set the Location field to <em>"test"</em></strong> — this flags the record as a practice deal so the office knows it isn't a real customer. <strong>Do not skip this.</strong></li>
+      <li>Create a Job under that contact (Section 2).</li>
+      <li>Create an Appointment (Section 3) — <strong>tomorrow at 5:30 PM.</strong></li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <span class="num">Estimate</span>
+    <h2>Build the estimate — these exact numbers</h2>
+    <p>Follow Section 4 of the tools-training guide. Add three line items:</p>
+
+    <table class="estimate-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th class="num">Quantity</th>
+          <th class="num">Price</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Exposed Fastener</td>
+          <td class="num">30 squares</td>
+          <td class="num">$900 / sq</td>
+          <td class="num">$27,000</td>
+        </tr>
+        <tr>
+          <td>Insulation</td>
+          <td class="num">2,800 sqft</td>
+          <td class="num">$1.50 / sqft</td>
+          <td class="num">$4,200</td>
+        </tr>
+        <tr>
+          <td>Radiant Barrier</td>
+          <td class="num">3,000 sqft</td>
+          <td class="num">$2.75 / sqft</td>
+          <td class="num">$8,250</td>
+        </tr>
+        <tr class="total">
+          <td>Estimate total</td>
+          <td class="num"></td>
+          <td class="num"></td>
+          <td class="num">$39,450</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>If your estimate doesn't show $39,450</strong> — something's off. Double-check the Quantity field on each line item. Roofing is squares, Insulation and Radiant Barrier are square feet.
+    </div>
+  </div>
+
+  <div class="step">
+    <span class="num">Edit Job</span>
+    <h2>Fill out the Job fields after the estimate is signed</h2>
+    <p>Section 5 of the guide. Hit Edit on the Job and fill in every field that applies:</p>
+    <ul class="field-list">
+      <li><span class="label">Sold Date</span> — tonight's date</li>
+      <li><span class="label">Payment Type</span> — <strong>Upgrade</strong></li>
+      <li><span class="label">Preferred Communication</span> — Text</li>
+      <li><span class="label">Roof Price ONLY</span> — <strong>$27,000</strong> <em class="muted">(roof only — insulation + radiant barrier are add-ons, not roof)</em></li>
+      <li><span class="label"># of Squares (Pitch)</span> — 30</li>
+      <li><span class="label"># of Stories</span> — <strong>1</strong></li>
+      <li><span class="label"># of Squares (Flat)</span> — 0</li>
+      <li><span class="label">Detached Structure / Solar Panels</span> — leave off</li>
+      <li><span class="label">Product toggle</span> — <strong>Exposed Fastener ON</strong></li>
+      <li><span class="label">Exposed Fastener Color</span> — <strong>Black</strong></li>
+      <li><span class="label">IRBADS</span> — ON, pick the Area dropdown</li>
+      <li><span class="label">Radiant Barrier</span> — ON</li>
+      <li><span class="label">Radiant Barrier SqFt</span> — <strong>3,000</strong> <em class="muted">(square FEET, not squares)</em></li>
+      <li><span class="label">Radiant Barrier Cost</span> — <strong>$8,250</strong> <em class="muted">(TOTAL dollars, not per-sqft — don't enter 2.75)</em></li>
+      <li><span class="label">Insulation</span> — ON</li>
+      <li><span class="label">Insulation SqFt</span> — <strong>2,800</strong></li>
+      <li><span class="label">Insulation Cost</span> — <strong>$4,200</strong> <em class="muted">(don't enter 1.50)</em></li>
+      <li><span class="label">Measurements Needed</span> — Yes (metal roof)</li>
+    </ul>
+    <p><strong>Skip everything else.</strong> Permit fields, production fields, NOC, Hannah, "DO NOT TOUCH" — all office territory. Leave them blank.</p>
+    <p>Tap the ✓ checkmark in the top right to save the Job.</p>
+  </div>
+
+  <div class="checkme">
+    <strong>✅ What I'm checking tomorrow morning at 10 AM:</strong>
+    <ul style="margin: 8px 0 0; padding-left: 22px; color: var(--slate-700);">
+      <li>Your practice Job exists with Location = "test"</li>
+      <li>Estimate total = $39,450</li>
+      <li>Every Edit Job field above is filled correctly</li>
+      <li>Color = Black, # of Stories = 1, Payment Type = Upgrade</li>
+    </ul>
+    <p style="margin-top: 10px; color: var(--slate-700);">Anything missing or wrong, we'll walk through together. Don't stress about it — this is exactly what practice is for.</p>
+  </div>
+
+  <div class="footer">
+    U.S. Shingle &amp; Metal · Day 3 Training Homework · 2026-05-28
+  </div>
+</div>
+</body>
+</html>

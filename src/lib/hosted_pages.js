@@ -21,8 +21,20 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'day-3-homework',
+    title: 'Day 3 homework — Apps setup + practice deal',
+    url: '/day-3-homework/',
+    description:
+      'Tonight\'s directive: get email/Job Nimbus/RepCard set up, then run a full practice deal in Job Nimbus. ' +
+      'Contact (location=test) → Job → Appt tomorrow 5:30 PM → estimate ($39,450 across Exposed Fastener / ' +
+      'Insulation / Radiant Barrier) → Edit Job fields (1 story, Black, Upgrade financing). ' +
+      'Linked from the nightly Day 3 homework SMS at 7 PM EDT.',
+    created: '2026-05-28',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'tools-training',
-    title: 'Tools Training — JobNimbus · RepCard · Roofr',
+    title: 'Tools Training — Job Nimbus · RepCard · Roofr',
     url: '/tools-training/',
     description:
       'Mobile-friendly deep-dive on the 3 tools every rep uses daily: JobNimbus (CRM), ' +
