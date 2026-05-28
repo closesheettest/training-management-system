@@ -99,7 +99,13 @@ export const handler = async (event) => {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
-  // Pull every enrolled trainee with a company email and no dropout stamp.
+  // Pull every enrolled trainee in any class who hasn't been
+  // dropout-flagged yet. We deliberately DO NOT filter by
+  // company_email — Day-1 no-shows haven't been provisioned yet
+  // (IT only creates the @shingleusa.com email after they sign in
+  // at the kiosk). If we filtered on company_email, the trainees
+  // who never showed up at all would slip through. Provisioning
+  // status is handled later when deciding whether to alert IT/HR.
   let query = supabase
     .from('trainees')
     .select(`
@@ -108,7 +114,6 @@ export const handler = async (event) => {
       attendance(attendance_date, confirmed)
     `)
     .eq('enrolled', true)
-    .not('company_email', 'is', null)
     .is('dropout_notified_at', null)
   if (targetClassId) query = query.eq('class_id', targetClassId)
   const { data: trainees, error: trErr } = await query
@@ -142,13 +147,21 @@ export const handler = async (event) => {
     })
   }
 
+  // Split dropouts into PROVISIONED (have company_email — IT/HR
+  // need to clean up accounts) and UNPROVISIONED (never showed up
+  // at all on Day 1, no accounts to delete). Both groups get
+  // unenrolled; only provisioned ones trigger the IT/HR fan-out.
+  const provisioned = dropouts.filter((t) => t.company_email)
+  const unprovisioned = dropouts.filter((t) => !t.company_email)
+
   const dateLabel = new Date(today + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
 
   // Group dropouts by class so the summary message is clearer when multiple
-  // classes have dropouts on the same day.
-  const lines = dropouts.map((t) => {
+  // classes have dropouts on the same day. Only provisioned trainees go in
+  // the IT/HR message lines (they're the ones with accounts to delete).
+  const lines = provisioned.map((t) => {
     const region = t.classes?.region || 'training'
     const loc = t.classes?.locations?.name
     const locStr = loc ? ` · ${loc}` : ''
@@ -156,22 +169,22 @@ export const handler = async (event) => {
   })
 
   const itSms =
-    dropouts.length === 1
+    provisioned.length === 1
       ? `[Training] Dropout on ${dateLabel}: ${lines[0].slice(2)}. Please delete the Google Workspace account.`
-      : `[Training] ${dropouts.length} dropouts on ${dateLabel}. Please delete these Google Workspace accounts:\n${lines.join('\n')}`
-  const itEmailSubject = `Delete ${dropouts.length} Google Workspace account${dropouts.length === 1 ? '' : 's'} — dropouts on ${dateLabel}`
+      : `[Training] ${provisioned.length} dropouts on ${dateLabel}. Please delete these Google Workspace accounts:\n${lines.join('\n')}`
+  const itEmailSubject = `Delete ${provisioned.length} Google Workspace account${provisioned.length === 1 ? '' : 's'} — dropouts on ${dateLabel}`
   const itEmailBody =
-    `The following provisioned trainee${dropouts.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${dropouts.length === 1 ? 's' : ''} to have dropped out. Please delete their company email account${dropouts.length === 1 ? '' : 's'}:\n\n` +
+    `The following provisioned trainee${provisioned.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${provisioned.length === 1 ? 's' : ''} to have dropped out. Please delete their company email account${provisioned.length === 1 ? '' : 's'}:\n\n` +
     `${lines.join('\n')}\n\n` +
     `— Training System`
 
   const hrSms =
-    dropouts.length === 1
+    provisioned.length === 1
       ? `[Training] Dropout on ${dateLabel}: ${lines[0].slice(2)}. Please remove from RepCard, JobNimbus, and Sales Academy.`
-      : `[Training] ${dropouts.length} dropouts on ${dateLabel}. Please remove from RepCard, JobNimbus, and Sales Academy:\n${lines.join('\n')}`
-  const hrEmailSubject = `Remove ${dropouts.length} dropout${dropouts.length === 1 ? '' : 's'} from apps — ${dateLabel}`
+      : `[Training] ${provisioned.length} dropouts on ${dateLabel}. Please remove from RepCard, JobNimbus, and Sales Academy:\n${lines.join('\n')}`
+  const hrEmailSubject = `Remove ${provisioned.length} dropout${provisioned.length === 1 ? '' : 's'} from apps — ${dateLabel}`
   const hrEmailBody =
-    `The following provisioned trainee${dropouts.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${dropouts.length === 1 ? 's' : ''} to have dropped out. Please remove their account${dropouts.length === 1 ? '' : 's'} from RepCard, JobNimbus, and Sales Academy:\n\n` +
+    `The following provisioned trainee${provisioned.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${provisioned.length === 1 ? 's' : ''} to have dropped out. Please remove their account${provisioned.length === 1 ? '' : 's'} from RepCard, JobNimbus, and Sales Academy:\n\n` +
     `${lines.join('\n')}\n\n` +
     `— Training System`
 
@@ -183,27 +196,40 @@ export const handler = async (event) => {
     return json(200, {
       target_date: today,
       candidate_count: dropouts.length,
-      dropouts: dropouts.map((t) => `${t.first_name} ${t.last_name} (${t.company_email})`),
+      provisioned_count: provisioned.length,
+      unprovisioned_count: unprovisioned.length,
+      dropouts: dropouts.map((t) =>
+        t.company_email
+          ? `${t.first_name} ${t.last_name} (${t.company_email})`
+          : `${t.first_name} ${t.last_name} (no company email — never provisioned)`,
+      ),
       dry_run: true,
-      preview_it_sms: itSms,
-      preview_hr_sms: hrSms,
+      preview_it_sms: provisioned.length ? itSms : '(skipped — no provisioned dropouts)',
+      preview_hr_sms: provisioned.length ? hrSms : '(skipped — no provisioned dropouts)',
       it_subscribers: itLookup.recipients.length,
       hr_subscribers: hrLookup.recipients.length,
     })
   }
 
-  const itResult = await notifyAll(itLookup.recipients, {
-    smsBody: itSms,
-    emailSubject: itEmailSubject,
-    emailBody: itEmailBody,
-    contactLabel: 'IT',
-  })
-  const hrResult = await notifyAll(hrLookup.recipients, {
-    smsBody: hrSms,
-    emailSubject: hrEmailSubject,
-    emailBody: hrEmailBody,
-    contactLabel: 'HR',
-  })
+  // Only fan out to IT/HR if there ARE provisioned dropouts to act
+  // on. Day-1 no-shows (never provisioned) get unenrolled silently —
+  // no accounts to delete, no need to alert IT/HR.
+  let itResult = { skipped: true, reason: 'no provisioned dropouts' }
+  let hrResult = { skipped: true, reason: 'no provisioned dropouts' }
+  if (provisioned.length > 0) {
+    itResult = await notifyAll(itLookup.recipients, {
+      smsBody: itSms,
+      emailSubject: itEmailSubject,
+      emailBody: itEmailBody,
+      contactLabel: 'IT',
+    })
+    hrResult = await notifyAll(hrLookup.recipients, {
+      smsBody: hrSms,
+      emailSubject: hrEmailSubject,
+      emailBody: hrEmailBody,
+      contactLabel: 'HR',
+    })
+  }
 
   // Stamp dropout_notified_at + flip enrolled=false on each dropout
   // regardless of send outcome — a partial failure is better than
@@ -233,7 +259,13 @@ export const handler = async (event) => {
   return json(200, {
     target_date: today,
     candidate_count: dropouts.length,
-    dropouts: dropouts.map((t) => `${t.first_name} ${t.last_name} (${t.company_email})`),
+    provisioned_count: provisioned.length,
+    unprovisioned_count: unprovisioned.length,
+    dropouts: dropouts.map((t) =>
+      t.company_email
+        ? `${t.first_name} ${t.last_name} (${t.company_email})`
+        : `${t.first_name} ${t.last_name} (no company email — never provisioned)`,
+    ),
     it_notified: {
       ...itResult,
       source: itLookup.source,
