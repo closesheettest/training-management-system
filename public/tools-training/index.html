@@ -114,6 +114,28 @@
   .feat.rc { border-left-color: var(--rc); }
   .feat.rf { border-left-color: var(--rf); }
 
+  /* Phone-screenshot styling — capped width so iPhone screenshots
+     don't blow out the layout on a desktop view; centered + drop
+     shadow + tap-to-enlarge by opening in a new tab. */
+  .shot {
+    display: block;
+    margin: 10px auto;
+    max-width: 280px;
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid var(--slate-200);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10);
+  }
+  .shot-cap {
+    display: block;
+    text-align: center;
+    color: var(--slate-500);
+    font-size: 11px;
+    margin: -2px 0 14px;
+    font-style: italic;
+  }
+  .shot-link { display: block; text-align: center; }
+
   /* Workflow steps */
   .step-list { counter-reset: step; padding-left: 0; list-style: none; margin: 8px 0; }
   .step-list li {
@@ -331,16 +353,40 @@
       <p>When you open RepCard you land on the <strong>home page</strong> (stats, tutorials, etc.). Getting to the actual map is a few taps.</p>
       <ol class="step-list">
         <li>Open RepCard. You're on the home page.</li>
-        <li>On the right-side floating buttons, tap the <strong>fan-fold map icon</strong>. This takes you to the map.</li>
-        <li>On the map, tap the <strong>blue filter (funnel) icon</strong> on the right-side toolbar. A "Filter by" drawer slides up.</li>
-        <li>In that drawer, tap <strong>Select Status</strong>.</li>
-        <li>On the Select Status screen, check <strong>only NEED</strong> — nothing else. Then go back / save.</li>
+        <li>On the right-side floating buttons, tap the <strong>fan-fold map icon</strong>. This takes you to the map.
+          <a class="shot-link" href="img/repcard/01-home-fan-fold.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/repcard/01-home-fan-fold.png" alt="RepCard home page with the fan-fold map icon highlighted on the right side" loading="lazy">
+          </a>
+          <span class="shot-cap">Home page — tap the fan-fold map icon</span>
+        </li>
+        <li>On the map, tap the <strong>blue filter (funnel) icon</strong> on the right-side toolbar. A "Filter by" drawer slides up.
+          <a class="shot-link" href="img/repcard/02-map-filter.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/repcard/02-map-filter.png" alt="Map view with the blue filter funnel icon highlighted on the right toolbar" loading="lazy">
+          </a>
+          <span class="shot-cap">Map view — tap the blue filter (funnel) icon</span>
+        </li>
+        <li>In that drawer, tap <strong>Select Status</strong>.
+          <a class="shot-link" href="img/repcard/03-filter-drawer.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/repcard/03-filter-drawer.png" alt="Filter by drawer showing date filters and the Select Status link" loading="lazy">
+          </a>
+          <span class="shot-cap">Filter by drawer — tap Select Status</span>
+        </li>
+        <li>On the Select Status screen, check <strong>only NEED</strong> — nothing else. Then go back / save.
+          <a class="shot-link" href="img/repcard/04-select-status-need.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/repcard/04-select-status-need.png" alt="Select Status screen with only NEED checked" loading="lazy">
+          </a>
+          <span class="shot-cap">Select Status — check ONLY Need</span>
+        </li>
         <li>Tap <strong>Apply</strong> on the filter drawer.</li>
         <li>The map redraws showing only the <strong>NEED</strong> pins. These are your homes to knock today.</li>
       </ol>
 
       <h3>Workflow 2: Working a pin</h3>
       <p>Tap any pin on the map — a drawer slides up showing the homeowner's <strong>name, address, and your distance to them</strong>.</p>
+      <a class="shot-link" href="img/repcard/05-pin-detail.png" target="_blank" rel="noopener">
+        <img class="shot" src="img/repcard/05-pin-detail.png" alt="Tapped house pin showing the homeowner detail drawer with Lead Status circles" loading="lazy">
+      </a>
+      <span class="shot-cap">Tapped pin — homeowner info + Lead Status row</span>
 
       <div class="uss-note" style="background:#fef2f2;border-color:#fecaca;border-left-color:var(--red)">
         <strong>The only time you change a pin's status is AFTER you've actually talked to the homeowner.</strong> Not after a no-answer. Not after "they're cooking dinner." After a real conversation at the door.
