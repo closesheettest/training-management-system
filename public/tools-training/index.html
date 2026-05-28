@@ -212,74 +212,55 @@
     <div class="tool-head jn">
       <span class="tag">Tool 1 of 3 · CRM</span>
       <h2>JobNimbus</h2>
-      <p>The source of truth for every contact, job, photo, document, and status change. If it didn't happen in JobNimbus, it didn't happen.</p>
+      <p>The source of truth for every homeowner and every job. For most of the inspection flow, JN is hands-off — but when you convert a retail-cert customer to an appointment, this is where you do it.</p>
     </div>
     <div class="tool-body">
-      <h3>What it is</h3>
-      <p>A CRM built specifically for roofing contractors. Every homeowner you meet becomes a contact; every roof becomes a job. JN tracks the whole lifecycle from first knock through paid invoice — and ties to RepCard, Roofr, and our Free Roof Inspection app.</p>
 
-      <h3>Daily-use features</h3>
+      <!-- TL;DR — when do you actually need to be in JN -->
+      <div class="uss-note">
+        <strong>When do you actually need to be in JobNimbus?</strong>
+        <ul style="margin:6px 0 0; padding-left: 18px;">
+          <li><strong>Free Roof Inspection flow:</strong> <em>You don't need to go to JN.</em> Everything is done automatically — the signed agreement, the inspection result (Damage / Retail / No Damage), the photos, the certificate PDF — all flow into JN by themselves.</li>
+          <li><strong>Converting a retail-cert customer to an appointment:</strong> <em>This is when you go into JN.</em> See the walkthrough below.</li>
+        </ul>
+      </div>
 
+      <h3>How JobNimbus is organized (so the next part makes sense)</h3>
+      <p>Everything in JobNimbus flows through three layers:</p>
       <div class="feat jn">
-        <div class="feat-name">Lead tracking + Sales boards</div>
-        <div class="feat-desc">A unified board view of every lead and job in your pipeline. Filter by status, rep, value, date. This is your morning starting point — what needs attention today.</div>
+        <div class="feat-name">1. Contact = the homeowner</div>
+        <div class="feat-desc">A person. Has a name, address, phone, email. Everything starts here.</div>
       </div>
       <div class="feat jn">
-        <div class="feat-name">Custom sales workflows + Sales automation</div>
-        <div class="feat-desc">Jobs move through statuses as you work them ("Lead → Sit Sold Insp → Sold → In Production → Paid"). Some moves trigger automation — e.g. when a proposal is signed, JN can auto-bump the status to "Sold."</div>
+        <div class="feat-name">2. Job = the roof on that homeowner's house</div>
+        <div class="feat-desc">We create a job for that contact. <strong>EVERYTHING from this point forward is done through that job</strong> — photos, documents, status changes, appointments. If you're working a homeowner, you should be inside their job.</div>
       </div>
       <div class="feat jn">
-        <div class="feat-name">Mobile app (iOS + Android)</div>
-        <div class="feat-desc">4.8-star app for the field. Lookup contacts, update statuses, snap photos, write notes — all from your phone between appointments.</div>
+        <div class="feat-name">3. Task = an appointment, follow-up, or to-do inside the job</div>
+        <div class="feat-desc">An appointment is just a task inside the job. So is a callback, a measurement order, or a "drop off keys" reminder. All of it lives on the job.</div>
       </div>
-      <div class="feat jn">
-        <div class="feat-name">Photos &amp; annotations</div>
-        <div class="feat-desc">Capture before/after on each job. Annotate directly in the app (draw circles, arrows, labels). Photos live on the job forever — claims, insurance, and post-install QA all pull from here.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Forms</div>
-        <div class="feat-desc">Standardized inspection forms so every rep collects the same info at the door — no missed fields when it's time to quote.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Integrated measurements (EagleView, HOVER, Roofr)</div>
-        <div class="feat-desc">Order a measurement report directly from inside the JN job — no copy-paste between systems. The measurement comes back attached to the job.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Smart estimating</div>
-        <div class="feat-desc">Generate detailed estimates in seconds using the measurement data + your pricing. No more spreadsheet juggling.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Proposals with digital signatures</div>
-        <div class="feat-desc">Send a proposal by email or sign in-app on the iPad. Signed = closed. JN stamps the signature time so there's no dispute later.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Engage texting</div>
-        <div class="feat-desc">Shared SMS inbox — text the homeowner directly from JN with multiple phone numbers. Conversation history lives on the contact.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Notes + tasks + @mentions</div>
-        <div class="feat-desc">Drop notes on a job, assign tasks to crew or office staff, @mention teammates to loop them in. Replaces 90% of "did anyone tell …?" texts.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Job share</div>
-        <div class="feat-desc">Send the homeowner a live link to their job status — they see permits pulled, install date, photos. Reduces "what's the status?" calls.</div>
-      </div>
-      <div class="feat jn">
-        <div class="feat-name">Insights reporting</div>
-        <div class="feat-desc">Performance analytics, lead source tracking, team metrics. Where managers see who's converting and what marketing is working.</div>
-      </div>
+
+      <h3>The one workflow you need: Setting an appointment with a retail-cert customer</h3>
+      <p>You went to a retail-cert customer (someone whose roof came back as Retail from the free inspection). They want a real quote. You set an appointment for tomorrow at 2 PM. Here's the JN side:</p>
+      <ol class="step-list">
+        <li>Open JobNimbus.</li>
+        <li>In the search bar, type the <strong>address</strong>. The homeowner will populate.</li>
+        <li>Click on them.</li>
+        <li><strong>Make sure you are in the JOB</strong> (not the contact). The job is the second level — if you're on the contact page, click into the job underneath.</li>
+        <li>Click <strong>Task</strong>.</li>
+        <li>Set the appointment — tomorrow, 2 PM. Add a title (e.g. "Retail quote sit") and save.</li>
+      </ol>
 
       <div class="uss-note">
-        <strong>U.S. Shingle workflow notes</strong> — our Free Roof Inspection app auto-creates the JN job at signing and auto-uploads the signed agreement to the Documents tab. After an inspector classifies the result, the JN job's status updates automatically (Damage / Retail / No Damage) and a certificate PDF gets attached. Don't manually create duplicate JN jobs — if you don't see your job, search by homeowner last name first.
+        <strong>Why search by address (not name)?</strong> Addresses are unique; names aren't. Two Smiths on the same street will trip you up. Address gets you to the right homeowner in one search every time.
       </div>
 
       <div class="pitfall">
         <strong>⚠ Common pitfalls</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
-          <li>Forgetting to update the status when something happens — kills your dashboard accuracy</li>
-          <li>Uploading photos to your camera roll first and "I'll add them later" — late = never. Upload directly from JN's camera</li>
-          <li>Creating a new job when the homeowner already has one. Always search first</li>
-          <li>Leaving the address blank or partial — breaks measurement integrations</li>
+          <li><strong>Working on the Contact instead of the Job.</strong> If you set a task on the Contact, it doesn't tie to the work — make sure the URL or page header says you're inside the JOB.</li>
+          <li><strong>Creating a new job when the homeowner already has one.</strong> The Free Roof Inspection flow already created the job. Always search by address first — never start from "+ New."</li>
+          <li><strong>Touching JN during the inspection flow.</strong> You don't need to. Signing, result, photos, cert — all automatic. Doing it manually creates duplicates that the office has to clean up.</li>
         </ul>
       </div>
 
@@ -287,9 +268,45 @@
       <ol class="step-list">
         <li>IT provisions your @shingleusa.com email + JN login. Check your work email for the invite.</li>
         <li>Install the JN mobile app — iOS or Android. Sign in.</li>
-        <li>Add your phone number to your JN profile so Engage texting works.</li>
-        <li>Open a sample job with Neal to learn the status flow we use here.</li>
+        <li>Run through the appointment walkthrough above with Neal on a real (or test) retail-cert customer.</li>
       </ol>
+
+      <h3>Other things JobNimbus does (for reference)</h3>
+      <p style="font-size:14px;color:var(--slate-500);margin:0 0 10px">You'll touch most of these later, not on Day 1. They're here so you know what JN's full surface looks like.</p>
+
+      <div class="feat jn">
+        <div class="feat-name">Lead tracking + Sales boards</div>
+        <div class="feat-desc">Unified board view of every lead and job in the pipeline. Managers use this heavily; reps less often.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Photos &amp; annotations</div>
+        <div class="feat-desc">Capture and annotate (draw circles, arrows). For Free Roof Inspections, photos auto-upload from the inspector app — you don't add them manually.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Engage texting</div>
+        <div class="feat-desc">Text the homeowner directly from JN. Conversation history saves to the contact.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Job share</div>
+        <div class="feat-desc">Send the homeowner a live link to see their job status (permits pulled, install date, photos).</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Notes + @mentions</div>
+        <div class="feat-desc">Drop notes on a job, @mention office staff or crew to loop them in.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Integrated measurements (EagleView, HOVER, Roofr)</div>
+        <div class="feat-desc">Order a measurement directly from the JN job. The report comes back attached automatically.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Proposals with digital signatures</div>
+        <div class="feat-desc">Send a proposal by email or sign in-app on the iPad. Mostly for once you're past the appointment stage.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Insights reporting</div>
+        <div class="feat-desc">Performance analytics + leaderboards. Mostly a manager view.</div>
+      </div>
+
     </div>
   </section>
 
