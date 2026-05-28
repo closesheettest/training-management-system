@@ -243,7 +243,12 @@
         <strong>When do you actually need to be in JobNimbus?</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
           <li><strong>Free Roof Inspection flow:</strong> <em>You don't need to go to JN.</em> Everything is done automatically — the signed agreement, the inspection result (Damage / Retail / No Damage), the photos, the certificate PDF — all flow into JN by themselves.</li>
-          <li><strong>Converting a retail-cert customer to an appointment:</strong> <em>This is when you go into JN.</em> See the walkthrough below.</li>
+          <li><strong>Two situations where you DO go into JN:</strong>
+            <ol style="margin:6px 0 0; padding-left:22px;">
+              <li>The homeowner did the free inspection, came back as Retail, and now wants a real appointment.</li>
+              <li>The homeowner <em>declined</em> the free inspection at the door but DID agree to an appointment. (They're not in JN yet — you have to create them.)</li>
+            </ol>
+          </li>
         </ul>
       </div>
 
@@ -262,27 +267,65 @@
         <div class="feat-desc">An appointment is just a task inside the job. So is a callback, a measurement order, or a "drop off keys" reminder. All of it lives on the job.</div>
       </div>
 
-      <h3>The one workflow you need: Setting an appointment with a retail-cert customer</h3>
-      <p>You went to a retail-cert customer (someone whose roof came back as Retail from the free inspection). They want a real quote. You set an appointment for tomorrow at 2 PM. Here's the JN side:</p>
+      <h3>Workflow A: Retail-cert customer wants an appointment</h3>
+      <p>They already exist in JN (the free inspection created their Contact + Job automatically when they signed). You just need to find them and add a Task.</p>
       <ol class="step-list">
         <li>Open JobNimbus.</li>
         <li>In the search bar, type the <strong>address</strong>. The homeowner will populate.</li>
         <li>Click on them.</li>
-        <li><strong>Make sure you are in the JOB</strong> (not the contact). The job is the second level — if you're on the contact page, click into the job underneath.</li>
+        <li><strong>Make sure you are in the JOB</strong> (not the contact). The job is the second level — if you're on the contact page, click into the job underneath. The top of the screen should read <strong>Job</strong>.</li>
         <li>Click <strong>Task</strong>.</li>
-        <li>Set the appointment — tomorrow, 2 PM. Add a title (e.g. "Retail quote sit") and save.</li>
+        <li>Set the appointment — date, time, title (e.g. "Retail quote sit") — and save.</li>
       </ol>
 
       <div class="uss-note">
         <strong>Why search by address (not name)?</strong> Addresses are unique; names aren't. Two Smiths on the same street will trip you up. Address gets you to the right homeowner in one search every time.
       </div>
 
+      <h3>Workflow B: Homeowner declined the inspection but wants an appointment</h3>
+      <p>They aren't in JN yet because the Free Roof Inspection flow never ran. You have to create them from scratch: Contact first, then a Job for that Contact, then the Task.</p>
+      <ol class="step-list">
+        <li>Open JN. You're on the home screen.</li>
+        <li>Tap the <strong>+</strong> button in the top-right of the home screen.
+          <a class="shot-link" href="img/jobnimbus/01-home-plus.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/01-home-plus.png" alt="JobNimbus home screen with the + button in the top right highlighted" loading="lazy">
+          </a>
+          <span class="shot-cap">Home screen — tap the + in the top right</span>
+        </li>
+        <li>A dropdown appears with Task / Job / Contact / Photo / Form. Tap <strong>Contact</strong>.
+          <a class="shot-link" href="img/jobnimbus/02-plus-dropdown.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/02-plus-dropdown.png" alt="Dropdown showing Task, Job, Contact, Photo, Form options with Contact highlighted" loading="lazy">
+          </a>
+          <span class="shot-cap">+ dropdown — tap Contact</span>
+        </li>
+        <li>Fill in the homeowner's name, address, phone. Save.</li>
+        <li>You land on the new Contact's page. Scroll to the <strong>JOBS</strong> section and tap <strong>+ Create New</strong>.
+          <a class="shot-link" href="img/jobnimbus/03-contact-create-job.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/03-contact-create-job.png" alt="Contact page with the JOBS section + Create New button visible" loading="lazy">
+          </a>
+          <span class="shot-cap">Contact page — tap Create New under JOBS</span>
+        </li>
+        <li>The New Job form opens. Most of it auto-fills from the Contact (name, address, rep, status). Don't change anything — just tap the <strong>✓ checkmark in the top right</strong> to save.
+          <a class="shot-link" href="img/jobnimbus/04-new-job-checkmark.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/04-new-job-checkmark.png" alt="New Job form with the checkmark in the top right highlighted" loading="lazy">
+          </a>
+          <span class="shot-cap">New Job — tap the ✓ checkmark to save</span>
+        </li>
+        <li>You're now on the new Job page. Confirm the top of the screen says <strong>Job</strong> (with a # number).
+          <a class="shot-link" href="img/jobnimbus/05-job-page.png" target="_blank" rel="noopener">
+            <img class="shot" src="img/jobnimbus/05-job-page.png" alt="Job page header showing Job #12017 confirmation" loading="lazy">
+          </a>
+          <span class="shot-cap">Job page — header reads "Job"</span>
+        </li>
+        <li>Tap <strong>Tasks</strong> in the Files menu. Set the appointment — date, time, title — and save.</li>
+      </ol>
+
       <div class="pitfall">
         <strong>⚠ Common pitfalls</strong>
         <ul style="margin:6px 0 0; padding-left: 18px;">
-          <li><strong>Working on the Contact instead of the Job.</strong> If you set a task on the Contact, it doesn't tie to the work — make sure the URL or page header says you're inside the JOB.</li>
-          <li><strong>Creating a new job when the homeowner already has one.</strong> The Free Roof Inspection flow already created the job. Always search by address first — never start from "+ New."</li>
-          <li><strong>Touching JN during the inspection flow.</strong> You don't need to. Signing, result, photos, cert — all automatic. Doing it manually creates duplicates that the office has to clean up.</li>
+          <li><strong>Working on the Contact instead of the Job.</strong> If you set a task on the Contact, it doesn't tie to the work. The top of the screen must say <strong>Job</strong> before you tap Tasks.</li>
+          <li><strong>Creating a new contact when the homeowner is already in JN.</strong> If they did the free inspection, they exist already — search by address first. Only use the + → Contact path for homeowners who DIDN'T do the inspection.</li>
+          <li><strong>Touching JN during the Free Roof Inspection flow.</strong> You don't need to. Signing, result, photos, cert — all automatic. Manual touching creates duplicates that the office has to clean up.</li>
         </ul>
       </div>
 
