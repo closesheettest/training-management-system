@@ -21,6 +21,19 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'tools-training',
+    title: 'Tools Training — JobNimbus · RepCard · Roofr',
+    url: '/tools-training/',
+    description:
+      'Mobile-friendly deep-dive on the 3 tools every rep uses daily: JobNimbus (CRM), ' +
+      'RepCard (digital business card + follow-up automation), Roofr (measurements + ' +
+      'proposals). Each tool gets feature breakdowns, U.S. Shingle workflow notes, ' +
+      'common pitfalls, setup steps. Closes with a workflow diagram showing how the ' +
+      'three chain together from door-knock to install handoff.',
+    created: '2026-05-28',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'day-1-retail-training',
     title: 'Day 1 Retail Training — the whole curriculum',
     url: '/training/day-1-retail-training.pdf',

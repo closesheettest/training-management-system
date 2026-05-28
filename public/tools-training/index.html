@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tools Training — JobNimbus · RepCard · Roofr</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --emerald: #059669;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+    --jn:     #1e40af;
+    --jn-bg:  #dbeafe;
+    --rc:     #b45309;
+    --rc-bg:  #fef3c7;
+    --rf:     #15803d;
+    --rf-bg:  #d1fae5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: var(--slate-50);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .stripe { height: 4px; background: var(--red); }
+  .page { max-width: 720px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header.title { margin-bottom: 18px; }
+  header.title .eyebrow {
+    color: var(--red); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  header.title h1 {
+    color: var(--navy); margin: 6px 0 6px;
+    font-size: 26px; line-height: 1.15; letter-spacing: -0.01em;
+  }
+  header.title p { color: var(--slate-500); margin: 0; font-size: 15px; }
+
+  /* TOC */
+  .toc {
+    background: #fff; border: 1px solid var(--slate-200); border-radius: 12px;
+    padding: 14px 16px; margin: 16px 0 28px; font-size: 14px;
+  }
+  .toc h4 {
+    margin: 0 0 8px; color: var(--slate-500); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .toc a {
+    display: block; color: var(--navy); text-decoration: none;
+    padding: 6px 0; border-bottom: 1px solid var(--slate-100);
+  }
+  .toc a:last-child { border-bottom: 0; }
+  .toc a:active { color: var(--red); }
+
+  /* Tool section */
+  .tool {
+    margin-bottom: 36px;
+    border-radius: 14px;
+    border: 1px solid var(--slate-200);
+    background: #fff;
+    overflow: hidden;
+  }
+  .tool-head {
+    padding: 18px 20px;
+    color: #fff;
+  }
+  .tool-head h2 {
+    margin: 0; font-size: 22px; line-height: 1.2;
+  }
+  .tool-head .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.22); color: #fff;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 6px; margin-bottom: 6px;
+  }
+  .tool-head p { margin: 8px 0 0; font-size: 14.5px; opacity: 0.92; }
+  .tool-head.jn { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); }
+  .tool-head.rc { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); }
+  .tool-head.rf { background: linear-gradient(135deg, #15803d 0%, #166534 100%); }
+
+  .tool-body { padding: 18px 20px; }
+  .tool-body h3 {
+    color: var(--navy); margin: 18px 0 8px; font-size: 16px;
+  }
+  .tool-body h3:first-child { margin-top: 0; }
+  .tool-body p { margin: 6px 0; }
+
+  /* Feature pills */
+  .feat {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    border-left: 3px solid var(--slate-300);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .feat-name { font-weight: 700; color: var(--navy); font-size: 14px; }
+  .feat-desc { font-size: 13.5px; color: var(--slate-700); margin-top: 2px; }
+  .feat.jn { border-left-color: var(--jn); }
+  .feat.rc { border-left-color: var(--rc); }
+  .feat.rf { border-left-color: var(--rf); }
+
+  /* Workflow steps */
+  .step-list { counter-reset: step; padding-left: 0; list-style: none; margin: 8px 0; }
+  .step-list li {
+    counter-increment: step;
+    padding: 8px 0 8px 38px;
+    position: relative;
+    font-size: 14.5px;
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 8px;
+    width: 26px; height: 26px;
+    background: var(--navy); color: #fff;
+    border-radius: 50%; text-align: center;
+    line-height: 26px; font-weight: 700; font-size: 13px;
+  }
+
+  /* Pitfalls callout */
+  .pitfall {
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-left: 4px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0;
+    font-size: 13.5px;
+  }
+  .pitfall strong { color: var(--red); }
+
+  /* USS-specific note */
+  .uss-note {
+    background: #fef9e7; border: 1px solid #fde68a;
+    border-left: 4px solid var(--gold);
+    border-radius: 8px; padding: 10px 12px; margin: 10px 0;
+    font-size: 13.5px;
+  }
+  .uss-note strong { color: var(--navy-dark); }
+
+  /* Workflow diagram */
+  .workflow {
+    background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%);
+    border: 1px solid #bae6fd; border-radius: 14px;
+    padding: 18px 20px; margin: 20px 0 0;
+  }
+  .workflow h2 { color: var(--navy); margin: 0 0 4px; font-size: 20px; }
+  .workflow .sub { color: var(--slate-500); font-size: 13px; margin: 0 0 14px; }
+  .flow-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: 1fr; /* mobile: stack */
+  }
+  @media (min-width: 560px) {
+    .flow-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .flow-step {
+    background: #fff; border: 1px solid var(--slate-200);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .flow-step .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .flow-step .tag.jn { background: var(--jn-bg); color: var(--jn); }
+  .flow-step .tag.rc { background: var(--rc-bg); color: var(--rc); }
+  .flow-step .tag.rf { background: var(--rf-bg); color: var(--rf); }
+  .flow-step h4 { margin: 0; font-size: 14px; color: var(--navy); }
+  .flow-step p { margin: 4px 0 0; font-size: 12.5px; color: var(--slate-700); }
+
+  /* Footer link */
+  footer.foot {
+    margin-top: 36px; padding-top: 16px;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-500); font-size: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<main class="page">
+  <header class="title">
+    <div class="eyebrow">Tools Training · Deep Dive</div>
+    <h1>JobNimbus · RepCard · Roofr</h1>
+    <p>Three tools you'll use every day in the field. This page is your study reference — Neal walks through each one in class. Bookmark it on your phone.</p>
+  </header>
+
+  <nav class="toc" aria-label="On this page">
+    <h4>Jump to</h4>
+    <a href="#jobnimbus">▸ 1. JobNimbus — your CRM</a>
+    <a href="#repcard">▸ 2. RepCard — your digital business card + follow-up</a>
+    <a href="#roofr">▸ 3. Roofr — measurements + proposals</a>
+    <a href="#workflow">▸ How they work together</a>
+  </nav>
+
+  <!-- ═══════════════════════ JOBNIMBUS ═══════════════════════ -->
+  <section class="tool" id="jobnimbus">
+    <div class="tool-head jn">
+      <span class="tag">Tool 1 of 3 · CRM</span>
+      <h2>JobNimbus</h2>
+      <p>The source of truth for every contact, job, photo, document, and status change. If it didn't happen in JobNimbus, it didn't happen.</p>
+    </div>
+    <div class="tool-body">
+      <h3>What it is</h3>
+      <p>A CRM built specifically for roofing contractors. Every homeowner you meet becomes a contact; every roof becomes a job. JN tracks the whole lifecycle from first knock through paid invoice — and ties to RepCard, Roofr, and our Free Roof Inspection app.</p>
+
+      <h3>Daily-use features</h3>
+
+      <div class="feat jn">
+        <div class="feat-name">Lead tracking + Sales boards</div>
+        <div class="feat-desc">A unified board view of every lead and job in your pipeline. Filter by status, rep, value, date. This is your morning starting point — what needs attention today.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Custom sales workflows + Sales automation</div>
+        <div class="feat-desc">Jobs move through statuses as you work them ("Lead → Sit Sold Insp → Sold → In Production → Paid"). Some moves trigger automation — e.g. when a proposal is signed, JN can auto-bump the status to "Sold."</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Mobile app (iOS + Android)</div>
+        <div class="feat-desc">4.8-star app for the field. Lookup contacts, update statuses, snap photos, write notes — all from your phone between appointments.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Photos &amp; annotations</div>
+        <div class="feat-desc">Capture before/after on each job. Annotate directly in the app (draw circles, arrows, labels). Photos live on the job forever — claims, insurance, and post-install QA all pull from here.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Forms</div>
+        <div class="feat-desc">Standardized inspection forms so every rep collects the same info at the door — no missed fields when it's time to quote.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Integrated measurements (EagleView, HOVER, Roofr)</div>
+        <div class="feat-desc">Order a measurement report directly from inside the JN job — no copy-paste between systems. The measurement comes back attached to the job.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Smart estimating</div>
+        <div class="feat-desc">Generate detailed estimates in seconds using the measurement data + your pricing. No more spreadsheet juggling.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Proposals with digital signatures</div>
+        <div class="feat-desc">Send a proposal by email or sign in-app on the iPad. Signed = closed. JN stamps the signature time so there's no dispute later.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Engage texting</div>
+        <div class="feat-desc">Shared SMS inbox — text the homeowner directly from JN with multiple phone numbers. Conversation history lives on the contact.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Notes + tasks + @mentions</div>
+        <div class="feat-desc">Drop notes on a job, assign tasks to crew or office staff, @mention teammates to loop them in. Replaces 90% of "did anyone tell …?" texts.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Job share</div>
+        <div class="feat-desc">Send the homeowner a live link to their job status — they see permits pulled, install date, photos. Reduces "what's the status?" calls.</div>
+      </div>
+      <div class="feat jn">
+        <div class="feat-name">Insights reporting</div>
+        <div class="feat-desc">Performance analytics, lead source tracking, team metrics. Where managers see who's converting and what marketing is working.</div>
+      </div>
+
+      <div class="uss-note">
+        <strong>U.S. Shingle workflow notes</strong> — our Free Roof Inspection app auto-creates the JN job at signing and auto-uploads the signed agreement to the Documents tab. After an inspector classifies the result, the JN job's status updates automatically (Damage / Retail / No Damage) and a certificate PDF gets attached. Don't manually create duplicate JN jobs — if you don't see your job, search by homeowner last name first.
+      </div>
+
+      <div class="pitfall">
+        <strong>⚠ Common pitfalls</strong>
+        <ul style="margin:6px 0 0; padding-left: 18px;">
+          <li>Forgetting to update the status when something happens — kills your dashboard accuracy</li>
+          <li>Uploading photos to your camera roll first and "I'll add them later" — late = never. Upload directly from JN's camera</li>
+          <li>Creating a new job when the homeowner already has one. Always search first</li>
+          <li>Leaving the address blank or partial — breaks measurement integrations</li>
+        </ul>
+      </div>
+
+      <h3>Getting set up</h3>
+      <ol class="step-list">
+        <li>IT provisions your @shingleusa.com email + JN login. Check your work email for the invite.</li>
+        <li>Install the JN mobile app — iOS or Android. Sign in.</li>
+        <li>Add your phone number to your JN profile so Engage texting works.</li>
+        <li>Open a sample job with Neal to learn the status flow we use here.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ REPCARD ═══════════════════════ -->
+  <section class="tool" id="repcard">
+    <div class="tool-head rc">
+      <span class="tag">Tool 2 of 3 · Digital business card + follow-up</span>
+      <h2>RepCard</h2>
+      <p>Door-to-door's secret weapon. Every homeowner you talk to gets your digital business card on their phone — and then RepCard auto-follows-up so leads don't go cold.</p>
+    </div>
+    <div class="tool-body">
+      <h3>What it is</h3>
+      <p>A digital business card that captures the homeowner's contact info when they tap it (or scan the QR), then drips automated follow-ups via SMS and email. No more "I gave them my paper card and never heard back."</p>
+
+      <h3>Daily-use features</h3>
+
+      <div class="feat rc">
+        <div class="feat-name">Digital business cards (QR, NFC, tap)</div>
+        <div class="feat-desc">"Share contact info, capture leads, and follow up automatically with QR, NFC, and tap cards." The homeowner taps your card or scans the QR with their phone and your contact info saves to their phone instantly — plus their info gets logged on your side.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Lead tracking + automatic follow-up</div>
+        <div class="feat-desc">Every card share/tap creates a lead. RepCard then runs an automated follow-up sequence (text + email) on a schedule — so leads don't go cold while you're at the next door.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Territory mapping + route planning</div>
+        <div class="feat-desc">"Territory mapping, route planning, and live rep tracking built for door-to-door teams." See your assigned territory, plan the day, and let the manager see live rep activity.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Live rep tracking</div>
+        <div class="feat-desc">Managers see where you are in real-time when you're canvassing. Not creepy — it's how the office knows you're working and where to back you up if you sit a homeowner who needs help.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Team Chat</div>
+        <div class="feat-desc">"Built-in messaging that keeps reps, managers, and the back office on the same page." Use this instead of personal texts so the office can search history.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Team Calendar</div>
+        <div class="feat-desc">"Automated scheduling, dispatch, and appointment routing." Book the in-home sit directly from the lead's RepCard profile.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">Real-time leaderboards</div>
+        <div class="feat-desc">"Leaderboards that turn KPIs into motivation and surface your top performers." Healthy competition + accountability — managers see whose pipeline is moving.</div>
+      </div>
+      <div class="feat rc">
+        <div class="feat-name">JobNimbus integration</div>
+        <div class="feat-desc">RepCard "Connect[s] to HubSpot, Salesforce, FieldRoutes, JobNimbus, Zapier, and more." Leads you capture in RepCard can sync over to JN automatically — no double-data-entry.</div>
+      </div>
+
+      <div class="uss-note">
+        <strong>U.S. Shingle workflow notes</strong> — Neal will walk through how we use RepCard's territory map for our route planning, our specific follow-up drip schedule, and how RepCard leads flow into JN for the in-home sit. Bring your phone and your work email to setup.
+      </div>
+
+      <div class="pitfall">
+        <strong>⚠ Common pitfalls</strong>
+        <ul style="margin:6px 0 0; padding-left: 18px;">
+          <li>Not sharing your card at every door — every contact is a future text drip. Even "not interested" gets the no-pressure follow-up</li>
+          <li>Forgetting to disposition the lead afterward (Interested / Sit Booked / Not Home / Not Interested) — managers can't help if they can't see your day</li>
+          <li>Using your personal phone for follow-up texts instead of letting RepCard's automation handle it — manager can't see the conversation</li>
+          <li>Leaving the photo upload off your card. Homeowners trust a face more than a name</li>
+        </ul>
+      </div>
+
+      <h3>Getting set up</h3>
+      <ol class="step-list">
+        <li>Manager sends you a RepCard invite (look for the email).</li>
+        <li>Install the RepCard mobile app. Sign in.</li>
+        <li>Set up your card: name, photo, title, phone, work email.</li>
+        <li>Order your physical NFC/tap card (manager handles).</li>
+        <li>Connect to JobNimbus from inside the app — Settings → Integrations.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ ROOFR ═══════════════════════ -->
+  <section class="tool" id="roofr">
+    <div class="tool-head rf">
+      <span class="tag">Tool 3 of 3 · Measurements + proposals</span>
+      <h2>Roofr</h2>
+      <p>Order an accurate roof measurement in 2 hours for $13. Build a professional proposal in minutes. Close on the spot.</p>
+    </div>
+    <div class="tool-body">
+      <h3>What it is</h3>
+      <p>An aerial roof measurement service + proposal builder + invoicing tool, designed for roofing reps. You stop guessing squares from the ground and the homeowner sees a polished proposal that's tied to real measurements.</p>
+
+      <h3>Daily-use features</h3>
+
+      <div class="feat rf">
+        <div class="feat-name">Measurement Reports</div>
+        <div class="feat-desc">"$13 USD to get a report delivered within 2 hours" — includes roof area, facets, pitch, eaves, valleys, hips, and an auto-generated materials list. Order from the address; the report is back before your in-home sit.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Instant Estimator</div>
+        <div class="feat-desc">"Instant roof estimates based on custom pricing that homeowners can access via ads, websites, and door knockers." Plug your pricing in once, and the homeowner can get a ballpark from a link before you even sit them.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Proposals</div>
+        <div class="feat-desc">"Professional, fully customizable proposals that empower you to win jobs faster." Templated but personal — your logo, your pricing, the homeowner's photos, your warranty terms. Build in minutes, present, sign on the spot.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Customer-facing visuals</div>
+        <div class="feat-desc">Aerial roof imagery built into the estimate. The homeowner SEES the roof while you walk through the proposal — much more convincing than abstract square-footage talk.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Payments &amp; Invoicing</div>
+        <div class="feat-desc">"Create, send, and track digital invoices with automated reminders." Credit card + ACH processing built in. Reduces 30-day "where's my check?" follow-up.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Roofr CRM (Kanban board)</div>
+        <div class="feat-desc">"All-in-one management with customizable job board stages." Pipeline view filtered by rep, value, date. Use this OR JobNimbus — we use JobNimbus, but Roofr's CRM exists if you ever need a second view.</div>
+      </div>
+      <div class="feat rf">
+        <div class="feat-name">Supplier integrations</div>
+        <div class="feat-desc">ABC Supply, CertainTeed, and others. Material lists from your measurement can be priced directly against supplier rates.</div>
+      </div>
+
+      <div class="uss-note">
+        <strong>U.S. Shingle workflow notes</strong> — we use Roofr primarily for the <strong>measurement report</strong> (the $13 / 2-hour report) and the <strong>proposal builder</strong>. Pricing is preloaded by the office; do not change it without Neal's approval. Proposals go through Neal for review before they hit a homeowner on the first few sits.
+      </div>
+
+      <div class="pitfall">
+        <strong>⚠ Common pitfalls</strong>
+        <ul style="margin:6px 0 0; padding-left: 18px;">
+          <li>Ordering the measurement only AFTER the homeowner asks for the quote — order it BEFORE the sit so you walk in with it ready</li>
+          <li>Submitting a wrong address for measurement — the report comes back for someone else's roof and you wasted $13. Verify by satellite first</li>
+          <li>Editing the pricing on the fly to "win" the deal. Talk to Neal first — we have a low-bid match guarantee, you don't have to discount</li>
+          <li>Forgetting to save the proposal PDF back to JN's Documents tab — keep everything for that homeowner in one place</li>
+        </ul>
+      </div>
+
+      <h3>Getting set up</h3>
+      <ol class="step-list">
+        <li>Manager sends you a Roofr invite + adds you to the team account.</li>
+        <li>Install the Roofr mobile app (or use the web app — both work).</li>
+        <li>Sign in. Verify you can see the team's pricing templates.</li>
+        <li>Order a practice measurement on your own address — see the workflow end-to-end before you do it for a real homeowner.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ WORKFLOW ═══════════════════════ -->
+  <div class="workflow" id="workflow">
+    <h2>How they work together</h2>
+    <p class="sub">A normal day in the field touches all three tools. Here's the typical chain:</p>
+    <div class="flow-grid">
+      <div class="flow-step">
+        <span class="tag rc">RepCard</span>
+        <h4>1. Knock the door</h4>
+        <p>Hand over (or tap) your RepCard. Homeowner's info captured automatically; they get your card on their phone.</p>
+      </div>
+      <div class="flow-step">
+        <span class="tag rc">RepCard → <span class="tag jn">JN</span></span>
+        <h4>2. Book the sit</h4>
+        <p>Disposition the lead in RepCard. Sit booked → syncs to JobNimbus as a new contact + scheduled appointment.</p>
+      </div>
+      <div class="flow-step">
+        <span class="tag rf">Roofr</span>
+        <h4>3. Pre-sit measurement</h4>
+        <p>Before the in-home sit, order a Roofr measurement on the address. Report back in 2 hours.</p>
+      </div>
+      <div class="flow-step">
+        <span class="tag rf">Roofr</span>
+        <h4>4. Build the proposal</h4>
+        <p>Use the measurement + team pricing template to build a proposal. Print or load it on the iPad for the sit.</p>
+      </div>
+      <div class="flow-step">
+        <span class="tag jn">JobNimbus</span>
+        <h4>5. Run the in-home</h4>
+        <p>Take before-photos with JN's camera. Present the proposal. If signed, JN marks the job sold.</p>
+      </div>
+      <div class="flow-step">
+        <span class="tag jn">JobNimbus</span>
+        <h4>6. Handoff to install</h4>
+        <p>Job sits in JN under the right status. Office schedules the install. Photos + signed docs + measurement all live on the job for the crew.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    U.S. Shingle &amp; Metal · Tools Training · Updated 2026-05-28
+  </footer>
+</main>
+</body>
+</html>
