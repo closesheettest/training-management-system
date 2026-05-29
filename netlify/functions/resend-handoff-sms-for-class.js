@@ -29,14 +29,40 @@ export const handler = async (event) => {
   if (process.env.CRON_SECRET && params.secret !== process.env.CRON_SECRET) {
     return json(401, { error: 'Unauthorized' })
   }
-  const classId = params.class_id
-  if (!classId) return json(400, { error: 'class_id required' })
-  const dryRun = params.dry_run === '1' || params.dry_run === 'true'
-
   if (!SB_URL || !SB_KEY) {
     return json(500, { error: 'Missing SUPABASE_URL or SUPABASE_SECRET_KEY' })
   }
   const supabase = createClient(SB_URL, SB_KEY)
+
+  // Accept either an explicit class_id OR a region (auto-resolves to
+  // the most recent class for that region whose window includes
+  // today). Region lookup is the easier mode — Neal doesn't have to
+  // chase a UUID; just hit ?region=miami.
+  let classId = params.class_id
+  if (!classId) {
+    const region = (params.region || '').trim()
+    if (!region) {
+      return json(400, {
+        error: 'Pass either class_id=<uuid> or region=miami (or whichever region) — neither was provided.',
+      })
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: cls } = await supabase
+      .from('classes')
+      .select('id, region, week_start_date, week_end_date')
+      .ilike('region', `%${region}%`)
+      .lte('week_start_date', today)
+      .gte('week_end_date', today)
+      .order('week_start_date', { ascending: false })
+      .limit(1)
+    if (!cls || cls.length === 0) {
+      return json(404, {
+        error: `No active class matched region="${region}" for ${today}.`,
+      })
+    }
+    classId = cls[0].id
+  }
+  const dryRun = params.dry_run === '1' || params.dry_run === 'true'
 
   // 1. Find trainees in the class who:
   //    - submitted the final test (test_attempts.submitted_at not null)
