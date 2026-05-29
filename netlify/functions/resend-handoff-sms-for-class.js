@@ -63,16 +63,26 @@ export const handler = async (event) => {
     classId = cls[0].id
   }
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
+  // force=1 re-sends to EVERY trainee in the class who submitted the
+  // test — even if they already got the SMS once. Use this when the
+  // vCard content itself changed (e.g. we added William's contact AND
+  // switched to the landing page format) so previously-stamped
+  // trainees still receive the updated version.
+  const force = params.force === '1' || params.force === 'true'
 
   // 1. Find trainees in the class who:
   //    - submitted the final test (test_attempts.submitted_at not null)
-  //    - do NOT have handoff_contacts_sent_at set (the gap we're filling)
-  //    - have a phone (otherwise the downstream function will fail)
-  const { data: rows, error } = await supabase
+  //    - have a phone (downstream function would fail without one)
+  //    - in normal mode: do NOT have handoff_contacts_sent_at set
+  //    - in force mode: include EVERYONE regardless of stamp (and we
+  //      clear the stamps below so send-handoff-contacts-sms.js
+  //      doesn't return "Already sent")
+  let q = supabase
     .from('trainees')
     .select('id, first_name, last_name, phone, handoff_contacts_sent_at, test_attempts!trainee_id(submitted_at)')
     .eq('class_id', classId)
-    .is('handoff_contacts_sent_at', null)
+  if (!force) q = q.is('handoff_contacts_sent_at', null)
+  const { data: rows, error } = await q
   if (error) return json(500, { error: error.message })
 
   const targets = (rows || []).filter((t) => {
@@ -92,9 +102,21 @@ export const handler = async (event) => {
     return json(200, {
       ok: true,
       dry_run: true,
+      force,
       would_fire_for: targets.map((t) => `${t.first_name} ${t.last_name}`),
       count: targets.length,
     })
+  }
+
+  // In force mode, wipe handoff_contacts_sent_at for every target so
+  // send-handoff-contacts-sms.js's built-in "Already sent" dedup
+  // doesn't short-circuit the re-send. (In normal mode the targets
+  // already have NULL stamps so this is a no-op.)
+  if (force && targets.length > 0) {
+    await supabase
+      .from('trainees')
+      .update({ handoff_contacts_sent_at: null })
+      .in('id', targets.map((t) => t.id))
   }
 
   // 2. Fire the existing send-handoff-contacts-sms function for each
