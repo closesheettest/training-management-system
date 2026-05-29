@@ -21,6 +21,17 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'handoff-contacts',
+    title: 'Handoff contacts — vCard config (Helpline + Anthony etc.)',
+    url: '/handoff-contacts',
+    description:
+      'Admin page for the contacts that auto-SMS to a trainee on graduation as vCards (Save All to phone in one tap). ' +
+      'Set up Helpline, Anthony, the Sales Manager, region-specific people — each row has name, phone, role, and an enabled toggle. ' +
+      'The SMS link the trainee taps is /.netlify/functions/trainee-contacts-vcard?trainee_id=<id> (fired by send-handoff-contacts-sms).',
+    created: '2026-05-29',
+    category: 'Internal docs',
+  },
+  {
     slug: 'day-3-homework',
     title: 'Day 3 homework — Apps setup + practice deal',
     url: '/day-3-homework/',
