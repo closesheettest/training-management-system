@@ -66,20 +66,27 @@
     padding: 0.5em 1em;
     margin: 0.2em 0;
   }
-  /* Long-script slides */
+  /* Long-script slides — wider canvas + more compact text so the
+     in-home pitch scripts (slides 32-43) fit cleanly without
+     bleeding past the slide bottom. */
   .reveal .script {
     background: rgba(15, 23, 42, 0.85);
     border-left: 5px solid var(--uss-gold);
-    padding: 18px 22px;
+    padding: 16px 22px;
     text-align: left;
-    font-size: 0.55em;
-    line-height: 1.4;
+    font-size: 0.5em;
+    line-height: 1.35;
     border-radius: 6px;
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
   }
-  .reveal .script p { margin: 0.5em 0; }
+  .reveal .script p { margin: 0.4em 0; }
   .reveal .script strong { color: var(--uss-gold); }
+  /* On script-heavy slides, shrink the h1 + label-pill so they
+     don't eat half the screen */
+  .reveal section:has(.script) h1 { font-size: 1.5em; margin-bottom: 0.3em; }
+  .reveal section:has(.script) h2 { font-size: 1.2em; margin-bottom: 0.3em; }
+  .reveal section:has(.script) .label-pill { font-size: 0.6em; }
   /* Control point and impulse-factor labels */
   .reveal .label-pill {
     display: inline-block;
@@ -369,18 +376,25 @@
       </div>
     </section>
 
-    <!-- ─────────────────────────── 31 — Three outcomes ─────────────────────────── -->
+    <!-- ─────────────────────────── 31 — Three outcomes (on its own) ─────────────────────────── -->
     <section data-background-color="#13294b">
-      <h1 class="highlight-gold">3 things that can happen</h1>
-      <ol style="font-size: 0.95em; max-width: 800px; margin: 0.5em auto 0; text-align: left;">
+      <h1 class="highlight-gold" style="font-size: 1.6em; margin-bottom: 0.3em;">3 things that can happen</h1>
+      <ol style="font-size: 0.95em; max-width: 1100px; margin: 0.5em auto 0; text-align: left; line-height: 1.5;">
         <li><strong>No damage</strong> — you're now protected against the letter.</li>
         <li><strong>Wear &amp; tear</strong> — we can't give you the certificate but we have many options.</li>
         <li><strong>Storm damage</strong> — a public adjuster will fight to get your insurance to pay for it.</li>
       </ol>
-      <div class="script" style="font-size: 0.5em; margin-top: 1em;">
-        <p><strong>Last question:</strong> If the PA finds you have enough storm damage for the insurance to pay for it — do you want them starting right away to get you your new roof?</p>
-        <p><em>(If yes → get PA forms signed too. Need insurance company + policy number.)</em></p>
-        <p><em>If they don't have the info handy: "That's fine, let's just do the inspection — if you have storm damage I can come back and get that information." Time kills all deals — get some kind of commitment.</em></p>
+    </section>
+
+    <!-- ─────────────────────────── 31b — Last question / PA gating ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">PA forms gating</span></p>
+      <h1 style="font-size: 1.4em;">Last question to ask</h1>
+      <div class="script">
+        <p>"If the PA finds that you have enough storm damage to get the insurance company to pay for it — <strong>do you want them starting right away to get you your new roof?</strong>"</p>
+        <p><em>(If they say yes → get the PA forms signed too. You'll need the insurance company + policy number.)</em></p>
+        <p><em>If they don't have the info handy: "That's fine, let's just do the inspection — if you have storm damage I can come back and get that information."</em></p>
+        <p><strong>Time kills all deals — get some kind of commitment.</strong></p>
       </div>
     </section>
 
@@ -562,6 +576,16 @@
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
 <script>
   Reveal.initialize({
+    // Bigger canvas = more vertical room for script-heavy slides
+    // (the in-home pitch slides 32-43). Default 960x700 was too tight
+    // and script blocks were bleeding off the bottom. 1600x900 is
+    // 16:9 widescreen — matches any modern projector / laptop screen
+    // and Reveal auto-scales down for smaller windows.
+    width: 1600,
+    height: 900,
+    margin: 0.05,           // tighter outer margin = more usable space
+    minScale: 0.2,
+    maxScale: 2.0,
     hash: true,             // /day-1-slides/#/30 deep-links to slide 30
     slideNumber: 'c/t',     // bottom-right shows "current / total"
     transition: 'fade',     // gentle fades between slides
