@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Day 1 — U.S. Shingle & Metal Retail Training</title>
+<!--
+  Day 1 Retail Training slide deck — projector / clicker mode.
+
+  How it works:
+    - Open this URL on the laptop hooked to the projector.
+    - Press F to enter fullscreen (or use Reveal's keyboard menu — ?).
+    - Use a clicker (any cheap Amazon presenter — Logitech R400 is
+      $20-ish and pairs over USB-A): forward = PageDown, back = PageUp.
+      Reveal listens for those keys natively, no setup.
+    - Trainees can also visit /day-1-slides/ on their phone to follow
+      along OR review later. Slides are responsive.
+
+  Editing slides:
+    - Each <section> = one slide.
+    - To add a slide, paste a new <section>…</section> block where it
+      belongs in the sequence.
+    - To deep-link to a specific slide for a per-slide pitch
+      breakdown, append #/<index>. Example: …/day-1-slides/#/30 jumps
+      straight to the harvesting script.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+<style>
+  :root {
+    --uss-navy: #13294b;
+    --uss-red: #b8324f;
+    --uss-gold: #d4a142;
+    --uss-cream: #f8f5ed;
+  }
+  .reveal { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 {
+    font-family: 'Oswald', 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  }
+  .reveal h1 { color: var(--uss-gold); font-size: 2.4em; line-height: 1.15; }
+  .reveal h2 { color: var(--uss-cream); font-size: 1.7em; line-height: 1.2; }
+  .reveal h3 { color: var(--uss-gold); font-size: 1.3em; line-height: 1.3; }
+  .reveal section { color: #fff; }
+  .reveal .highlight-red { color: var(--uss-red); }
+  .reveal .highlight-gold { color: var(--uss-gold); }
+  .reveal ul, .reveal ol { display: inline-block; text-align: left; margin: 0 auto; }
+  .reveal li { margin: 0.4em 0; }
+  .reveal strong { color: var(--uss-gold); }
+  .reveal em { color: var(--uss-cream); font-style: italic; }
+  /* Title slide special styling */
+  .reveal .title-slide h1 { font-size: 3em; color: #fff; }
+  .reveal .title-slide .subtitle {
+    color: var(--uss-gold); font-size: 1em;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-top: 0.5em;
+  }
+  /* The Five Steps bands */
+  .reveal .step-band {
+    background: linear-gradient(180deg, var(--uss-navy) 0%, #0a1730 100%);
+    border-top: 4px solid var(--uss-red);
+    border-bottom: 4px solid var(--uss-red);
+    padding: 0.5em 1em;
+    margin: 0.2em 0;
+  }
+  /* Long-script slides */
+  .reveal .script {
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 5px solid var(--uss-gold);
+    padding: 18px 22px;
+    text-align: left;
+    font-size: 0.55em;
+    line-height: 1.4;
+    border-radius: 6px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .reveal .script p { margin: 0.5em 0; }
+  .reveal .script strong { color: var(--uss-gold); }
+  /* Control point and impulse-factor labels */
+  .reveal .label-pill {
+    display: inline-block;
+    background: var(--uss-red);
+    color: #fff;
+    padding: 0.15em 0.7em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5em;
+  }
+  .reveal .hsn-tag {
+    display: inline-block;
+    background: var(--uss-gold);
+    color: var(--uss-navy);
+    padding: 0.1em 0.5em;
+    border-radius: 4px;
+    font-size: 0.6em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-top: 0.6em;
+  }
+  /* Slide footer (rep + slide number) */
+  .reveal .slide-number {
+    background: rgba(184, 50, 79, 0.85);
+    color: #fff;
+    font-family: 'Oswald', sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ─────────────────────────── 1 ─────────────────────────── -->
+    <section class="title-slide" data-background-color="#13294b">
+      <h1>Day 1 — Retail Training</h1>
+      <p class="subtitle">U.S. Shingle &amp; Metal LLC</p>
+      <p style="margin-top: 2em;"><span class="label-pill">Please scan QR code</span></p>
+      <p style="font-size: 0.7em; opacity: 0.85;">Then check your email (spam too if you can't find)</p>
+    </section>
+
+    <!-- ─────────────────────────── 2 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1>Where we started</h1>
+    </section>
+
+    <!-- ─────────────────────────── 3 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Been around <span class="highlight-gold">over 15 years</span></h2>
+    </section>
+
+    <!-- ─────────────────────────── 4 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Started with</h2>
+      <h1 style="font-size: 3em;">Hank Sr.<br>&amp;<br>Hank Jr.</h1>
+    </section>
+
+    <!-- ─────────────────────────── 5 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Built a great reputation</h2>
+      <h1 style="margin-top: 1em;"><span class="highlight-gold">$3 million +</span><br>a year business</h1>
+    </section>
+
+    <!-- ─────────────────────────── 6 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 style="font-size: 4em;">Then…</h1>
+    </section>
+
+    <!-- ─────────────────────────── 7 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Collier County</h2>
+    </section>
+
+    <!-- ─────────────────────────── 8 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">24 months later</h1>
+      <div style="columns: 3; column-gap: 30px; font-size: 0.55em; text-align: left; max-width: 900px; margin: 0.6em auto 0;">
+        <ul style="list-style: none; padding: 0;">
+          <li>Osceola</li><li>Palm Bay</li><li>Palm Beach</li><li>Palm Coast</li><li>Palm Springs</li>
+          <li>Palmetto</li><li>Pasco</li><li>Pembroke Pines</li><li>Pinellas</li><li>Pinellas Park</li>
+          <li>Plant City</li><li>Plantation</li><li>Polk</li><li>Port Charlotte</li><li>Port St. Lucie</li>
+          <li>Punta Gorda</li><li>Redington Beach</li><li>Redington Shores</li><li>Rockledge</li>
+          <li>Royal Palm Beach</li><li>Safety Harbor</li><li>Sanford</li><li>Sarasota</li>
+          <li>Seminole</li><li>St. Cloud</li><li>St. Lucie County</li><li>St. Pete</li>
+          <li>St. Augustine</li><li>St. Augustine Beach</li><li>St. Johns County</li>
+          <li>St. Pete Beach</li><li>Tampa</li><li>Tarpon Springs</li><li>Tavares</li>
+          <li>Taylor</li><li>Temple Terrace</li><li>Treasure Island</li><li>Venice</li>
+          <li>Volusia</li><li>Wellington</li><li>Windermere</li><li>Winter Haven</li><li>Winter Park</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 9 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h2>Finished last year at</h2>
+      <h1 style="font-size: 4em; margin-top: 0.3em;"><span class="highlight-gold">$30 million +</span></h1>
+    </section>
+
+    <!-- ─────────────────────────── 10 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 style="font-size: 3.5em;">This year</h1>
+      <p style="margin-top: 1em; font-size: 0.7em; opacity: 0.85;">…we keep climbing.</p>
+    </section>
+
+    <!-- ─────────────────────────── 11 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Character thing —</h2>
+      <h1 class="highlight-gold">You made the choice!</h1>
+    </section>
+
+    <!-- ─────────────────────────── 12 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">Marketing code</h1>
+    </section>
+
+    <!-- ─────────────────────────── 13 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 style="font-size: 2.2em;">How long would this take you?</h1>
+    </section>
+
+    <!-- ─────────────────────────── 14 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 style="font-size: 2em;">We just get them to <span class="highlight-gold">raise their hands!</span></h1>
+    </section>
+
+    <!-- ─────────────────────────── 15 ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">Five Steps to a Conversation</h1>
+      <div class="step-band"><h3>1. Introduction</h3></div>
+      <div class="step-band"><h3>2. Short Story</h3></div>
+      <div class="step-band"><h3>3. Presentation</h3></div>
+      <div class="step-band"><h3>4. Close</h3></div>
+      <div class="step-band"><h3>5. Rehash</h3></div>
+    </section>
+
+    <!-- ─────────────────────────── 16 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Step 1 of 5</span></p>
+      <h1>Introduction</h1>
+      <ul style="font-size: 1.2em;">
+        <li>Smile</li>
+        <li>Eye-to-eye contact</li>
+        <li>Enthusiasm</li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────── 17 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Step 2 of 5</span></p>
+      <h1>Short Story</h1>
+      <ul style="font-size: 1.05em;">
+        <li><strong>K-I-S-S</strong> — Keep It Short &amp; Simple</li>
+        <li><strong>Who · What · Why</strong></li>
+        <li><em>Qualify:</em> "You see why you could be interested, right?"</li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────── 18 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Step 3 of 5</span></p>
+      <h1>Presentation</h1>
+      <h2 class="highlight-gold" style="margin-top: 0.4em;">Our Service</h2>
+      <p style="margin-top: 1em;">Filling the need &amp; saving them money.</p>
+    </section>
+
+    <!-- ─────────────────────────── 19 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Step 4 of 5</span></p>
+      <h1>Close</h1>
+      <ul style="font-size: 1.1em;">
+        <li>Assume the sale</li>
+        <li>Use leading questions</li>
+        <li>Stay in control</li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────── 20 ─────────────────────────── -->
+    <section data-background-color="#b8324f">
+      <h1>Control Points?</h1>
+      <h2 style="font-size: 1.3em; margin-top: 1em;">What are they<br>and how are they crucial?</h2>
+    </section>
+
+    <!-- ─────────────────────────── 21 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Step 5 of 5</span></p>
+      <h1>Rehash</h1>
+      <ul style="font-size: 1.1em;">
+        <li>See the value</li>
+        <li>What happens next</li>
+        <li>Visualize their new roof</li>
+      </ul>
+    </section>
+
+    <!-- ─────────────────────────── 22 — Impulse intro ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">The 4 Impulse Factors</h1>
+      <p style="margin-top: 1em; font-size: 0.8em;">Why people buy — pulled from HSN.</p>
+    </section>
+
+    <!-- ─────────────────────────── 23 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Impulse 1</span></p>
+      <h1>Fear of Loss</h1>
+      <p style="font-size: 1.1em; margin-top: 0.5em;">It won't always be available.</p>
+      <p style="font-size: 1.1em;">Here today, gone tomorrow.</p>
+      <p><span class="hsn-tag">HSN: Number of items left until sold out</span></p>
+    </section>
+
+    <!-- ─────────────────────────── 24 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Impulse 2</span></p>
+      <h1>Indifference</h1>
+      <p style="font-size: 1em; margin-top: 0.5em;">Confidence in your product.</p>
+      <p style="font-size: 1em;">Comfortably willing to walk away.</p>
+      <p><span class="hsn-tag">HSN: Item on deck window</span></p>
+    </section>
+
+    <!-- ─────────────────────────── 25 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Impulse 3</span></p>
+      <h1>Greed</h1>
+      <p style="font-size: 1.05em; margin-top: 0.5em;">People want what others have.</p>
+      <p style="font-size: 1.05em;"><em>Keeping up with the Joneses.</em></p>
+      <p><span class="hsn-tag">HSN: How many have sold counter</span></p>
+    </section>
+
+    <!-- ─────────────────────────── 26 ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Impulse 4</span></p>
+      <h1>Sense of Urgency</h1>
+      <p style="font-size: 1em; margin-top: 0.5em;">"I will only be in your area for a short while!"</p>
+      <p><span class="hsn-tag">HSN: How much time remaining until sold out</span></p>
+    </section>
+
+    <!-- ─────────────────────────── 27 — Quick Start ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">Quick Start Program</h1>
+      <p style="font-size: 0.8em; margin-top: 0.5em;">What you MUST do before solo:</p>
+      <ul style="font-size: 1em; margin-top: 0.5em;">
+        <li>Memorize Harvesting Script</li>
+        <li>Memorize Presentation</li>
+        <li>Memorize 2 rebuttals</li>
+        <li>Harvest <strong>3 sits</strong> (worth <strong>$200 each</strong>)</li>
+        <li>Do <strong>2 ride-alongs</strong> with another rep</li>
+      </ul>
+      <p style="margin-top: 1em; font-size: 0.9em;">Then receive <span class="highlight-gold">$1,000 bonus</span> and start your own presentations.</p>
+    </section>
+
+    <!-- ─────────────────────────── 28 — Two positions ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold">2 different positions with us</h1>
+      <div style="display: flex; gap: 60px; justify-content: center; margin-top: 1.5em;">
+        <div style="background: rgba(184,50,79,0.3); border: 2px solid var(--uss-red); border-radius: 12px; padding: 1em 2em;">
+          <h2 style="margin: 0;">Junior Rep</h2>
+        </div>
+        <div style="background: rgba(212,161,66,0.3); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 1em 2em;">
+          <h2 style="margin: 0;">Senior Rep</h2>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 29 — Junior Rep detail ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1>Junior Rep</h1>
+      <p style="font-size: 0.8em;">Requirements to become senior:</p>
+      <ol style="font-size: 1.1em;">
+        <li>30 harvested sits</li>
+        <li>30% close rate</li>
+        <li>Sales Academy finished</li>
+      </ol>
+      <p style="margin-top: 1.2em; font-size: 0.85em;">These are the leads at your disposal.</p>
+      <p style="font-size: 0.85em;"><em>If those aren't enough — there are these as well!</em></p>
+    </section>
+
+    <!-- ─────────────────────────── 30 — NEW HARVESTING SCRIPT (was old quote-flyer pitch) ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold">Harvesting Script</h1>
+      <p style="font-size: 0.7em; opacity: 0.85;">Free-inspection version — replaces the old "Instant Roof Quote" script.</p>
+      <div class="script" style="font-size: 0.5em; margin-top: 0.6em;">
+        <p>"Hi, my name is <strong>__________</strong>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
+        <p>We sent this to you because according to county records you are at <strong>high risk of the insurance company dropping you</strong> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
+        <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
+        <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <strong>no-cost roof inspection</strong>. If there's no damage, we'll provide you an <strong>official inspection certificate that says you have 5+ years of life left in your roof</strong>. This will make them leave you alone.</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 31 — Three outcomes ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold">3 things that can happen</h1>
+      <ol style="font-size: 0.95em; max-width: 800px; margin: 0.5em auto 0; text-align: left;">
+        <li><strong>No damage</strong> — you're now protected against the letter.</li>
+        <li><strong>Wear &amp; tear</strong> — we can't give you the certificate but we have many options.</li>
+        <li><strong>Storm damage</strong> — a public adjuster will fight to get your insurance to pay for it.</li>
+      </ol>
+      <div class="script" style="font-size: 0.5em; margin-top: 1em;">
+        <p><strong>Last question:</strong> If the PA finds you have enough storm damage for the insurance to pay for it — do you want them starting right away to get you your new roof?</p>
+        <p><em>(If yes → get PA forms signed too. Need insurance company + policy number.)</em></p>
+        <p><em>If they don't have the info handy: "That's fine, let's just do the inspection — if you have storm damage I can come back and get that information." Time kills all deals — get some kind of commitment.</em></p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 32 — Tonight intro / warm-up ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h1 class="highlight-gold">In-home: Tonight intro</h1>
+      <div class="script">
+        <p>"What we are going to do tonight is tell you a little bit about who we are as a company, take photos of everything, and show you all the options and types of materials that are available to you — while guaranteeing a <strong>30-day price</strong>.</p>
+        <p>However, first I need to ask you some questions to find out what your wants and needs are, so that I can customize the estimate for exactly what <em>you</em> want — and not just what my boss or our suppliers want you to buy. Fair enough?</p>
+        <p>Let's be clear: I am not here to sell you on buying a roof, you already know you need one of those right?" <em>(Warm up with customer survey.)</em></p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 33 — 15 years control point ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · 15 Years</span></p>
+      <div class="script">
+        <p>"When dealing with a company for your roof, how important is it to you that they are likely to be around in the future if you have a need or if something goes wrong?" <em>(Most will answer "important.")</em></p>
+        <p>"Absolutely. Studies show that <strong>over 50% of companies fail to make it to 5 years</strong> and <strong>80% fail to make it to their 15th birthday</strong>. Since it's important that the company you choose is around when you need them, I have great news. We are now over 15 years old — which should demonstrate that the likelihood of us being around if you need us is extremely high. Wouldn't you agree?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 34 — Veteran owned ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · Veteran Owned</span></p>
+      <div class="script">
+        <p>"We are also a <strong>Veteran-owned company</strong>. How important is that to you?"</p>
+        <p><em>(If they say important, ask them why. It gets them to start selling themselves on us. Worst case if they say it's not, follow up with:)</em></p>
+        <p>"I figure — if we can trust them to protect our freedom, we can certainly trust them to protect our home!"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 35 — Google reviews / research ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · Google Reviews</span></p>
+      <div class="script">
+        <p>"What did you do to research us before today? Would you agree that people are more likely to complain about companies when they had a bad experience than say good things when they had a great one?</p>
+        <p>Well, the good news is <strong>we have tons of 5-star reviews</strong>, so you'll find that everything we talk about today will be backed up by our rating on Google."</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 36 — BBB to Google / Finance vetting ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>From BBB to Google</h2>
+      <div class="script">
+        <p>"As consumers we've gone from checking the BBB to now just seeing what others say on Google. Truthfully, we are pretty limited on ways to check on the viability of a business.</p>
+        <p>Let me ask you this: If you were a bank and you wanted to help homeowners finance a roof, you'd want to make sure you got paid back, right? So you'd definitely want to only loan money to people whose roofing companies are solid and do good work — otherwise you risk people not wanting to pay. Make sense?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 37 — Florida State Finance License ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · Direct Finance</span></p>
+      <div class="script">
+        <p>"Another feather in our cap: we are also <strong>one of just a few companies licensed by the State of Florida</strong> to offer direct-to-consumer financing.</p>
+        <p>In fact, some of these finance companies that have agreed to put their name next to ours took over <strong>two months to approve us</strong>. They've looked at our finances, our install record, our record with the State, and so on. The good news is — they did your homework for you in vetting us out.</p>
+        <p>Even if you didn't finance, you'd agree that doing business with a company that can pass that kind of rigorous background check is better than a chuck-in-a-truck, right? When protecting everything you own and everyone you love — is the cheapest the most important thing, or is getting the best value for your money important?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 38 — Triple C License ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · CCC License</span></p>
+      <div class="script">
+        <p>"This is our Roofing license. Notice it's a <strong>Triple C license</strong> — that means it's a statewide approved license. A lot of roofing contractors only have an RC license, which is specific to just one county.</p>
+        <p>Did you know that if you hire unlicensed contractors, not only can the county fine you up to <strong>$5,000</strong>, but they can also force you to do the job again? <strong>The liability falls on the homeowner to verify licensing.</strong></p>
+        <p>You want a fully licensed contractor, right?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 39 — Insurance coverage ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · Insurance</span></p>
+      <div class="script">
+        <p>"When choosing a roofing company, would you rather deal with a company that just does the minimum when it comes to liability insurance — or a company that wants to make sure that everything is covered from beginning to end?</p>
+        <p>The State of Florida requires a minimum of <strong>$100,000 injury and $25,000 property damage</strong>. Our policy is <strong>$1 million / $2 million</strong> — to make sure while we're doing the work, if anything happens, you can feel comfortable to know you are not exposed at all.</p>
+        <p>You aren't opposed to having more coverage, are you?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 40 — Why I'm here ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>One of the parts I like most about my job…</h2>
+      <div class="script">
+        <p>"I don't really have to sell anything. I mean — roofing isn't like solar or water softeners where you might have to be convinced you need it. You already know you need a roof, right?</p>
+        <p>Nobody wakes up in the morning and goes 'Oh, I can't wait to buy a roof today!' I'm not really here because you want me to be — I'm really only here because you need me to be."</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 41 — Skydiving / Experience ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h1 style="font-size: 1.7em;">Have you ever been skydiving?</h1>
+      <div class="script">
+        <p>"Let's say we get a little crazy and decide we are going skydiving. When we got there, they said we had our pick at who is going to pack our parachutes. One has <strong>5 years of experience</strong>, the other has <strong>over 15 years of experience</strong>. Who are you going to pick?"</p>
+        <p><em>(They'll say 15 years — then ask them WHY.)</em></p>
+        <p>"Exactly — because <strong>experience matters</strong>, doesn't it? Let's face it — if there's just a 1% chance the chute doesn't open, that's 1% too much, am I right?</p>
+        <p>So, since the roof is protecting most of what you own — but more importantly everyone you love — is that any less important?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 42 — Add one more layer / paying more ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <div class="script">
+        <p>"Now let's add one more layer. The guy with 5 years of experience charges $200, but the guy with over 15 years charges <strong>20% more at $240</strong> to pack the chutes.</p>
+        <p>You're still picking the guy with all the experience, aren't you? It's because <strong>experience is worth paying just a little more for</strong> — the peace of mind to know the chute will open, or the roof won't leak. Am I right?</p>
+        <p>One of the other advantages to using a company that does the volume we do is that <strong>we attract the best crews</strong> — because we keep them busy year-round. This way we get to make sure we have the best possible people at your home."</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 43 — Suppliers / Manufacturer ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <p><span class="label-pill">Control Point · Manufacturer</span></p>
+      <div class="script">
+        <p>"Suppliers also sell their materials to us for less because of the same reason — in fact, they fight over us because we do volume and are consistent. This allows us to pass some savings on to you but still be competitive in the market. Obviously, we need to be profitable to be around for you in the future — you understand that, right?</p>
+        <p>Lastly — we are not just a roofer. <strong>We are also a manufacturer.</strong> If you decide today to buy your last roof, you'll be dealing not only with the roofing company but also the manufacturer as well. <strong>One-stop shopping.</strong></p>
+        <p>We have a facility right here in Florida and manufacture all our own metal roof panels and trim to go with it."</p>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 44-50: placeholder slides for any image-only / visual slides
+         from the original PDF I couldn't pick up via text extraction.
+         Neal: tell me what's on these and I'll author them properly. ─────────────────────────── -->
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 44 — image slide</span></p>
+      <h2>U.S. Shingle factory / facility</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder — original PDF had a visual here. Tell Neal what goes on this slide and I'll author it.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 45 — image slide</span></p>
+      <h2>Metal panel manufacturing</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 46 — image slide</span></p>
+      <h2>License + insurance proof</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 47 — image slide</span></p>
+      <h2>Google reviews screenshot</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 48 — image slide</span></p>
+      <h2>Veteran-owned proof / certification</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 49 — image slide</span></p>
+      <h2>Service map (Florida coverage)</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <section data-background-color="#0a1730">
+      <p><span class="label-pill">Slide 50 — image slide</span></p>
+      <h2>Awards / Recognition</h2>
+      <p style="font-size: 0.7em; opacity: 0.7;"><em>Placeholder.</em></p>
+    </section>
+
+    <!-- ─────────────────────────── 51 — Day 1 wrap ─────────────────────────── -->
+    <section data-background-color="#b8324f">
+      <h1>End of Day 1</h1>
+      <h2 style="margin-top: 1em; font-size: 1.3em;">Homework tonight:</h2>
+      <ul style="font-size: 1em; margin-top: 0.5em;">
+        <li>Memorize the <strong>Harvesting Script</strong> (the new free-inspection version)</li>
+        <li>Memorize the 3 outcomes</li>
+        <li>Day 2 quiz fires tomorrow morning at kiosk sign-in</li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,             // /day-1-slides/#/30 deep-links to slide 30
+    slideNumber: 'c/t',     // bottom-right shows "current / total"
+    transition: 'fade',     // gentle fades between slides
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    keyboard: true,         // arrow keys + PageDown/PageUp (clicker)
+    overview: true,         // press ESC for grid of all slides
+    touch: true,            // swipe on phone for trainee review mode
+    showNotes: false,       // turn on if you want speaker notes overlay
+  });
+</script>
+</body>
+</html>

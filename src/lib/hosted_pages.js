@@ -21,6 +21,19 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'day-1-slides',
+    title: 'Day 1 slides — clicker-driven projector deck',
+    url: '/day-1-slides/',
+    description:
+      'Reveal.js slide deck for Day 1 Retail Training. Open on the laptop hooked to the projector, ' +
+      'press F for fullscreen, advance with a clicker (forward = PageDown, back = PageUp — any cheap ' +
+      'Logitech/Amazon presenter works). Includes the NEW free-inspection harvesting script ' +
+      '(replaces the old Instant Roof Quote pitch). Deep-link to any slide via #/N (e.g. /day-1-slides/#/30 ' +
+      'jumps to the harvesting script). Trainees can also pull it up on their phones for review.',
+    created: '2026-05-30',
+    category: 'Internal docs',
+  },
+  {
     slug: 'handoff-contacts',
     title: 'Handoff contacts — vCard config (Helpline + Anthony etc.)',
     url: '/handoff-contacts',
