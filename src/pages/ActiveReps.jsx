@@ -337,6 +337,13 @@ export default function ActiveReps() {
   // manage. null when closed, { trainee, region } while open.
   const [managerModal, setManagerModal] = useState(null)
 
+  // Announce-to-zone modal — shows the recipient list + a Send button
+  // that fires the welcome SMS/email. Driven by the 📣 button on a
+  // manager's row. Shape:
+  //   { manager, channels: {sms, email}, preview: null | recipients[],
+  //     sending, result, error }
+  const [announceModal, setAnnounceModal] = useState(null)
+
   // Edit-info modal — opens with an editable copy of the rep's contact
   // + address + region. Saves back to Supabase on confirm. Used when
   // info comes in wrong from /update-info or admin needs to fix a typo
@@ -420,6 +427,21 @@ export default function ActiveReps() {
       text: `${trainee.first_name} ${trainee.last_name} is no longer a regional manager. Their old link is now dead.`,
     })
     await load()
+  }
+
+  // Open the announce-to-zone modal for a manager. The modal kicks off
+  // a dry-run to populate the recipient preview before the admin clicks
+  // Send for real. We don't pre-resolve recipients here — let the modal
+  // own that lifecycle so reopening it gets a fresh list.
+  function openAnnounceModal(manager) {
+    setAnnounceModal({
+      manager,
+      channels: { sms: true, email: false },
+      preview: null,
+      sending: false,
+      result: null,
+      error: null,
+    })
   }
 
   // Copy the public manager dashboard URL to clipboard. The hostname
@@ -1019,6 +1041,7 @@ export default function ActiveReps() {
                   onAssignManager={() => setManagerModal({ trainee: t, region: '' })}
                   onRevokeManager={() => revokeManager(t)}
                   onCopyManagerLink={() => copyManagerLink(t)}
+                  onAnnounceToZone={() => openAnnounceModal(t)}
                   onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
                   allZonesAssigned={allZonesAssigned}
                 />
@@ -1333,6 +1356,14 @@ export default function ActiveReps() {
         />
       )}
 
+      {announceModal && (
+        <AnnounceZoneModal
+          state={announceModal}
+          setState={setAnnounceModal}
+          onClose={() => setAnnounceModal(null)}
+        />
+      )}
+
       {addStaffOpen && (
         <AddStaffModal
           regionNames={regionNames}
@@ -1361,7 +1392,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onEditInfo, allZonesAssigned }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onAnnounceToZone, onEditInfo, allZonesAssigned }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -1449,6 +1480,17 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
                 title="Copy this manager's dashboard URL. Paste it into a text to share."
               >
                 📋 Copy access link
+              </button>
+            )}
+            {onAnnounceToZone && (
+              <button
+                type="button"
+                onClick={onAnnounceToZone}
+                disabled={saving}
+                className="rounded-md border border-purple-300 bg-white px-2 py-0.5 font-semibold text-purple-800 hover:bg-purple-50 disabled:opacity-50"
+                title="Send the welcome SMS/email to every rep in this zone, with a one-tap vCard download for the manager."
+              >
+                📣 Announce to zone
               </button>
             )}
             {onRevokeManager && (
@@ -2237,6 +2279,190 @@ function AssignManagerModal({ trainee, region, setRegion, availableZones, sendin
           >
             {sending ? 'Saving…' : 'Yes, make them a manager'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Confirm + fire the welcome-SMS / email blast for a regional manager.
+// On open, runs a dry-run server call to populate the recipient list
+// preview. Send button stays disabled until the preview loads (so you
+// always see who's about to be messaged) and at least one channel is
+// chosen. Calls send-regional-manager-welcome which forwards to
+// send-group-message with trainee_ids scoped to the manager's zone
+// minus the manager themselves.
+function AnnounceZoneModal({ state, setState, onClose }) {
+  const { manager, channels, preview, sending, result, error } = state
+
+  // Kick off the dry-run preview when the modal opens. Single-shot —
+  // we only re-fetch if the user explicitly hits "Refresh recipients".
+  useEffect(() => {
+    if (preview !== null) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/.netlify/functions/send-regional-manager-welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            manager_id: manager.id,
+            channels: { sms: true }, // arbitrary — dry_run ignores it
+            dry_run: true,
+          }),
+        })
+        const data = await res.json()
+        if (cancelled) return
+        if (!res.ok) {
+          setState((s) => ({ ...s, error: data?.error || 'Could not load preview.', preview: [] }))
+          return
+        }
+        setState((s) => ({
+          ...s,
+          preview: data.would_send_to || [],
+          managerInfo: data.manager,
+        }))
+      } catch (e) {
+        if (cancelled) return
+        setState((s) => ({ ...s, error: e?.message || 'Network error.', preview: [] }))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [manager.id, preview, setState])
+
+  const wantSms = !!channels.sms
+  const wantEmail = !!channels.email
+  const haveChannel = wantSms || wantEmail
+  const haveRecipients = Array.isArray(preview) && preview.length > 0
+  const canSend = haveChannel && haveRecipients && !sending && !result
+
+  async function fireBlast() {
+    setState((s) => ({ ...s, sending: true, error: null }))
+    let offset = 0
+    const totals = { sms_sent: 0, sms_failed: 0, email_sent: 0, email_failed: 0, recipients: 0 }
+    let total = preview.length
+    try {
+      while (true) {
+        const res = await fetch('/.netlify/functions/send-regional-manager-welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            manager_id: manager.id,
+            channels: { ...(wantSms ? { sms: true } : {}), ...(wantEmail ? { email: true } : {}) },
+            offset,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setState((s) => ({ ...s, sending: false, error: data?.error || 'Send failed.' }))
+          return
+        }
+        const c = data?.counts || {}
+        totals.sms_sent += c.sms_sent || 0
+        totals.sms_failed += c.sms_failed || 0
+        totals.email_sent += c.email_sent || 0
+        totals.email_failed += c.email_failed || 0
+        totals.recipients += c.recipients || 0
+        if (data?.total) total = data.total
+        if (data?.next_offset == null) break
+        offset = data.next_offset
+      }
+      setState((s) => ({ ...s, sending: false, result: { counts: totals, total } }))
+    } catch (e) {
+      setState((s) => ({ ...s, sending: false, error: e?.message || 'Network error.' }))
+    }
+  }
+
+  const managerName = `${manager.first_name} ${manager.last_name}`
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg border border-purple-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-purple-900">
+          📣 Announce {managerName} to {manager.managed_region}?
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Every active rep in <strong>{manager.managed_region}</strong> gets an SMS / email saying
+          they have a new regional sales manager and a one-tap vCard link to save the contact.
+          The manager themselves is excluded.
+        </p>
+
+        <div className="mt-4 flex gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={wantSms}
+              onChange={(e) => setState((s) => ({ ...s, channels: { ...s.channels, sms: e.target.checked } }))}
+              disabled={sending || !!result}
+            />
+            <span>SMS</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={wantEmail}
+              onChange={(e) => setState((s) => ({ ...s, channels: { ...s.channels, email: e.target.checked } }))}
+              disabled={sending || !!result}
+            />
+            <span>Email</span>
+          </label>
+        </div>
+
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Recipients ({preview === null ? 'loading…' : preview.length})
+          </div>
+          {preview === null ? (
+            <p className="mt-1 text-xs text-slate-500">Resolving zone roster…</p>
+          ) : preview.length === 0 ? (
+            <p className="mt-1 text-xs text-amber-700">
+              Nobody to announce to — the manager is the only active rep in this zone right now.
+            </p>
+          ) : (
+            <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-slate-700">
+              {preview.map((name, i) => (
+                <li key={i}>· {name}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {error && (
+          <div className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+            <strong>Sent.</strong>{' '}
+            {result.counts.sms_sent > 0 && (
+              <span>SMS: {result.counts.sms_sent} ok{result.counts.sms_failed ? `, ${result.counts.sms_failed} failed` : ''}. </span>
+            )}
+            {result.counts.email_sent > 0 && (
+              <span>Email: {result.counts.email_sent} ok{result.counts.email_failed ? `, ${result.counts.email_failed} failed` : ''}. </span>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {result ? 'Done' : 'Cancel'}
+          </button>
+          {!result && (
+            <button
+              type="button"
+              onClick={fireBlast}
+              disabled={!canSend}
+              className="rounded-md bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-800 disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : `Send to ${preview?.length || 0}`}
+            </button>
+          )}
         </div>
       </div>
     </div>
