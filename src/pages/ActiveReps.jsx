@@ -85,7 +85,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -410,29 +410,51 @@ export default function ActiveReps() {
       'Company Number',
       'Region',
       'Rep Level',
+      'Street Address',
+      'City',
+      'State',
+      'Zip',
+      'Full Address',
       'Active Since',
       'Info Last Updated',
     ]
-    const rows = activeFiltered.map((t) => [
-      t.first_name || '',
-      t.last_name || '',
-      t.phone || '',
-      t.email || '',
-      t.company_email || '',
-      t.company_number || '',
-      t.region || '',
-      // Same label rule as the on-page badges: unconfirmed counts as
-      // "needs assignment" even if a tentative level was auto-set.
-      !t.rep_level || !t.rep_level_confirmed_at
-        ? 'Needs assignment'
-        : LEVEL_LABEL[t.rep_level] || t.rep_level,
-      t.became_active_rep_at
-        ? new Date(t.became_active_rep_at).toISOString().slice(0, 10)
-        : '',
-      t.info_updated_at
-        ? new Date(t.info_updated_at).toISOString().slice(0, 10)
-        : '',
-    ])
+    const rows = activeFiltered.map((t) => {
+      // Build the "Full Address" column — single-line, comma-separated,
+      // skipping any blank component. Convenient for pasting into a
+      // mailing label or geocoder without rebuilding the string yourself.
+      const fullAddress = [
+        t.street_address,
+        t.city,
+        [t.state, t.zip].filter(Boolean).join(' '),
+      ]
+        .filter((s) => s && String(s).trim())
+        .join(', ')
+      return [
+        t.first_name || '',
+        t.last_name || '',
+        t.phone || '',
+        t.email || '',
+        t.company_email || '',
+        t.company_number || '',
+        t.region || '',
+        // Same label rule as the on-page badges: unconfirmed counts as
+        // "needs assignment" even if a tentative level was auto-set.
+        !t.rep_level || !t.rep_level_confirmed_at
+          ? 'Needs assignment'
+          : LEVEL_LABEL[t.rep_level] || t.rep_level,
+        t.street_address || '',
+        t.city || '',
+        t.state || '',
+        t.zip || '',
+        fullAddress,
+        t.became_active_rep_at
+          ? new Date(t.became_active_rep_at).toISOString().slice(0, 10)
+          : '',
+        t.info_updated_at
+          ? new Date(t.info_updated_at).toISOString().slice(0, 10)
+          : '',
+      ]
+    })
     const csv = [headers, ...rows]
       .map((row) =>
         row
