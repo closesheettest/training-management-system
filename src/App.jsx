@@ -35,6 +35,7 @@ import Regions from './pages/Regions.jsx'
 import Directory from './pages/Directory.jsx'
 import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
+import RegionalManager from './pages/RegionalManager.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -88,6 +89,13 @@ export default function App() {
             previous day's training content. See send-training-quiz.js
             for the fan-out logic. */}
         <Route path="/quiz/:token" element={<MinimalLayout><Quiz /></MinimalLayout>} />
+
+        {/* Public regional sales manager dashboard. The token IS the
+            credential — no app chrome, no nav. The manager can see the
+            reps in their region, deactivate someone, and SMS/email their
+            team. All actions go through regional-manager-api.js which
+            gates by region server-side. */}
+        <Route path="/regional-manager/:token" element={<RegionalManager />} />
 
         {/* Public company directory — shareable phone-book of every
             active team member. Its own self-contained layout (no admin

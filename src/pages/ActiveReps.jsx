@@ -85,7 +85,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -305,6 +305,78 @@ export default function ActiveReps() {
       text: `Directory visibility updated for ${trainee.first_name} ${trainee.last_name}.`,
     })
     await load()
+  }
+
+  // Regional manager state: the modal asks which region a rep should
+  // manage. null when closed, { trainee, region } while open.
+  const [managerModal, setManagerModal] = useState(null)
+
+  // Assign someone as the regional manager for a region. Generates a
+  // fresh access token (rotates if there was an old one), stamps the
+  // managed_region. The token lands in the URL the manager opens, so
+  // rotating it effectively revokes any previously-shared link.
+  async function assignAsManager(trainee, region) {
+    if (!region) return
+    setSavingId(trainee.id)
+    const token = crypto.randomUUID().replace(/-/g, '')
+    const { error } = await supabase
+      .from('trainees')
+      .update({
+        managed_region: region,
+        manager_access_token: token,
+      })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    setManagerModal(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `${trainee.first_name} ${trainee.last_name} is now the regional manager for ${region}. Use "Copy access link" to share their dashboard URL.`,
+    })
+    await load()
+  }
+
+  // Revoke regional manager status — clears managed_region AND rotates
+  // the access token (so any link already in their phone stops working).
+  async function revokeManager(trainee) {
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({
+        managed_region: null,
+        manager_access_token: null,
+      })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `${trainee.first_name} ${trainee.last_name} is no longer a regional manager. Their old link is now dead.`,
+    })
+    await load()
+  }
+
+  // Copy the public manager dashboard URL to clipboard. The hostname
+  // comes from window.location so localhost / preview deploys / prod
+  // all generate working links.
+  async function copyManagerLink(trainee) {
+    if (!trainee.manager_access_token) return
+    const url = `${window.location.origin}/regional-manager/${trainee.manager_access_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setFlash({
+        kind: 'success',
+        text: `Link copied — paste into a text to ${trainee.first_name}.`,
+      })
+    } catch {
+      setFlash({ kind: 'error', text: `Couldn't copy. Link: ${url}` })
+    }
   }
 
   // Confirm or change a rep's level (junior/senior). Stamping
@@ -801,6 +873,9 @@ export default function ActiveReps() {
                 onSetActiveSince={(iso) => setActiveSince(t, iso)}
                 onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
                 onEditDirectory={() => setVisibilityModal({ trainee: t, hidden: { ...(t.directory_hidden || {}) } })}
+                onAssignManager={() => setManagerModal({ trainee: t, region: t.region || '' })}
+                onRevokeManager={() => revokeManager(t)}
+                onCopyManagerLink={() => copyManagerLink(t)}
               />
             ))}
           </ul>
@@ -1052,6 +1127,18 @@ export default function ActiveReps() {
         />
       )}
 
+      {managerModal && (
+        <AssignManagerModal
+          trainee={managerModal.trainee}
+          region={managerModal.region}
+          setRegion={(r) => setManagerModal({ ...managerModal, region: r })}
+          regionNames={regionNames}
+          sending={savingId === managerModal.trainee.id}
+          onCancel={() => setManagerModal(null)}
+          onConfirm={() => assignAsManager(managerModal.trainee, managerModal.region)}
+        />
+      )}
+
       {addStaffOpen && (
         <AddStaffModal
           regionNames={regionNames}
@@ -1080,7 +1167,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -1154,17 +1241,59 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
             )}
           </div>
         )}
+        {active && t.managed_region && (
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="rounded-full bg-purple-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-purple-900">
+              👑 Regional manager · {t.managed_region}
+            </span>
+            {onCopyManagerLink && (
+              <button
+                type="button"
+                onClick={onCopyManagerLink}
+                disabled={saving}
+                className="rounded-md border border-purple-300 bg-white px-2 py-0.5 font-semibold text-purple-800 hover:bg-purple-50 disabled:opacity-50"
+                title="Copy this manager's dashboard URL. Paste it into a text to share."
+              >
+                📋 Copy access link
+              </button>
+            )}
+            {onRevokeManager && (
+              <button
+                type="button"
+                onClick={onRevokeManager}
+                disabled={saving}
+                className="rounded-md border border-slate-300 bg-white px-2 py-0.5 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                title="Remove manager status and kill their access link."
+              >
+                Revoke
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {active ? (
-        <button
-          type="button"
-          onClick={onMarkLeaving}
-          disabled={saving}
-          className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"
-          title="Mark this person as no longer a sales rep. Adds them to the Cleanup pending list so admin can deactivate them in GHL / RepCard / etc."
-        >
-          {saving ? '…' : 'Mark as departed →'}
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          {!t.managed_region && onAssignManager && (
+            <button
+              type="button"
+              onClick={onAssignManager}
+              disabled={saving}
+              className="rounded-md border border-purple-300 bg-white px-3 py-1 text-xs font-semibold text-purple-800 hover:bg-purple-50 disabled:opacity-50"
+              title="Make this rep the regional manager for a region. They get a private dashboard URL where they can see their team, deactivate someone, and SMS/email the whole region."
+            >
+              👑 Make regional manager
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onMarkLeaving}
+            disabled={saving}
+            className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+            title="Mark this person as no longer a sales rep. Adds them to the Cleanup pending list so admin can deactivate them in GHL / RepCard / etc."
+          >
+            {saving ? '…' : 'Mark as departed →'}
+          </button>
+        </div>
       ) : (
         <button
           type="button"
@@ -1574,6 +1703,66 @@ function ResendUpdateInfoModal({ batch, setBatch, onClose }) {
 // Modal that opens when admin clicks "No longer a sales rep" on an
 // active rep. Optional reason field — typed text becomes
 // left_company_reason on the trainees row (handy for HR audit later).
+
+function AssignManagerModal({ trainee, region, setRegion, regionNames, sending, onCancel, onConfirm }) {
+  // Region picker defaults to the rep's own region — most common case
+  // is "this senior rep already lives in Miami, make him the Miami
+  // manager" so we pre-fill and let admin override.
+  const canSubmit = !!region && !sending
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-lg border border-purple-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-purple-900">
+          👑 Make {trainee.first_name} {trainee.last_name} a regional manager?
+        </h3>
+        <p className="mt-2 text-sm text-slate-600">
+          They'll get a private dashboard URL where they can see every active rep in their
+          region, mark someone as departed, and SMS / email the whole team. That's
+          <em> all </em> they'll see — no admin chrome, no other regions.
+        </p>
+        <label className="mt-4 block">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Region they'll manage
+          </span>
+          <select
+            value={region || ''}
+            onChange={(e) => setRegion(e.target.value)}
+            disabled={sending}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">— Pick a region —</option>
+            {regionNames.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">
+            One region per manager. To change later, just reassign here.
+          </span>
+        </label>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={!canSubmit}
+            className="rounded-md bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-800 disabled:opacity-50"
+          >
+            {sending ? 'Saving…' : 'Yes, make them a manager'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function LeavingModal({ trainee, reason, setReason, sending, onCancel, onConfirm }) {
   return (
