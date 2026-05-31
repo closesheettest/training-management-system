@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
+import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName } from '../lib/zones.js'
 import {
   AddStaffModal,
   DirectoryVisibilityModal,
@@ -1947,6 +1948,23 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
                 </option>
               ))}
             </select>
+            {/* Surface the county breakdown inline when admin picks
+                one of the new owner-defined Zones, so they don't have
+                to cross-reference the territory screenshot. */}
+            {isZoneName(draft.region) && (
+              <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-2 py-1.5 text-[11px] leading-snug text-emerald-900">
+                <div>
+                  <strong>{draft.region}</strong> — {ZONE_COUNTIES[draft.region].label} (manager: {ZONE_COUNTIES[draft.region].manager}).
+                </div>
+                <div className="mt-1">
+                  <span className="font-semibold">Counties:</span>{' '}
+                  {ZONE_COUNTIES[draft.region].counties.join(', ')}.
+                </div>
+                {ZONE_COUNTIES[draft.region].counties.some((c) => c.endsWith('**')) && (
+                  <div className="mt-1 italic text-emerald-700">{ZONE_SPLIT_NOTE}</div>
+                )}
+              </div>
+            )}
           </Field>
           <Field label="Personal email">
             <input
