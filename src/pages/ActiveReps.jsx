@@ -696,6 +696,29 @@ export default function ActiveReps() {
     return counts
   }, [active])
 
+  // Track which of the 4 Zones already have a manager assigned.
+  // Used to disable the "👑 Make regional manager" button once every
+  // zone is staffed AND to filter the picker in AssignManagerModal so
+  // admin can't double-assign a zone by accident. The rule (per Neal
+  // 2026-05-31): once all 4 zones have a manager, no new manager can
+  // be assigned. Revoking an existing manager re-opens that zone.
+  const zonesWithManager = useMemo(() => {
+    const set = new Set()
+    for (const t of active) {
+      if (t.managed_region && isZoneName(t.managed_region)) set.add(t.managed_region)
+    }
+    return set
+  }, [active])
+  const TOTAL_ZONES = Object.keys(ZONE_COUNTIES).length
+  const allZonesAssigned = zonesWithManager.size >= TOTAL_ZONES
+  // Available zones (no manager yet) — drives the AssignManagerModal
+  // dropdown so the only things in the picker are zones admin can
+  // actually pick.
+  const availableZones = useMemo(
+    () => Object.keys(ZONE_COUNTIES).filter((z) => !zonesWithManager.has(z)),
+    [zonesWithManager],
+  )
+
   // Per-region active-rep counts for the breakdown card.
   const activeByRegion = useMemo(() => {
     const counts = { __none: 0 }
@@ -993,10 +1016,11 @@ export default function ActiveReps() {
                   onSetActiveSince={(iso) => setActiveSince(t, iso)}
                   onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
                   onEditDirectory={() => setVisibilityModal({ trainee: t, hidden: { ...(t.directory_hidden || {}) } })}
-                  onAssignManager={() => setManagerModal({ trainee: t, region: t.region || '' })}
+                  onAssignManager={() => setManagerModal({ trainee: t, region: '' })}
                   onRevokeManager={() => revokeManager(t)}
                   onCopyManagerLink={() => copyManagerLink(t)}
                   onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
+                  allZonesAssigned={allZonesAssigned}
                 />
               )
               return (
@@ -1290,7 +1314,7 @@ export default function ActiveReps() {
           trainee={managerModal.trainee}
           region={managerModal.region}
           setRegion={(r) => setManagerModal({ ...managerModal, region: r })}
-          regionNames={regionNames}
+          availableZones={availableZones}
           sending={savingId === managerModal.trainee.id}
           onCancel={() => setManagerModal(null)}
           onConfirm={() => assignAsManager(managerModal.trainee, managerModal.region)}
@@ -1337,7 +1361,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onEditInfo }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onEditInfo, allZonesAssigned }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -1458,9 +1482,13 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
             <button
               type="button"
               onClick={onAssignManager}
-              disabled={saving}
-              className="rounded-md border border-purple-300 bg-white px-3 py-1 text-xs font-semibold text-purple-800 hover:bg-purple-50 disabled:opacity-50"
-              title="Make this rep the regional manager for a region. They get a private dashboard URL where they can see their team, deactivate someone, and SMS/email the whole region."
+              disabled={saving || allZonesAssigned}
+              className="rounded-md border border-purple-300 bg-white px-3 py-1 text-xs font-semibold text-purple-800 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title={
+                allZonesAssigned
+                  ? 'All four Zones already have a manager. Revoke an existing manager (or add a new Zone on /regions) to free up a slot.'
+                  : 'Make this rep the regional manager for a Zone. They get a private dashboard URL where they can see their team, deactivate someone, and SMS/email the whole Zone.'
+              }
             >
               👑 Make regional manager
             </button>
@@ -2142,11 +2170,14 @@ function Field({ label, required, span2, children }) {
   )
 }
 
-function AssignManagerModal({ trainee, region, setRegion, regionNames, sending, onCancel, onConfirm }) {
-  // Region picker defaults to the rep's own region — most common case
-  // is "this senior rep already lives in Miami, make him the Miami
-  // manager" so we pre-fill and let admin override.
+function AssignManagerModal({ trainee, region, setRegion, availableZones, sending, onCancel, onConfirm }) {
+  // Only show zones that don't already have a manager — admin can't
+  // double-assign by accident. If there are no available zones (all
+  // four taken), this modal shouldn't have opened in the first place;
+  // RepRow disables the button. We render a clear empty state anyway
+  // in case state drifts.
   const canSubmit = !!region && !sending
+  const noneAvailable = availableZones.length === 0
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-lg border border-purple-200 bg-white p-6 shadow-xl">
@@ -2155,30 +2186,40 @@ function AssignManagerModal({ trainee, region, setRegion, regionNames, sending, 
         </h3>
         <p className="mt-2 text-sm text-slate-600">
           They'll get a private dashboard URL where they can see every active rep in their
-          region, mark someone as departed, and SMS / email the whole team. That's
-          <em> all </em> they'll see — no admin chrome, no other regions.
+          zone, mark someone as departed, and SMS / email the whole team. That's
+          <em> all </em> they'll see — no admin chrome, no other zones.
         </p>
-        <label className="mt-4 block">
-          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Region they'll manage
-          </span>
-          <select
-            value={region || ''}
-            onChange={(e) => setRegion(e.target.value)}
-            disabled={sending}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">— Pick a region —</option>
-            {regionNames.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs text-slate-500">
-            One region per manager. To change later, just reassign here.
-          </span>
-        </label>
+
+        {noneAvailable ? (
+          <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <strong>All zones are already staffed.</strong> Revoke an existing manager (or add a
+            new Zone on <code>/regions</code>) before you can assign someone here.
+          </div>
+        ) : (
+          <label className="mt-4 block">
+            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Zone they'll manage
+            </span>
+            <select
+              value={region || ''}
+              onChange={(e) => setRegion(e.target.value)}
+              disabled={sending}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">— Pick a zone —</option>
+              {availableZones.map((z) => (
+                <option key={z} value={z}>
+                  {z} — {ZONE_COUNTIES[z].label} (was {ZONE_COUNTIES[z].manager})
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Only zones with no manager yet are shown. Once all four are assigned, this
+              dropdown stays empty until someone is revoked.
+            </span>
+          </label>
+        )}
+
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
@@ -2191,7 +2232,7 @@ function AssignManagerModal({ trainee, region, setRegion, regionNames, sending, 
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!canSubmit}
+            disabled={!canSubmit || noneAvailable}
             className="rounded-md bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-800 disabled:opacity-50"
           >
             {sending ? 'Saving…' : 'Yes, make them a manager'}
