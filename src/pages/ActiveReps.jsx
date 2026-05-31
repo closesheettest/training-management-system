@@ -505,20 +505,71 @@ export default function ActiveReps() {
       return full.includes(searchLower) || (t.phone || '').includes(searchLower)
     })
   }
-  // Active reps: group by info-update status (updated first, then
-  // never-updated) so admin can scroll past the "done" pile and focus
-  // on the stragglers. Each group stays alphabetical within itself.
-  const activeFiltered = filterList(active, { applyLevel: true }).slice().sort((a, b) => {
-    const aHas = !!a.info_updated_at
-    const bHas = !!b.info_updated_at
-    if (aHas !== bHas) return aHas ? -1 : 1
-    return `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(
+  // Active reps: sorted alphabetically by last name within each
+  // region group. Region grouping happens below in activeByRegionGroups.
+  // Info-updated status no longer drives the top-level order — the
+  // per-row "📋 Never updated their info" badge already surfaces
+  // stragglers without needing a global sort.
+  const activeFiltered = filterList(active, { applyLevel: true }).slice().sort((a, b) =>
+    `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(
       `${b.last_name || ''} ${b.first_name || ''}`,
-    )
-  })
+    ),
+  )
   const notYetActiveFiltered = filterList(notYetActive)
   const dropoutsFiltered = filterList(dropouts)
   const nonFieldFiltered = filterList(nonField)
+
+  // Group active reps by region for the field-section render below.
+  // Each region group has:
+  //   manager  - the trainee whose managed_region matches (if any)
+  //   reps     - everyone in that region MINUS the manager (deduped
+  //              so the manager only renders once, at the top, as the
+  //              group header)
+  // Regions are sorted alphabetically; "No region yet" sinks to the
+  // bottom so it doesn't disrupt the alphabetical flow.
+  //
+  // Edge case: a manager whose own region field doesn't match their
+  // managed_region (e.g. lives in Miami, manages Jacksonville) appears
+  // ONLY as the Jacksonville header — they're pulled out of the Miami
+  // bucket by the dedupe pass. That's the right call for "who's in
+  // charge of region X" framing.
+  const activeByRegionGroups = useMemo(() => {
+    const groups = new Map()
+    function ensure(region) {
+      if (!groups.has(region)) groups.set(region, { region, manager: null, reps: [] })
+      return groups.get(region)
+    }
+    // Seed every visible region (including managed-only ones) so a
+    // region with just a manager and no reps still gets a header card.
+    for (const t of activeFiltered) {
+      ensure(t.region || '__no_region')
+      if (t.managed_region) ensure(t.managed_region)
+    }
+    // Place each rep in their region's bucket.
+    for (const t of activeFiltered) {
+      ensure(t.region || '__no_region').reps.push(t)
+    }
+    // Promote each manager to their region's header + remove them
+    // from the rep bucket they were just added to (dedupe).
+    for (const t of activeFiltered) {
+      if (!t.managed_region) continue
+      const g = ensure(t.managed_region)
+      g.manager = t
+      g.reps = g.reps.filter((r) => r.id !== t.id)
+      // Also pull the manager out of any OTHER region bucket they
+      // might be in (the rare cross-region case above).
+      for (const og of groups.values()) {
+        if (og.region === t.managed_region) continue
+        og.reps = og.reps.filter((r) => r.id !== t.id)
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      // "No region yet" always sinks to the bottom of the alpha list.
+      if (a.region === '__no_region') return 1
+      if (b.region === '__no_region') return -1
+      return a.region.localeCompare(b.region)
+    })
+  }, [activeFiltered])
 
   // CSV download for the active field reps section.
   //
@@ -918,26 +969,69 @@ export default function ActiveReps() {
             {search ? 'No matches.' : 'Nobody yet — promote past graduates above or wait for the next class to finish their test.'}
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-slate-100">
-            {activeFiltered.map((t) => (
-              <RepRow
-                key={t.id}
-                t={t}
-                active
-                saving={savingId === t.id}
-                onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
-                onPromote={() => toggle(t, true)}
-                onSetLevel={(lvl) => setRepLevel(t, lvl)}
-                onSetActiveSince={(iso) => setActiveSince(t, iso)}
-                onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
-                onEditDirectory={() => setVisibilityModal({ trainee: t, hidden: { ...(t.directory_hidden || {}) } })}
-                onAssignManager={() => setManagerModal({ trainee: t, region: t.region || '' })}
-                onRevokeManager={() => revokeManager(t)}
-                onCopyManagerLink={() => copyManagerLink(t)}
-                onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
-              />
-            ))}
-          </ul>
+          <div className="mt-3 space-y-6">
+            {activeByRegionGroups.map((g) => {
+              const isNoRegion = g.region === '__no_region'
+              const totalPeople = (g.manager ? 1 : 0) + g.reps.length
+              // Helper — every RepRow in this section needs the same
+              // 11 handler props, and duplicating them ~3x per group
+              // would obscure the structure. Inline arrow keeps the
+              // props plumbing in one spot.
+              const renderRepRow = (t) => (
+                <RepRow
+                  key={t.id}
+                  t={t}
+                  active
+                  saving={savingId === t.id}
+                  onMarkLeaving={() => setLeavingModal({ trainee: t, reason: '' })}
+                  onPromote={() => toggle(t, true)}
+                  onSetLevel={(lvl) => setRepLevel(t, lvl)}
+                  onSetActiveSince={(iso) => setActiveSince(t, iso)}
+                  onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
+                  onEditDirectory={() => setVisibilityModal({ trainee: t, hidden: { ...(t.directory_hidden || {}) } })}
+                  onAssignManager={() => setManagerModal({ trainee: t, region: t.region || '' })}
+                  onRevokeManager={() => revokeManager(t)}
+                  onCopyManagerLink={() => copyManagerLink(t)}
+                  onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
+                />
+              )
+              return (
+                <div key={g.region}>
+                  <div className={`-mx-5 border-y px-5 py-2 ${isNoRegion ? 'border-amber-200 bg-amber-50/60' : 'border-emerald-200 bg-emerald-50/50'}`}>
+                    <h3 className={`flex items-baseline gap-2 text-sm font-bold uppercase tracking-wide ${isNoRegion ? 'text-amber-900' : 'text-emerald-900'}`}>
+                      <span>📍 {isNoRegion ? 'No region yet' : g.region}</span>
+                      <span className={`text-xs font-normal ${isNoRegion ? 'text-amber-700' : 'text-emerald-700'}`}>
+                        ({totalPeople} {totalPeople === 1 ? 'person' : 'people'})
+                      </span>
+                    </h3>
+                  </div>
+                  {g.manager ? (
+                    <div className="mt-2 rounded-md border border-purple-300 bg-purple-50/60 px-3 pt-2">
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-purple-900">
+                        👑 Regional Manager
+                      </div>
+                      <ul className="divide-y divide-purple-200/50">
+                        {renderRepRow(g.manager)}
+                      </ul>
+                    </div>
+                  ) : !isNoRegion ? (
+                    <p className="mt-2 text-xs italic text-amber-700">
+                      No regional manager assigned yet — click the 👑 button on a rep below to designate one.
+                    </p>
+                  ) : null}
+                  {g.reps.length > 0 ? (
+                    <ul className="mt-2 divide-y divide-slate-100">
+                      {g.reps.map(renderRepRow)}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs italic text-slate-500">
+                      {g.manager ? 'Just the manager so far — no other reps in this region yet.' : 'No reps in this region yet.'}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </section>
 
