@@ -17,6 +17,30 @@ const LEVEL_LABEL = {
   non_field: 'Non-field',
 }
 
+// The set of fields editable from the rep-info modal — everything we
+// might need to fix without forcing the rep to re-do /update-info. List
+// here so the modal, the initial draft, and the Supabase update payload
+// all stay in sync.
+const EDITABLE_FIELDS = [
+  'first_name',
+  'last_name',
+  'phone',
+  'email',
+  'company_email',
+  'company_number',
+  'region',
+  'street_address',
+  'city',
+  'state',
+  'zip',
+]
+
+function editableDraftFor(t) {
+  const out = {}
+  for (const k of EDITABLE_FIELDS) out[k] = t[k] || ''
+  return out
+}
+
 // Active Sales Reps page — admin's master list of "in the field" reps.
 //
 // The is_active_sales_rep flag on trainees is the durable "on the sales
@@ -310,6 +334,40 @@ export default function ActiveReps() {
   // Regional manager state: the modal asks which region a rep should
   // manage. null when closed, { trainee, region } while open.
   const [managerModal, setManagerModal] = useState(null)
+
+  // Edit-info modal — opens with an editable copy of the rep's contact
+  // + address + region. Saves back to Supabase on confirm. Used when
+  // info comes in wrong from /update-info or admin needs to fix a typo
+  // without making the rep re-self-serve.
+  // Shape: { trainee, draft: {...editable fields} } while open, null otherwise.
+  const [editModal, setEditModal] = useState(null)
+
+  async function saveRepEdits(trainee, draft) {
+    setSavingId(trainee.id)
+    // Trim everything and convert empty strings to null so we don't
+    // store "" instead of actually-blank fields. Supabase treats "" and
+    // null differently in `eq` filters downstream.
+    const payload = {}
+    for (const [k, v] of Object.entries(draft)) {
+      const s = String(v ?? '').trim()
+      payload[k] = s === '' ? null : s
+    }
+    const { error } = await supabase
+      .from('trainees')
+      .update(payload)
+      .eq('id', trainee.id)
+    setSavingId(null)
+    setEditModal(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `Saved updates for ${trainee.first_name} ${trainee.last_name}.`,
+    })
+    await load()
+  }
 
   // Assign someone as the regional manager for a region. Generates a
   // fresh access token (rotates if there was an old one), stamps the
@@ -876,6 +934,7 @@ export default function ActiveReps() {
                 onAssignManager={() => setManagerModal({ trainee: t, region: t.region || '' })}
                 onRevokeManager={() => revokeManager(t)}
                 onCopyManagerLink={() => copyManagerLink(t)}
+                onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
               />
             ))}
           </ul>
@@ -1045,6 +1104,7 @@ export default function ActiveReps() {
                 onSetActiveSince={(iso) => setActiveSince(t, iso)}
                 onSetCompanyNumber={(v) => setCompanyNumber(t, v)}
                 onEditDirectory={() => setVisibilityModal({ trainee: t, hidden: { ...(t.directory_hidden || {}) } })}
+                onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
               />
             ))}
           </ul>
@@ -1139,6 +1199,18 @@ export default function ActiveReps() {
         />
       )}
 
+      {editModal && (
+        <EditRepModal
+          trainee={editModal.trainee}
+          draft={editModal.draft}
+          setDraft={(d) => setEditModal({ ...editModal, draft: d })}
+          regionNames={regionNames}
+          sending={savingId === editModal.trainee.id}
+          onCancel={() => setEditModal(null)}
+          onConfirm={() => saveRepEdits(editModal.trainee, editModal.draft)}
+        />
+      )}
+
       {addStaffOpen && (
         <AddStaffModal
           regionNames={regionNames}
@@ -1167,7 +1239,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onEditInfo }) {
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -1273,6 +1345,17 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
       </div>
       {active ? (
         <div className="flex flex-col items-end gap-1">
+          {onEditInfo && (
+            <button
+              type="button"
+              onClick={onEditInfo}
+              disabled={saving}
+              className="rounded-md border border-sky-300 bg-white px-3 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+              title="Edit name, phone, email, region, address — anything that came in wrong from /update-info."
+            >
+              ✏️ Edit info
+            </button>
+          )}
           {!t.managed_region && onAssignManager && (
             <button
               type="button"
@@ -1703,6 +1786,184 @@ function ResendUpdateInfoModal({ batch, setBatch, onClose }) {
 // Modal that opens when admin clicks "No longer a sales rep" on an
 // active rep. Optional reason field — typed text becomes
 // left_company_reason on the trainees row (handy for HR audit later).
+
+function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel, onConfirm }) {
+  function set(field, value) {
+    setDraft({ ...draft, [field]: value })
+  }
+  // Disable Save while there's nothing to save (empty or unchanged
+  // drafts shouldn't fire a no-op update with a flash). Compare each
+  // editable field normalized so trailing whitespace doesn't trigger
+  // a "dirty" check on its own.
+  const dirty = EDITABLE_FIELDS.some(
+    (k) => String(draft[k] ?? '').trim() !== String(trainee[k] ?? '').trim(),
+  )
+  const canSave = dirty && !sending && draft.first_name?.trim() && draft.last_name?.trim()
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-lg border border-sky-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-sky-900">
+          ✏️ Edit info — {trainee.first_name} {trainee.last_name}
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Fix anything that came in wrong on <code>/update-info</code> — name typos, wrong region,
+          new phone, address fixes. Saves straight to the trainee record.
+        </p>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="First name" required>
+            <input
+              type="text"
+              value={draft.first_name || ''}
+              onChange={(e) => set('first_name', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Last name" required>
+            <input
+              type="text"
+              value={draft.last_name || ''}
+              onChange={(e) => set('last_name', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Phone">
+            <input
+              type="tel"
+              value={draft.phone || ''}
+              onChange={(e) => set('phone', e.target.value)}
+              disabled={sending}
+              placeholder="813-555-0100"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Region">
+            <select
+              value={draft.region || ''}
+              onChange={(e) => set('region', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">— No region —</option>
+              {regionNames.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Personal email">
+            <input
+              type="email"
+              value={draft.email || ''}
+              onChange={(e) => set('email', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Company email">
+            <input
+              type="email"
+              value={draft.company_email || ''}
+              onChange={(e) => set('company_email', e.target.value)}
+              disabled={sending}
+              placeholder="rep@shingleusa.com"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Company number">
+            <input
+              type="text"
+              value={draft.company_number || ''}
+              onChange={(e) => set('company_number', e.target.value)}
+              disabled={sending}
+              placeholder="e.g. 105"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Street address" span2>
+            <input
+              type="text"
+              value={draft.street_address || ''}
+              onChange={(e) => set('street_address', e.target.value)}
+              disabled={sending}
+              placeholder="123 Main St"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="City">
+            <input
+              type="text"
+              value={draft.city || ''}
+              onChange={(e) => set('city', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="State">
+              <input
+                type="text"
+                value={draft.state || ''}
+                onChange={(e) => set('state', e.target.value)}
+                disabled={sending}
+                placeholder="FL"
+                maxLength={2}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase"
+              />
+            </Field>
+            <Field label="Zip">
+              <input
+                type="text"
+                value={draft.zip || ''}
+                onChange={(e) => set('zip', e.target.value)}
+                disabled={sending}
+                placeholder="33602"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={sending}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={!canSave}
+            className="rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+          >
+            {sending ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tiny label-wrapping helper so the EditRepModal grid stays readable
+// without a 'label > span > input' tree on every field. span2 makes the
+// field stretch full-width inside the 2-column parent grid.
+function Field({ label, required, span2, children }) {
+  return (
+    <label className={`block ${span2 ? 'sm:col-span-2' : ''}`}>
+      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+        {required && <span className="ml-1 text-red-600">*</span>}
+      </span>
+      <div className="mt-1">{children}</div>
+    </label>
+  )
+}
 
 function AssignManagerModal({ trainee, region, setRegion, regionNames, sending, onCancel, onConfirm }) {
   // Region picker defaults to the rep's own region — most common case
