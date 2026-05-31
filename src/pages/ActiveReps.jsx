@@ -390,6 +390,78 @@ export default function ActiveReps() {
   const dropoutsFiltered = filterList(dropouts)
   const nonFieldFiltered = filterList(nonField)
 
+  // CSV download for the active field reps section.
+  //
+  // Respects the currently-applied filters (region / rep level / search /
+  // never-updated chip) so admin can e.g. filter to Miami and export only
+  // that crew. Columns are picked for "what would I actually paste into
+  // payroll / a partner spreadsheet" — name + contact + region + level +
+  // a couple of operational dates.
+  //
+  // RFC 4180 CSV escaping: any cell with a comma, quote, CR, or LF gets
+  // wrapped in double quotes and internal quotes get doubled.
+  function downloadActiveRepsCsv() {
+    const headers = [
+      'First Name',
+      'Last Name',
+      'Phone',
+      'Personal Email',
+      'Company Email',
+      'Company Number',
+      'Region',
+      'Rep Level',
+      'Active Since',
+      'Info Last Updated',
+    ]
+    const rows = activeFiltered.map((t) => [
+      t.first_name || '',
+      t.last_name || '',
+      t.phone || '',
+      t.email || '',
+      t.company_email || '',
+      t.company_number || '',
+      t.region || '',
+      // Same label rule as the on-page badges: unconfirmed counts as
+      // "needs assignment" even if a tentative level was auto-set.
+      !t.rep_level || !t.rep_level_confirmed_at
+        ? 'Needs assignment'
+        : LEVEL_LABEL[t.rep_level] || t.rep_level,
+      t.became_active_rep_at
+        ? new Date(t.became_active_rep_at).toISOString().slice(0, 10)
+        : '',
+      t.info_updated_at
+        ? new Date(t.info_updated_at).toISOString().slice(0, 10)
+        : '',
+    ])
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((v) => {
+            const s = String(v ?? '')
+            return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+          })
+          .join(','),
+      )
+      .join('\r\n')
+
+    // BOM so Excel reads UTF-8 (accented names) correctly on Windows.
+    const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const today = new Date().toISOString().slice(0, 10)
+    // Hint the filter in the filename so a region-filtered export
+    // doesn't get mistaken for the full roster later.
+    const suffix = regionFilter
+      ? `-${regionFilter === '__none' ? 'no-region' : regionFilter.toLowerCase().replace(/\s+/g, '-')}`
+      : ''
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `active-sales-reps${suffix}-${today}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
   // "Re-send update-info request" button.
@@ -659,6 +731,15 @@ export default function ActiveReps() {
             title="Add a non-trainee staff or management person — they appear in the team directory but skip the training workflow."
           >
             + Add staff / management
+          </button>
+          <button
+            type="button"
+            onClick={downloadActiveRepsCsv}
+            disabled={activeFiltered.length === 0}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Download the currently-filtered active field reps as a CSV (name, contact, region, rep level)."
+          >
+            ⬇ Download CSV ({activeFiltered.length})
           </button>
         </div>
         <div className="text-sm text-slate-600">
