@@ -56,3 +56,41 @@ export const ZONE_SPLIT_NOTE =
 export function isZoneName(name) {
   return !!name && Object.prototype.hasOwnProperty.call(ZONE_COUNTIES, name)
 }
+
+// Strip the "**" split-marker from a county name so it matches the
+// raw value stored on the trainee record.
+function stripSplit(c) {
+  return String(c || '').replace(/\s*\*\*\s*$/, '').trim()
+}
+
+// All known FL counties referenced by any Zone — deduplicated and
+// alphabetized. Brevard and Orange appear once each even though they
+// live in both Zone 1 and Zone 2 (the split is on Rt 50, not by county
+// name). Used as the dropdown options for the home_county field.
+export const KNOWN_COUNTIES = Array.from(
+  new Set(
+    Object.values(ZONE_COUNTIES).flatMap((z) => z.counties.map(stripSplit)),
+  ),
+).sort((a, b) => a.localeCompare(b))
+
+// Given a county, return the matching zone(s).
+//   { zones: ['Zone 1'],           split: false }  for normal counties
+//   { zones: ['Zone 1', 'Zone 2'], split: true  }  for Brevard / Orange
+//   null                                            for unknown / blank
+//
+// Case-insensitive, ignores trailing whitespace + the optional "**".
+export function zoneForCounty(county) {
+  const target = stripSplit(county).toLowerCase()
+  if (!target) return null
+  const zones = []
+  for (const [zone, def] of Object.entries(ZONE_COUNTIES)) {
+    for (const c of def.counties) {
+      if (stripSplit(c).toLowerCase() === target) {
+        zones.push(zone)
+        break
+      }
+    }
+  }
+  if (zones.length === 0) return null
+  return { zones, split: zones.length > 1 }
+}

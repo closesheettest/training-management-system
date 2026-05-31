@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
-import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName } from '../lib/zones.js'
+import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName, KNOWN_COUNTIES, zoneForCounty } from '../lib/zones.js'
 import {
   AddStaffModal,
   DirectoryVisibilityModal,
@@ -30,6 +30,7 @@ const EDITABLE_FIELDS = [
   'company_email',
   'company_number',
   'region',
+  'home_county',
   'street_address',
   'city',
   'state',
@@ -110,7 +111,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, home_county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -591,6 +592,7 @@ export default function ActiveReps() {
       'Company Email',
       'Company Number',
       'Region',
+      'Home County',
       'Rep Level',
       'Street Address',
       'City',
@@ -619,6 +621,7 @@ export default function ActiveReps() {
         t.company_email || '',
         t.company_number || '',
         t.region || '',
+        t.home_county || '',
         // Same label rule as the on-page badges: unconfirmed counts as
         // "needs assignment" even if a tentative level was auto-set.
         !t.rep_level || !t.rep_level_confirmed_at
@@ -1882,6 +1885,45 @@ function ResendUpdateInfoModal({ batch, setBatch, onClose }) {
 // active rep. Optional reason field — typed text becomes
 // left_company_reason on the trainees row (handy for HR audit later).
 
+// Renders a small badge below the home-county dropdown that says
+// "Suggested zone: Zone 1" (or both Zone 1 + Zone 2 for split counties)
+// with a one-click "Use" button when the rep's region field doesn't
+// already match the suggestion. Returns null when the county is blank
+// or unknown — no noisy "no suggestion" box.
+function CountyZoneSuggestion({ county, currentRegion, onPickZone }) {
+  const suggestion = zoneForCounty(county)
+  if (!suggestion) return null
+  const { zones, split } = suggestion
+  const matches = zones.includes(currentRegion)
+  return (
+    <div className="mt-2 rounded-md border border-sky-200 bg-sky-50/70 px-2 py-1.5 text-[11px] leading-snug text-sky-900">
+      <div className="font-semibold">
+        Suggested zone: {zones.join(' or ')}
+        {matches && <span className="ml-1 text-emerald-700">✓ matches region</span>}
+      </div>
+      {split && (
+        <div className="mt-0.5 italic text-sky-700">
+          {county} is split — Rt 50 is the dividing line. North = Zone 1, South = Zone 2.
+        </div>
+      )}
+      {!matches && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {zones.map((z) => (
+            <button
+              key={z}
+              type="button"
+              onClick={() => onPickZone(z)}
+              className="rounded-md border border-sky-400 bg-white px-2 py-0.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
+            >
+              Use {z}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel, onConfirm }) {
   function set(field, value) {
     setDraft({ ...draft, [field]: value })
@@ -1932,6 +1974,29 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
               disabled={sending}
               placeholder="813-555-0100"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Home county">
+            <select
+              value={draft.home_county || ''}
+              onChange={(e) => set('home_county', e.target.value)}
+              disabled={sending}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">— Pick a county —</option>
+              {KNOWN_COUNTIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            {/* When the county is set, suggest the matching Zone(s).
+                If the rep's region doesn't match the suggestion, a
+                one-click "Set region to Zone X" button applies it. */}
+            <CountyZoneSuggestion
+              county={draft.home_county}
+              currentRegion={draft.region}
+              onPickZone={(zone) => set('region', zone)}
             />
           </Field>
           <Field label="Region">
