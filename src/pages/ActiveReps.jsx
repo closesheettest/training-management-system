@@ -30,7 +30,7 @@ const EDITABLE_FIELDS = [
   'company_email',
   'company_number',
   'region',
-  'home_county',
+  'county',
   'street_address',
   'city',
   'state',
@@ -111,7 +111,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, home_county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -621,7 +621,7 @@ export default function ActiveReps() {
         t.company_email || '',
         t.company_number || '',
         t.region || '',
-        t.home_county || '',
+        t.county || '',
         // Same label rule as the on-page badges: unconfirmed counts as
         // "needs assignment" even if a tentative level was auto-set.
         !t.rep_level || !t.rep_level_confirmed_at
@@ -1978,8 +1978,8 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
           </Field>
           <Field label="Home county">
             <select
-              value={draft.home_county || ''}
-              onChange={(e) => set('home_county', e.target.value)}
+              value={draft.county || ''}
+              onChange={(e) => set('county', e.target.value)}
               disabled={sending}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
@@ -1994,7 +1994,7 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
                 If the rep's region doesn't match the suggestion, a
                 one-click "Set region to Zone X" button applies it. */}
             <CountyZoneSuggestion
-              county={draft.home_county}
+              county={draft.county}
               currentRegion={draft.region}
               onPickZone={(zone) => set('region', zone)}
             />
