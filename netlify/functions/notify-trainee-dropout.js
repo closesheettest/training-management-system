@@ -18,6 +18,15 @@
 //     they haven't been dropout-notified yet
 //   → they're flagged as a dropout.
 //
+// EXCEPTION: Day 1 of every class is the short noon → 4 PM day. The
+// 10:30 AM cron-window gate is too early for those trainees — they
+// haven't even arrived yet. So on a trainee's Day 1, the dropout filter
+// skips them until 12:30 PM ET (noon + 30-min grace). Day 2+ uses the
+// original 10:30 AM gate. Applies whether the class started Monday or
+// Tuesday (both have noon Day-1 schedule). Without this guard, the
+// 10:30 AM Monday cron flagged the entire roster as no-shows and
+// unenrolled them, which made the kiosk go empty mid-morning.
+//
 // On flag, we do TWO things:
 //   1. Auto-unenroll them: set enrolled=false, unenrolled_at=now,
 //      unenrolled_reason='No-show on Day N'. This drops the /progress
@@ -273,25 +282,39 @@ export const handler = async (event) => {
   const { data: trainees, error: trErr } = await query
   if (trErr) return json(500, { error: `Supabase: ${trErr.message}` })
 
-  const dropouts = (trainees || []).filter((t) => {
-    const c = t.classes
-    if (!c) return false
-    if (today < c.week_start_date || today > c.week_end_date) return false
-    const attendedToday = (t.attendance || []).some(
-      (a) => a.attendance_date === today && a.confirmed,
-    )
-    return !attendedToday
-  })
-
-  // Compute "Day N" for each dropout so the unenrolled_reason reads
-  // "No-show on Day 1" instead of just "No-show today." N = (today -
-  // week_start_date) + 1.
+  // Compute "Day N" for each trainee. N = (today - week_start_date) + 1.
+  // Hoisted above the dropout filter so we can use it to skip Day-1
+  // trainees during the noon-class grace window.
   function dayNumberFor(t) {
     const start = t.classes?.week_start_date
     if (!start) return null
     const ms = new Date(today + 'T12:00:00Z').getTime() - new Date(start + 'T12:00:00Z').getTime()
     return Math.floor(ms / 86_400_000) + 1
   }
+
+  // Day 1 of every class runs noon → 4 PM (not 8 AM like Day 2+). The
+  // function-level gate at 10:30 AM ET is correct for Day 2+ but WAY too
+  // early for Day 1 — at 10:30 AM Mon, class doesn't start for another
+  // 90 minutes, so flagging non-attendees is just flagging "people who
+  // are still on the way." This guard skips Day-1 trainees until 12:30 PM
+  // ET (noon + 30-min grace), regardless of week_start_date's day-of-week
+  // (Mon-start AND Tue-start both have noon-Day-1). The 30-min grace
+  // matches the hotel-noshow alert gate for consistency.
+  const nowEt = currentEtHour()
+  const day1GraceEndEt = 12.5 // 12:30 PM ET
+  const tooEarlyForDay1 = nowEt < day1GraceEndEt
+
+  const dropouts = (trainees || []).filter((t) => {
+    const c = t.classes
+    if (!c) return false
+    if (today < c.week_start_date || today > c.week_end_date) return false
+    const dayN = dayNumberFor(t)
+    if (dayN === 1 && tooEarlyForDay1) return false  // noon-class grace
+    const attendedToday = (t.attendance || []).some(
+      (a) => a.attendance_date === today && a.confirmed,
+    )
+    return !attendedToday
+  })
 
   if (dropouts.length === 0) {
     return json(200, {
@@ -447,6 +470,18 @@ function computeFloridaToday() {
 // period for late arrivals. Used to gate the every-30-min cron so it
 // doesn't fire too early (and false-positive anyone running late) or
 // too late (when training is over).
+// Current wall-clock hour in America/New_York as a float (14.5 = 2:30 PM).
+// Used by the Day-1 noon-class grace gate inside the dropouts filter.
+function currentEtHour() {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const et = fmt.format(new Date()).replace('24:', '00:')
+  const [h, m] = et.split(':').map(Number)
+  return h + (m || 0) / 60
+}
+
 function withinTrainingDayWindowET() {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
