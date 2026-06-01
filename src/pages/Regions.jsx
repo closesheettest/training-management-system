@@ -38,7 +38,7 @@ export default function Regions() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, region, is_active_sales_rep, street_address, city, state, zip, county, latitude, longitude')
+      .select('id, first_name, last_name, phone, region, is_active_sales_rep, rep_level, street_address, city, state, zip, county, latitude, longitude')
       .eq('is_active_sales_rep', true)
       .order('last_name', { ascending: true })
     if (error) {
@@ -1044,7 +1044,24 @@ export default function Regions() {
                   <div>
                     <div className="font-semibold text-slate-900">{r.name}</div>
                     <div className="text-xs text-slate-500">
-                      {repsInRegion.length} active rep{repsInRegion.length === 1 ? '' : 's'}
+                      {(() => {
+                        // Split total active reps in this region into field
+                        // vs non-field so the count matches what shows up
+                        // on /active-reps (which only renders field reps).
+                        // Without this split, an admin/ops person tagged
+                        // to a region inflates the count here vs there
+                        // and looks like a bug.
+                        const fieldCount = repsInRegion.filter((t) => t.rep_level !== 'non_field').length
+                        const nonFieldCount = repsInRegion.length - fieldCount
+                        return (
+                          <>
+                            <strong>{fieldCount}</strong> active field rep{fieldCount === 1 ? '' : 's'}
+                            {nonFieldCount > 0 && (
+                              <span className="text-slate-400"> · +{nonFieldCount} non-field staff</span>
+                            )}
+                          </>
+                        )
+                      })()}
                       {r.latitude && r.longitude ? (
                         <>
                           {' '}· map center{' '}
