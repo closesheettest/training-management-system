@@ -111,7 +111,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -470,6 +470,38 @@ export default function ActiveReps() {
       result: null,
       error: null,
     })
+  }
+
+  // SMS the regional manager their dashboard URL. Calls the netlify
+  // function which validates the trainee is a current manager, builds
+  // the URL from their access token, fires via GHL, and stamps
+  // manager_link_sent_at. Shows the confirmation flash on success.
+  async function sendManagerLink(trainee) {
+    if (!confirm(
+      `Send the regional manager dashboard link via SMS to ${trainee.first_name} ${trainee.last_name} (${trainee.phone || 'no phone'})?`
+    )) return
+    setSavingId(trainee.id)
+    try {
+      const res = await fetch('/.netlify/functions/send-regional-manager-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setFlash({ kind: 'error', text: data?.error || `SMS failed (${res.status}).` })
+        return
+      }
+      setFlash({
+        kind: 'success',
+        text: `Link sent to ${data.sent_to} ending in ${data.phone_last4 || '????'}.`,
+      })
+      await load()
+    } catch (e) {
+      setFlash({ kind: 'error', text: e?.message || 'Network error.' })
+    } finally {
+      setSavingId(null)
+    }
   }
 
   // Copy the public manager dashboard URL to clipboard. The hostname
@@ -1091,6 +1123,7 @@ export default function ActiveReps() {
                   onAssignManager={() => setManagerModal({ trainee: t, region: '' })}
                   onRevokeManager={() => revokeManager(t)}
                   onCopyManagerLink={() => copyManagerLink(t)}
+                  onSendManagerLink={() => sendManagerLink(t)}
                   onAnnounceToZone={() => openAnnounceModal(t)}
                   onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
                   onMoveManagerAssignment={(newRegion) => moveManagerAssignment(t, newRegion)}
@@ -1445,7 +1478,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones }) {
   // A manager whose managed_region is a legacy city region
   // (Jacksonville / Miami / etc.) when the rep themselves now lives in
   // a Zone is in a stale state — Edit Info changed t.region but not
@@ -1577,6 +1610,26 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               >
                 📋 Copy access link
               </button>
+            )}
+            {onSendManagerLink && (
+              <button
+                type="button"
+                onClick={onSendManagerLink}
+                disabled={saving || !t.phone}
+                className="rounded-md border border-purple-300 bg-white px-2 py-0.5 font-semibold text-purple-800 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50"
+                title={
+                  t.phone
+                    ? `SMS the dashboard link to ${t.phone}. Stamps manager_link_sent_at so you can see when it was last sent.`
+                    : 'No phone on file — set one via Edit info first.'
+                }
+              >
+                {t.manager_link_sent_at ? '📲 Re-send link' : '📲 Send access link'}
+              </button>
+            )}
+            {t.manager_link_sent_at && (
+              <span className="text-[10px] text-purple-700">
+                · sent {formatRelativeDate(t.manager_link_sent_at)}
+              </span>
             )}
             {onAnnounceToZone && (
               <button
