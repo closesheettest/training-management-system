@@ -147,12 +147,14 @@ export default function RepMap() {
   })
   // Region filter on top of status — same pattern as ActiveReps.
   const [regionFilter, setRegionFilter] = useState('')
-  // Pin color scheme: 'status' (the historical default — green/blue/
-  // gray/amber by where they are in the lifecycle) or 'zone' (Z1 blue,
-  // Z2 purple, Z3 teal, Z4 rose, none gray). Toggling doesn't filter
-  // anything; just swaps the icon palette so admin can see the same set
-  // of pins under either lens.
-  const [colorBy, setColorBy] = useState('status')
+  // Pin color scheme: 'zone' (default — Z1 blue, Z2 purple, Z3 teal,
+  // Z4 rose, none gray) or 'status' (historical default — green/blue/
+  // gray/amber by where they are in the lifecycle). Default is Zone
+  // because that's the dominant question at a glance ("which zone is
+  // this rep in?") now that the territory model is locked to zones.
+  // Status is still on the toggle for when admin wants to find e.g.
+  // every pipeline trainee at once across all zones.
+  const [colorBy, setColorBy] = useState('zone')
   // Bulk backfill state for "🔄 Geocode N unmapped reps". The client
   // loops through reps with addresses but no lat/lng, calling the
   // geocode function once per rep with a 1.1s gap (Nominatim's free
