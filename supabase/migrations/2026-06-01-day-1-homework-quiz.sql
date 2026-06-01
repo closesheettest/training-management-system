@@ -1,10 +1,12 @@
 -- Day 1 homework + Day 2 morning quiz content.
 --
 -- The cron-training-homework function fires at 4:30 PM ET on Day 1 and
--- texts every Day 1 attendee a link to /day-1-homework/ with these two
--- scripts to memorize:
+-- texts every Day 1 attendee a link to /day-1-homework/ with:
 --   • Free Roof Inspection Script (the new harvesting / opening pitch)
 --   • Retail Roof Go-Back Script (the wear-&-tear second-yes pitch)
+--   • The 3 outcomes that bridge them
+--   • A download button for the full 118-slide training manual PDF
+--     (same pattern as last week — pitch + full manual together)
 --
 -- Tomorrow morning (Day 2 sign-in), send-training-quiz fires a 5-question
 -- SMS quiz on the Day 1 content. Quiz testing pattern: each question
@@ -24,7 +26,7 @@ set
     E'Tonight: memorize the two scripts —\n' ||
     E'• Free Roof Inspection pitch\n' ||
     E'• Retail Roof Go-Back pitch\n\n' ||
-    E'Open the link to read them and save a PDF. Tomorrow morning at the kiosk you''ll get a quick quiz on this.',
+    E'The link below has both scripts AND the full 118-slide training manual. Save the PDF for offline study. Tomorrow morning at the kiosk you''ll get a quick quiz on this.',
   homework_link_url = '/day-1-homework/',
   enabled = true,
   updated_at = now()
