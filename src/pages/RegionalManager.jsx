@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
 // link in a text and land here. From here they can:
-//   1. See the active field reps in their region (with contact info).
-//   2. Mark someone as departed (fired / quit) — that flips
+//   1. See the active field reps in their region (with contact info
+//      AND home address so the manager knows where they live).
+//   2. See a Leaflet map of their team — pins for each geocoded rep,
+//      hover for name + address.
+//   3. Mark someone as departed (fired / quit) — that flips
 //      is_active_sales_rep off and stamps left_company_at so the
 //      regular admin cleanup workflow can take it from there.
-//   3. Blast their region with SMS, email, or both.
+//   4. Blast their region with SMS, email, or both.
 //
-// All three actions go through /.netlify/functions/regional-manager-api
+// All actions go through /.netlify/functions/regional-manager-api
 // which gates every request by the token in the URL. The manager can't
 // reach reps outside their own region — that's enforced server-side.
 //
@@ -21,6 +27,44 @@ const LEVEL_LABEL = {
   junior: 'Junior',
   senior: 'Senior',
   non_field: 'Non-field',
+}
+
+// Centroids for each Zone — used to drop a sensible map center if all
+// reps in the zone are missing lat/lng (rare but worth handling). Same
+// values seeded by the 2026-05-31-zones.sql migration so admin doesn't
+// see a Florida-wide pan when the zone has zero geocoded reps yet.
+const ZONE_CENTERS = {
+  'Zone 1': [29.6516, -82.3248],
+  'Zone 2': [28.0395, -81.9498],
+  'Zone 3': [27.3364, -82.5307],
+  'Zone 4': [26.1224, -80.1373],
+}
+
+// Build a small leaflet pin colored to match the rep-map's "active"
+// status. SVG via divIcon so we don't have to ship raster assets.
+const REP_PIN = L.divIcon({
+  html: `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="32">
+      <path d="M16 0C8.27 0 2 6.27 2 14c0 9.5 14 18 14 18s14-8.5 14-18c0-7.73-6.27-14-14-14z" fill="#10b981" stroke="white" stroke-width="2"/>
+      <circle cx="16" cy="13" r="5" fill="white"/>
+    </svg>
+  `.trim(),
+  className: '',
+  iconSize: [24, 32],
+  iconAnchor: [12, 32],
+  popupAnchor: [0, -28],
+})
+
+// Single-line address joiner — skips empty parts so a partial address
+// (just street, no zip) doesn't render with awkward "—, —, —" gaps.
+function fmtAddress(t) {
+  return [
+    t.street_address,
+    t.city,
+    [t.state, t.zip].filter(Boolean).join(' '),
+  ]
+    .filter((s) => s && String(s).trim())
+    .join(', ')
 }
 
 export default function RegionalManager() {
@@ -79,6 +123,8 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      <ZoneMap reps={reps} zoneName={manager.region} />
+
       <BlastTool token={token} region={manager.region} repCount={reps.length} />
 
       <RepsTable token={token} reps={reps} onChanged={reload} />
@@ -107,6 +153,76 @@ function ShellFrame({ children }) {
 // One row per active rep in the manager's region. Each row has a
 // "Mark as departed" button that opens a small inline confirm with an
 // optional reason field.
+
+// ── Zone Map ───────────────────────────────────────────────────────
+// Embedded Leaflet map showing every rep in the zone with a pin at
+// their geocoded home address. Hover/tap shows name + address. Reps
+// without lat/lng (haven't run /update-info or geocoding failed) are
+// skipped from the map but still appear in the rep table below.
+function ZoneMap({ reps, zoneName }) {
+  const pinned = reps.filter(
+    (r) => typeof r.latitude === 'number' && typeof r.longitude === 'number',
+  )
+  // Compute a sensible center: bounding box of pinned reps when there
+  // are any, otherwise the zone centroid as a soft default.
+  let center = ZONE_CENTERS[zoneName] || [27.9944, -81.7603]
+  let zoom = 9
+  if (pinned.length > 0) {
+    const lats = pinned.map((r) => r.latitude)
+    const lngs = pinned.map((r) => r.longitude)
+    center = [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lngs) + Math.max(...lngs)) / 2]
+    // Tighter zoom when reps cluster, wider when spread. Heuristic
+    // based on the bbox diagonal.
+    const span = Math.max(
+      Math.max(...lats) - Math.min(...lats),
+      Math.max(...lngs) - Math.min(...lngs),
+    )
+    zoom = span > 2 ? 7 : span > 1 ? 8 : span > 0.4 ? 9 : 10
+  }
+
+  return (
+    <section className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5">
+      <h2 className="text-lg font-semibold text-amber-200">
+        Map · {zoneName}
+      </h2>
+      <p className="mt-1 text-xs text-slate-200/70">
+        {pinned.length} of {reps.length} rep{reps.length === 1 ? '' : 's'} pinned by home address.
+        {pinned.length < reps.length && (
+          <span className="ml-1 text-amber-200/80">
+            The {reps.length - pinned.length} not shown haven't filled in / update-info yet.
+          </span>
+        )}
+      </p>
+      <div className="mt-3 overflow-hidden rounded-md border border-white/10" style={{ height: 420 }}>
+        <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <TileLayer
+            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {pinned.map((r) => (
+            <Marker key={r.id} position={[r.latitude, r.longitude]} icon={REP_PIN}>
+              <Popup closeButton={false} autoPan={false}>
+                <div style={{ fontSize: 13, lineHeight: 1.4 }}>
+                  <div style={{ fontWeight: 700 }}>
+                    {r.first_name} {r.last_name}
+                  </div>
+                  <div style={{ color: '#475569', fontSize: 12 }}>
+                    {r.phone || '—'}
+                  </div>
+                  {fmtAddress(r) && (
+                    <div style={{ color: '#475569', fontSize: 12, marginTop: 4 }}>
+                      {fmtAddress(r)}
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+    </section>
+  )
+}
 
 function RepsTable({ token, reps, onChanged }) {
   const [confirming, setConfirming] = useState(null) // {rep, reason}
@@ -190,6 +306,15 @@ function RepsTable({ token, reps, onChanged }) {
                       )}
                     </div>
                     <div className="mt-0.5 text-xs text-amber-200/80">{level}</div>
+                    {/* Home address — single-line, only renders if any
+                        component is set. Blank rows skip the line entirely
+                        rather than show "—" placeholders, which looks
+                        broken on a public dashboard. */}
+                    {fmtAddress(r) && (
+                      <div className="mt-0.5 text-xs text-slate-200/70">
+                        🏠 {fmtAddress(r)}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

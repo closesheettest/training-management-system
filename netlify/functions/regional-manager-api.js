@@ -85,7 +85,7 @@ export const handler = async (event) => {
     const { data: reps, error: repsErr } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at',
+        'id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, street_address, city, state, zip, latitude, longitude, geocoded_at',
       )
       .eq('is_active_sales_rep', true)
       .neq('rep_level', 'non_field')
