@@ -99,6 +99,19 @@ export const HOSTED_PAGES = [
     category: 'Internal docs',
   },
   {
+    slug: 'day-1-homework',
+    title: 'Day 1 homework — Memorize the two scripts',
+    url: '/day-1-homework/',
+    description:
+      'Tonight\'s directive: memorize the Free Roof Inspection script (opening pitch ' +
+      'at the door) and the Retail Roof Go-Back script (the wear-&-tear second-yes pitch), ' +
+      'plus the 3 outcomes that bridge them. Verbatim from Day 1 slides 30, 31, 31c-31e. ' +
+      'Includes Save-as-PDF for offline study. SMS\'d at 4:30 PM after Day 1 ends; ' +
+      'quiz on this content fires Day 2 morning at kiosk sign-in.',
+    created: '2026-06-01',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'day-2-homework',
     title: 'Day 2 homework — Memorize slides 6-16',
     url: '/day-2-homework/',

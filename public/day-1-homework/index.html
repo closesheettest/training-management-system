@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 1 Homework — Memorize the Two Scripts</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: var(--slate-50);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .stripe { height: 4px; background: var(--red); }
+  .page { max-width: 720px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header.title { margin-bottom: 18px; }
+  header.title .eyebrow {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  header.title h1 {
+    color: var(--navy);
+    margin: 6px 0 6px;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  header.title p {
+    color: var(--slate-500);
+    margin: 0;
+    font-size: 15px;
+  }
+
+  .directive {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 18px 0 24px;
+  }
+  .directive .label {
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .directive p { margin: 4px 0 0; font-size: 16px; }
+  .directive strong { color: var(--gold); }
+
+  h2 {
+    color: var(--navy);
+    margin: 32px 0 8px;
+    font-size: 21px;
+    line-height: 1.2;
+  }
+  h2.with-underline {
+    color: #fff;
+    background: var(--navy);
+    padding: 10px 14px;
+    border-radius: 10px;
+    display: inline-block;
+    border-bottom: 3px solid var(--red);
+  }
+
+  .section-sub {
+    color: var(--slate-500);
+    font-size: 14px;
+    margin: 4px 0 14px;
+  }
+
+  /* Script body — yellow-highlighted verbatim text */
+  .script {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-left: 6px solid var(--red);
+  }
+  .script p {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    background: #fef9e7;
+    border-left: 3px solid var(--gold);
+    border-radius: 6px;
+    color: var(--navy-dark);
+    font-size: 15.5px;
+    line-height: 1.55;
+  }
+  .script p:last-child { margin-bottom: 0; }
+  .script p em {
+    color: var(--slate-500);
+    font-style: italic;
+    font-size: 14px;
+  }
+  .script .stage-note {
+    color: var(--slate-500);
+    font-style: italic;
+    font-size: 13.5px;
+    background: #f1f5f9;
+    border-left: 3px solid var(--slate-300);
+  }
+  .script .pivot {
+    background: #ecfdf5;
+    border-left: 3px solid #10b981;
+    color: #064e3b;
+    font-weight: 600;
+  }
+
+  .three-outcomes {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-left: 6px solid var(--gold);
+  }
+  .three-outcomes h3 {
+    color: var(--navy);
+    margin: 0 0 10px;
+    font-size: 17px;
+  }
+  .three-outcomes ol {
+    margin: 0;
+    padding-left: 22px;
+  }
+  .three-outcomes li {
+    margin-bottom: 8px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .three-outcomes strong { color: var(--navy-dark); }
+
+  .pdf-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(248, 250, 252, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 12px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--slate-200);
+  }
+  .btn {
+    display: inline-block;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn-primary:active { background: var(--navy-dark); }
+
+  .callout {
+    margin-top: 30px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 14.5px;
+  }
+  .callout strong { color: #7c2d12; }
+
+  footer.foot {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-500);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  /* ─── Print stylesheet — used when trainee taps "Save as PDF" ───
+       Hides interactive bits, keeps it black-on-white and compact so
+       it fits cleanly on 2-3 pages. iOS/Android share menus all
+       expose "Print" → "Save as PDF" from the browser's native menu. */
+  @media print {
+    .pdf-bar, .stripe, .callout { display: none !important; }
+    body { background: #fff; color: #000; font-size: 12pt; }
+    .page { max-width: none; padding: 0; }
+    .script, .three-outcomes {
+      box-shadow: none;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      border: 1px solid #444;
+    }
+    .script p { background: #fff; border-left-color: #444; color: #000; }
+    .script .stage-note { background: #f5f5f5; }
+    .script .pivot { background: #fff; border-left-color: #000; color: #000; }
+    .directive { background: #fff; color: #000; border: 2px solid #000; }
+    .directive .label, .directive strong { color: #000; }
+    h2.with-underline { color: #000; background: #fff; border-bottom: 2px solid #000; }
+    header.title h1, h2, h3 { color: #000 !important; }
+    footer.foot { color: #555; }
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<main class="page">
+
+  <div class="pdf-bar">
+    <button type="button" class="btn btn-primary" onclick="window.print()">
+      📄 Save as PDF / Print
+    </button>
+    <span style="font-size: 12px; color: var(--slate-500); margin-left: 10px;">
+      On phone: tap the share menu → Print → Save as PDF
+    </span>
+  </div>
+
+  <header class="title">
+    <div class="eyebrow">Day 1 Homework</div>
+    <h1>Memorize the Two Scripts</h1>
+    <p>Free Roof Inspection pitch + Retail Go-Back pitch. Tomorrow morning's quiz is built on this.</p>
+  </header>
+
+  <div class="directive">
+    <div class="label">Tonight's job</div>
+    <p><strong>Memorize both scripts verbatim.</strong> These are the exact words — don't paraphrase. Practice out loud at least 3 times tonight.</p>
+  </div>
+
+  <!-- ─────────────────────── Free Roof Inspection ─────────────────────── -->
+  <h2 class="with-underline">1. Free Roof Inspection Script</h2>
+  <p class="section-sub">The opening pitch at the door. Earns the inspection appointment.</p>
+
+  <div class="script">
+    <p>"Hi, my name is <strong>__________</strong>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
+    <p>We sent this to you because according to county records you are at <strong>high risk of the insurance company dropping you</strong> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
+    <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
+    <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <strong>no-cost roof inspection</strong>. If there's no damage, we'll provide you an <strong>official inspection certificate that says you have 5+ years of life left in your roof</strong>. This will make them leave you alone."</p>
+  </div>
+
+  <!-- The 3 outcomes — sits between the two scripts because it bridges them -->
+  <div class="three-outcomes">
+    <h3>The 3 things that can happen (memorize these too)</h3>
+    <ol>
+      <li><strong>No damage</strong> — you're now protected against the letter.</li>
+      <li><strong>Wear &amp; tear</strong> — we can't give you the certificate but we have many options.</li>
+      <li><strong>Storm damage</strong> — a public adjuster will fight to get your insurance to pay for it, <strong>at no out-of-pocket cost to you</strong>.</li>
+    </ol>
+  </div>
+
+  <!-- ─────────────────────── Retail Go-Back ─────────────────────── -->
+  <h2 class="with-underline">2. Retail Roof Go-Back Script</h2>
+  <p class="section-sub">Used when wear &amp; tear is found — the second-yes pitch. Three parts: setup → walk the report → close.</p>
+
+  <h3 style="color: var(--navy); margin: 18px 0 8px; font-size: 17px;">Part 1 — Setup</h3>
+  <div class="script">
+    <p>"Hi <strong>__________</strong>, I have your report here for you. Before we go over it — a couple quick questions.</p>
+    <p>You don't have any plans of moving in the next year or two, <strong>right</strong>?</p>
+    <p>And when you do business with anyone, the company's <strong>ethics and standing</strong> is important to you, <strong>right</strong>?</p>
+    <p>Great — I was hoping you'd answer that way. I'd <strong>love</strong> to be able to give you a report that says your roof has 5 more years of life left in it. But if I did, that would be unethical — and we just don't operate that way. You understand, right?</p>
+    <p>Here, let me show you what you have going on up there…"</p>
+  </div>
+
+  <h3 style="color: var(--navy); margin: 18px 0 8px; font-size: 17px;">Part 2 — Walk the report, then pivot</h3>
+  <div class="script">
+    <p class="stage-note"><em>(Go over the report.)</em></p>
+    <p>"As poor a shape as your roof is, this isn't a scare tactic. I'm not saying you absolutely must replace your roof right now, or terrible things are going to happen. Although — <em>the leak you don't see is actually the worst kind.</em></p>
+    <p>Since we know you're not moving anytime soon, you'd agree at some point soon, this is something you're going to have to <strong>address</strong>, right?</p>
+    <p>Here are the two main reasons to consider doing it <strong>now</strong> and not waiting —</p>
+    <p><strong>1.</strong> Today is the cheapest you'll ever pay for a new roof. Storm season is coming — that only adds to the cost. Since January, we've already had <strong>two price increases</strong> from our suppliers. Waiting a year could literally cost you <strong>thousands more</strong>.</p>
+    <p><strong>2.</strong> Insurance. Once you replace your roof, you can shop your insurance and realize some pretty big savings — <strong>up to 30% or more</strong>. Thousands of dollars in savings."</p>
+  </div>
+
+  <h3 style="color: var(--navy); margin: 18px 0 8px; font-size: 17px;">Part 3 — Close + appointment ask</h3>
+  <div class="script">
+    <p>"Of course, you are <strong>free to accept or refuse</strong> the advice. I just wanted you to know and understand the options and what's in front of you.</p>
+    <p><strong>Replace it now, save a lot of money. Replace it later, lose a lot of money.</strong> Really kind of that simple."</p>
+    <p class="pivot">If both decision-makers are home → do the pitch. If only one is home → schedule the second appointment.</p>
+    <p>"Okay, so I don't have time right now to go over the options — let me set a time to come back tomorrow, as I'm still going to need to look in the <strong>attic</strong> as well. Is the <strong>afternoon</strong> or <strong>evening</strong> better for you, when you'll both be home?"</p>
+  </div>
+
+  <div class="callout">
+    <strong>Tomorrow morning at the kiosk:</strong> when you sign in, you'll get a quick quiz on these two scripts. Be ready to recite them from memory — the wording matters because every line is doing a job.
+  </div>
+
+  <footer class="foot">
+    U.S. Shingle &amp; Metal — Day 1 Homework · Free Roof Inspection + Retail Go-Back scripts
+  </footer>
+</main>
+</body>
+</html>
