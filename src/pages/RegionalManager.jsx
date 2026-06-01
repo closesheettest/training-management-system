@@ -123,7 +123,7 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      <ZoneMap reps={reps} zoneName={manager.region} />
+      <ZoneMap reps={reps} zoneName={manager.region} token={token} />
 
       <BlastTool token={token} region={manager.region} repCount={reps.length} />
 
@@ -159,7 +159,7 @@ function ShellFrame({ children }) {
 // their geocoded home address. Hover/tap shows name + address. Reps
 // without lat/lng (haven't run /update-info or geocoding failed) are
 // skipped from the map but still appear in the rep table below.
-function ZoneMap({ reps, zoneName }) {
+function ZoneMap({ reps, zoneName, token }) {
   const pinned = reps.filter(
     (r) => typeof r.latitude === 'number' && typeof r.longitude === 'number',
   )
@@ -214,6 +214,23 @@ function ZoneMap({ reps, zoneName }) {
                       {fmtAddress(r)}
                     </div>
                   )}
+                  <a
+                    href={vcardUrlFor(token, r.id)}
+                    download
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 8,
+                      padding: '4px 10px',
+                      background: '#13294b',
+                      color: '#fff',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    💾 Save to phone
+                  </a>
                 </div>
               </Popup>
             </Marker>
@@ -222,6 +239,13 @@ function ZoneMap({ reps, zoneName }) {
       </div>
     </section>
   )
+}
+
+// Returns the URL for a single rep's vCard, scoped to the manager's
+// token so the server can validate before serving. Used by the
+// "Save to phone" button on each rep row.
+function vcardUrlFor(token, repId) {
+  return `/.netlify/functions/regional-manager-rep-vcard?token=${encodeURIComponent(token)}&trainee_id=${encodeURIComponent(repId)}`
 }
 
 function RepsTable({ token, reps, onChanged }) {
@@ -316,13 +340,23 @@ function RepsTable({ token, reps, onChanged }) {
                       </div>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setConfirming({ rep: r, reason: '' })}
-                    className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
-                  >
-                    Mark as departed
-                  </button>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <a
+                      href={vcardUrlFor(token, r.id)}
+                      download
+                      className="rounded-md border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100 hover:bg-amber-500/20"
+                      title="Download this rep's contact card to your phone."
+                    >
+                      💾 Save to phone
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming({ rep: r, reason: '' })}
+                      className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
+                    >
+                      Mark as departed
+                    </button>
+                  </div>
                 </div>
               </li>
             )
