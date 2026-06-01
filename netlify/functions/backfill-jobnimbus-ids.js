@@ -96,12 +96,22 @@ export const handler = async (event) => {
     return json(500, { ok: false, error: `TMS fetch: ${tmsErr.message}` })
   }
 
-  // Build a lookup keyed by normalized name. Normalization: lowercase,
-  // collapse whitespace, strip punctuation. So "Anthony Alongi" and
-  // "anthony  alongi" and "Anthony Alongi." all collide.
+  // Build a lookup keyed by normalized name. Normalization steps:
+  //   1. lowercase
+  //   2. STRIP NICKNAMES — anything inside quotes or parens. So
+  //      `James "Jimmy" Bates`, `James (Jimmy) Bates`, `James 'Jimmy' Bates`
+  //      all normalize to "james bates" and collide with the CCG-side
+  //      "James Bates" entry.
+  //   3. strip remaining punctuation (apostrophes, periods, hyphens)
+  //   4. collapse whitespace
+  // Order matters: do the quote/paren strip BEFORE the broader
+  // punctuation strip, otherwise "Jimmy" leaves "jimmy" behind.
   const normalize = (s) =>
     String(s || '')
       .toLowerCase()
+      .replace(/["“”]([^"“”]*)["“”]/g, '')
+      .replace(/'([^']*)'/g, '')
+      .replace(/\(([^)]*)\)/g, '')
       .replace(/[^\p{L}\p{N}\s]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim()
