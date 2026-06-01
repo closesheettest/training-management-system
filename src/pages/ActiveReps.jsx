@@ -406,6 +406,34 @@ export default function ActiveReps() {
     await load()
   }
 
+  // Move an existing manager assignment from one region (typically a
+  // legacy city region like Jacksonville) to a new Zone. Keeps the
+  // access token intact so any link the manager already has in their
+  // phone keeps working — we're just changing what zone they cover.
+  //
+  // Used when admin reassigned a rep to a Zone via Edit Info but the
+  // rep was already a manager of the old legacy region: the editor
+  // doesn't touch managed_region on purpose (separate concept), so
+  // the manager assignment stays stale until admin moves it explicitly.
+  async function moveManagerAssignment(trainee, newRegion) {
+    if (!newRegion) return
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ managed_region: newRegion })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: `${trainee.first_name} ${trainee.last_name} now manages ${newRegion}. Their existing access link still works.`,
+    })
+    await load()
+  }
+
   // Revoke regional manager status — clears managed_region AND rotates
   // the access token (so any link already in their phone stops working).
   async function revokeManager(trainee) {
@@ -1043,7 +1071,9 @@ export default function ActiveReps() {
                   onCopyManagerLink={() => copyManagerLink(t)}
                   onAnnounceToZone={() => openAnnounceModal(t)}
                   onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
+                  onMoveManagerAssignment={(newRegion) => moveManagerAssignment(t, newRegion)}
                   allZonesAssigned={allZonesAssigned}
+                  availableZones={availableZones}
                 />
               )
               return (
@@ -1392,7 +1422,16 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onAnnounceToZone, onEditInfo, allZonesAssigned }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones }) {
+  // A manager whose managed_region is a legacy city region
+  // (Jacksonville / Miami / etc.) when the rep themselves now lives in
+  // a Zone is in a stale state — Edit Info changed t.region but not
+  // t.managed_region. Detect this case so we can flag the badge amber
+  // and offer a one-click "Move to Zone X" button.
+  const managerIsStale =
+    !!t.managed_region && !isZoneName(t.managed_region) && isZoneName(t.region)
+  const canMoveToCurrentZone =
+    managerIsStale && Array.isArray(availableZones) && availableZones.includes(t.region)
   const classLabel = t.classes
     ? `${t.classes.region}${t.classes.attendance_only ? ' meeting' : ''} · ${t.classes.week_start_date || ''}`
     : '—'
@@ -1468,9 +1507,31 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
         )}
         {active && t.managed_region && (
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-purple-900">
-              👑 Regional manager · {t.managed_region}
+            <span
+              className={`rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide ${
+                managerIsStale
+                  ? 'bg-amber-100 text-amber-900'
+                  : 'bg-purple-100 text-purple-900'
+              }`}
+              title={
+                managerIsStale
+                  ? `Manager assignment is on a legacy region (${t.managed_region}) but the rep now lives in ${t.region}. Use "Move to ${t.region}" or "Revoke" to fix.`
+                  : undefined
+              }
+            >
+              👑 {managerIsStale ? '⚠ Legacy assignment · ' : 'Regional manager · '}{t.managed_region}
             </span>
+            {canMoveToCurrentZone && onMoveManagerAssignment && (
+              <button
+                type="button"
+                onClick={() => onMoveManagerAssignment(t.region)}
+                disabled={saving}
+                className="rounded-md border border-amber-400 bg-amber-50 px-2 py-0.5 font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                title={`Update this manager's assignment from ${t.managed_region} to ${t.region}. Keeps their existing access link working.`}
+              >
+                ↪ Move to {t.region}
+              </button>
+            )}
             {onCopyManagerLink && (
               <button
                 type="button"
