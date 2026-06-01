@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
-import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName, KNOWN_COUNTIES, zoneForCounty } from '../lib/zones.js'
+import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName, KNOWN_COUNTIES, zoneForCounty, detectZoneMismatch } from '../lib/zones.js'
 import {
   AddStaffModal,
   DirectoryVisibilityModal,
@@ -1533,6 +1533,25 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               🚫 no zone — test blocked
             </span>
           )}
+          {/* Zone mismatch badge — fires when the rep's home county no
+              longer matches the zone they're assigned to (e.g. after the
+              2026-06-01 territory rewrite that moved Citrus/Hernando to
+              Zone 2 and Okeechobee/St. Lucie to Zone 3). Click ✏️ Edit
+              info → the county-zone suggestion already there will offer
+              a one-click "Use Zone X" fix. */}
+          {(() => {
+            const mm = detectZoneMismatch(t)
+            if (!mm) return null
+            const expectedLabel = mm.expected.join(' or ')
+            return (
+              <span
+                className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-900"
+                title={`Home county "${mm.county}" is now in ${expectedLabel} (territory rewrite). Click ✏️ Edit info to reassign.`}
+              >
+                ⚠ County now in {expectedLabel}
+              </span>
+            )
+          })()}
         </div>
         <div className="text-xs text-slate-500">
           {t.phone || '—'}

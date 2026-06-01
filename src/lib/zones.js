@@ -1,10 +1,18 @@
-// Zone → counties reference (owner-defined territory model, 2026-05-31).
+// Zone → counties reference (owner-defined territory model).
+//
+// Originally seeded 2026-05-31. Revised 2026-06-01 — owner moved
+// 4 counties between Zones:
+//   Citrus      Zone 1 → Zone 2
+//   Hernando    Zone 1 → Zone 2
+//   Okeechobee  Zone 2 → Zone 3
+//   St. Lucie   Zone 2 → Zone 3
 //
 // Used by the Edit Info modal on /active-reps to show "Zone 1 covers
 // Nassau, Duval, …" inline when admin picks a zone — so they don't have
 // to keep the territory screenshot pinned in another tab. Also a single
-// source of truth if we later want to auto-suggest a zone from a rep's
-// home county.
+// source of truth for auto-suggesting a zone from a rep's home county
+// AND for flagging reps who are sitting in the wrong zone after a
+// territory rewrite like the one above.
 //
 // Brevard ** and Orange ** are split between Zone 1 and Zone 2: Rt 50
 // is the dividing line, north is Zone 1, south is Zone 2. We list them
@@ -18,7 +26,7 @@ export const ZONE_COUNTIES = {
     counties: [
       'Nassau', 'Duval', 'Baker', 'Union', 'Bradford', 'Clay',
       'St. Johns', 'Putnam', 'Flagler', 'Alachua', 'Levy', 'Marion',
-      'Citrus', 'Hernando', 'Sumter', 'Lake', 'Seminole', 'Volusia',
+      'Sumter', 'Lake', 'Seminole', 'Volusia',
       'Brevard **', 'Orange **',
     ],
   },
@@ -27,7 +35,8 @@ export const ZONE_COUNTIES = {
     label: 'Central / East-Central FL',
     counties: [
       'Orange **', 'Brevard **', 'Pasco', 'Hillsborough', 'Polk',
-      'Osceola', 'Indian River', 'Highlands', 'Okeechobee', 'St. Lucie',
+      'Osceola', 'Indian River', 'Highlands',
+      'Citrus', 'Hernando',
     ],
   },
   'Zone 3': {
@@ -36,6 +45,7 @@ export const ZONE_COUNTIES = {
     counties: [
       'Pinellas', 'Manatee', 'Sarasota', 'Charlotte', 'Lee', 'Collier',
       'Monroe', 'Hardee', 'DeSoto', 'Glades', 'Hendry',
+      'St. Lucie', 'Okeechobee',
     ],
   },
   'Zone 4': {
@@ -93,4 +103,30 @@ export function zoneForCounty(county) {
   }
   if (zones.length === 0) return null
   return { zones, split: zones.length > 1 }
+}
+
+// Check whether a rep's current region disagrees with what their
+// county would suggest. Returns:
+//   null                     — no mismatch (or no data to compare against)
+//   { county, expected, current }  — county says X, region is Y
+//
+// Used by /active-reps RepRow to flag reps whose county landed in a
+// different zone after a territory rewrite. Skips:
+//   - reps with no county on file (nothing to compare)
+//   - reps whose county isn't in any zone (can't suggest anything)
+//   - reps whose current region is a non-zone string (legacy region)
+//     because moving them is the admin's call, not the algorithm's
+//   - split counties when current region is one of the valid zones
+//     (Brevard/Orange can legitimately be either Zone 1 or Zone 2)
+export function detectZoneMismatch(rep) {
+  if (!rep || !rep.county) return null
+  const suggestion = zoneForCounty(rep.county)
+  if (!suggestion || suggestion.zones.length === 0) return null
+  if (!rep.region || !isZoneName(rep.region)) return null
+  if (suggestion.zones.includes(rep.region)) return null
+  return {
+    county: stripSplit(rep.county),
+    expected: suggestion.zones, // array — usually 1 entry, 2 for split counties
+    current: rep.region,
+  }
 }
