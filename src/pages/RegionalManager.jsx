@@ -123,6 +123,8 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      <QuickActions manager={manager} />
+
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
 
       <BlastTool token={token} region={manager.region} repCount={reps.length} />
@@ -153,6 +155,80 @@ function ShellFrame({ children }) {
 // One row per active rep in the manager's region. Each row has a
 // "Mark as departed" button that opens a small inline confirm with an
 // optional reason field.
+
+// ── Quick Actions ──────────────────────────────────────────────────
+// Two big touch-friendly buttons at the top of the page — the Zone
+// Zoom and the Help Line. Each falls back to a non-clickable "Coming
+// soon" pill when the underlying URL is still null on the manager
+// record. Admin sets the URLs on /active-reps Edit Info.
+function QuickActions({ manager }) {
+  const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
+  const hasHelpline = !!(manager.helpline_url && String(manager.helpline_url).trim())
+  return (
+    <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ActionTile
+        icon="📹"
+        title="Join Zone Zoom"
+        subtitle="Daily sales training · 9:30 AM Eastern"
+        href={hasZoom ? manager.zoom_url : null}
+        comingSoonNote="Zoom link coming soon — admin is finalizing."
+      />
+      <ActionTile
+        icon="🆘"
+        title="Help Line"
+        subtitle="Direct line to support"
+        href={hasHelpline ? manager.helpline_url : null}
+        comingSoonNote="Help-line contact coming soon."
+      />
+    </section>
+  )
+}
+
+function ActionTile({ icon, title, subtitle, href, comingSoonNote }) {
+  const inner = (
+    <div className="flex items-center gap-3 p-4">
+      <span className="text-3xl leading-none" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className={`text-base font-semibold ${href ? 'text-white' : 'text-slate-300'}`}>
+            {title}
+          </span>
+          {!href && (
+            <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+              Coming soon
+            </span>
+          )}
+        </div>
+        <div className={`mt-0.5 text-xs ${href ? 'text-white/70' : 'text-slate-400'}`}>
+          {href ? subtitle : comingSoonNote}
+        </div>
+      </div>
+      {href && <span className="text-2xl text-white/70">↗</span>}
+    </div>
+  )
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block rounded-lg border border-amber-300/40 bg-amber-500/15 shadow-sm hover:bg-amber-500/25"
+      >
+        {inner}
+      </a>
+    )
+  }
+  return (
+    <div
+      className="block cursor-default rounded-lg border border-dashed border-white/15 bg-white/5"
+      aria-disabled="true"
+    >
+      {inner}
+    </div>
+  )
+}
 
 // ── Zone Map ───────────────────────────────────────────────────────
 // Embedded Leaflet map showing every rep in the zone with a pin at

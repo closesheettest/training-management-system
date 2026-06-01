@@ -35,6 +35,11 @@ const EDITABLE_FIELDS = [
   'city',
   'state',
   'zip',
+  // Manager-only fields below. Saved alongside the rest but the
+  // modal renders them inside a "Regional Manager settings" block
+  // that only shows when this trainee has managed_region set.
+  'manager_zoom_url',
+  'manager_helpline_url',
 ]
 
 function editableDraftFor(t) {
@@ -111,7 +116,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, manager_helpline_url, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -2335,6 +2340,48 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
             </Field>
           </div>
         </div>
+
+        {/* Manager-only configuration. Only shows when this trainee
+            is currently a regional manager — otherwise the fields are
+            useless noise. The values are still in EDITABLE_FIELDS so
+            if the rep was ever a manager and we kept their URLs after
+            a revoke, those values are preserved. */}
+        {trainee.managed_region && (
+          <div className="mt-5 rounded-md border border-purple-200 bg-purple-50/50 p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-base">👑</span>
+              <h4 className="text-sm font-semibold text-purple-900">
+                Regional Manager settings — {trainee.managed_region}
+              </h4>
+            </div>
+            <p className="mt-1 text-xs text-slate-600">
+              These show up as Quick-Action buttons on their <code>/regional-manager/:token</code> dashboard.
+              Leave blank to render a "Coming soon" placeholder.
+            </p>
+            <div className="mt-3 space-y-3">
+              <Field label="Zone Zoom URL">
+                <input
+                  type="url"
+                  value={draft.manager_zoom_url || ''}
+                  onChange={(e) => set('manager_zoom_url', e.target.value)}
+                  disabled={sending}
+                  placeholder="https://us05web.zoom.us/j/..."
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </Field>
+              <Field label="Help Line URL">
+                <input
+                  type="text"
+                  value={draft.manager_helpline_url || ''}
+                  onChange={(e) => set('manager_helpline_url', e.target.value)}
+                  disabled={sending}
+                  placeholder="tel:+1234567890 or https://..."
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </Field>
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
