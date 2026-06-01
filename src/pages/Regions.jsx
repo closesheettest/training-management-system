@@ -903,10 +903,24 @@ export default function Regions() {
         </section>
       )}
 
-      {/* Suggested region layout — k-means split of every geocoded
-          rep. Adjustable K so admin can see "what if we had 4 / 5 / 6
-          regions" and pick the layout that splits reps most usefully. */}
-      {layoutClusters.length > 0 && (
+      {/* Suggested region layout — REMOVED 2026-05-31 per Neal.
+          The k-means clustering would name clusters after the nearest
+          city (Tampa / Orlando / Jacksonville / etc.), which conflicts
+          with the owner-defined Zone model now in use (Zones 1-4 are
+          county-based, not pure-geographic). Also kept resurfacing the
+          names of deleted legacy regions, which made the cleanup pass
+          feel half-finished.
+
+          The Zone suggestion that survives is the per-rep one on
+          /active-reps Edit Info — it suggests Zone X from the rep's
+          home county using the authoritative mapping in src/lib/zones.js.
+
+          State / memos for the clustering algorithm (layoutClusters,
+          targetK, applyEntireLayout, adoptCluster, kMeansCluster) are
+          left in place above for now in case we want to bring back a
+          Zone-aware version later — easier than re-deriving from
+          scratch. They run but the result is unused. */}
+      {false && layoutClusters.length > 0 && (
         <section className="rounded-lg border border-purple-200 bg-purple-50 p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
