@@ -8,10 +8,17 @@
 --   • A download button for the full 118-slide training manual PDF
 --     (same pattern as last week — pitch + full manual together)
 --
--- Tomorrow morning (Day 2 sign-in), send-training-quiz fires a 5-question
--- SMS quiz on the Day 1 content. Quiz testing pattern: each question
--- targets a specific line from the scripts so a trainee who memorized
--- verbatim gets all 5; a trainee who only skimmed gets 1-2.
+-- Tomorrow morning (Day 2 sign-in), send-training-quiz fires a 9-question
+-- SMS quiz on the Day 1 content:
+--   Q1-5  the two scripts (Free Inspection + Retail Go-Back)
+--   Q6    Slide 1 — 15 Years opening question
+--   Q7-8  sales psychology (F.I.G.S., Guéguen "but you are free")
+--   Q9    Why U.S. Shingle credentials (Veteran Owned control point)
+--
+-- Quiz testing pattern: each question targets a specific line / fact
+-- from the day's content so a trainee who studied verbatim gets all 9;
+-- a trainee who only skimmed gets 2-3. Wrong options are intentionally
+-- plausible-but-wrong rephrasings so trainees can't guess by elimination.
 --
 -- All questions are multiple-choice with 4 options, correct_index zero-
 -- based. Wrong options are intentionally plausible-but-wrong rephrasings
@@ -99,4 +106,36 @@ values
       "When dealing with a company for your roof, how important is it to you that they are likely to be around in the future if you have a need or if something goes wrong?",
       "What''s the most important quality you look for in a contractor?"
     ]'::jsonb,
-   2);
+   2),
+
+  -- Sales psychology fundamentals ────────────────────────────────────
+  (1, 7,
+   'What does F.I.G.S. stand for — the 4 Impulse Factors every pitch should hit?',
+   '[
+      "Friendship, Information, Generosity, Strength",
+      "Fear of Loss, Indifference, Greed, Sense of Urgency",
+      "Finance, Insurance, Guarantee, Safety",
+      "Fact, Image, Goal, Story"
+    ]'::jsonb,
+   1),
+
+  (1, 8,
+   'Guéguen''s research shows that adding the phrase "but you are free to accept or refuse" to a request:',
+   '[
+      "Has no measurable effect — politeness scripts don''t move the needle",
+      "Reduces compliance because it sounds weak",
+      "Roughly doubles compliance by removing pressure and reinforcing autonomy",
+      "Only works on first-time prospects"
+    ]'::jsonb,
+   2),
+
+  -- Why U.S. Shingle credentials ─────────────────────────────────────
+  (1, 9,
+   'What is the Control Point you''re hammering home when delivering the Veteran Owned talking point?',
+   '[
+      "Patriotism / supporting the troops",
+      "Structured & Disciplined → more credibility",
+      "Tax benefits for hiring veterans",
+      "Better warranty coverage on the roof"
+    ]'::jsonb,
+   1);
