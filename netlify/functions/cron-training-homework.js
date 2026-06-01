@@ -5,18 +5,34 @@
 // strict-attendance policy, no-shows get no homework (they shouldn't be
 // continuing anyway).
 //
-// Schedule: 20:30 UTC = 4:30 PM EDT / 3:30 PM EST. Runs daily. Quiet
-// (no SMS, no errors) when nothing matches — e.g. weekends, between
-// classes, or for the last day of a class (graduation day, no homework).
+// Schedule: 18:30, 19:30, 20:30 UTC = 2:30, 3:30, 4:30 PM EDT. Runs
+// 3× daily. Each fire is gated per class on "did class end 30 min ago
+// for THIS class today?" Idempotent — only one homework SMS per
+// trainee/day regardless of how many fires hit.
 //
-// Why 4:30 PM ET: training day ends at 4 PM ET (noon-4 on Mondays;
-// 8-4 the rest of the week), so 4:30 lands ~30 min after dismissal
-// while everyone's still on the way home and the topic is fresh.
+// Why 3 fires: homework goes out 30 min after dismissal, and dismissal
+// time varies by where we are in the training week:
 //
-// DST note: Netlify cron is UTC-only. 20:30 UTC tracks EDT (mid-March
-// through early November). When clocks fall back to EST, the cron will
-// fire at 3:30 PM ET instead. To keep 4:30 PM ET year-round, flip the
-// schedule below to '30 21 * * *' (= 4:30 PM EST) when DST ends in Nov.
+//   Class starts MONDAY (week_start_date is Mon)
+//     Day 1 Mon  noon → 4 PM    → homework 4:30 PM  (20:30 UTC EDT)
+//     Day 2 Tue   8 AM → 2 PM   → homework 2:30 PM  (18:30 UTC EDT)
+//     Day 3 Wed   8 AM → 2 PM   → homework 2:30 PM
+//     Day 4 Thu   8 AM → 2 PM   → homework 2:30 PM
+//     Day 5 Fri   graduation    → no homework
+//
+//   Class starts TUESDAY (week_start_date is Tue)
+//     Day 1 Tue  noon → 4 PM    → homework 4:30 PM  (20:30 UTC EDT)
+//     Day 2 Wed   8 AM → 3 PM   → homework 3:30 PM  (19:30 UTC EDT)
+//     Day 3 Thu   8 AM → 3 PM   → homework 3:30 PM
+//     Day 4 Fri   graduation    → no homework
+//
+// See CLASS_SCHEDULE constant below for the single source of truth.
+//
+// DST note: Netlify cron is UTC-only. The 18,19,20:30 fires track EDT
+// (mid-March through early November). When clocks fall back to EST in
+// November, the cron will fire 1 hour earlier than intended. To keep
+// the same ET times year-round during EST, flip the schedule below to
+// '30 19,20,21 * * *'.
 //
 // USAGE:
 //   • Scheduled function — fires automatically on the configured cron.
@@ -30,6 +46,29 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+
+// Class end times in ET (24h) keyed by [start_day_of_week][day_number].
+// Day-of-week: 1=Mon, 2=Tue, etc. Day_number: 1=first day, 2=second, …
+// Missing entry = no homework (e.g. graduation day, or unsupported
+// start day). See header comment for the rationale. Edit this table
+// if the schedule changes — the cron will pick it up next fire.
+const CLASS_SCHEDULE = {
+  // Monday-start week — Day 1 is the short noon-4 day.
+  1: { 1: 16, 2: 14, 3: 14, 4: 14 },
+  // Tuesday-start week — Day 1 is also noon-4; subsequent days end at 3 PM.
+  2: { 1: 16, 2: 15, 3: 15 },
+}
+
+// Returns the homework fire-time (ET hour as a float, e.g. 14.5 for
+// 2:30 PM) for a given class on a given day_number, or null if no
+// homework should ever fire for that combo.
+function homeworkFireHour(dayNumber, startDow) {
+  const schedule = CLASS_SCHEDULE[startDow]
+  if (!schedule) return null
+  const endHour = schedule[dayNumber]
+  if (endHour == null) return null
+  return endHour + 0.5 // 30-min grace after dismissal
+}
 
 export const handler = async (event) => {
   // Scheduled invocations have no httpMethod; manual GET / POST both ok.
@@ -48,7 +87,16 @@ export const handler = async (event) => {
     process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app'
   ).replace(/\/$/, '')
 
+  const params = event.queryStringParameters || {}
+  // ?force=1 bypasses the "has class ended yet" gate. Useful for an
+  // admin manually firing the cron earlier in the day for a particular
+  // class. The per-trainee dedup still prevents double-sends.
+  const force = params.force === '1' || params.force === 'true'
+
   const todayIso = ymd(new Date())
+  // Current ET clock as a float hour (e.g. 14.5 = 2:30 PM). Used by the
+  // class-end gate to skip classes whose dismissal hasn't happened yet.
+  const nowEt = currentEtHour()
 
   // 1. Active training classes today. Exclude attendance-only meetings
   //    (those aren't training weeks and don't have homework).
@@ -86,6 +134,30 @@ export const handler = async (event) => {
     // quiz needs Day 1 content.
     if (todayIso === cls.week_end_date) {
       skipped.push({ class_id: cls.id, reason: 'Last day of class — no homework' })
+      continue
+    }
+
+    // Has class actually ended for the day? Day-of-week-aware: e.g.
+    // Mon-start Day 2 (Tuesday) ends at 2 PM → fire at 2:30 PM ET.
+    // The 3 daily cron fires (2:30/3:30/4:30 PM EDT) overlap with all
+    // possible end times — each class gets caught on the right wave.
+    const startDow = dayOfWeekEt(cls.week_start_date)
+    const fireHour = homeworkFireHour(dayNumber, startDow)
+    if (fireHour == null) {
+      skipped.push({
+        class_id: cls.id,
+        day_number: dayNumber,
+        start_dow: startDow,
+        reason: 'No homework scheduled for this class day (graduation or unsupported start day)',
+      })
+      continue
+    }
+    if (!force && nowEt < fireHour) {
+      skipped.push({
+        class_id: cls.id,
+        day_number: dayNumber,
+        reason: `Too early — class ends at ${(fireHour - 0.5).toFixed(0)}:00 ET, homework fires at ${formatHour(fireHour)} ET (now ${formatHour(nowEt)} ET)`,
+      })
       continue
     }
     const lesson = lessonByDay.get(dayNumber)
@@ -198,6 +270,43 @@ function daysBetween(fromIso, toIso) {
   return Math.round((t - f) / 86400000)
 }
 
+// Current wall-clock hour in Eastern Time, as a float (e.g. 14.5 =
+// 2:30 PM). Used by the homework fire-time gate.
+function currentEtHour() {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  // en-US with hour12:false returns "HH:MM" — except midnight, which
+  // some Node versions render as "24:MM". Treat 24 as 0.
+  const [h, m] = fmt.format(new Date()).split(':').map(Number)
+  return (h === 24 ? 0 : h) + (m || 0) / 60
+}
+
+// Day-of-week (0=Sun..6=Sat) for an ET date string. Anchor at noon ET
+// to dodge DST midnight edges (when 00:00 ET could fall on either side
+// of the spring-forward / fall-back transition).
+function dayOfWeekEt(isoDate) {
+  if (!isoDate) return null
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+  })
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return map[fmt.format(new Date(isoDate + 'T17:00:00Z'))] ?? null
+}
+
+// Pretty-print a float hour as "H:MM AM/PM" for debug skip-reasons.
+function formatHour(h) {
+  const hh = Math.floor(h)
+  const mm = Math.round((h - hh) * 60)
+  const ampm = hh >= 12 ? 'PM' : 'AM'
+  const hh12 = hh % 12 || 12
+  return `${hh12}:${String(mm).padStart(2, '0')} ${ampm}`
+}
+
 function json(status, body) {
   return {
     statusCode: status,
@@ -206,6 +315,10 @@ function json(status, body) {
   }
 }
 
-// Netlify v2 scheduled function — daily at 20:30 UTC (4:30 PM EDT / 3:30 PM EST).
-// See header comment for DST handling — bump to '30 21 * * *' in November.
-export const config = { schedule: '30 20 * * *' }
+// Netlify v2 scheduled function — fires at 18:30, 19:30, 20:30 UTC daily
+// (= 2:30, 3:30, 4:30 PM EDT). Each fire processes only the classes whose
+// dismissal-time has passed for today; the others get skipped with a
+// "too early" reason in the response. Idempotent per trainee per day.
+// See header comment for DST handling — bump to '30 19,20,21 * * *' in
+// November to stay on the same ET times during EST.
+export const config = { schedule: '30 18,19,20 * * *' }
