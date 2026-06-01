@@ -573,15 +573,28 @@ export default function Regions() {
   // Group reps by region name. Reps with no region or with a region
   // that isn't in the managed list land in a synthetic "Unassigned"
   // bucket so admin can see them and assign them properly.
+  //
+  // Unassigned is further split into field vs non-field. Only field
+  // reps actually need a region (it drives sales-team routing, blasts,
+  // map pins, manager assignments). Non-field staff — admins, ops,
+  // hiring managers — can sit without a region forever without
+  // breaking anything, so flagging them with the same amber warning
+  // as field reps creates false urgency.
   const repsByRegion = (() => {
     const byName = new Map()
     for (const r of regions) byName.set(r.name, [])
-    const unassigned = []
+    const unassignedField = []
+    const unassignedNonField = []
     for (const t of reps) {
-      if (t.region && byName.has(t.region)) byName.get(t.region).push(t)
-      else unassigned.push(t)
+      if (t.region && byName.has(t.region)) {
+        byName.get(t.region).push(t)
+      } else if (t.rep_level === 'non_field') {
+        unassignedNonField.push(t)
+      } else {
+        unassignedField.push(t)
+      }
     }
-    return { byName, unassigned }
+    return { byName, unassignedField, unassignedNonField }
   })()
 
   async function addRegion(e) {
@@ -1133,19 +1146,19 @@ export default function Regions() {
           )
         })}
 
-        {/* Unassigned bucket — reps with no region OR with a region not in
-            the managed list. Shows up automatically if someone deleted a
-            region without first reassigning, or if the rep's stored
-            region.region string somehow drifted from the managed list. */}
-        {repsByRegion.unassigned.length > 0 && (
+        {/* Unassigned field reps — actual action item. Shows when a sales
+            rep has no region OR has a region not in the managed list (e.g.
+            the rep was on a region that got deleted underneath them, or
+            their region string somehow drifted). */}
+        {repsByRegion.unassignedField.length > 0 && (
           <article className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="text-xl">⚠️</span>
                 <div>
-                  <div className="font-semibold text-amber-900">Unassigned</div>
+                  <div className="font-semibold text-amber-900">Field reps needing assignment</div>
                   <div className="text-xs text-amber-800">
-                    {repsByRegion.unassigned.length} rep{repsByRegion.unassigned.length === 1 ? '' : 's'} with no region (or with a region that's no longer in the managed list)
+                    {repsByRegion.unassignedField.length} sales rep{repsByRegion.unassignedField.length === 1 ? '' : 's'} with no region (or with a region that's no longer in the managed list)
                   </div>
                 </div>
               </div>
@@ -1160,7 +1173,7 @@ export default function Regions() {
             {openRegionId === '__unassigned' && (
               <div className="mt-3 border-t border-amber-200 pt-3">
                 <ul className="space-y-1.5">
-                  {repsByRegion.unassigned.map((rep) => (
+                  {repsByRegion.unassignedField.map((rep) => (
                     <RepMoveRow
                       key={rep.id}
                       rep={rep}
@@ -1171,6 +1184,43 @@ export default function Regions() {
                   ))}
                 </ul>
               </div>
+            )}
+          </article>
+        )}
+
+        {/* Non-field staff with no region — informational only. These are
+            admins / ops / managers / etc. They don't need a region tied
+            to their record to function; rendering them in the alarming
+            amber bucket above creates fake homework. Collapse by default
+            and clearly label "no action needed". */}
+        {repsByRegion.unassignedNonField.length > 0 && (
+          <article className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-medium text-slate-700">
+                  {repsByRegion.unassignedNonField.length} non-field staff with no region
+                </div>
+                <div className="text-xs text-slate-500">
+                  No action needed — non-field roles (admin / ops / management) don't require a region. Listed here for completeness only. To assign one anyway, use Edit Info on <Link to="/active-reps" className="underline">/active-reps</Link>.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenRegionId(isOpen('__unassigned_nonfield') ? null : '__unassigned_nonfield')}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                {openRegionId === '__unassigned_nonfield' ? 'Hide' : 'View staff'}
+              </button>
+            </div>
+            {openRegionId === '__unassigned_nonfield' && (
+              <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                {repsByRegion.unassignedNonField.map((rep) => (
+                  <li key={rep.id}>
+                    <strong className="text-slate-800">{rep.first_name} {rep.last_name}</strong>
+                    {rep.phone && <span className="ml-2 text-slate-500">{rep.phone}</span>}
+                  </li>
+                ))}
+              </ul>
             )}
           </article>
         )}
