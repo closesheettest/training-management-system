@@ -21,6 +21,22 @@
 
 export const HOSTED_PAGES = [
   {
+    slug: 'day-2-slides',
+    title: 'Day 2 slides — Roleplay morning + Products afternoon',
+    url: '/day-2-slides/',
+    description:
+      'Reveal.js slide deck for Day 2 Retail Training. Morning (10–12) walks the class through ' +
+      'three roleplay drills — Free Inspection Script, Retail Go-Back Script, and the In-Home ' +
+      'Warm Up — with verbatim refreshers for each so trainees can check phrasing between rounds. ' +
+      'Afternoon is the products walkthrough: framing (both energy sides equal weight), the 5 ' +
+      'shared benefits, the Energy Package upgrades, then every product family (Asphalt · GAF + ' +
+      'Tamko Titan, Exposed Fastener Metal · Ultra Rib + PBR, Standing Seam · TCM Lok, Stone ' +
+      'Coated Metal, Permalock, Tilcor, Tile) with wind/warranty/pitch specs and the insurance ' +
+      'category badge. Closes on the cheat-sheet table and the tomorrow-morning quiz reminder.',
+    created: '2026-05-31',
+    category: 'Internal docs',
+  },
+  {
     slug: 'day-1-slides',
     title: 'Day 1 slides — clicker-driven projector deck',
     url: '/day-1-slides/',

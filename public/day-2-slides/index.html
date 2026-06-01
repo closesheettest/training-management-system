@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Day 2 — U.S. Shingle & Metal Retail Training</title>
+<!--
+  Day 2 Retail Training slide deck — projector / clicker mode.
+
+  Structure (per Neal 2026-05-31):
+    Morning  (10–12) — Roleplay marathon:
+      1. Free Inspection Script (Day 1 slide 30)
+      2. Retail Roof Go-Back Script (Day 1 slides 31c–31e)
+      3. In-Home Slide 1 (Tonight Intro / Warm Up)
+    Lunch
+    Afternoon — Products walkthrough (Asphalt + Metal families
+      + Energy Package), built from:
+        ~/Downloads/Products.pdf
+        ~/Downloads/Benefits per product.docx
+
+  Same visual system as /day-1-slides — navy/gold, Reveal.js 5.0.4,
+  1600x900 canvas. Open on the projector laptop, F for fullscreen,
+  clicker controls. Trainees can pull up /day-2-slides/ on their
+  phones for review.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+<style>
+  :root {
+    --uss-navy: #13294b;
+    --uss-red: #b8324f;
+    --uss-gold: #d4a142;
+    --uss-cream: #f8f5ed;
+  }
+  .reveal { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 {
+    font-family: 'Oswald', 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  }
+  .reveal h1 { color: var(--uss-gold); font-size: 2.4em; line-height: 1.15; }
+  .reveal h2 { color: var(--uss-cream); font-size: 1.7em; line-height: 1.2; }
+  .reveal h3 { color: var(--uss-gold); font-size: 1.3em; line-height: 1.3; }
+  .reveal section { color: #fff; }
+  .reveal .highlight-red { color: var(--uss-red); }
+  .reveal .highlight-gold { color: var(--uss-gold); }
+  .reveal ul, .reveal ol { display: inline-block; text-align: left; margin: 0 auto; }
+  .reveal li { margin: 0.4em 0; }
+  .reveal strong { color: var(--uss-gold); }
+  .reveal em { color: var(--uss-cream); font-style: italic; }
+  /* Title slide */
+  .reveal .title-slide h1 { font-size: 3em; color: #fff; }
+  .reveal .title-slide .subtitle {
+    color: var(--uss-gold); font-size: 1em;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-top: 0.5em;
+  }
+  .reveal .label-pill {
+    display: inline-block;
+    background: var(--uss-red);
+    color: #fff;
+    padding: 0.15em 0.7em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5em;
+  }
+  /* Script box reused from Day 1 — used in the roleplay-reminder
+     slides so trainees see the verbatim scripts they should be
+     practicing. */
+  .reveal .script {
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 5px solid var(--uss-gold);
+    padding: 16px 22px;
+    text-align: left;
+    font-size: 0.5em;
+    line-height: 1.35;
+    border-radius: 6px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .reveal .script p { margin: 0.4em 0; }
+  .reveal .script strong { color: var(--uss-gold); }
+  /* Product spec strip — wind rating + pitch + warranty as small
+     stat tiles on each product slide. Keeps everything skim-scannable
+     while still legible from the back of the room. */
+  .reveal .spec-row {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    justify-content: center; margin: 0.8em 0;
+  }
+  .reveal .spec-tile {
+    background: rgba(212, 161, 66, 0.15);
+    border: 2px solid var(--uss-gold);
+    border-radius: 12px;
+    padding: 0.6em 1em;
+    min-width: 170px;
+  }
+  .reveal .spec-tile .label {
+    font-size: 0.55em;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .reveal .spec-tile .value {
+    font-size: 1.6em;
+    font-weight: 800;
+    color: var(--uss-gold);
+    line-height: 1.1;
+  }
+  .reveal .slide-number {
+    background: rgba(184, 50, 79, 0.85);
+    color: #fff;
+    font-family: 'Oswald', sans-serif;
+  }
+  /* Insurance-leaves-you-alone vs Insurance-can-drop-you badges —
+     used on every product slide so trainees instantly see whether
+     this product is in the "shield from the letter" category or not. */
+  .reveal .ins-shield {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.22);
+    border: 2px solid #4ade80;
+    color: #bbf7d0;
+    padding: 0.3em 0.9em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .reveal .ins-risk {
+    display: inline-block;
+    background: rgba(184, 50, 79, 0.22);
+    border: 2px solid #fb7185;
+    color: #ffd1d8;
+    padding: 0.3em 0.9em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ─────────────────────────── 1 — Title ─────────────────────────── -->
+    <section class="title-slide" data-background-color="#0a1730">
+      <h1>Day 2</h1>
+      <p class="subtitle">U.S. Shingle & Metal Retail Training</p>
+    </section>
+
+    <!-- ─────────────────────────── 2 — Today's plan ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h2>Today's plan</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em; text-align: left;">
+          <div style="font-size: 0.72em; opacity: 0.85; color: var(--uss-gold); text-transform: uppercase; letter-spacing: 0.05em;">Morning · 10–12</div>
+          <div style="font-size: 1.05em; font-weight: 700; margin-top: 0.4em;">Roleplay marathon</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">
+            • Free Inspection Script<br>
+            • Retail Go-Back Script<br>
+            • In-Home Slide 1 (Tonight Intro)
+          </div>
+        </div>
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em; text-align: left;">
+          <div style="font-size: 0.72em; opacity: 0.85; color: var(--uss-gold); text-transform: uppercase; letter-spacing: 0.05em;">Afternoon · after lunch</div>
+          <div style="font-size: 1.05em; font-weight: 700; margin-top: 0.4em;">Products walkthrough</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">
+            Asphalt + every Metal family + the Energy Package. Quiz on products tomorrow morning.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ MORNING — ROLEPLAY ════════════════════ -->
+
+    <!-- ─────────────────────────── 3 — Why roleplay ─────────────────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Morning · Roleplay</span>
+      <h1 style="margin-top: 0.4em;">Why we do this.</h1>
+      <p class="script" style="margin-top: 0.8em; max-width: 1150px;">
+        The script doesn't live on a piece of paper — it lives in <strong>your mouth.</strong> The first time you say it out loud it sounds robotic. The fifth time it sounds like you. The fiftieth time it sounds like you've always said it that way.
+      </p>
+      <p style="margin-top: 0.7em; font-size: 0.95em; max-width: 1100px; margin-left: auto; margin-right: auto;">
+        Two hours from now you'll have said each of these scripts to another human at least <strong class="highlight-gold">six times.</strong> That's how this starts becoming muscle memory.
+      </p>
+    </section>
+
+    <!-- ─────────────────────────── 4 — How to roleplay well ─────────────────────────── -->
+    <section data-background-color="#13294b">
+      <h2>How to roleplay well</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; max-width: 1350px; margin: 0.9em auto 0;">
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
+          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">1 · Be the homeowner</div>
+          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">React the way a real homeowner would. Bored, busy, suspicious, curious — pick a flavor and commit.</div>
+        </div>
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
+          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">2 · Don't read</div>
+          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">Look at the script once. Set it down. Try the lines from memory. Re-check only when you get stuck.</div>
+        </div>
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
+          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">3 · Give real feedback</div>
+          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">"That was great" doesn't help. "Slow down on the address-it line — you blew past the yes" does.</div>
+        </div>
+      </div>
+      <p style="margin-top: 1em; font-size: 0.95em;">Rotate partners every round. Different reactions stress-test different parts of the script.</p>
+    </section>
+
+    <!-- ─────────────── 5 — Roleplay 1 setup: Free Inspection Script ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Roleplay 1 of 3</span>
+      <h1 style="margin-top: 0.4em;">Free Roof Inspection Script</h1>
+      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
+        <strong>What we're drilling:</strong> the open, the high-risk-of-being-dropped line, the "just the option of coming out of pocket / added option of an inspection report" ask, and the close — verbatim. By the end of the round, your partner should be able to repeat the ask back to you, word for word.
+      </p>
+      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
+        Reference: <em>Day 1 slide 30.</em>
+      </p>
+    </section>
+
+    <!-- ─────────────── 6 — Roleplay 1 verbatim refresher ─────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold" style="font-size: 1.4em;">Free Roof Inspection Script · verbatim</h1>
+      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
+        <p>"Hi, my name is <strong>__________</strong>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
+        <p>We sent this to you because according to county records you are at <strong>high risk of the insurance company dropping you</strong> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
+        <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
+        <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <strong>no-cost roof inspection</strong>. If there's no damage, we'll provide you an <strong>official inspection certificate that says you have 5+ years of life left in your roof</strong>. This will make them leave you alone."</p>
+      </div>
+    </section>
+
+    <!-- ─────────────── 7 — Roleplay 2 setup: Retail Go-Back ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Roleplay 2 of 3</span>
+      <h1 style="margin-top: 0.4em;">Retail Roof Go-Back Script</h1>
+      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
+        <strong>What we're drilling:</strong> the four-yes chain. Moving question → ethics question → ethics-trap reveal → "you'll have to address it" pivot. By the time you ask for the appointment, the homeowner should have said <em>yes four times</em> without realizing it.
+      </p>
+      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
+        Reference: <em>Day 1 slides 31c – 31e.</em>
+      </p>
+    </section>
+
+    <!-- ─────────────── 8 — Roleplay 2 verbatim refresher (part 1) ─────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold" style="font-size: 1.3em;">Retail Go-Back · open + ethics trap</h1>
+      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
+        <p>"Hi <strong>__________</strong>, I have your report here for you. Before we go over it — a couple quick questions.</p>
+        <p>You don't have any plans of moving in the next year or two, <strong>right</strong>?</p>
+        <p>And when you do business with anyone, the company's <strong>ethics and standing</strong> is important to you, <strong>right</strong>?</p>
+        <p>Great — I was hoping you'd answer that way. I'd <strong>love</strong> to be able to give you a report that says your roof has 5 more years of life left in it. But if I did, that would be unethical — and we just don't operate that way. You understand, right?</p>
+        <p>Here, let me show you what you have going on up there…"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────── 9 — Roleplay 2 verbatim refresher (part 2) ─────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold" style="font-size: 1.3em;">Retail Go-Back · pivot + close</h1>
+      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
+        <p><em>(Go over the report.)</em></p>
+        <p>"As poor a shape as your roof is, this isn't a scare tactic. Although — <em>the leak you don't see is actually the worst kind.</em></p>
+        <p>Since we know you're not moving, you'd agree at some point soon, this is something you're going to have to <strong>address</strong>, right?</p>
+        <p>Two main reasons to consider doing it <strong>now</strong>: <strong>1.</strong> Today is the cheapest you'll ever pay. Storm season is coming, two price increases since January. <strong>2.</strong> Insurance — a new roof can drop your premium 30%+.</p>
+        <p>Of course, you are <strong>free to accept or refuse</strong> the advice. Replace it now, save a lot of money. Replace it later, lose a lot of money. Really kind of that simple.</p>
+        <p>Okay — let me set a time to come back tomorrow, I still need to look in the <strong>attic</strong> as well. Is the <strong>afternoon</strong> or <strong>evening</strong> better, when you'll both be home?"</p>
+      </div>
+    </section>
+
+    <!-- ─────────────── 10 — Roleplay 3 setup: In-Home Slide 1 ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Roleplay 3 of 3</span>
+      <h1 style="margin-top: 0.4em;">In-Home Slide 1 · The Warm Up</h1>
+      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
+        <strong>What we're drilling:</strong> the move from the door to the kitchen table. Setting the tone — "I'm not here to sell you a roof, you already know you need one." The handoff into Question-Based Selling.
+      </p>
+      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
+        Reference: <em>Day 1 slide 32f (Warm Up · verbatim).</em>
+      </p>
+    </section>
+
+    <!-- ─────────────── 11 — Roleplay 3 verbatim refresher ─────────────── -->
+    <section data-background-color="#13294b">
+      <h1 class="highlight-gold" style="font-size: 1.4em;">In-Home Warm Up · verbatim</h1>
+      <div class="script" style="font-size: 0.5em; margin-top: 0.5em;">
+        <p>"What we are going to do tonight is tell you a little bit about who we are as a company, take photos of everything, and show you all the options and types of materials that are available to you — while guaranteeing a <strong>30-day price</strong>.</p>
+        <p>However, first I need to ask you some questions to find out what your wants and needs are, so that I can customize the estimate for exactly what <em>you</em> want — and not just what my boss or our suppliers want you to buy. Fair enough?</p>
+        <p>Let's be clear: I am not here to sell you on buying a roof, you already know you need one of those right?" <em>(Then run the customer survey.)</em></p>
+      </div>
+    </section>
+
+    <!-- ─────────────── 12 — Rotation logistics + before lunch reset ─────────────── -->
+    <section data-background-color="#0a1730">
+      <h1>Rotation</h1>
+      <p class="script" style="margin-top: 0.5em; max-width: 1100px;">
+        <strong>Every 15 min — switch partners.</strong> Every 30 min — switch the script you're working on. By 12:00 you should have hit all three scripts with at least two different partners.
+      </p>
+      <p style="margin-top: 0.7em; font-size: 0.95em;">
+        I'm walking the room. If you're stuck, flag me — don't sit in silence with a broken open.
+      </p>
+    </section>
+
+    <!-- ═══════════════════════ LUNCH ═══════════════════════ -->
+
+    <!-- ─────────────── 13 — Lunch ─────────────── -->
+    <section data-background-color="#b8324f">
+      <h1 style="color: #fff;">LUNCH.</h1>
+      <p style="margin-top: 0.6em; font-size: 1.4em; color: #ffe6a8; font-weight: 700;">Back at 1:00 sharp.</p>
+      <p style="margin-top: 0.7em; font-size: 0.95em; color: #fff; opacity: 0.95;">
+        Afternoon is products. Bring your full brain.
+      </p>
+    </section>
+
+    <!-- ════════════════════ AFTERNOON — PRODUCTS ════════════════════ -->
+
+    <!-- ─────────────── 14 — Products bridge ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Afternoon · Products</span>
+      <h1 style="margin-top: 0.4em;">Now — what we actually sell.</h1>
+      <p class="script" style="margin-top: 0.8em; max-width: 1150px;">
+        Up to now, your job has been to <em>get the appointment</em>. Once you're at the kitchen table, you need to know your products cold — what they cost, what they last, what they're rated for, and <strong>which ones get the insurance company to leave the homeowner alone.</strong>
+      </p>
+    </section>
+
+    <!-- ─────────────── 15 — The two-sided pitch frame ─────────────── -->
+    <section data-background-color="#13294b">
+      <span class="label-pill">The framework</span>
+      <h1 style="font-size: 1.6em; margin-top: 0.4em;">Every product gets pitched <span class="highlight-gold">both ways.</span></h1>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
+        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 14px; padding: 1em 1.2em;">
+          <div style="font-size: 0.72em; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em;">Without Energy Package</div>
+          <div style="font-size: 1.2em; font-weight: 700; margin-top: 0.4em;">The product</div>
+          <div style="font-size: 0.82em; opacity: 0.85; margin-top: 0.3em;">Just the roof. Wind rating, warranty, and base benefits.</div>
+        </div>
+        <div style="background: rgba(212,161,66,0.18); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
+          <div style="font-size: 0.72em; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em; color: var(--uss-gold);">With Energy Package</div>
+          <div style="font-size: 1.2em; font-weight: 700; margin-top: 0.4em; color: var(--uss-gold);">The roof + savings</div>
+          <div style="font-size: 0.82em; opacity: 0.85; margin-top: 0.3em;">Radiant barrier, R-38, duct sealing — the whole envelope upgrade.</div>
+        </div>
+      </div>
+      <p style="margin-top: 1em; font-size: 0.95em; color: var(--uss-gold); font-weight: 700;">
+        The main focus: both sides should look the <em>same size</em> in your pitch.
+      </p>
+    </section>
+
+    <!-- ─────────────── 16 — Shared benefits across all products ─────────────── -->
+    <section data-background-color="#0a1730">
+      <h2>Every product carries these — always.</h2>
+      <ul style="font-size: 1em; max-width: 1100px; line-height: 1.6;">
+        <li>High wind resistance</li>
+        <li>Premium secondary water barrier</li>
+        <li>Veteran-owned company in business <strong>over 15 years</strong></li>
+        <li><strong>10-year workmanship</strong> no-leak warranty</li>
+        <li>Transferable when they sell the home</li>
+      </ul>
+      <p style="margin-top: 0.9em; font-size: 0.85em; opacity: 0.85;">
+        These 5 lines are the floor. If they're not in your pitch, you're under-selling the company before you even get to the material.
+      </p>
+    </section>
+
+    <!-- ─────────────── 17 — Energy Package benefits ─────────────── -->
+    <section data-background-color="#13294b">
+      <span class="label-pill">The Energy Package</span>
+      <h1 style="font-size: 1.7em; margin-top: 0.4em;">The upgrade — everything from standard, plus:</h1>
+      <ul style="font-size: 0.95em; max-width: 1100px; line-height: 1.55;">
+        <li><strong>Radiant Barrier 97%</strong> — bounces heat back outside</li>
+        <li><strong>Insulation R-38</strong></li>
+        <li><strong>Duct sealing</strong> or re-sealing</li>
+        <li><strong>Lifetime</strong> products</li>
+        <li><strong>Extends the life</strong> of their HVAC system</li>
+        <li><strong>Improves</strong> indoor air quality</li>
+      </ul>
+      <p style="margin-top: 0.9em; font-size: 0.9em;">This is what flips the conversation from "a roof" to "an envelope upgrade." Pitch it on every product.</p>
+    </section>
+
+    <!-- ════════════════ PRODUCT FAMILIES ════════════════ -->
+
+    <!-- ─────────────── 18 — Asphalt shingle ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Family 1 · Asphalt Shingle</span>
+      <h1 style="margin-top: 0.4em;">Asphalt Shingle</h1>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.7em auto 0;">
+        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 12px; padding: 0.9em 1.1em;">
+          <div class="highlight-gold" style="font-size: 1em; font-weight: 700;">GAF</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.3em;">30-year mfg warranty · 130 mph wind resistant</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 12px; padding: 0.9em 1.1em;">
+          <div class="highlight-gold" style="font-size: 1em; font-weight: 700;">Tamko Titan</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.3em;">30-year mfg warranty · 160 mph wind resistant</div>
+        </div>
+      </div>
+      <p style="margin-top: 0.9em; font-size: 0.9em;">
+        We'll install <em>any</em> shingle they want — these are our recommendations.
+      </p>
+    </section>
+
+    <!-- ─────────────── 19 — Asphalt: the 10-15 year letter caveat ─────────────── -->
+    <section data-background-color="#b8324f">
+      <h2 style="color: #fff; font-size: 1em;">Important caveat for asphalt —</h2>
+      <h1 style="color: #fff; font-size: 1.6em; margin-top: 0.3em;">The insurance company can still send the <span style="color: #ffe6a8;">10-15 year letter</span> on an asphalt roof.</h1>
+      <p style="margin-top: 0.9em; font-size: 1em; color: #fff; max-width: 1150px; margin-left: auto; margin-right: auto;">
+        Doesn't matter what the manufacturer warranty says. With asphalt, the carrier still controls the timeline. Mention this honestly — it's the bridge into the metal options where insurance <em>does</em> leave the homeowner alone.
+      </p>
+      <div style="margin-top: 1em;">
+        <span class="ins-risk">⚠ Insurance can still drop them</span>
+      </div>
+    </section>
+
+    <!-- ─────────────── 20 — Exposed Fastener Metal ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Family 2 · Exposed Fastener Metal</span>
+      <h1 style="margin-top: 0.4em;">Exposed Fastener Metal</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">Wind</div><div class="value">180 mph</div></div>
+        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
+        <div class="spec-tile"><div class="label">Fasteners</div><div class="value">Exposed</div></div>
+      </div>
+      <div style="margin: 0.4em 0 0.7em;">
+        <span class="ins-shield">✓ Insurance leaves them alone</span>
+      </div>
+      <p style="font-size: 0.95em;">
+        The cheapest way into the "insurance off your back forever" category. Fasteners visible — that's the cosmetic trade-off.
+      </p>
+    </section>
+
+    <!-- ─────────────── 21 — Exposed Fastener sub-products ─────────────── -->
+    <section data-background-color="#13294b">
+      <h2>Exposed Fastener · two panel options</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
+          <div class="highlight-gold" style="font-size: 1.2em; font-weight: 800;">Ultra Rib Panel</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">Steeper roofs — anything <strong>2/12 pitch</strong> and above.</div>
+        </div>
+        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
+          <div class="highlight-gold" style="font-size: 1.2em; font-weight: 800;">PBR</div>
+          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">Low-slope — anything down to <strong>.5/12 pitch</strong>. Best option for flat-ish roofs.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── 22 — Standing Seam Metal ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Family 3 · Standing Seam Metal</span>
+      <h1 style="margin-top: 0.4em;">Standing Seam Metal</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">Wind</div><div class="value">150 mph</div></div>
+        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
+        <div class="spec-tile"><div class="label">Fasteners</div><div class="value">Concealed</div></div>
+      </div>
+      <div style="margin: 0.4em 0 0.7em;">
+        <span class="ins-shield">✓ Insurance leaves them alone</span>
+      </div>
+      <p style="font-size: 0.95em;">
+        Cleaner look than exposed fastener — no visible screws. The "modern home" choice.
+      </p>
+    </section>
+
+    <!-- ─────────────── 23 — Standing Seam sub-product ─────────────── -->
+    <section data-background-color="#13294b">
+      <h2>Standing Seam · TCM Lok</h2>
+      <div style="display: flex; justify-content: center; margin-top: 0.9em;">
+        <div style="background: rgba(212,161,66,0.18); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.5em; max-width: 700px;">
+          <div class="highlight-gold" style="font-size: 1.3em; font-weight: 800;">TCM Lok</div>
+          <div style="font-size: 0.9em; opacity: 0.9; margin-top: 0.4em;">
+            Goes all the way down to <strong>.25/12 pitch</strong>. The closest thing to "flat" we install.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────── 24 — Stone Coated Metal ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Family 4 · Stone Coated Metal</span>
+      <h1 style="margin-top: 0.4em;">Stone Coated Metal</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">Wind</div><div class="value">130 mph</div></div>
+        <div class="spec-tile"><div class="label">Pitch</div><div class="value">3/12</div></div>
+        <div class="spec-tile"><div class="label">Look</div><div class="value">Shingle or Tile</div></div>
+      </div>
+      <p style="font-size: 0.95em;">
+        Metal durability — with the appearance of asphalt shingle <em>or</em> traditional tile. Closes HOA homeowners who can't have plain metal.
+      </p>
+    </section>
+
+    <!-- ─────────────── 25 — Permalock ─────────────── -->
+    <section data-background-color="#13294b">
+      <span class="label-pill">Family 5 · Permalock</span>
+      <h1 style="margin-top: 0.4em;">Permalock</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">Wind</div><div class="value">185 mph</div></div>
+        <div class="spec-tile"><div class="label">Warranty</div><div class="value">Lifetime · non pro-rated</div></div>
+        <div class="spec-tile"><div class="label">Pitch</div><div class="value">3/12</div></div>
+      </div>
+      <p style="font-size: 1em; color: var(--uss-gold); font-weight: 700;">
+        The premium tier. "Last roof they'll ever buy."
+      </p>
+      <p style="margin-top: 0.5em; font-size: 0.85em; opacity: 0.9;">
+        Lifetime warranty, non pro-rated — meaning the coverage doesn't shrink over time.
+      </p>
+    </section>
+
+    <!-- ─────────────── 26 — Tilcor ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Family 6 · Tilcor</span>
+      <h1 style="margin-top: 0.4em;">Tilcor</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
+        <div class="spec-tile"><div class="label">Resistance</div><div class="value">Hail</div></div>
+        <div class="spec-tile"><div class="label">HOA</div><div class="value">Friendly</div></div>
+      </div>
+      <p style="font-size: 0.95em;">
+        Stone-coated steel with a tile profile. <strong>Hail resistant</strong> is the differentiator — the only product on our roster we explicitly market that way.
+      </p>
+    </section>
+
+    <!-- ─────────────── 27 — Tile ─────────────── -->
+    <section data-background-color="#13294b">
+      <span class="label-pill">Family 7 · Tile</span>
+      <h1 style="margin-top: 0.4em;">Tile</h1>
+      <div class="spec-row">
+        <div class="spec-tile"><div class="label">HOA</div><div class="value">Friendly</div></div>
+        <div class="spec-tile"><div class="label">Base benefits</div><div class="value">All 5</div></div>
+      </div>
+      <p style="font-size: 0.95em;">
+        Classic Florida look. Used when the HOA mandates tile or the homeowner wants the architectural match. Carries all the company-wide guarantees.
+      </p>
+    </section>
+
+    <!-- ─────────────── 28 — Side-by-side product matrix ─────────────── -->
+    <section data-background-color="#0a1730">
+      <span class="label-pill">Cheat sheet</span>
+      <h1 style="font-size: 1.5em; margin-top: 0.3em;">Quick comparison</h1>
+      <div style="overflow-x: auto; max-width: 1400px; margin: 0.4em auto 0;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.7em; color: #fff;">
+          <thead>
+            <tr style="background: rgba(212,161,66,0.25);">
+              <th style="padding: 0.5em 0.7em; text-align: left;">Product</th>
+              <th style="padding: 0.5em 0.7em;">Wind</th>
+              <th style="padding: 0.5em 0.7em;">Warranty</th>
+              <th style="padding: 0.5em 0.7em;">Min pitch</th>
+              <th style="padding: 0.5em 0.7em;">Insurance</th>
+            </tr>
+          </thead>
+          <tbody style="text-align: center;">
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">GAF asphalt</td><td>130 mph</td><td>30 yr</td><td>—</td>
+              <td><span style="color: #ffb3c0;">⚠ can drop</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Tamko Titan asphalt</td><td>160 mph</td><td>30 yr</td><td>—</td>
+              <td><span style="color: #ffb3c0;">⚠ can drop</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Exposed Fastener · Ultra Rib</td><td>180 mph</td><td>50 yr</td><td>2/12</td>
+              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Exposed Fastener · PBR</td><td>180 mph</td><td>50 yr</td><td>.5/12</td>
+              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Standing Seam · TCM Lok</td><td>150 mph</td><td>50 yr</td><td>.25/12</td>
+              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Stone Coated Metal</td><td>130 mph</td><td>—</td><td>3/12</td>
+              <td>—</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Tilcor (hail-rated)</td><td>—</td><td>50 yr</td><td>—</td>
+              <td>—</td>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <td style="padding: 0.4em 0.7em; text-align: left;">Permalock</td><td>185 mph</td><td>Lifetime</td><td>3/12</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.4em 0.7em; text-align: left;">Tile</td><td>—</td><td>—</td><td>—</td><td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top: 0.8em; font-size: 0.75em; opacity: 0.85;">
+        "—" = not the primary spec we lead with for that product. Dashes are gaps for Neal to confirm before quiz day.
+      </p>
+    </section>
+
+    <!-- ─────────────── 29 — Pitch order recap ─────────────── -->
+    <section data-background-color="#13294b">
+      <h1 style="font-size: 1.5em;">When you pitch a product —</h1>
+      <ol style="font-size: 1em; max-width: 1100px; line-height: 1.6; counter-reset: pitch;">
+        <li>Name the product</li>
+        <li>The <strong>specs</strong> (wind, warranty, pitch range)</li>
+        <li>The <strong>insurance angle</strong> if it applies (metal = leaves alone, asphalt = can still drop)</li>
+        <li>The <strong>5 shared benefits</strong></li>
+        <li><strong>Without Energy Package</strong> — what the price gets them</li>
+        <li><strong>With Energy Package</strong> — same product, plus the envelope upgrade</li>
+      </ol>
+      <p style="margin-top: 0.8em; font-size: 0.92em;">Both energy options should look the <em>same size</em> in your pitch. Equal weight.</p>
+    </section>
+
+    <!-- ─────────────── 30 — Tomorrow morning quiz ─────────────── -->
+    <section data-background-color="#b8324f">
+      <h2 style="color: #fff;">Tomorrow morning —</h2>
+      <h1 style="color: #fff;">Quiz on products.</h1>
+      <p style="margin-top: 0.7em; color: #fff; font-size: 1em; max-width: 1100px; margin-left: auto; margin-right: auto;">
+        Tonight's homework: review the <strong style="color: #ffe6a8;">Products PDF</strong> in your messages. Know the specs, the insurance category, and which sub-product fits which roof pitch.
+      </p>
+      <p style="margin-top: 0.6em; font-size: 0.85em; color: #ffe6a8;">Quiz fires when you sign in at the kiosk tomorrow.</p>
+    </section>
+
+    <!-- ─────────────── 31 — End ─────────────── -->
+    <section class="title-slide" data-background-color="#0a1730">
+      <h1>See you tomorrow.</h1>
+      <p class="subtitle">Day 3 — JN, RepCard, Roofr · Tools & live setup</p>
+    </section>
+
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1600,
+    height: 900,
+    margin: 0.05,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'fade',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    keyboard: true,
+    overview: true,
+    touch: true,
+    showNotes: false,
+  });
+</script>
+</body>
+</html>
