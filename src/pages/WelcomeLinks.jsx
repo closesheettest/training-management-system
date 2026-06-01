@@ -76,23 +76,29 @@ export default function WelcomeLinks() {
   }
 
   async function save() {
-    if (!draft.label.trim() || !draft.url.trim()) {
-      setFlash({ kind: 'error', text: 'Label and URL are both required.' })
+    // Label is always required. URL is OPTIONAL — leaving it blank
+    // creates a "Coming soon" placeholder card on /welcome (used for
+    // per-zone Daily Sales Meeting rows while each regional manager
+    // finalizes their Zoom link). On the page the empty-URL card
+    // renders as a non-clickable amber tile with a "Coming soon" pill.
+    if (!draft.label.trim()) {
+      setFlash({ kind: 'error', text: 'Label is required.' })
       return
     }
     setSaving(true)
     // Light URL normalization — auto-prepend https:// if the user pasted
     // a bare hostname like "sites.google.com/...", which is how a lot of
     // copy-pastes from the address bar arrive. Anything starting with a
-    // scheme (https://, http://, mailto:, tel:) is left alone.
-    let urlClean = draft.url.trim()
+    // scheme (https://, http://, mailto:, tel:) is left alone. Empty URL
+    // gets stored as null so the Coming-Soon renderer kicks in.
+    let urlClean = draft.url?.trim() || ''
     if (urlClean && !/^[a-z][a-z0-9+.-]*:/i.test(urlClean)) {
       urlClean = 'https://' + urlClean
     }
     const payload = {
       display_order: Number(draft.display_order) || 0,
       label: draft.label.trim(),
-      url: urlClean,
+      url: urlClean || null,
       description: draft.description?.trim() || null,
       icon: draft.icon?.trim() || null,
       requires_google_signin: !!draft.requires_google_signin,
@@ -325,15 +331,18 @@ export default function WelcomeLinks() {
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
             </Field>
-            <Field label="URL *" className="sm:col-span-6">
+            <Field label="URL" className="sm:col-span-6">
               <input
                 type="url"
                 value={draft.url}
                 onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-                required
-                placeholder="https://"
+                placeholder="https:// (leave blank for Coming Soon)"
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
+              <p className="mt-1 text-xs text-slate-500">
+                Optional. Leave blank to publish the card as a non-clickable <strong>Coming soon</strong> placeholder.
+                Useful while waiting on a regional manager's Zoom link.
+              </p>
             </Field>
             <Field label="Description" className="sm:col-span-6">
               <textarea

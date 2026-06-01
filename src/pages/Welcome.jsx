@@ -54,19 +54,14 @@ export default function Welcome() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {resources.map((r) => (
-            <li key={r.id}>
-              <a
-                href={r.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={
-                  'block overflow-hidden rounded-lg shadow-sm hover:shadow-md ' +
-                  (r.mandatory
-                    ? 'border-4 border-red-600 bg-white'
-                    : 'border border-slate-200 bg-white hover:border-brand-navy')
-                }
-              >
+          {resources.map((r) => {
+            // Cards with no URL render as a non-clickable "Coming
+            // soon" tile instead of a broken <a href=null>. Used for
+            // the per-zone Daily Sales Meeting placeholder rows while
+            // each regional manager finalizes their Zoom link.
+            const isComingSoon = !r.url || !String(r.url).trim()
+            const innerCard = (
+              <>
                 {r.mandatory && (
                   <div className="bg-red-600 px-3 py-2 text-center text-sm font-extrabold uppercase tracking-wide text-white sm:text-base">
                     ⚠️ {r.mandatory_note || 'MANDATORY'}
@@ -87,39 +82,75 @@ export default function Welcome() {
                         className={
                           r.mandatory
                             ? 'text-xl font-extrabold text-red-700 sm:text-2xl'
-                            : 'text-base font-semibold text-brand-navy'
+                            : isComingSoon
+                              ? 'text-base font-semibold text-slate-500'
+                              : 'text-base font-semibold text-brand-navy'
                         }
                       >
                         {r.label}
                       </span>
-                      <span
-                        className={r.mandatory ? 'text-red-500' : 'text-slate-400'}
-                        aria-hidden="true"
-                      >
-                        ↗
-                      </span>
+                      {isComingSoon ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                          Coming soon
+                        </span>
+                      ) : (
+                        <span
+                          className={r.mandatory ? 'text-red-500' : 'text-slate-400'}
+                          aria-hidden="true"
+                        >
+                          ↗
+                        </span>
+                      )}
                     </div>
                     {r.description && (
                       <p
                         className={
                           r.mandatory
                             ? 'mt-1 text-sm font-medium text-slate-800'
-                            : 'mt-1 text-sm text-slate-600'
+                            : isComingSoon
+                              ? 'mt-1 text-sm text-slate-500'
+                              : 'mt-1 text-sm text-slate-600'
                         }
                       >
                         {r.description}
                       </p>
                     )}
-                    {r.requires_google_signin && (
+                    {r.requires_google_signin && !isComingSoon && (
                       <p className="mt-2 inline-block rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                         🔐 Sign in to Google with your @shingleusa.com email first
                       </p>
                     )}
                   </div>
                 </div>
-              </a>
-            </li>
-          ))}
+              </>
+            )
+            return (
+              <li key={r.id}>
+                {isComingSoon ? (
+                  <div
+                    className="block cursor-default overflow-hidden rounded-lg border border-dashed border-slate-300 bg-slate-50 shadow-sm"
+                    aria-disabled="true"
+                  >
+                    {innerCard}
+                  </div>
+                ) : (
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={
+                      'block overflow-hidden rounded-lg shadow-sm hover:shadow-md ' +
+                      (r.mandatory
+                        ? 'border-4 border-red-600 bg-white'
+                        : 'border border-slate-200 bg-white hover:border-brand-navy')
+                    }
+                  >
+                    {innerCard}
+                  </a>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
 
