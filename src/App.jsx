@@ -177,7 +177,7 @@ function AdminLayout() {
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
-    { key: 'team.regions', to: '/regions', label: 'Regions' },
+    { key: 'team.regions', to: '/regions', label: 'Zones' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
     // Internal admin panel for the shared directory.
     { key: 'settings.active_reps', to: '/manage-directory', label: 'Manage directory' },

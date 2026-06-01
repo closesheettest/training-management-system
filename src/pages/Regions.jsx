@@ -708,10 +708,10 @@ export default function Regions() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Regions</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Zones</h1>
         <p className="mt-2 text-slate-600">
-          Manage the list of sales regions and reassign reps between them. Changes here ripple
-          to every region picker in the app —{' '}
+          Manage the list of sales zones and reassign reps between them. Changes here ripple
+          to every zone picker in the app —{' '}
           <Link to="/active-reps" className="underline">Active Reps</Link>,{' '}
           <Link to="/group-messages" className="underline">Group Messages</Link>, the{' '}
           <Link to="/rep-map" className="underline">Sales Team Map</Link>, and the public{' '}
@@ -1055,7 +1055,7 @@ export default function Regions() {
 
       {/* Region cards */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">📍 Regions ({regions.length})</h2>
+        <h2 className="text-lg font-semibold text-slate-900">📍 Zones ({regions.length})</h2>
 
         {regions.map((r) => {
           const repsInRegion = repsByRegion.byName.get(r.name) || []

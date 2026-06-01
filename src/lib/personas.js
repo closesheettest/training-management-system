@@ -29,7 +29,7 @@ export const PAGES = [
   { key: 'settings.personas', label: 'Personas', path: '/personas', menu: 'settings' },
   { key: 'settings.active_reps', label: 'Active sales reps', path: '/active-reps', menu: 'team' },
   { key: 'team.map', label: 'Sales team map', path: '/rep-map', menu: 'team' },
-  { key: 'team.regions', label: 'Regions', path: '/regions', menu: 'team' },
+  { key: 'team.regions', label: 'Zones', path: '/regions', menu: 'team' },
   { key: 'settings.group_messages', label: 'Group messages', path: '/group-messages', menu: 'team' },
   { key: 'settings.hosted_pages', label: 'Hosted pages', path: '/hosted-pages', menu: 'settings' },
   { key: 'settings.overview', label: 'System Overview', href: '/system-overview.html', external: true, menu: 'settings' },
