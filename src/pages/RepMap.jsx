@@ -65,6 +65,19 @@ const STATUS = {
   departed:  { label: '🚪 Departed (cleanup pending)', color: '#f59e0b' },
 }
 
+// Zone → pin color. Used when "Color by: Zone" is selected. Picked for
+// max distinction on the satellite/road basemap (no two adjacent zones
+// share a hue and they print legibly in black-and-white). Reps with no
+// zone or with a legacy region fall back to gray so the eye reads them
+// as "needs attention."
+const ZONE_COLORS = {
+  'Zone 1': '#2563eb',  // royal blue (Tony — NE / N-Central)
+  'Zone 2': '#a855f7',  // purple     (Richard — Central / E-Central)
+  'Zone 3': '#14b8a6',  // teal       (Chad — Gulf / SW)
+  'Zone 4': '#ec4899',  // rose       (Sam — SE)
+}
+const NO_ZONE_COLOR = '#94a3b8'  // slate-400
+
 // Build a colored marker icon. Two variants per status:
 //   solid  — geocoded from real address (full status color fill)
 //   hollow — approximated to region center (outline only, no fill)
@@ -100,6 +113,25 @@ const ICONS = Object.fromEntries(
   ]),
 )
 
+// Same shape as ICONS but keyed by zone name. Includes a __no_zone
+// bucket so reps with no region (or a legacy region that's not Zone X)
+// still get a deterministic gray icon instead of crashing the lookup.
+const ZONE_ICONS = {
+  ...Object.fromEntries(
+    Object.entries(ZONE_COLORS).map(([name, color]) => [
+      name,
+      {
+        solid: makeIcon(color, { hollow: false }),
+        hollow: makeIcon(color, { hollow: true }),
+      },
+    ]),
+  ),
+  __no_zone: {
+    solid: makeIcon(NO_ZONE_COLOR, { hollow: false }),
+    hollow: makeIcon(NO_ZONE_COLOR, { hollow: true }),
+  },
+}
+
 export default function RepMap() {
   const { regions, regionNames } = useRegions()
   const [trainees, setTrainees] = useState([])
@@ -115,6 +147,12 @@ export default function RepMap() {
   })
   // Region filter on top of status — same pattern as ActiveReps.
   const [regionFilter, setRegionFilter] = useState('')
+  // Pin color scheme: 'status' (the historical default — green/blue/
+  // gray/amber by where they are in the lifecycle) or 'zone' (Z1 blue,
+  // Z2 purple, Z3 teal, Z4 rose, none gray). Toggling doesn't filter
+  // anything; just swaps the icon palette so admin can see the same set
+  // of pins under either lens.
+  const [colorBy, setColorBy] = useState('status')
   // Bulk backfill state for "🔄 Geocode N unmapped reps". The client
   // loops through reps with addresses but no lat/lng, calling the
   // geocode function once per rep with a 1.1s gap (Nominatim's free
@@ -255,6 +293,59 @@ export default function RepMap() {
 
       {/* Status filters */}
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        {/* Color-by toggle — swaps the pin palette without filtering. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Color by:</span>
+          <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
+            <button
+              type="button"
+              onClick={() => setColorBy('status')}
+              className={
+                'px-3 py-1 text-xs font-semibold ' +
+                (colorBy === 'status'
+                  ? 'bg-brand-navy text-white'
+                  : 'bg-white text-slate-700 hover:bg-slate-50')
+              }
+            >
+              Status
+            </button>
+            <button
+              type="button"
+              onClick={() => setColorBy('zone')}
+              className={
+                'border-l border-slate-300 px-3 py-1 text-xs font-semibold ' +
+                (colorBy === 'zone'
+                  ? 'bg-brand-navy text-white'
+                  : 'bg-white text-slate-700 hover:bg-slate-50')
+              }
+            >
+              Zone
+            </button>
+          </div>
+          {colorBy === 'zone' && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              {Object.entries(ZONE_COLORS).map(([name, color]) => (
+                <span key={name} className="inline-flex items-center gap-1">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
+                    style={{ backgroundColor: color }}
+                    aria-hidden="true"
+                  />
+                  {name}
+                </span>
+              ))}
+              <span className="inline-flex items-center gap-1">
+                <span
+                  className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
+                  style={{ backgroundColor: NO_ZONE_COLOR }}
+                  aria-hidden="true"
+                />
+                No zone
+              </span>
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Show:</span>
           {Object.entries(STATUS).map(([key, v]) => (
@@ -266,7 +357,7 @@ export default function RepMap() {
               />
               <span
                 className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
-                style={{ backgroundColor: v.color }}
+                style={{ backgroundColor: colorBy === 'status' ? v.color : '#cbd5e1' }}
                 aria-hidden="true"
               />
               {v.label} <span className="text-slate-400">({categorized[key].length})</span>
@@ -374,7 +465,14 @@ export default function RepMap() {
           />
           {visible.map(({ trainee, status }) => {
             const loc = locationForTrainee(trainee, regions)
-            const icon = loc.geocoded ? ICONS[status].solid : ICONS[status].hollow
+            // Pick the icon palette based on the current Color by mode.
+            // For zone mode, resolve the trainee's region against the
+            // four Zone keys; anything else (legacy region, blank)
+            // gets the __no_zone gray icon.
+            const iconSet = colorBy === 'zone'
+              ? (ZONE_ICONS[trainee.region] || ZONE_ICONS.__no_zone)
+              : ICONS[status]
+            const icon = loc.geocoded ? iconSet.solid : iconSet.hollow
             return (
               <Marker
                 key={trainee.id}
