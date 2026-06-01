@@ -118,8 +118,13 @@ export function zoneForCounty(county) {
 //     because moving them is the admin's call, not the algorithm's
 //   - split counties when current region is one of the valid zones
 //     (Brevard/Orange can legitimately be either Zone 1 or Zone 2)
+//   - REGIONAL MANAGERS — their zone is decided by org structure, not
+//     by their home county. Richard manages Zone 2 even if his home
+//     county happens to be in Zone 3's territory now. We anchor on
+//     managed_region, period.
 export function detectZoneMismatch(rep) {
   if (!rep || !rep.county) return null
+  if (rep.managed_region) return null  // org-structure trumps geography
   const suggestion = zoneForCounty(rep.county)
   if (!suggestion || suggestion.zones.length === 0) return null
   if (!rep.region || !isZoneName(rep.region)) return null
