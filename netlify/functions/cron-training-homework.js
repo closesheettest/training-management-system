@@ -5,9 +5,18 @@
 // strict-attendance policy, no-shows get no homework (they shouldn't be
 // continuing anyway).
 //
-// Schedule: 23:00 UTC = 7 PM EDT / 6 PM EST. Runs daily. Quiet (no SMS,
-// no errors) when nothing matches — e.g. weekends, between classes, or
-// for the last day of a class (graduation day, no homework).
+// Schedule: 20:30 UTC = 4:30 PM EDT / 3:30 PM EST. Runs daily. Quiet
+// (no SMS, no errors) when nothing matches — e.g. weekends, between
+// classes, or for the last day of a class (graduation day, no homework).
+//
+// Why 4:30 PM ET: training day ends at 4 PM ET (noon-4 on Mondays;
+// 8-4 the rest of the week), so 4:30 lands ~30 min after dismissal
+// while everyone's still on the way home and the topic is fresh.
+//
+// DST note: Netlify cron is UTC-only. 20:30 UTC tracks EDT (mid-March
+// through early November). When clocks fall back to EST, the cron will
+// fire at 3:30 PM ET instead. To keep 4:30 PM ET year-round, flip the
+// schedule below to '30 21 * * *' (= 4:30 PM EST) when DST ends in Nov.
 //
 // USAGE:
 //   • Scheduled function — fires automatically on the configured cron.
@@ -197,5 +206,6 @@ function json(status, body) {
   }
 }
 
-// Netlify v2 scheduled function — daily at 23:00 UTC (7 PM EDT / 6 PM EST).
-export const config = { schedule: '0 23 * * *' }
+// Netlify v2 scheduled function — daily at 20:30 UTC (4:30 PM EDT / 3:30 PM EST).
+// See header comment for DST handling — bump to '30 21 * * *' in November.
+export const config = { schedule: '30 20 * * *' }
