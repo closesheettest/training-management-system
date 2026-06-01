@@ -100,15 +100,16 @@ export const HOSTED_PAGES = [
   },
   {
     slug: 'day-1-homework',
-    title: 'Day 1 homework — Two scripts + full training manual',
+    title: 'Day 1 homework — Scripts + Slide 1 + full training manual',
     url: '/day-1-homework/',
     description:
-      'Tonight\'s directive: memorize the Free Roof Inspection script (opening pitch ' +
-      'at the door) and the Retail Roof Go-Back script (the wear-&-tear second-yes pitch), ' +
-      'plus the 3 outcomes that bridge them. Verbatim from Day 1 slides 30, 31, 31c-31e. ' +
-      'Also bundles the full 118-slide training manual PDF as a download (same send-with-' +
-      'pitch pattern as last week). Includes Save-as-PDF for the scripts. SMS\'d at 4:30 PM ' +
-      'after Day 1 ends; quiz on this content fires Day 2 morning at kiosk sign-in.',
+      'Tonight\'s directive: memorize three things — the Free Roof Inspection script ' +
+      '(opening pitch at the door), the Retail Roof Go-Back script (the wear-&-tear ' +
+      'second-yes pitch), and Slide 1 (15 Years in Business — the in-home pitch opener). ' +
+      'Verbatim from Day 1 slides 30, 31, 31c-31e plus training page 37. Also bundles the ' +
+      'full 118-slide training manual PDF as a download (same send-with-pitch pattern as ' +
+      'last week). Includes Save-as-PDF for the scripts. SMS\'d at 4:30 PM after Day 1 ' +
+      'ends; quiz on this content fires Day 2 morning at kiosk sign-in.',
     created: '2026-06-01',
     category: 'Trainee resources',
   },

@@ -20,13 +20,14 @@
 -- 1. Enable Day 1 lesson row + populate homework SMS body + link.
 update training_day_lessons
 set
-  label = 'Day 1 — Free Inspection + Retail Go-Back scripts',
+  label = 'Day 1 — Scripts (Free Inspection + Go-Back) + Slide 1',
   homework_sms_body =
     E'Hi {firstName}, great first day! 🎯\n\n' ||
-    E'Tonight: memorize the two scripts —\n' ||
+    E'Tonight: memorize all three —\n' ||
     E'• Free Roof Inspection pitch\n' ||
-    E'• Retail Roof Go-Back pitch\n\n' ||
-    E'The link below has both scripts AND the full 118-slide training manual. Save the PDF for offline study. Tomorrow morning at the kiosk you''ll get a quick quiz on this.',
+    E'• Retail Roof Go-Back pitch\n' ||
+    E'• Slide 1 — 15 Years in Business\n\n' ||
+    E'The link below has all three AND the full 118-slide training manual. Save the PDF for offline study. Tomorrow morning at the kiosk you''ll get a quick quiz on this.',
   homework_link_url = '/day-1-homework/',
   enabled = true,
   updated_at = now()
@@ -88,4 +89,14 @@ values
       "Manufacturer warranty and tax credits",
       "Avoiding leaks and saving on energy bills"
     ]'::jsonb,
-   1);
+   1),
+
+  (1, 6,
+   'In Slide 1 (15 Years in Business), what is the opening question you ask the homeowner?',
+   '[
+      "How long have you owned your home?",
+      "Have you worked with a roofer before?",
+      "When dealing with a company for your roof, how important is it to you that they are likely to be around in the future if you have a need or if something goes wrong?",
+      "What''s the most important quality you look for in a contractor?"
+    ]'::jsonb,
+   2);
