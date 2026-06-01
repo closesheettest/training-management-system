@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 
 export default function TakeTest() {
   const { token } = useParams()
-  const [status, setStatus] = useState('loading') // loading | not_found | not_registered | ready | submitting | already_done
+  const [status, setStatus] = useState('loading') // loading | not_found | not_registered | needs_zone | ready | submitting | already_done
   const [trainee, setTrainee] = useState(null)
   const [classId, setClassId] = useState(null)
   const [questions, setQuestions] = useState([])
@@ -25,7 +25,7 @@ export default function TakeTest() {
     // Look up trainee + their class
     const { data: t, error: trErr } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, registered, enrolled, class_id, classes!class_id(week_start_date, week_end_date, locations(name))')
+      .select('id, first_name, last_name, registered, enrolled, region, class_id, classes!class_id(week_start_date, week_end_date, locations(name))')
       .eq('registration_token', token)
       .maybeSingle()
     if (trErr || !t) {
@@ -39,6 +39,16 @@ export default function TakeTest() {
     }
     setTrainee(t)
     setClassId(t.class_id)
+
+    // 2026-05-31 rule: trainee can't take the final test until their
+    // trainer has assigned them a Zone on /active-reps. Region holds
+    // the value (Zone 1/2/3/4 or — during the transition — St Pete).
+    // If it's blank, send them to the needs_zone screen with a
+    // friendly "go grab your trainer" message instead of the test.
+    if (!t.region || !String(t.region).trim()) {
+      setStatus('needs_zone')
+      return
+    }
 
     // Has this trainee already submitted?
     const { data: existing } = await supabase
@@ -164,16 +174,23 @@ export default function TakeTest() {
       // unless it's already on (re-submitting an existing test).
       // Best-effort: failure here doesn't block them from seeing their
       // results page. Admin can also flip it manually on /active-reps.
-      // Graduating here = Junior by default. Stays unconfirmed
-      // (rep_level_confirmed_at null) so admin sees them in the
-      // "Rep levels to confirm" list on /active-reps and can flip
-      // to Senior if it was actually a re-cert / refresher.
+      //
+      // 2026-05-31 — default to Junior AND auto-confirm the rep_level
+      // here (rep_level_confirmed_at = now). Old behavior left it
+      // null so admin had to confirm on /active-reps before chips /
+      // grouping treated them as a proper Junior. With the new "zone
+      // before test" rule, the trainer has already touched this person
+      // recently to assign their zone, so the extra confirm-click was
+      // pure friction. If a graduate is actually a Senior re-cert,
+      // admin can still flip them to Senior on /active-reps.
+      const nowIso = new Date().toISOString()
       await supabase
         .from('trainees')
         .update({
           is_active_sales_rep: true,
-          became_active_rep_at: new Date().toISOString(),
+          became_active_rep_at: nowIso,
           rep_level: 'junior',
+          rep_level_confirmed_at: nowIso,
         })
         .eq('id', trainee.id)
         .eq('is_active_sales_rep', false)
@@ -231,6 +248,26 @@ export default function TakeTest() {
         <h1 className="text-2xl font-semibold text-amber-900">Please register first</h1>
         <p className="mt-2 text-amber-800">
           You need to complete your training registration before taking the final test.
+        </p>
+      </div>
+    )
+  }
+
+  if (status === 'needs_zone') {
+    // Trainer hasn't assigned this trainee to a Zone yet — block the
+    // test with a clear "go grab your trainer" message rather than
+    // dumping them onto the form. The fix is one click on /active-reps
+    // (Edit Info → pick county → Use Zone X) so this should be a
+    // <60-second turnaround in the room.
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+        <h1 className="text-2xl font-semibold text-red-900">Almost there — one step missing</h1>
+        <p className="mt-3 text-red-800">
+          Your trainer needs to assign you to a <strong>Zone</strong> before you can take the test.
+        </p>
+        <p className="mt-3 text-sm text-red-700">
+          Find {trainee?.first_name ? 'your trainer' : 'Neal'} in the training room and let them
+          know — it's a quick fix on their end. Refresh this page once they've done it.
         </p>
       </div>
     )

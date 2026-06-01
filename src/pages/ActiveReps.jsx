@@ -1332,6 +1332,7 @@ export default function ActiveReps() {
                 active={false}
                 saving={savingId === t.id}
                 onPromote={() => toggle(t, true)}
+                onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
               />
             ))}
           </ul>
@@ -1477,9 +1478,21 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
               📍 {t.region}
             </span>
-          ) : (
+          ) : active ? (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
               📍 no region yet
+            </span>
+          ) : (
+            // Pipeline trainee with no zone — they're BLOCKED from
+            // taking the final test until admin assigns one (per the
+            // 2026-05-31 rule). Surface that with red so it doesn't
+            // get lost among the gray "📍 no region yet" tags on
+            // active reps where the rule doesn't apply.
+            <span
+              className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-800"
+              title="This trainee can't take their final test until you assign them a Zone. Click ✏️ Edit info to fix."
+            >
+              🚫 no zone — test blocked
             </span>
           )}
         </div>
@@ -1629,14 +1642,27 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={onPromote}
-          disabled={saving}
-          className="rounded-md bg-emerald-700 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-        >
-          {saving ? '…' : 'Add as active rep'}
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          {onEditInfo && (
+            <button
+              type="button"
+              onClick={onEditInfo}
+              disabled={saving}
+              className="rounded-md border border-sky-300 bg-white px-3 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-50 disabled:opacity-50"
+              title="Edit a pipeline trainee's info — name, phone, email, region/zone, address. Required: assign a Zone before they can take their final test."
+            >
+              ✏️ Edit info
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onPromote}
+            disabled={saving}
+            className="rounded-md bg-emerald-700 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+          >
+            {saving ? '…' : 'Add as active rep'}
+          </button>
+        </div>
       )}
     </li>
   )
