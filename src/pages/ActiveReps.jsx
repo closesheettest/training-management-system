@@ -769,17 +769,39 @@ export default function ActiveReps() {
     [zonesWithManager],
   )
 
-  // Per-region active-rep counts for the breakdown card.
+  // Per-region active-rep counts for the breakdown chip row.
+  //
+  // Counts reflect where each rep ACTUALLY RENDERS in the sections
+  // below, which is:
+  //   - managed_region if set (they're the manager-header of that group)
+  //   - region otherwise (regular rep in their assigned region)
+  //
+  // Earlier this counted by region alone, which double-disagreed with
+  // the section view: a St Pete rep who managed Jacksonville got
+  // counted under St Pete in the chips even though the section put
+  // them under Jacksonville as the manager. Result was confusing
+  // counts like "St Pete (3)" with only 1 rep visible in the
+  // St Pete section.
   const activeByRegion = useMemo(() => {
     const counts = { __none: 0 }
     for (const r of regionNames) counts[r] = 0
+    // Also seed the four Zone keys in case the regions table hasn't
+    // been synced yet (e.g. fresh deploy before the 2026-05-31-zones
+    // migration ran for real).
+    for (const z of Object.keys(ZONE_COUNTIES)) {
+      if (counts[z] === undefined) counts[z] = 0
+    }
     for (const t of active) {
-      if (t.region && counts[t.region] !== undefined) counts[t.region]++
-      else if (t.region) counts[t.region] = (counts[t.region] || 0) + 1
-      else counts.__none++
+      // managed_region wins — that's where the section places them.
+      const visibleRegion = t.managed_region || t.region
+      if (!visibleRegion) {
+        counts.__none++
+        continue
+      }
+      counts[visibleRegion] = (counts[visibleRegion] || 0) + 1
     }
     return counts
-  }, [active])
+  }, [active, regionNames])
 
   // Suggest promotion for trainees who graduated (submitted test) but
   // somehow aren't flagged active yet. With the auto-flip in TakeTest
