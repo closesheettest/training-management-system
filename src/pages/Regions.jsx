@@ -629,8 +629,40 @@ export default function Regions() {
       )
       return
     }
-    if (!confirm(`Delete region "${region.name}"? This is reversible — you can add it back any time.`)) return
+    // Also check managed_region — a stale legacy manager assignment
+    // (Anthony's old "Jacksonville manager" scenario) doesn't show up
+    // in the per-region rep list above, but it still ties data to this
+    // region name. Deleting underneath that would leave the trainee
+    // with a managed_region pointing at a row that no longer exists.
+    // Re-query rather than trust the local reps state because reps[]
+    // here doesn't carry managed_region (the regions page doesn't
+    // select it).
     setBusyId(region.id)
+    const { data: stale, error: staleErr } = await supabase
+      .from('trainees')
+      .select('first_name, last_name')
+      .eq('managed_region', region.name)
+      .limit(5)
+    if (staleErr) {
+      setBusyId(null)
+      setFlash({ kind: 'error', text: staleErr.message })
+      return
+    }
+    if (stale && stale.length > 0) {
+      setBusyId(null)
+      const names = stale.map((s) => `${s.first_name} ${s.last_name}`).join(', ')
+      alert(
+        `Can't delete "${region.name}" — ${stale.length} regional manager assignment${stale.length === 1 ? '' : 's'} ` +
+        `still point${stale.length === 1 ? 's' : ''} at it (${names}). ` +
+        `Go to /active-reps and either click "↪ Move to Zone X" or "Revoke" on each ` +
+        `flagged amber row first.`,
+      )
+      return
+    }
+    if (!confirm(`Delete region "${region.name}"? This is reversible — you can add it back any time.`)) {
+      setBusyId(null)
+      return
+    }
     const { error } = await supabase.from('regions').delete().eq('id', region.id)
     setBusyId(null)
     if (error) {
