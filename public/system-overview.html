@@ -290,7 +290,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <div class="day">
   <div class="label">Day 1 — orientation</div>
-  <p class="what">Trainees arrive at the training location. They sign in at the kiosk on the front-desk tablet. Day 1 is intro / orientation — no system actions fire yet.</p>
+  <p class="what">Trainees arrive at the training location and sign in at the kiosk on the front-desk tablet. The first time a trainee signs in, the system automatically texts them the onboarding link (HomeMaxx funnel) so they can fill it out before / during class — no more "scan this QR code" + "check your email (spam too)" instructions. The send is idempotent (guarded by <code>onboarding_sms_sent_at</code>) so re-tapping their name or signing in again on Day 2 won't double-text.</p>
 </div>
 
 <div class="day">

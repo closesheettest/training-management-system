@@ -127,6 +127,14 @@ export default function Kiosk() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ class_id, trainee_id: t.id }),
     }).catch((e) => console.warn('send-training-quiz failed (non-fatal):', e))
+    // Fire the Day 1 onboarding SMS (HomeMaxx funnel link). The function
+    // is idempotent — guarded by trainees.onboarding_sms_sent_at — so it
+    // only actually sends the first time. Safe to call on every sign-in.
+    fetch('/.netlify/functions/send-onboarding-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainee_id: t.id }),
+    }).catch((e) => console.warn('send-onboarding-sms failed (non-fatal):', e))
     load()
   }
 
