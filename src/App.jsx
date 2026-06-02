@@ -36,6 +36,7 @@ import Directory from './pages/Directory.jsx'
 import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
 import RegionalManager from './pages/RegionalManager.jsx'
+import RegionalManagers from './pages/RegionalManagers.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -132,6 +133,7 @@ export default function App() {
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
+          <Route path="/regional-managers" element={<RouteGate pageKey="settings.active_reps"><RegionalManagers /></RouteGate>} />
           <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
@@ -176,6 +178,7 @@ function AdminLayout() {
   ].filter((it) => show(it.key))
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
+    { key: 'settings.active_reps', to: '/regional-managers', label: 'Regional managers' },
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
     { key: 'team.regions', to: '/regions', label: 'Zones' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
