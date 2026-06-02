@@ -94,10 +94,11 @@ export function zoneColor(zone) {
 //   Zone 1 = SQUAD  (Tony)
 //   Zone 2 = ?      (Richard — TBD)
 //   Zone 3 = SHARKS (Chad)
-//   Zone 4 = ?      (Sam — TBD)
+//   Zone 4 = HURRICANE (Sam)
 export const ZONE_TEAMS = {
   'Zone 1': 'SQUAD',
   'Zone 3': 'SHARKS',
+  'Zone 4': 'HURRICANE',
 }
 
 // Render a zone for a user-facing surface. Three states:
