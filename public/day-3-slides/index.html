@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Day 3 — U.S. Shingle &amp; Metal Retail Training</title>
+<!--
+  Day 3 Retail Training slide deck — projector / clicker mode.
+
+  Structure (per Neal 2026-06-02):
+    Morning  (10–12) — Roleplay marathon (recap of Day 1-2 scripts)
+      1. Free Inspection Script
+      2. Retail Go-Back Script
+      3. In-home pitch Slides 1-16 (the talking points + walk)
+    Lunch
+    Afternoon — Tech introduction:
+      • The 3 tools they need (JobNimbus, RepCard, Roofr)
+      • JobNimbus walkthrough — Sections 1-5 (Contact / Job /
+        Appointment / Estimate / Edit Job)
+      • RepCard intro
+      • Roofr intro
+      • Pointer to /tools-training/ for the full reference page
+
+  End-of-day homework SMS still points trainees to /day-3-homework/
+  (apps setup + practice deal). That page already exists — these
+  slides are the in-class lecture that goes with it.
+
+  Same visual system as /day-1-slides + /day-2-slides — navy/gold,
+  Reveal.js 5.0.4, 1600x900 canvas. Open on the projector laptop,
+  F for fullscreen, clicker controls.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+<style>
+  :root {
+    --uss-navy: #13294b;
+    --uss-red: #b8324f;
+    --uss-gold: #d4a142;
+    --uss-cream: #f8f5ed;
+    --uss-teal: #14b8a6;
+  }
+  .reveal { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 {
+    font-family: 'Oswald', 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  }
+  .reveal h1 { color: var(--uss-gold); font-size: 2.4em; line-height: 1.15; }
+  .reveal h2 { color: var(--uss-cream); font-size: 1.7em; line-height: 1.2; }
+  .reveal h3 { color: var(--uss-gold); font-size: 1.3em; line-height: 1.3; }
+  .reveal section { color: #fff; }
+  .reveal .highlight-red { color: var(--uss-red); }
+  .reveal .highlight-gold { color: var(--uss-gold); }
+  .reveal .highlight-teal { color: var(--uss-teal); }
+  .reveal ul, .reveal ol { display: inline-block; text-align: left; margin: 0 auto; }
+  .reveal li { margin: 0.4em 0; }
+  .reveal strong { color: var(--uss-gold); }
+  .reveal em { color: var(--uss-cream); font-style: italic; }
+  .reveal .title-slide h1 { font-size: 3em; color: #fff; }
+  .reveal .title-slide .subtitle {
+    color: var(--uss-gold); font-size: 1em;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-top: 0.5em;
+  }
+  .reveal .label-pill {
+    display: inline-block;
+    background: var(--uss-red);
+    color: #fff;
+    padding: 0.15em 0.7em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5em;
+  }
+  .reveal .label-pill.teal { background: var(--uss-teal); }
+  .reveal .label-pill.gold { background: var(--uss-gold); color: var(--uss-navy); }
+  /* Verbatim script box — same as Day 1/2 so roleplay refresher
+     slides feel consistent. */
+  .reveal .script {
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 5px solid var(--uss-gold);
+    padding: 16px 22px;
+    text-align: left;
+    font-size: 0.5em;
+    line-height: 1.35;
+    border-radius: 6px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .reveal .script p { margin: 0.4em 0; }
+  .reveal .script strong { color: var(--uss-gold); }
+  /* Step tiles for the JN section walkthroughs — 5 numbered
+     mini-cards that map to Sections 1-5 of the tools-training page. */
+  .reveal .step-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    max-width: 1400px;
+    margin: 0.8em auto 0;
+  }
+  .reveal .step-tile {
+    background: rgba(212, 161, 66, 0.15);
+    border: 2px solid var(--uss-gold);
+    border-radius: 12px;
+    padding: 0.8em 0.7em;
+    text-align: center;
+  }
+  .reveal .step-tile .num {
+    font-size: 2em;
+    font-weight: 800;
+    color: var(--uss-gold);
+    line-height: 1;
+  }
+  .reveal .step-tile .name {
+    font-size: 0.7em;
+    margin-top: 0.4em;
+    font-weight: 700;
+    color: var(--uss-cream);
+  }
+  /* Drill rules card */
+  .reveal .drill-card {
+    background: rgba(184, 50, 79, 0.18);
+    border: 3px solid var(--uss-red);
+    border-radius: 14px;
+    padding: 0.9em 1.2em;
+    max-width: 1100px;
+    margin: 0.6em auto;
+    text-align: left;
+  }
+  .reveal .drill-card h3 { margin: 0 0 0.4em; }
+  /* Tech-tool tile */
+  .reveal .tool-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0.8em auto 0;
+  }
+  .reveal .tool-tile {
+    background: rgba(20, 184, 166, 0.16);
+    border: 3px solid var(--uss-teal);
+    border-radius: 14px;
+    padding: 1em 1.1em;
+  }
+  .reveal .tool-tile .name {
+    font-size: 1.4em;
+    color: var(--uss-gold);
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.3em;
+  }
+  .reveal .tool-tile .role {
+    font-size: 0.7em;
+    color: var(--uss-cream);
+    line-height: 1.4;
+  }
+  .reveal .slide-number {
+    background: rgba(184, 50, 79, 0.85);
+    color: #fff;
+    font-family: 'Oswald', sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+  <!-- ─────────────────────────── 1 — Title ─────────────────────────── -->
+  <section class="title-slide" data-background-color="#13294b">
+    <h1>Day 3 — Retail Training</h1>
+    <p class="subtitle">U.S. Shingle &amp; Metal LLC</p>
+    <p style="margin-top: 1.5em;"><span class="label-pill">Morning roleplay → afternoon tech</span></p>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      Sign in at the kiosk. Quiz on Day 2 (Slides 1-16 + Products) fires when you do.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 2 — Today's plan ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <h1>Today</h1>
+    <ul style="font-size: 1.05em;">
+      <li><strong class="highlight-red">10 AM – 12 PM</strong> — Roleplay marathon: scripts you've already memorized</li>
+      <li><strong class="highlight-gold">Lunch</strong></li>
+      <li><strong class="highlight-teal">Afternoon</strong> — The 3 tools: JobNimbus, RepCard, Roofr</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 1em;">
+      Tonight's homework comes by SMS at end of day — apps setup + a full practice deal in JobNimbus.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       MORNING — ROLEPLAY MARATHON
+       Recap drills of Days 1-2 content. Verbatim scripts on screen so
+       trainees can check phrasing between rounds.
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 3 — Morning intro ─────────────────────────── -->
+  <section data-background-color="#b8324f">
+    <p><span class="label-pill" style="background:#fff;color:var(--uss-red);">Morning · 10 AM – 12 PM</span></p>
+    <h1 style="font-size: 3em; color: #fff;">Roleplay.</h1>
+    <p style="font-size: 0.9em; color: #fff; opacity: 0.9; margin-top: 0.4em;">
+      Pair off. Switch roles every round. Hammer the phrasing.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 4 — Drill rules ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1>The drill</h1>
+    <div class="drill-card">
+      <h3 class="highlight-red">Pairs · 5 min per round · switch</h3>
+      <ul style="font-size: 0.85em;">
+        <li>One of you is the <strong>rep</strong>. One is the <strong>homeowner</strong>.</li>
+        <li>Rep delivers the script <strong>verbatim</strong> — not your own words yet.</li>
+        <li>Homeowner: <strong>don't be easy.</strong> Push back. Ask why. Be skeptical.</li>
+        <li>End of 5 min — <strong>swap roles</strong> and run the same script again.</li>
+        <li>Between rounds: <strong>look at the slide</strong>. Did you say it word-for-word?</li>
+      </ul>
+    </div>
+    <p style="font-size: 0.7em; opacity: 0.8; margin-top: 0.6em;">
+      Don't rush. The point is to <span class="highlight-gold">get the words right</span>, not get through the script fast.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 5 — Drill 1: Free Inspection ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 1</span></p>
+    <h1 class="highlight-gold">Free Roof Inspection Script</h1>
+    <p style="font-size: 0.7em; opacity: 0.85;">The door pitch. Earns the inspection appointment.</p>
+    <div class="script">
+      <p>"Hi, my name is <strong>__________</strong>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
+      <p>We sent this to you because according to county records you are at <strong>high risk of the insurance company dropping you</strong> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
+      <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
+      <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <strong>no-cost roof inspection</strong>. If there's no damage, we'll provide you an <strong>official inspection certificate that says you have 5+ years of life left in your roof</strong>. This will make them leave you alone."</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 6 — Drill 1: 3 outcomes ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 1 · bridge</span></p>
+    <h1 class="highlight-gold" style="font-size: 1.7em;">3 things that can happen</h1>
+    <ol style="font-size: 0.95em;">
+      <li><strong>No damage</strong> — you're protected against the letter (we issue the certificate).</li>
+      <li><strong>Wear &amp; tear</strong> — no cert, but we have many options for you (this is where you flip to the Go-Back script).</li>
+      <li><strong>Storm damage</strong> — a public adjuster fights to get insurance to pay, <strong>no out-of-pocket cost</strong>.</li>
+    </ol>
+  </section>
+
+  <!-- ─────────────────────────── 7 — Drill 2: Go-Back setup ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 2 · Setup</span></p>
+    <h1 class="highlight-gold">Retail Roof Go-Back — Setup</h1>
+    <p style="font-size: 0.7em; opacity: 0.85;">When wear &amp; tear is found. The second-yes script opens here.</p>
+    <div class="script">
+      <p>"Hi <strong>__________</strong>, I have your report here for you. Before we go over it — a couple quick questions.</p>
+      <p>You don't have any plans of moving in the next year or two, <strong>right</strong>?</p>
+      <p>And when you do business with anyone, the company's <strong>ethics and standing</strong> is important to you, <strong>right</strong>?</p>
+      <p>Great — I was hoping you'd answer that way. I'd <strong>love</strong> to be able to give you a report that says your roof has 5 more years of life left in it. But if I did, that would be unethical — and we just don't operate that way. You understand, right?</p>
+      <p>Here, let me show you what you have going on up there…"</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 8 — Drill 2: Walk + 2 reasons ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 2 · Walk + pivot</span></p>
+    <h1 class="highlight-gold">Go-Back — Walk the report</h1>
+    <div class="script">
+      <p><em>(Go over the report.)</em></p>
+      <p>"As poor a shape as your roof is, this isn't a scare tactic. I'm not saying you absolutely must replace your roof right now, or terrible things are going to happen. Although — <em>the leak you don't see is actually the worst kind.</em></p>
+      <p>Since we know you're not moving anytime soon, you'd agree at some point soon, this is something you're going to have to <strong>address</strong>, right?</p>
+      <p>Here are the two main reasons to consider doing it <strong>now</strong> —</p>
+      <p><strong>1.</strong> Today is the cheapest you'll ever pay for a new roof. Storm season is coming. Since January, two price increases from our suppliers. Waiting a year could literally cost you <strong>thousands more</strong>.</p>
+      <p><strong>2.</strong> Insurance. Once you replace your roof, you can shop your insurance and realize savings <strong>up to 30% or more</strong>."</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 9 — Drill 2: close ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 2 · Close</span></p>
+    <h1 class="highlight-gold">Go-Back — Close + Ask</h1>
+    <div class="script">
+      <p>"Of course, you are <strong>free to accept or refuse</strong> the advice. I just wanted you to know and understand the options and what's in front of you.</p>
+      <p><strong>Replace it now, save a lot of money. Replace it later, lose a lot of money.</strong> Really kind of that simple."</p>
+      <p style="color: var(--uss-gold); font-weight: 600;"><em>Both decision-makers home → do the pitch. Only one → schedule the second appt.</em></p>
+      <p>"Let me set a time to come back tomorrow — I still need to look in the <strong>attic</strong>. Is the <strong>afternoon</strong> or <strong>evening</strong> better, when you'll both be home?"</p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 10 — Drill 3: In-home pitch ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Drill 3</span></p>
+    <h1 class="highlight-gold">In-Home Pitch · Slides 1-16</h1>
+    <p style="font-size: 0.85em; opacity: 0.9; margin-top: 0.3em;">
+      Last night you memorized the full top of the in-home pitch. Now drill it live.
+    </p>
+    <ul style="font-size: 0.8em;">
+      <li><strong>Slides 1-5</strong> — the 4 talking points (15 Years, Veteran, 5-Star, 3rd Party Finance). Each with its Control Point + "why?" follow-up.</li>
+      <li><strong>Slides 6-16</strong> — the walk through the rest of the credibility build, into the product framing.</li>
+    </ul>
+    <p style="font-size: 0.65em; margin-top: 0.6em; opacity: 0.8;">
+      Pull up <strong>/day-2-homework/</strong> on your phone for the verbatim Slide 1-5 quotes between rounds.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 11 — Drill 3: control points reminder ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill gold">Control points · don't skip this</span></p>
+    <h1 style="font-size: 1.8em;">The "why?" question is non-negotiable.</h1>
+    <div class="drill-card" style="border-color: var(--uss-gold); background: rgba(212, 161, 66, 0.12);">
+      <ul style="font-size: 0.85em;">
+        <li>Ask the importance question.</li>
+        <li>They short-answer: "it's important." <em>(Normal.)</em></li>
+        <li>You: <strong>"Why is that important to you?"</strong></li>
+        <li>They give you the real reasoning.</li>
+        <li>You summarize back using your <strong class="highlight-gold">Control Point</strong> as the words you put in their mouth.</li>
+      </ul>
+    </div>
+    <p style="font-size: 0.7em; margin-top: 0.6em;">Now <em>they</em> said it.</p>
+  </section>
+
+  <!-- ─────────────────────────── 12 — Lunch ─────────────────────────── -->
+  <section data-background-color="#b8324f">
+    <h1 style="font-size: 3em; color: #fff;">🍕 Lunch.</h1>
+    <p style="font-size: 0.9em; color: #fff; margin-top: 0.6em;">
+      Come back ready to learn the tools.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       AFTERNOON — TECH INTRODUCTION
+       The 3 tools, then JobNimbus walkthrough (Sections 1-5), then
+       RepCard + Roofr intros. Wraps with pointer to /tools-training/.
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 13 — Tech welcome ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill teal">Afternoon · the tools</span></p>
+    <h1 style="font-size: 3em;">3 apps. <span class="highlight-teal">That's it.</span></h1>
+    <p style="font-size: 0.85em; margin-top: 0.6em; opacity: 0.9;">
+      Set them up tonight. Use them every day starting tomorrow.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 14 — Tools overview ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1>The toolkit</h1>
+    <div class="tool-row">
+      <div class="tool-tile">
+        <div class="name">Job Nimbus</div>
+        <div class="role">
+          <strong>The system of record.</strong> Contacts, jobs, estimates, the contract,
+          everything the office sees. If it's not in JN, it didn't happen.
+        </div>
+      </div>
+      <div class="tool-tile">
+        <div class="name">RepCard</div>
+        <div class="role">
+          <strong>The map + door-to-door tracker.</strong> Tap a house, log the result, plan the route.
+        </div>
+      </div>
+      <div class="tool-tile">
+        <div class="name">Roofr</div>
+        <div class="role">
+          <strong>The measurement report.</strong> One report → squares + the waste % table you use to size the deal.
+        </div>
+      </div>
+    </div>
+    <p style="font-size: 0.65em; opacity: 0.8; margin-top: 0.7em;">
+      Plus your <strong>@shingleusa.com email</strong> — already set up by IT yesterday.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 15 — JN intro ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill teal">Tool 1</span></p>
+    <h1 class="highlight-gold" style="font-size: 3em;">Job Nimbus.</h1>
+    <p style="font-size: 0.9em; margin-top: 0.6em;">
+      5 sections. Same flow every deal. Learn them in order — you'll do them in order.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 16 — JN section map ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1>JobNimbus · 5 sections</h1>
+    <div class="step-grid">
+      <div class="step-tile">
+        <div class="num">1</div>
+        <div class="name">Create Contact</div>
+      </div>
+      <div class="step-tile">
+        <div class="num">2</div>
+        <div class="name">Create Job</div>
+      </div>
+      <div class="step-tile">
+        <div class="num">3</div>
+        <div class="name">Create Appt</div>
+      </div>
+      <div class="step-tile">
+        <div class="num">4</div>
+        <div class="name">Build Estimate</div>
+      </div>
+      <div class="step-tile">
+        <div class="num">5</div>
+        <div class="name">Edit Job fields</div>
+      </div>
+    </div>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.8em;">
+      Every deal. Always in order. <span class="highlight-gold">Section 1 to 5 is the muscle memory.</span>
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 17 — JN Section 1 ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Section 1</span></p>
+    <h1 class="highlight-gold">Create the Contact</h1>
+    <ul style="font-size: 0.9em;">
+      <li>Open JN → Contacts tab → <strong>+ New Contact</strong></li>
+      <li>Name, address, phone, email — same info you collected at the door</li>
+      <li><strong>Location field</strong> — set to the homeowner's city, OR <em>"test"</em> if it's a practice deal</li>
+      <li>Save → you land on the Contact's detail page (this is where Section 2 starts)</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      The Contact is the <strong>person</strong>. The Job (next) is the <strong>roof on that house</strong>.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 18 — JN Section 2 ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Section 2</span></p>
+    <h1 class="highlight-gold">Create the Job</h1>
+    <ul style="font-size: 0.9em;">
+      <li>From the Contact's page, scroll to <strong>JOBS</strong> → tap <strong>+ Create New</strong></li>
+      <li>Job is auto-linked to the Contact</li>
+      <li>Fill in Job Name (we'll use the address) → Save</li>
+      <li>You'll come back to this Job after the sale to fill in Edit Job fields (Section 5)</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      One Contact can have multiple Jobs if the homeowner owns multiple properties.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 19 — JN Section 3 ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Section 3</span></p>
+    <h1 class="highlight-gold">Create the Appointment</h1>
+    <ul style="font-size: 0.9em;">
+      <li>From the Job page → <strong>Appointments</strong> section → <strong>+ Create</strong></li>
+      <li>Pick the date + time you booked at the door</li>
+      <li>Type: <strong>Inspection</strong> (first appt) or <strong>Estimate Presentation</strong> (go-back)</li>
+      <li>This auto-syncs to the office's calendar — they know you're going</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      No appointment in JN means the office <strong>doesn't know it exists</strong>. Always log it.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 20 — JN Section 4 ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Section 4</span></p>
+    <h1 class="highlight-gold">Build the Estimate</h1>
+    <ul style="font-size: 0.85em;">
+      <li>From the Job page → <strong>Estimates</strong> → <strong>+ Create Estimate</strong></li>
+      <li><strong>Layout</strong> — pick the U.S. Shingle template</li>
+      <li><strong>Price Details</strong> → open the product card (e.g. "Exposed Fastener · 11 items") → set Quantity and Price for each line</li>
+      <li>Add roof, RB, insulation as separate line items (we'll do this together in the practice deal tonight)</li>
+      <li>Sign Now → the homeowner signs on your phone → ✓ checkmark saves it</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.5em;">
+      <strong class="highlight-gold">Roofing = squares.</strong> Insulation + Radiant Barrier = <strong class="highlight-gold">square feet</strong>. Don't mix them up.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 21 — JN Section 5 ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill">Section 5</span></p>
+    <h1 class="highlight-gold">Fill out the Edit Job fields</h1>
+    <ul style="font-size: 0.8em;">
+      <li>After the estimate is signed → back to the Job → tap <strong>Edit</strong></li>
+      <li>Fill every field in order: Sold Date, Payment Type (Upgrade), Roof Price ONLY, # of Squares, # of Stories, Color, Product toggles, RB sqft + cost, Insulation sqft + cost</li>
+      <li><strong>Skip everything past the product block</strong> — permits, NOC, Hannah, "DO NOT TOUCH" are all office territory</li>
+      <li>Tap ✓ in top right to save</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.5em;">
+      The office reads these fields to <strong>order material, schedule the crew, and bill correctly</strong>. Don't skip any of the ones above.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 22 — JN gotchas ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <h1>JN gotchas to remember</h1>
+    <ul style="font-size: 0.85em;">
+      <li><strong>Roof Price ONLY</strong> = the roof line only. Don't include RB or insulation in that field — they have their own fields below.</li>
+      <li><strong>RB / Insulation costs</strong> = TOTAL dollars, not per-sqft. If RB is 3,000 sqft × $2.75, enter <strong>$8,250</strong>, not 2.75.</li>
+      <li><strong>Color, # of Stories</strong> = if you miss these, the office can't order material.</li>
+      <li><strong>Location = "test"</strong> for practice deals. Tonight's homework uses this.</li>
+    </ul>
+  </section>
+
+  <!-- ─────────────────────────── 23 — RepCard ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill teal">Tool 2</span></p>
+    <h1 class="highlight-gold">RepCard</h1>
+    <ul style="font-size: 0.9em;">
+      <li>Install → sign in with your @shingleusa.com email</li>
+      <li>Map view shows your zone + the houses you've tapped</li>
+      <li>Tap a house → log the result: <strong>Not Home</strong>, <strong>Pitched</strong>, <strong>Inspection Booked</strong>, <strong>Sold</strong></li>
+      <li>Your zone manager sees this in real time</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      Doors-knocked + bookings auto-flow to your <strong>weekly report</strong>.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 24 — Roofr ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill teal">Tool 3</span></p>
+    <h1 class="highlight-gold">Roofr</h1>
+    <ul style="font-size: 0.9em;">
+      <li>Order a measurement report on any address — comes back within ~30 minutes</li>
+      <li>Report shows the roof from every angle + the <strong>waste % table</strong></li>
+      <li>The <strong>only number you need</strong>: the recommended waste % (usually 7%)</li>
+      <li>Use that to size the deal in your estimate (Section 4)</li>
+    </ul>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      Saves you climbing the roof to measure. Office pays for the report; you just order it.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 25 — Tools reference ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill gold">Your reference page</span></p>
+    <h1 style="font-size: 2.2em;">/tools-training/</h1>
+    <p style="font-size: 0.85em; margin-top: 0.6em;">
+      Full step-by-step with screenshots for JN, RepCard, Roofr.
+    </p>
+    <p style="font-size: 0.75em; margin-top: 0.5em; opacity: 0.85;">
+      Open it on your phone tonight when you run the practice deal. Every screen you'll see is in there.
+    </p>
+    <p style="font-size: 1.1em; margin-top: 1em; color: var(--uss-gold); font-weight: 700;">
+      trainingmanagementsys.netlify.app/tools-training/
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 26 — Day 3 wrap ─────────────────────────── -->
+  <section data-background-color="#b8324f">
+    <h1>End of Day 3</h1>
+    <h2 style="margin-top: 0.8em; font-size: 1.25em;">Tonight's homework — both parts:</h2>
+    <ul style="font-size: 0.95em;">
+      <li><strong>Part 1:</strong> get all 3 apps working (email + JN + RepCard signed in on your phone)</li>
+      <li><strong>Part 2:</strong> run a full <strong>practice deal in JN</strong> — Contact (Location = "test") → Job → Appt tomorrow 5:30 PM → Estimate (line items hit <strong>$39,450</strong>) → Edit Job fields</li>
+    </ul>
+    <p style="font-size: 0.7em; margin-top: 1em; opacity: 0.9;">
+      I'm checking both tomorrow morning. Anything broken — text me tonight.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 27 — Homework via SMS reminder ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1 style="font-size: 2.2em;">📱 Homework comes by text</h1>
+    <p style="font-size: 0.95em; margin-top: 1.2em; line-height: 1.5;">
+      You'll get an <strong>SMS tonight</strong> with the link to <strong>/day-3-homework/</strong>.
+      Every step, the estimate numbers, and the exact Edit Job fields are on that page.
+    </p>
+    <p style="font-size: 0.7em; margin-top: 1em; opacity: 0.85;">
+      Didn't get the text by 6 PM? Raise your hand.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 28 — See you tomorrow ─────────────────────────── -->
+  <section class="title-slide" data-background-color="#0a1730">
+    <h1>See you tomorrow.</h1>
+    <p class="subtitle">Day 4 — Objection handling + test prep</p>
+  </section>
+
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1600,
+    height: 900,
+    margin: 0.05,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'fade',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    keyboard: true,
+    overview: true,
+    touch: true,
+    showNotes: false,
+  });
+</script>
+</body>
+</html>

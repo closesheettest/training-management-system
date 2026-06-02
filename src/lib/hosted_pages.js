@@ -112,6 +112,21 @@ export const HOSTED_PAGES = [
     category: 'Trainee resources',
   },
   {
+    slug: 'day-3-slides',
+    title: 'Day 3 slides — Roleplay morning + Tech afternoon',
+    url: '/day-3-slides/',
+    description:
+      'Reveal.js slide deck for Day 3 Retail Training. Morning (10-12) is the roleplay ' +
+      'marathon — drills of the Free Inspection Script, Retail Go-Back, and the full ' +
+      'in-home pitch Slides 1-16 with verbatim refreshers on screen between rounds. ' +
+      'Afternoon is the tech introduction: the 3 tools (JobNimbus / RepCard / Roofr), ' +
+      'JobNimbus Sections 1-5 walkthrough (Contact / Job / Appt / Estimate / Edit Job), ' +
+      'common gotchas, and a pointer to /tools-training/ for the full reference. End-of-day ' +
+      'wrap previews tonight\'s apps-setup + practice-deal homework (sent via SMS).',
+    created: '2026-06-02',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'day-1-homework',
     title: 'Day 1 homework — Scripts + Slide 1 + full training manual',
     url: '/day-1-homework/',
