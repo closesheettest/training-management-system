@@ -158,7 +158,28 @@ export async function runGroupSend(body) {
 
   const { data: trainees, error } = await q
   if (error) return { status: 500, body: { error: `Supabase: ${error.message}` } }
-  if (!trainees || trainees.length === 0) {
+
+  // include_trainee_ids: extra recipients merged into the resolved set,
+  // deduped against it. The regional-manager blast passes the manager's
+  // own id here so the manager ALWAYS gets a copy of what went to their
+  // team (visible on their phone) — even if they aren't an active rep in
+  // their own zone. Dedup means an in-zone manager still only gets one.
+  const recipients = trainees ? [...trainees] : []
+  if (Array.isArray(body.include_trainee_ids) && body.include_trainee_ids.length > 0) {
+    const have = new Set(recipients.map((t) => t.id))
+    const missingIds = body.include_trainee_ids.filter((id) => id && !have.has(id))
+    if (missingIds.length > 0) {
+      const { data: extra } = await supabase
+        .from('trainees')
+        .select(
+          'id, first_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep, rep_level',
+        )
+        .in('id', missingIds)
+      if (extra) recipients.push(...extra)
+    }
+  }
+
+  if (recipients.length === 0) {
     return { status: 200, body: { ok: true, message: 'No recipients matched.', counts: { sms: 0, email: 0 } } }
   }
 
@@ -166,8 +187,8 @@ export async function runGroupSend(body) {
   // increasing offsets so each function call fits in Netlify's 10s
   // budget — see GroupMessages.jsx / RegionalManager.jsx for the loop.
   const offset = Math.max(0, parseInt(body.offset ?? 0, 10) || 0)
-  const traineesBatch = trainees.slice(offset, offset + BATCH_SIZE)
-  const nextOffset = offset + BATCH_SIZE < trainees.length ? offset + BATCH_SIZE : null
+  const traineesBatch = recipients.slice(offset, offset + BATCH_SIZE)
+  const nextOffset = offset + BATCH_SIZE < recipients.length ? offset + BATCH_SIZE : null
 
   // Build task factories (deferred promises) so we can run them with
   // bounded concurrency — sending all 20 at once still trips GHL's rate
@@ -231,7 +252,7 @@ export async function runGroupSend(body) {
       ok: true,
       counts,
       next_offset: nextOffset,
-      total: trainees.length,
+      total: recipients.length,
       ...(failures.length ? { failures: failures.slice(0, 50) } : {}),
     },
   }

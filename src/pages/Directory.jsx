@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { teamLabel } from '../lib/zones.js'
 
 // Public-ish company directory — a shareable lookup of every active
 // team member with their phone, company email, region, level, and
@@ -123,7 +124,7 @@ export default function Directory() {
             >
               <option value="">All territories</option>
               {regions.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{teamLabel(r)}</option>
               ))}
             </select>
           )}
@@ -184,7 +185,7 @@ export default function Directory() {
                     {r.first_name} {r.last_name}
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                    {r.region && <span>📍 {r.region}</span>}
+                    {r.region && <span>📍 {teamLabel(r.region)}</span>}
                     {Array.isArray(r.departments) && r.departments.map((d) => (
                       <span key={d}>🏷 {d}</span>
                     ))}

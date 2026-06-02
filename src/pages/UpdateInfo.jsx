@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { US_STATES, ZIP_PATTERN } from '../lib/locations.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
+import { teamLabel } from '../lib/zones.js'
 
 // Public self-service page for sales reps to update their personal
 // email + home address. Reached via a tap-friendly link texted from
@@ -250,7 +251,7 @@ export default function UpdateInfo() {
             >
               <option value="">— Pick your region —</option>
               {regionNames.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>{teamLabel(r)}</option>
               ))}
             </select>
             <span className="mt-1 block text-xs text-slate-500">

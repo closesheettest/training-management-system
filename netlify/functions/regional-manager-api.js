@@ -179,6 +179,9 @@ export const handler = async (event) => {
         ...(wantSms ? { sms: true } : {}),
         ...(wantEmail ? { email: true } : {}),
       },
+      // Always copy the manager on their own blast so they see it land on
+      // their phone. Deduped server-side — an in-zone manager gets one.
+      include_trainee_ids: [manager.id],
       offset: Number.isFinite(+body.offset) ? +body.offset : 0,
     }
     if (wantSms) payload.sms_body = smsBody
