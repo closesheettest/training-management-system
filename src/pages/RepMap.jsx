@@ -5,6 +5,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
+import { ZONE_COLORS as ZONE_COLOR_PAIRS } from '../lib/zones.js'
 
 // Sales Team Map.
 //
@@ -65,17 +66,14 @@ const STATUS = {
   departed:  { label: '🚪 Departed (cleanup pending)', color: '#f59e0b' },
 }
 
-// Zone → pin color. Used when "Color by: Zone" is selected. Picked for
-// max distinction on the satellite/road basemap (no two adjacent zones
-// share a hue and they print legibly in black-and-white). Reps with no
-// zone or with a legacy region fall back to gray so the eye reads them
-// as "needs attention."
-const ZONE_COLORS = {
-  'Zone 1': '#2563eb',  // royal blue (Tony — NE / N-Central)
-  'Zone 2': '#a855f7',  // purple     (Richard — Central / E-Central)
-  'Zone 3': '#14b8a6',  // teal       (Chad — Gulf / SW)
-  'Zone 4': '#ec4899',  // rose       (Sam — SE)
-}
+// Zone → pin color. Used when "Color by: Zone" is selected. Pulled from
+// the canonical palette in lib/zones.js so it matches the rep dashboard,
+// the regional manager page, and anywhere else zones appear. Reps with
+// no zone or with a legacy region fall back to gray so the eye reads
+// them as "needs attention."
+const ZONE_COLORS = Object.fromEntries(
+  Object.entries(ZONE_COLOR_PAIRS).map(([zone, { deep }]) => [zone, deep]),
+)
 const NO_ZONE_COLOR = '#94a3b8'  // slate-400
 
 // Build a colored marker icon. Two variants per status:

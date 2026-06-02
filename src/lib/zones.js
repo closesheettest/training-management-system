@@ -55,6 +55,30 @@ export const ZONE_COUNTIES = {
   },
 }
 
+// Canonical zone color palette — single source of truth across TMS,
+// the rep dashboard (us-shingle-rep-dashboard), the close-sheet, and
+// anywhere else zones appear. Goal per Neal: train the rep's eye to
+// the color so they hit their zone block without reading the label.
+// IMPORTANT: if these change, also update the matching --zone-N-deep
+// and --zone-N-light CSS vars in us-shingle-rep-dashboard/index.html
+// (the :root block at the top). Both sources must move together.
+//   Zone 1 = Blue   (Tony · NE / N-Central FL)
+//   Zone 2 = Purple (Richard · Central / E-Central FL)
+//   Zone 3 = Green  (Chad · Gulf / SW FL)
+//   Zone 4 = Rose   (Sam · SE FL)
+export const ZONE_COLORS = {
+  'Zone 1': { deep: '#1e40af', light: '#dbeafe' },
+  'Zone 2': { deep: '#7c3aed', light: '#ede9fe' },
+  'Zone 3': { deep: '#059669', light: '#d1fae5' },
+  'Zone 4': { deep: '#be185d', light: '#fce7f3' },
+}
+
+// Helper for callers that just want one hex per zone (e.g. Leaflet
+// marker borders, RepMap polygons). Returns the deep variant.
+export function zoneColor(zone) {
+  return ZONE_COLORS[zone]?.deep || '#64748b'
+}
+
 // The Rt 50 split rule, surfaced as a helper string for tooltips /
 // notes. Anywhere we render the ** counties we should explain it.
 export const ZONE_SPLIT_NOTE =
