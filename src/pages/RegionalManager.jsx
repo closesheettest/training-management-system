@@ -111,7 +111,12 @@ export default function RegionalManager() {
     )
   }
 
-  const { manager, reps } = state
+  const { manager } = state
+  // Roster sorted alphabetically by first name — easiest for a manager
+  // scanning for someone by the name they actually call them.
+  const reps = [...state.reps].sort((a, b) =>
+    (a.first_name || '').localeCompare(b.first_name || '', undefined, { sensitivity: 'base' }),
+  )
   return (
     <ShellFrame>
       <header className="mb-6">
