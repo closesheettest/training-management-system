@@ -5,34 +5,34 @@
 // strict-attendance policy, no-shows get no homework (they shouldn't be
 // continuing anyway).
 //
-// Schedule: 18:30, 19:30, 20:30 UTC = 2:30, 3:30, 4:30 PM EDT. Runs
-// 3× daily. Each fire is gated per class on "did class end 30 min ago
-// for THIS class today?" Idempotent — only one homework SMS per
+// Schedule: 18:00, 19:00, 20:00 UTC = 2:00, 3:00, 4:00 PM EDT. Runs
+// 3× daily. Each fire is gated per class on "has THIS class been
+// dismissed for today?" Idempotent — only one homework SMS per
 // trainee/day regardless of how many fires hit.
 //
-// Why 3 fires: homework goes out 30 min after dismissal, and dismissal
+// Why 3 fires: homework goes out right at dismissal, and dismissal
 // time varies by where we are in the training week:
 //
 //   Class starts MONDAY (week_start_date is Mon)
-//     Day 1 Mon  noon → 4 PM    → homework 4:30 PM  (20:30 UTC EDT)
-//     Day 2 Tue   8 AM → 2 PM   → homework 2:30 PM  (18:30 UTC EDT)
-//     Day 3 Wed   8 AM → 2 PM   → homework 2:30 PM
-//     Day 4 Thu   8 AM → 2 PM   → homework 2:30 PM
+//     Day 1 Mon  noon → 4 PM    → homework 4:00 PM  (20:00 UTC EDT)
+//     Day 2 Tue   8 AM → 2 PM   → homework 2:00 PM  (18:00 UTC EDT)
+//     Day 3 Wed   8 AM → 2 PM   → homework 2:00 PM
+//     Day 4 Thu   8 AM → 2 PM   → homework 2:00 PM
 //     Day 5 Fri   graduation    → no homework
 //
 //   Class starts TUESDAY (week_start_date is Tue)
-//     Day 1 Tue  noon → 4 PM    → homework 4:30 PM  (20:30 UTC EDT)
-//     Day 2 Wed   8 AM → 3 PM   → homework 3:30 PM  (19:30 UTC EDT)
-//     Day 3 Thu   8 AM → 3 PM   → homework 3:30 PM
+//     Day 1 Tue  noon → 4 PM    → homework 4:00 PM  (20:00 UTC EDT)
+//     Day 2 Wed   8 AM → 3 PM   → homework 3:00 PM  (19:00 UTC EDT)
+//     Day 3 Thu   8 AM → 3 PM   → homework 3:00 PM
 //     Day 4 Fri   graduation    → no homework
 //
 // See CLASS_SCHEDULE constant below for the single source of truth.
 //
-// DST note: Netlify cron is UTC-only. The 18,19,20:30 fires track EDT
+// DST note: Netlify cron is UTC-only. The 18,19,20:00 fires track EDT
 // (mid-March through early November). When clocks fall back to EST in
 // November, the cron will fire 1 hour earlier than intended. To keep
 // the same ET times year-round during EST, flip the schedule below to
-// '30 19,20,21 * * *'.
+// '0 19,20,21 * * *'.
 //
 // USAGE:
 //   • Scheduled function — fires automatically on the configured cron.
@@ -67,7 +67,7 @@ function homeworkFireHour(dayNumber, startDow) {
   if (!schedule) return null
   const endHour = schedule[dayNumber]
   if (endHour == null) return null
-  return endHour + 0.5 // 30-min grace after dismissal
+  return endHour // send right at dismissal
 }
 
 export const handler = async (event) => {
@@ -138,8 +138,8 @@ export const handler = async (event) => {
     }
 
     // Has class actually ended for the day? Day-of-week-aware: e.g.
-    // Mon-start Day 2 (Tuesday) ends at 2 PM → fire at 2:30 PM ET.
-    // The 3 daily cron fires (2:30/3:30/4:30 PM EDT) overlap with all
+    // Mon-start Day 2 (Tuesday) ends at 2 PM → fire at 2:00 PM ET.
+    // The 3 daily cron fires (2:00/3:00/4:00 PM EDT) overlap with all
     // possible end times — each class gets caught on the right wave.
     const startDow = dayOfWeekEt(cls.week_start_date)
     const fireHour = homeworkFireHour(dayNumber, startDow)
@@ -156,7 +156,7 @@ export const handler = async (event) => {
       skipped.push({
         class_id: cls.id,
         day_number: dayNumber,
-        reason: `Too early — class ends at ${(fireHour - 0.5).toFixed(0)}:00 ET, homework fires at ${formatHour(fireHour)} ET (now ${formatHour(nowEt)} ET)`,
+        reason: `Too early — class ends / homework fires at ${formatHour(fireHour)} ET (now ${formatHour(nowEt)} ET)`,
       })
       continue
     }
@@ -315,10 +315,10 @@ function json(status, body) {
   }
 }
 
-// Netlify v2 scheduled function — fires at 18:30, 19:30, 20:30 UTC daily
-// (= 2:30, 3:30, 4:30 PM EDT). Each fire processes only the classes whose
+// Netlify v2 scheduled function — fires at 18:00, 19:00, 20:00 UTC daily
+// (= 2:00, 3:00, 4:00 PM EDT). Each fire processes only the classes whose
 // dismissal-time has passed for today; the others get skipped with a
 // "too early" reason in the response. Idempotent per trainee per day.
-// See header comment for DST handling — bump to '30 19,20,21 * * *' in
+// See header comment for DST handling — bump to '0 19,20,21 * * *' in
 // November to stay on the same ET times during EST.
-export const config = { schedule: '30 18,19,20 * * *' }
+export const config = { schedule: '0 18,19,20 * * *' }
