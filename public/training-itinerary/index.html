@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Week Itinerary — U.S. Shingle &amp; Metal</title>
+<style>
+  :root {
+    --navy: #13294b;
+    --navy-dark: #0a1730;
+    --red: #b8324f;
+    --gold: #d4a142;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+    --green-600: #16a34a;
+    --amber-100: #fef3c7;
+    --amber-700: #b45309;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate-900);
+    line-height: 1.55;
+    background: var(--slate-50);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .stripe { height: 4px; background: var(--red); }
+  .page { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  /* Sticky print bar */
+  .pdf-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(248, 250, 252, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 12px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--slate-200);
+  }
+  .btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    background: var(--navy);
+    color: #fff;
+  }
+  .btn:active { background: var(--navy-dark); }
+
+  header.title { margin: 12px 0 18px; }
+  header.title .eyebrow {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  header.title h1 {
+    color: var(--navy);
+    margin: 6px 0 6px;
+    font-size: 30px;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  header.title p {
+    color: var(--slate-500);
+    margin: 0;
+    font-size: 15px;
+  }
+
+  /* Schedule legend block */
+  .schedule-card {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 20px 0 28px;
+  }
+  .schedule-card h2 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+  @media (max-width: 600px) { .schedule-grid { grid-template-columns: 1fr; } }
+  .schedule-grid .col {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .schedule-grid .col .week-label {
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .schedule-grid table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .schedule-grid td { padding: 4px 0; vertical-align: top; }
+  .schedule-grid td:first-child {
+    color: rgba(255, 255, 255, 0.85);
+    width: 48%;
+  }
+  .schedule-grid td:last-child {
+    text-align: right;
+    font-weight: 600;
+  }
+  .grad-row { color: var(--gold) !important; font-style: italic; }
+
+  /* Day card */
+  .day-card {
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-left: 6px solid var(--red);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .day-card.day1 { border-left-color: var(--red); }
+  .day-card.day2 { border-left-color: #2563eb; }
+  .day-card.day3 { border-left-color: #14b8a6; }
+  .day-card.day4 { border-left-color: var(--gold); }
+  .day-card.day5 { border-left-color: var(--green-600); }
+
+  .day-card .day-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .day-card h2 {
+    color: var(--navy);
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .day-card .day-when {
+    color: var(--slate-500);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .day-card .subtitle {
+    color: var(--slate-700);
+    margin: 0 0 12px;
+    font-size: 15px;
+  }
+  .day-card h3 {
+    color: var(--navy-dark);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 16px 0 6px;
+  }
+  .day-card ul { margin: 0; padding-left: 22px; }
+  .day-card li { margin-bottom: 5px; font-size: 14.5px; }
+  .day-card li strong { color: var(--navy-dark); }
+
+  /* "What fires automatically" callout */
+  .auto-fires {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: #1e3a8a;
+  }
+  .auto-fires .label {
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: #1e3a8a;
+  }
+  .auto-fires ul { padding-left: 18px; margin: 4px 0 0; }
+  .auto-fires li { margin-bottom: 3px; font-size: 13px; }
+
+  /* Links row */
+  .day-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .day-links a {
+    display: inline-block;
+    background: var(--slate-100);
+    color: var(--navy-dark);
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--slate-200);
+  }
+  .day-links a:hover { background: var(--slate-200); }
+
+  .grad-card {
+    background: linear-gradient(180deg, #fefce8 0%, #fff 100%);
+    border: 2px solid var(--gold);
+    border-left-width: 6px;
+    text-align: center;
+  }
+  .grad-card h2 { color: var(--amber-700); }
+
+  footer.foot {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--slate-200);
+    color: var(--slate-500);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  /* Print stylesheet — clean B&W, hides interactive bits */
+  @media print {
+    .pdf-bar { display: none !important; }
+    .stripe { display: none !important; }
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .page { max-width: none; padding: 0; }
+    .day-card { box-shadow: none; border: 1px solid #444; }
+    .schedule-card { background: #fff; color: #000; border: 1px solid #444; }
+    .schedule-card h2 { color: #000; }
+    .schedule-grid .col { background: #f5f5f5; }
+    .schedule-grid .col .week-label { color: #555; }
+    .schedule-grid td:first-child { color: #333; }
+    .auto-fires { background: #f5f5f5; border: 1px solid #ccc; color: #000; }
+    .auto-fires .label { color: #000; }
+    header.title h1, h2, h3 { color: #000 !important; }
+    .day-links a {
+      background: #fff;
+      color: #000;
+      border: 1px solid #999;
+    }
+    .day-card.day1, .day-card.day2, .day-card.day3, .day-card.day4, .day-card.day5 {
+      border-left-color: #000;
+    }
+    .grad-card { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<main class="page">
+
+  <div class="pdf-bar">
+    <button type="button" class="btn" onclick="window.print()">📄 Save as PDF / Print</button>
+    <span style="font-size: 12px; color: var(--slate-500); margin-left: 10px;">
+      Hand-out for new trainees · fits on 2–3 pages
+    </span>
+  </div>
+
+  <header class="title">
+    <div class="eyebrow">Training week — at a glance</div>
+    <h1>Retail Training Itinerary</h1>
+    <p>What happens each day, when class meets, and what the system auto-fires behind the scenes. U.S. Shingle &amp; Metal LLC.</p>
+  </header>
+
+  <!-- ─────────────────────────── Class schedule legend ─────────────────────────── -->
+  <div class="schedule-card">
+    <h2>⏰ Class hours by week schedule</h2>
+    <div class="schedule-grid">
+      <div class="col">
+        <div class="week-label">Class starts Monday</div>
+        <table>
+          <tr><td>Mon · Day 1</td><td>12:00 – 4:00 PM</td></tr>
+          <tr><td>Tue · Day 2</td><td>8:00 AM – 2:00 PM</td></tr>
+          <tr><td>Wed · Day 3</td><td>8:00 AM – 2:00 PM</td></tr>
+          <tr><td>Thu · Day 4</td><td>8:00 AM – 2:00 PM</td></tr>
+          <tr class="grad-row"><td>Fri · Grad</td><td>Final test + cert</td></tr>
+        </table>
+      </div>
+      <div class="col">
+        <div class="week-label">Class starts Tuesday</div>
+        <table>
+          <tr><td>Tue · Day 1</td><td>12:00 – 4:00 PM</td></tr>
+          <tr><td>Wed · Day 2</td><td>8:00 AM – 3:00 PM</td></tr>
+          <tr><td>Thu · Day 3</td><td>8:00 AM – 3:00 PM</td></tr>
+          <tr class="grad-row"><td>Fri · Grad</td><td>Final test + cert</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── Day 1 ─────────────────────────── -->
+  <div class="day-card day1">
+    <div class="day-head">
+      <h2>Day 1 — Retail Training Foundation</h2>
+      <span class="day-when">Noon – 4 PM</span>
+    </div>
+    <p class="subtitle">The pitch fundamentals, the two scripts they'll memorize tonight, and the in-home opener.</p>
+
+    <h3>What's covered</h3>
+    <ul>
+      <li><strong>Why U.S. Shingle</strong> — 15+ years in business, Veteran-owned, 5-star Google reviews, FL Finance License, Triple C, Insurance coverage</li>
+      <li><strong>Sales psychology</strong> — Foot-in-the-Door (FITD), F.I.G.S. (Fear / Indifference / Greed / Sense of Urgency), Guéguen's "But you are free" close</li>
+      <li><strong>Free Roof Inspection Script</strong> — the opening pitch at the door</li>
+      <li><strong>The 3 outcomes</strong> — no damage / wear &amp; tear / storm damage</li>
+      <li><strong>Retail Roof Go-Back Script</strong> — Setup → Walk the report → Close</li>
+      <li><strong>Slide 1 of the in-home pitch</strong> — 15 Years in Business (control point: Experience Matters)</li>
+    </ul>
+
+    <div class="auto-fires">
+      <div class="label">🤖 What the system fires automatically</div>
+      <ul>
+        <li><strong>At sign-in:</strong> onboarding SMS with HomeMaxx funnel link (idempotent — once per trainee)</li>
+        <li><strong>At 4:30 PM:</strong> homework SMS with link to scripts page + full training manual PDF</li>
+        <li><strong>Tomorrow morning at kiosk sign-in:</strong> 9-question quiz on Day 1 content</li>
+      </ul>
+    </div>
+
+    <div class="day-links">
+      <a href="/day-1-slides/">📊 Day 1 slides</a>
+      <a href="/day-1-homework/">📝 Day 1 homework page</a>
+      <a href="/training/day-1-retail-training.pdf">📘 Full training manual (PDF)</a>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── Day 2 ─────────────────────────── -->
+  <div class="day-card day2">
+    <div class="day-head">
+      <h2>Day 2 — Roleplay + Products</h2>
+      <span class="day-when">8 AM – 2 PM&nbsp;<span style="opacity:0.6;font-weight:500;">(Mon-start)</span> · 8 AM – 3 PM&nbsp;<span style="opacity:0.6;font-weight:500;">(Tue-start)</span></span>
+    </div>
+    <p class="subtitle">Morning is live roleplay of yesterday's scripts. Afternoon is the products walkthrough.</p>
+
+    <h3>Morning — roleplay drills (10 AM – 12 PM)</h3>
+    <ul>
+      <li><strong>Drill 1:</strong> Free Roof Inspection Script</li>
+      <li><strong>Drill 2:</strong> Retail Go-Back Script</li>
+      <li><strong>Drill 3:</strong> In-Home Warm Up</li>
+      <li>Verbatim refreshers between rounds so trainees can check phrasing</li>
+    </ul>
+
+    <h3>Afternoon — products walkthrough</h3>
+    <ul>
+      <li>Framing rule: both energy sides get equal weight</li>
+      <li>The 5 shared benefits</li>
+      <li>The Energy Package upgrades (Radiant Barrier + Insulation)</li>
+      <li>Product families: Asphalt (GAF), Exposed Fastener, Standing Seam, Permalock, Tilcore, Tile</li>
+    </ul>
+
+    <div class="auto-fires">
+      <div class="label">🤖 What the system fires automatically</div>
+      <ul>
+        <li><strong>At first Day-2 sign-in:</strong> IT gets a text + email — "time to create company emails for [region]"</li>
+        <li><strong>After IT marks provisioning complete:</strong> HR + VA pinged to set up trainees in RepCard, JobNimbus, Sales Academy</li>
+        <li><strong>At every sign-in:</strong> trainee gets the Day 1 quiz (9 questions on scripts, sales psychology, Why U.S. Shingle)</li>
+        <li><strong>End of day:</strong> homework SMS — Memorize slides 6–16 + Products PDF</li>
+      </ul>
+    </div>
+
+    <div class="day-links">
+      <a href="/day-2-slides/">📊 Day 2 slides</a>
+      <a href="/day-2-homework/">📝 Day 2 homework page</a>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── Day 3 ─────────────────────────── -->
+  <div class="day-card day3">
+    <div class="day-head">
+      <h2>Day 3 — In-Home Sales Script</h2>
+      <span class="day-when">8 AM – 2 PM&nbsp;<span style="opacity:0.6;font-weight:500;">(Mon-start)</span> · 8 AM – 3 PM&nbsp;<span style="opacity:0.6;font-weight:500;">(Tue-start)</span></span>
+    </div>
+    <p class="subtitle">The full in-home pitch from warm-up through close. Math, finance, and how to walk the deal.</p>
+
+    <h3>What's covered</h3>
+    <ul>
+      <li>The Warm Up — never do a presentation without it</li>
+      <li>4 talking points + their Control Points + the "why?" follow-up rule</li>
+      <li>Walking the inspection report</li>
+      <li>The Energy Package pitch — RB + Insulation as the lever</li>
+      <li>Pricing math + 9.99% / 120-month financing</li>
+      <li>The Ask + the appointment-to-close conversion</li>
+    </ul>
+
+    <div class="auto-fires">
+      <div class="label">🤖 What the system fires automatically</div>
+      <ul>
+        <li><strong>At sign-in:</strong> Day 2 quiz fires (Products + slides 6–16)</li>
+        <li><strong>End of day:</strong> homework SMS — apps setup (email / JobNimbus / RepCard) + a full practice deal in JobNimbus</li>
+      </ul>
+    </div>
+
+    <div class="day-links">
+      <a href="/day-3-homework/">📝 Day 3 homework page</a>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── Day 4 ─────────────────────────── -->
+  <div class="day-card day4">
+    <div class="day-head">
+      <h2>Day 4 — Objection Handling + Test Prep</h2>
+      <span class="day-when">8 AM – 2 PM&nbsp;<span style="opacity:0.6;font-weight:500;">(Mon-start only — Tue-start grad is Friday)</span></span>
+    </div>
+    <p class="subtitle">R.I.S.C. objection-handling flow, the trickiest objections drilled in pairs, and prep for tomorrow's final test.</p>
+
+    <h3>What's covered</h3>
+    <ul>
+      <li><strong>R.I.S.C.</strong> — Repeat the objection → Isolate it → Solve it → Close again</li>
+      <li>Top 10 objections (price, spouse, think-about-it, already-have-someone, etc.)</li>
+      <li>Roleplay drills in pairs</li>
+      <li>Mock final-test review</li>
+    </ul>
+
+    <div class="auto-fires">
+      <div class="label">🤖 What the system fires automatically</div>
+      <ul>
+        <li><strong>At sign-in:</strong> Day 3 quiz fires (in-home sales script)</li>
+        <li><strong>End of day:</strong> homework SMS — final test prep</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─────────────────────────── Day 5 — Graduation ─────────────────────────── -->
+  <div class="day-card day5 grad-card">
+    <div class="day-head" style="justify-content: center;">
+      <h2>🎓 Graduation Day — Final Test + Activation</h2>
+    </div>
+    <p class="subtitle">Final test → cert sent → activate in JobNimbus + region assignment. Trainees walk out as sales reps.</p>
+
+    <ul style="display: inline-block; text-align: left; max-width: 540px;">
+      <li>Final test taken at the kiosk</li>
+      <li>JobNimbus cert auto-generated + uploaded</li>
+      <li>Trainee moves to <strong>Active Reps</strong> → assigned to a zone (Tony / Richard / Chad / Sam)</li>
+      <li>Regional manager gets notified of the new rep</li>
+      <li>7 days of "welcome quick-links" SMS auto-fire (Sales Rep Dashboard, daily sales meeting Zoom, prayer call, etc.)</li>
+    </ul>
+
+    <p style="margin-top: 18px; color: var(--amber-700); font-weight: 600;">No homework. They're officially in the field.</p>
+  </div>
+
+  <footer class="foot">
+    U.S. Shingle &amp; Metal LLC — Retail Training Itinerary · System auto-fires every action below the line so nothing slips.
+  </footer>
+</main>
+</body>
+</html>

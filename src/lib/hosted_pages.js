@@ -99,6 +99,19 @@ export const HOSTED_PAGES = [
     category: 'Internal docs',
   },
   {
+    slug: 'training-itinerary',
+    title: 'Training Week Itinerary — Day-by-day schedule + auto-fires',
+    url: '/training-itinerary/',
+    description:
+      'One-page itinerary covering the full retail training week — class hours by ' +
+      'week-start day (Mon-start vs Tue-start), what\'s covered each day, what the ' +
+      'system auto-fires (onboarding SMS, IT provisioning, morning quizzes, end-of-day ' +
+      'homework, graduation activation), and links to each day\'s slides + homework. ' +
+      'Print-friendly so admin can hand it to new trainees on Day 1.',
+    created: '2026-06-02',
+    category: 'Trainee resources',
+  },
+  {
     slug: 'day-1-homework',
     title: 'Day 1 homework — Scripts + Slide 1 + full training manual',
     url: '/day-1-homework/',
