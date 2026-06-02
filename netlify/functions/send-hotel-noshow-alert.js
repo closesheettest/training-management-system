@@ -82,32 +82,23 @@ export const handler = async (event) => {
 
   if (trErr) return json(500, { error: `Supabase: ${trErr.message}` })
 
-  // Class start time by day of week (ET). Mondays run noon → 4 PM, every
-  // other training day starts at 8 AM. We require the class to have been
-  // in session for ~30 min before we'll call a no-show — so Tue–Fri the
-  // 10:30 AM cron is fine, Mondays we wait until at least 12:30 PM.
-  // Keeps the cron from spamming HR with "no-shows" who just aren't due
-  // to arrive yet (e.g. Mon 10:30 AM, class doesn't start til noon).
-  const dow = computeFloridaDayOfWeek(today) // 0=Sun..6=Sat
-  const classStartHourByDow = { 1: 12 /* Mon noon */ }
-  const classStartHour = classStartHourByDow[dow] ?? 8
-  const earliestAlertHour = classStartHour + 0.5 // 30-min grace
-  const tooEarly = nowEtHour < earliestAlertHour
-
-  if (tooEarly && !params.date) {
-    return json(200, {
-      target_date: today,
-      absent_count: 0,
-      sent_count: 0,
-      skipped_reason: `Too early — class start ${classStartHour}:00 ET, current hour ${nowEtHour}. Will run again later.`,
-    })
-  }
-
+  // Per-trainee class-start-aware grace.
+  //   Day 1 (today === week_start_date) → class runs noon-4, so
+  //     alert no earlier than 12:30 PM ET.
+  //   Day 2+ → class starts 10 AM, alert no earlier than 10:30 AM ET.
+  // The 30-min grace matches the dropout cron so both alerts fire on
+  // the same cadence. Without per-trainee gating, a Mon-start Day 2
+  // trainee on Tuesday would either get spammed early (function-wide
+  // 10:30) or alerted way too late (function-wide 12:30 to be safe
+  // for Tue-start Day 1). Going per-trainee threads the needle.
   const absentees = (trainees || []).filter((t) => {
     const start = t.classes?.week_start_date
     const end = t.classes?.week_end_date
     if (!start || !end) return false
     if (today < start || today > end) return false
+    const isDay1 = today === start
+    const earliestAlertHour = isDay1 ? 12.5 : 10.5
+    if (!params.date && nowEtHour < earliestAlertHour) return false
     const checkedIn = (t.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,
     )
@@ -186,22 +177,22 @@ function buildMessage(absentees, dateIso) {
   const dateLabel = new Date(dateIso + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
-  // Time label tracks class start: noon for Monday, 8 AM otherwise. Keeps
-  // the text accurate when the cron fires after Monday's noon class.
-  const dow = new Date(dateIso + 'T12:00:00').getUTCDay() // safe: dateIso is ET-derived
-  const timeLabel = dow === 1 ? 'class start (noon)' : '10:30 AM'
+  // Generic "class start" wording — the gate is now per-trainee (Day 1
+  // noon, Day 2+ 10 AM), so a single batched SMS may include trainees
+  // whose classes had different start times. "By class start" reads
+  // correctly for all of them.
   if (absentees.length === 1) {
     const t = absentees[0]
     const region = t.classes?.region || 'training'
     const loc = t.classes?.locations?.name
     const locStr = loc ? ` at ${loc}` : ''
-    return `[Training] ${t.first_name} ${t.last_name} (${region}${locStr}) hasn't checked in by ${timeLabel} on ${dateLabel}. They need a hotel — consider cancelling their room.`
+    return `[Training] ${t.first_name} ${t.last_name} (${region}${locStr}) hasn't checked in by class start on ${dateLabel}. They need a hotel — consider cancelling their room.`
   }
   const lines = absentees.map((t) => {
     const region = t.classes?.region || 'training'
     return `• ${t.first_name} ${t.last_name} (${region})`
   })
-  return `[Training] ${absentees.length} hotel-needing trainees haven't checked in by ${timeLabel} on ${dateLabel}:\n${lines.join('\n')}\nConsider cancelling their rooms.`
+  return `[Training] ${absentees.length} hotel-needing trainees haven't checked in by class start on ${dateLabel}:\n${lines.join('\n')}\nConsider cancelling their rooms.`
 }
 
 function computeFloridaToday() {
