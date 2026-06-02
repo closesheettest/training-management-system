@@ -20,7 +20,7 @@ const TOOLS = [
     desc: "One tap into their zone's daily 9:30 AM sales-training room." },
   { icon: '🆘', name: 'Help Line', field: 'manager_helpline_url',
     desc: "Tap-to-call their zone's live support number." },
-  { icon: '📄', name: 'CCG Records', field: 'manager_records_url',
+  { icon: '📄', name: 'CCG Records', field: null, soon: true,
     desc: 'Token-gated deal board — Pending Signatures, Push to Job Nimbus, per-deal status.' },
   { icon: '🗺️', name: 'Zone Map', field: null,
     desc: 'Map of every rep in their zone, pinned by home address. Always on.' },
@@ -44,7 +44,7 @@ export default function RegionalManagers() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, manager_helpline_url, manager_records_url',
+        'id, first_name, last_name, phone, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, manager_helpline_url',
       )
       .not('managed_region', 'is', null)
       .order('managed_region', { ascending: true })
@@ -110,7 +110,11 @@ function ToolsetReference() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-slate-800">{t.name}</span>
-                {t.field ? (
+                {t.soon ? (
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    Coming soon
+                  </span>
+                ) : t.field ? (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                     Needs URL
                   </span>
