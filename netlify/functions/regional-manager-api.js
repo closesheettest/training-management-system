@@ -27,10 +27,10 @@
 //   POST { action: 'send_message', token, channels, sms_body?,
 //          email_subject?, email_body?, offset? }
 //     → { ok, counts, next_offset, total }
-//     Thin proxy onto the existing send-group-message function, but with
-//     scope locked to all_active_reps + the manager's region. The
-//     manager can't pass scope/region themselves — those are decided
-//     server-side from the token.
+//     Runs the shared group-send logic (runGroupSend, _group-send.js)
+//     IN-PROCESS, with scope locked to all_active_reps + the manager's
+//     region. The manager can't pass scope/region themselves — those are
+//     decided server-side from the token.
 //
 // All other request bodies / methods are rejected.
 //
@@ -38,15 +38,10 @@
 // public page). Security comes entirely from the unguessable token.
 
 import { createClient } from '@supabase/supabase-js'
+import { runGroupSend } from './_group-send.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
-const SITE_URL = (
-  process.env.PUBLIC_SITE_URL ||
-  process.env.URL ||
-  process.env.DEPLOY_URL ||
-  'https://trainingmanagementsys.netlify.app'
-).replace(/\/$/, '')
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
@@ -169,8 +164,14 @@ export const handler = async (event) => {
       return json(400, { error: 'Email body is empty.' })
     }
 
-    // Forward to send-group-message with scope locked to active reps in
-    // the manager's region. The manager doesn't get to choose the scope.
+    // Run the broadcast IN-PROCESS — scope locked to active reps in the
+    // manager's region. The manager doesn't get to choose the scope.
+    //
+    // This used to POST to send-group-message over an internal HTTP fetch.
+    // That second function hop ran the entire send inside THIS function's
+    // 10s Netlify budget, so regional blasts timed out and delivered
+    // nothing while every other (in-process) SMS path worked. Calling
+    // runGroupSend() directly removes the hop. See _group-send.js header.
     const payload = {
       scope: 'all_active_reps',
       region,
@@ -186,14 +187,9 @@ export const handler = async (event) => {
       payload.email_body = emailBody
     }
 
-    const res = await fetch(`${SITE_URL}/.netlify/functions/send-group-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      return json(res.status, { error: data?.error || 'Send failed.' })
+    const { status, body: data } = await runGroupSend(payload)
+    if (status >= 400) {
+      return json(status, { error: data?.error || 'Send failed.' })
     }
     return json(200, { ok: true, ...data })
   }
