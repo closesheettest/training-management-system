@@ -22,4 +22,4 @@
 ALTER TABLE trainees ADD COLUMN IF NOT EXISTS manager_records_url text;
 
 COMMENT ON COLUMN trainees.manager_records_url IS
-  'CCG Regional Manager records page URL for this manager. Of the form https://ccg-claims-docs.netlify.app/?manager=<token>. Token is owned + minted by CCG (see CCG regional_managers table). Admin pastes the URL here so it''s grabbable from TMS /active-reps without opening Supabase. Only meaningful when managed_region is set.';
+  'CCG Regional Manager records page URL for this manager. Of the form https://free-roof-inspections.netlify.app/?manager=<token>. Token is owned + minted by CCG (see CCG regional_managers table). Admin pastes the URL here so it''s grabbable from TMS /active-reps without opening Supabase. Only meaningful when managed_region is set.';

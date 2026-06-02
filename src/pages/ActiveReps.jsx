@@ -2406,7 +2406,7 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
                     value={draft.manager_records_url || ''}
                     onChange={(e) => set('manager_records_url', e.target.value)}
                     disabled={sending}
-                    placeholder="https://ccg-claims-docs.netlify.app/?manager=..."
+                    placeholder="https://free-roof-inspections.netlify.app/?manager=..."
                     className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono text-xs"
                   />
                   <CopyButton value={draft.manager_records_url} disabled={!draft.manager_records_url || sending} />
