@@ -1,18 +1,27 @@
-// Daily cron — texts each newly-graduated rep a link to /welcome for
-// 7 consecutive days. Goal: cut down on the "where do I find X" calls
-// during their first week by drilling the link into their texts.
+// Daily cron — texts each newly-zone-assigned rep a link to /welcome
+// for 7 consecutive days. Goal: cut down on the "where do I find X"
+// calls during their first week by drilling the link into their texts.
+//
+// Trigger change (2026-06-02 per Neal): the drip now starts when the
+// TRAINER ASSIGNS A ZONE (region IS NOT NULL), not when the trainee
+// graduates. Reps usually get zoned at or just before grad, so the
+// effective start time is similar — but this lets the very first
+// welcome SMS already carry the rep's per-zone Sales Meeting Zoom URL.
+//
+// The Zoom URL comes from the regional manager's trainees row
+// (manager_zoom_url, where managed_region = the rep's region). If the
+// zone's Zoom hasn't been set yet (Zones 1-3 as of 2026-06-02 — Neal
+// is still waiting on Tony / Richard / Chad's links), the SMS shows
+// "(coming soon)" so the rest of the welcome content still flows.
 //
 // Eligibility (a trainee gets a text on a given day if ALL true):
 //   - enrolled = true
 //   - declined_at IS NULL
 //   - phone is set
-//   - test_attempts row exists with submitted_at NOT NULL (they graduated)
+//   - region is set (zone assigned by trainer)
 //   - welcome_texts_sent < 7
 //   - last_welcome_text_at is NULL OR was more than 18 hours ago
-//     (prevents same-day double-send if cron fires twice somehow)
-//   - submitted_at >= 14 days ago (sanity floor — don't text a trainee
-//     who graduated months ago if for some reason their count is stuck
-//     at < 7)
+//     (prevents same-day double-send if cron fires twice)
 //
 // On send: increment welcome_texts_sent + stamp last_welcome_text_at.
 //
@@ -24,7 +33,6 @@ import { renderTemplate } from './_templates.js'
 
 const MAX_DAYS = 7
 const MIN_HOURS_BETWEEN = 18
-const STALE_AFTER_DAYS = 14
 
 export const handler = async (event) => {
   const provided =
@@ -50,43 +58,56 @@ export const handler = async (event) => {
 
   const nowMs = Date.now()
   const cutoffMs = nowMs - MIN_HOURS_BETWEEN * 3600 * 1000
-  const staleAfterMs = nowMs - STALE_AFTER_DAYS * 24 * 3600 * 1000
 
-  // Pull candidates. We over-fetch and filter in JS because the test
-  // submission status lives on test_attempts (nested), not directly on
-  // trainees.
+  // Pre-fetch the per-zone Sales Meeting Zoom URLs from each regional
+  // manager's trainees row. Map keyed by managed_region (e.g. "Zone 1").
+  // Reps in zones whose manager_zoom_url is NULL get a "(coming soon)"
+  // fallback so the rest of the welcome text still goes out.
+  const { data: managers, error: mgrErr } = await supabase
+    .from('trainees')
+    .select('managed_region, manager_zoom_url')
+    .not('managed_region', 'is', null)
+  if (mgrErr) return json(500, { error: `Supabase managers: ${mgrErr.message}` })
+  const zoomByRegion = new Map()
+  for (const m of managers || []) {
+    if (m.managed_region && m.manager_zoom_url) {
+      zoomByRegion.set(m.managed_region, m.manager_zoom_url)
+    }
+  }
+
+  // Pull candidate reps. Trigger changed (2026-06-02): we now key off
+  // region (zone assigned by trainer), not test_attempts.submitted_at.
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, welcome_texts_sent, last_welcome_text_at, test_attempts(submitted_at)',
+      'id, first_name, phone, region, welcome_texts_sent, last_welcome_text_at',
     )
     .eq('enrolled', true)
     .is('declined_at', null)
     .not('phone', 'is', null)
+    .not('region', 'is', null)
     .lt('welcome_texts_sent', MAX_DAYS)
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 
   const results = []
   for (const t of trainees || []) {
-    const submittedAt = (t.test_attempts || [])
-      .map((a) => a.submitted_at)
-      .filter(Boolean)
-      .sort()
-      .pop()
-    if (!submittedAt) continue // hasn't graduated
-    const submittedMs = new Date(submittedAt).getTime()
-    if (submittedMs < staleAfterMs) continue // graduated too long ago
-
     if (t.last_welcome_text_at) {
       const lastMs = new Date(t.last_welcome_text_at).getTime()
       if (lastMs > cutoffMs) continue // already texted within the last 18h
     }
+
+    // Per-zone Zoom — fall back to "(coming soon)" if this zone's
+    // manager hasn't sent Neal a link yet. The user-facing string here
+    // is what shows up in the SMS where {salesMeetingZoom} appears.
+    const zoneZoom = zoomByRegion.get(t.region) || '(Zoom coming soon — check the dashboard)'
 
     const dayNumber = (t.welcome_texts_sent || 0) + 1
     const message = await renderTemplate(supabase, 'welcome_drip', {
       firstName: t.first_name || 'there',
       link: welcomeLink,
       dayNumber,
+      salesMeetingZoom: zoneZoom,
+      region: t.region,
     })
 
     if (dryRun) {
