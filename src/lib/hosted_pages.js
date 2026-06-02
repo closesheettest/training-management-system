@@ -113,12 +113,14 @@ export const HOSTED_PAGES = [
   },
   {
     slug: 'day-3-slides',
-    title: 'Day 3 slides — Roleplay morning + Tech afternoon',
+    title: 'Day 3 slides — Make-it-yours morning + Tech afternoon',
     url: '/day-3-slides/',
     description:
-      'Reveal.js slide deck for Day 3 Retail Training. Morning (10-12) is the roleplay ' +
-      'marathon — drills of the Free Inspection Script, Retail Go-Back, and the full ' +
-      'in-home pitch Slides 1-16 with verbatim refreshers on screen between rounds. ' +
+      'Reveal.js slide deck for Day 3 Retail Training. Morning (10-12) is the ' +
+      '"verbatim out, your voice in" shift — drills of the Free Inspection, Retail Go-Back, ' +
+      'and the full in-home pitch Slides 1-16, but the scripts on screen become a CHECKLIST ' +
+      '(beats to hit), not a teleprompter. Trainees keep the information + structure ' +
+      '(importance question → why → summary using control point) and bring their own phrasing. ' +
       'Afternoon is the tech introduction: the 3 tools (JobNimbus / RepCard / Roofr), ' +
       'JobNimbus Sections 1-5 walkthrough (Contact / Job / Appt / Estimate / Edit Job), ' +
       'common gotchas, and a pointer to /tools-training/ for the full reference. End-of-day ' +
