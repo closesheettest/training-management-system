@@ -121,6 +121,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires alongside the office broadcast on cancel. Includes every rescheduled trainee\'s destination (general holding pool, or the specific class they were moved to). Subscribers should be Hiring Manager — they own the holding pool and need the full list to plan admissions.',
   },
+  {
+    key: 'rep_info_updated_by_manager',
+    label: 'Regional manager edited a rep\'s contact info',
+    desc:
+      'Fires when a regional manager updates one of their reps from the manager dashboard — e.g. a new phone number. The SMS names the rep and what changed. Subscribers should be Admin so they can mirror the change in GHL / JobNimbus / RepCard.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

@@ -24,6 +24,13 @@
 //     manager's region — the manager has zero reach outside their own
 //     team.
 //
+//   POST { action: 'update_rep', token, trainee_id, phone?, email? }
+//     → { ok, trainee: <updated> }
+//     Edits a rep's personal contact info (phone / email only). Region-
+//     gated like deactivate. On any change, texts the office (admins
+//     subscribed to 'rep_info_updated_by_manager', ADMIN_PHONE fallback)
+//     a summary so they can mirror it in GHL / JobNimbus / RepCard.
+//
 //   POST { action: 'send_message', token, channels, sms_body?,
 //          email_subject?, email_body?, offset? }
 //     → { ok, counts, next_offset, total }
@@ -39,6 +46,8 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { runGroupSend } from './_group-send.js'
+import { recipientPhonesForEvent } from './_recipients.js'
+import { sendSmsViaGhl } from './_ghl.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -143,6 +152,74 @@ export const handler = async (event) => {
       .select('id, first_name, last_name, left_company_at')
       .maybeSingle()
     if (upErr) return json(500, { error: upErr.message })
+
+    return json(200, { ok: true, trainee: updated })
+  }
+
+  if (action === 'update_rep') {
+    const targetId = String(body.trainee_id || '').trim()
+    if (!targetId) return json(400, { error: 'Missing trainee_id' })
+
+    // Region-gate, same as deactivate — managers can only touch their crew.
+    const { data: target } = await supabase
+      .from('trainees')
+      .select('id, first_name, last_name, region, phone, email')
+      .eq('id', targetId)
+      .maybeSingle()
+    if (!target) return json(404, { error: 'Rep not found.' })
+    if (target.region !== region) {
+      return json(403, { error: 'That rep is not in your region.' })
+    }
+
+    // Only personal contact fields are editable here. Provisioned fields
+    // (company email/number), rep level, and NAME are intentionally off
+    // limits — names key the JobNimbus↔TMS zone match, so a manager rename
+    // would silently break sale/inspection attribution.
+    const updates = {}
+    const changes = []
+    if (body.phone !== undefined) {
+      const next = String(body.phone || '').trim()
+      if (next && next !== (target.phone || '')) {
+        updates.phone = next
+        changes.push(`Phone changed to ${next}`)
+      }
+    }
+    if (body.email !== undefined) {
+      const next = String(body.email || '').trim()
+      if (next !== (target.email || '')) {
+        updates.email = next
+        changes.push(next ? `Email changed to ${next}` : 'Email cleared')
+      }
+    }
+    if (changes.length === 0) {
+      return json(200, { ok: true, trainee: target, no_change: true })
+    }
+
+    const { data: updated, error: upErr } = await supabase
+      .from('trainees')
+      .update(updates)
+      .eq('id', targetId)
+      .select(
+        'id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, street_address, city, state, zip, latitude, longitude, geocoded_at',
+      )
+      .maybeSingle()
+    if (upErr) return json(500, { error: upErr.message })
+
+    // Tell the office so they can mirror the change in GHL / JobNimbus /
+    // RepCard. A failed alert must NOT fail the manager's edit — the DB is
+    // already updated, so we swallow notify errors and just log them.
+    const repName = `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'A rep'
+    const msg = `${repName}'s record was updated by ${manager.first_name} (${region}). ${changes.join('. ')}. Please update your records.`
+    try {
+      const { phones } = await recipientPhonesForEvent(supabase, 'rep_info_updated_by_manager', {
+        legacyRole: 'admin',
+      })
+      for (const ph of phones) {
+        await sendSmsViaGhl(ph, msg, { firstName: 'Rep update', lastName: 'Notify' })
+      }
+    } catch (e) {
+      console.warn('rep_info_updated_by_manager notify failed:', e?.message || e)
+    }
 
     return json(200, { ok: true, trainee: updated })
   }

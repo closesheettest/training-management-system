@@ -329,6 +329,44 @@ function RepsTable({ token, reps, onChanged }) {
   const [confirming, setConfirming] = useState(null) // {rep, reason}
   const [submitting, setSubmitting] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [editing, setEditing] = useState(null) // {rep, phone, email}
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  async function submitEdit() {
+    if (!editing) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_rep',
+          token,
+          trainee_id: editing.rep.id,
+          phone: editing.phone,
+          email: editing.email,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setFlash({ kind: 'error', text: data?.error || 'Could not save.' })
+      } else if (data.no_change) {
+        setFlash({ kind: 'success', text: 'No changes to save.' })
+        setEditing(null)
+      } else {
+        setFlash({
+          kind: 'success',
+          text: `Saved. The office has been texted to update ${editing.rep.first_name}'s record.`,
+        })
+        setEditing(null)
+        await onChanged()
+      }
+    } catch (e) {
+      setFlash({ kind: 'error', text: e?.message || 'Network error.' })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   async function submitDeactivate() {
     if (!confirming) return
@@ -428,6 +466,16 @@ function RepsTable({ token, reps, onChanged }) {
                     </a>
                     <button
                       type="button"
+                      onClick={() =>
+                        setEditing({ rep: r, phone: r.phone || '', email: r.email || '' })
+                      }
+                      className="rounded-md border border-sky-300/40 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
+                      title="Update this rep's phone or email. The office is texted the change."
+                    >
+                      ✏️ Edit info
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setConfirming({ rep: r, reason: '' })}
                       className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
                     >
@@ -476,6 +524,55 @@ function RepsTable({ token, reps, onChanged }) {
               type="button"
               onClick={() => setConfirming(null)}
               disabled={submitting}
+              className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline edit — phone / email only. The office gets texted the change. */}
+      {editing && (
+        <div className="mt-4 rounded-md border border-sky-400/50 bg-sky-950/40 p-4">
+          <div className="text-sm font-semibold">
+            Edit {editing.rep.first_name} {editing.rep.last_name}
+          </div>
+          <p className="mt-1 text-xs text-slate-200/80">
+            Update their phone or personal email. When you save, the office is automatically
+            texted what changed so they can update their records.
+          </p>
+          <label className="mt-3 block text-xs font-medium text-slate-200/80">Phone</label>
+          <input
+            type="tel"
+            value={editing.phone}
+            onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+            placeholder="(555) 123-4567"
+            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+          />
+          <label className="mt-3 block text-xs font-medium text-slate-200/80">
+            Personal email
+          </label>
+          <input
+            type="email"
+            value={editing.email}
+            onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+            placeholder="name@email.com"
+            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+          />
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={submitEdit}
+              disabled={savingEdit}
+              className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {savingEdit ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              disabled={savingEdit}
               className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
             >
               Cancel
