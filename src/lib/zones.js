@@ -91,12 +91,13 @@ export function zoneColor(zone) {
 // label changes.
 //
 // As regional managers name their teams, add the entries here:
-//   Zone 1 = SQUAD (Tony)
+//   Zone 1 = SQUAD  (Tony)
 //   Zone 2 = ?      (Richard — TBD)
-//   Zone 3 = ?      (Chad — TBD)
+//   Zone 3 = SHARKS (Chad)
 //   Zone 4 = ?      (Sam — TBD)
 export const ZONE_TEAMS = {
   'Zone 1': 'SQUAD',
+  'Zone 3': 'SHARKS',
 }
 
 // Render a zone for a user-facing surface. Three states:
