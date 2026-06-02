@@ -194,6 +194,7 @@ function AdminLayout() {
     { key: 'settings.handoff', to: '/handoff-contacts', label: 'Handoff contacts' },
     { key: 'settings.personas', to: '/personas', label: 'Personas' },
     { key: 'settings.hosted_pages', to: '/hosted-pages', label: 'Hosted pages' },
+    { key: 'settings.training_itinerary', href: '/training-itinerary/', external: true, label: 'Training Itinerary' },
     { key: 'settings.overview', href: '/system-overview.html', external: true, label: 'System Overview' },
   ].filter((it) => show(it.key))
 

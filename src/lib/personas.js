@@ -32,6 +32,7 @@ export const PAGES = [
   { key: 'team.regions', label: 'Zones', path: '/regions', menu: 'team' },
   { key: 'settings.group_messages', label: 'Group messages', path: '/group-messages', menu: 'team' },
   { key: 'settings.hosted_pages', label: 'Hosted pages', path: '/hosted-pages', menu: 'settings' },
+  { key: 'settings.training_itinerary', label: 'Training Itinerary', href: '/training-itinerary/', external: true, menu: 'settings' },
   { key: 'settings.overview', label: 'System Overview', href: '/system-overview.html', external: true, menu: 'settings' },
 ]
 
