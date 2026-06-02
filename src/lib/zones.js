@@ -62,15 +62,15 @@ export const ZONE_COUNTIES = {
 // IMPORTANT: if these change, also update the matching --zone-N-deep
 // and --zone-N-light CSS vars in us-shingle-rep-dashboard/index.html
 // (the :root block at the top). Both sources must move together.
-//   Zone 1 = Blue   (Tony · NE / N-Central FL)
-//   Zone 2 = Purple (Richard · Central / E-Central FL)
+//   Zone 1 = Red    (Tony · NE / N-Central FL)
+//   Zone 2 = Blue   (Richard · Central / E-Central FL)
 //   Zone 3 = Green  (Chad · Gulf / SW FL)
-//   Zone 4 = Rose   (Sam · SE FL)
+//   Zone 4 = Orange (Sam · SE FL)
 export const ZONE_COLORS = {
-  'Zone 1': { deep: '#1e40af', light: '#dbeafe' },
-  'Zone 2': { deep: '#7c3aed', light: '#ede9fe' },
-  'Zone 3': { deep: '#059669', light: '#d1fae5' },
-  'Zone 4': { deep: '#be185d', light: '#fce7f3' },
+  'Zone 1': { deep: '#E63946', light: '#fee2e2' },
+  'Zone 2': { deep: '#1D6FB8', light: '#dbeafe' },
+  'Zone 3': { deep: '#2A9D4A', light: '#d1fae5' },
+  'Zone 4': { deep: '#F77F00', light: '#ffedd5' },
 }
 
 // Helper for callers that just want one hex per zone (e.g. Leaflet
