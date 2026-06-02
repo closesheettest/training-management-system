@@ -65,19 +65,13 @@ export const HOSTED_PAGES = [
     created: '2026-06-01',
     category: 'Day 1',
   },
-  {
-    slug: 'day-1-retail-training',
-    title: 'Day 1 Retail Training — the whole curriculum (PDF)',
-    url: '/training/day-1-retail-training.pdf',
-    description:
-      'The complete 118-slide Day 1 training deck Neal walks trainees through. ' +
-      'Source of truth for the 5-step framework, the 4 emotional drivers (HSN tactics), ' +
-      'Control Points, the Harvesting Script, slides 1-16 of the in-home pitch, the Energy ' +
-      'Package, the Ask, and the R.I.S.C objection-handling flow. Anything pitch-related ' +
-      'should match this document verbatim.',
-    created: '2026-05-27',
-    category: 'Day 1',
-  },
+  // The legacy 118-slide "Day 1 Retail Training" PDF entry used to live
+  // here. Removed 2026-06-02 per Neal — superseded by the new
+  // /day-1-slides Reveal deck + /day-1-homework page (the scripts) +
+  // /day-2-homework (the four talking points). The PDF file itself
+  // still lives at /training/day-1-retail-training.pdf because the
+  // homework pages and the active Day 1 SMS body link to it; do a
+  // sweep before deleting the file (see grep day-1-retail-training).
 
   // ─────────────────────── Day 2 ───────────────────────
   {
