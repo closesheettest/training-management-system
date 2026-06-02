@@ -128,13 +128,13 @@ export const HOSTED_PAGES = [
   },
   {
     slug: 'day-2-homework',
-    title: 'Day 2 homework — Memorize slides 6-16',
+    title: 'Day 2 homework — Memorize slides 1-16',
     url: '/day-2-homework/',
     description:
-      'Tonight\'s directive (page 89 of the training): "Memorize slides 6-16, incorporating ' +
-      'slides 1-5." Page surfaces the verbatim slide 1-5 talking-point quotes from training ' +
-      'pages 37-41, plus links to the Products PDF and the full Day 1 training deck. ' +
-      'Quiz on Products fires Day 3 morning at kiosk sign-in.',
+      'Tonight\'s directive: memorize the full in-home pitch — slides 1-16, including the ' +
+      'four talking points (Slides 1-5) they started on Day 1. Page surfaces the verbatim ' +
+      'slide 1-5 quotes from training pages 37-41, plus links to the Products PDF and the ' +
+      'full Day 1 training deck. Quiz on Products fires Day 3 morning at kiosk sign-in.',
     created: '2026-05-27',
     category: 'Trainee resources',
   },
