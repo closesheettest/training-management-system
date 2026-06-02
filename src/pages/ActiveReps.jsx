@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useRegions } from '../lib/RegionsContext.jsx'
-import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName, KNOWN_COUNTIES, zoneForCounty, detectZoneMismatch } from '../lib/zones.js'
+import { ZONE_COUNTIES, ZONE_SPLIT_NOTE, isZoneName, KNOWN_COUNTIES, zoneForCounty, detectZoneMismatch, teamLabel } from '../lib/zones.js'
 import {
   AddStaffModal,
   DirectoryVisibilityModal,
@@ -1612,7 +1612,7 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
                   : undefined
               }
             >
-              👑 {managerIsStale ? '⚠ Legacy assignment · ' : 'Regional manager · '}{t.managed_region}
+              👑 {managerIsStale ? '⚠ Legacy assignment · ' : 'Regional manager · '}{teamLabel(t.managed_region)}
             </span>
             {canMoveToCurrentZone && onMoveManagerAssignment && (
               <button
@@ -2371,7 +2371,7 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
             <div className="flex items-center gap-2">
               <span className="text-base">👑</span>
               <h4 className="text-sm font-semibold text-purple-900">
-                Regional Manager settings — {trainee.managed_region}
+                Regional Manager settings — {teamLabel(trainee.managed_region)}
               </h4>
             </div>
             <p className="mt-1 text-xs text-slate-600">
@@ -2670,10 +2670,10 @@ function AnnounceZoneModal({ state, setState, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg border border-purple-200 bg-white p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-purple-900">
-          📣 Announce {managerName} to {manager.managed_region}?
+          📣 Announce {managerName} to {teamLabel(manager.managed_region)}?
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          Every active rep in <strong>{manager.managed_region}</strong> gets an SMS / email saying
+          Every active rep in <strong>{teamLabel(manager.managed_region)}</strong> gets an SMS / email saying
           they have a new regional sales manager and a one-tap vCard link to save the contact.
           The manager themselves is excluded.
         </p>

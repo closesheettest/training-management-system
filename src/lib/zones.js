@@ -79,6 +79,49 @@ export function zoneColor(zone) {
   return ZONE_COLORS[zone]?.deep || '#64748b'
 }
 
+// Team names per zone — for team-building, what reps actually see is
+// the TEAM name, not "Zone N". The zone label stays as a parenthetical
+// suffix during the transition period so admins (and reps still
+// learning the team names) don't get confused. Once Neal says reps
+// know the team names cold, we drop the (Zone N) suffix everywhere
+// user-facing — see teamLabel() docs.
+//
+// Internal data (DB region/managed_region columns, API filters,
+// CCG↔TMS bridge) stays keyed by "Zone N" — only the displayed
+// label changes.
+//
+// As regional managers name their teams, add the entries here:
+//   Zone 1 = SQUAD (Tony)
+//   Zone 2 = ?      (Richard — TBD)
+//   Zone 3 = ?      (Chad — TBD)
+//   Zone 4 = ?      (Sam — TBD)
+export const ZONE_TEAMS = {
+  'Zone 1': 'SQUAD',
+}
+
+// Render a zone for a user-facing surface. Three states:
+//   • Team has a name AND we're still in the transition period (default):
+//       → 'SQUAD (Zone 1)'
+//   • Team has a name AND showZone=false (Neal flips this once reps know
+//     the team names cold):
+//       → 'SQUAD'
+//   • Team has no name yet:
+//       → 'Zone 2'  (just the zone, no parens)
+//
+// Pass showZone=true (default) until Neal says drop the suffix.
+export function teamLabel(zone, { showZone = true } = {}) {
+  if (!zone) return ''
+  const team = ZONE_TEAMS[zone]
+  if (!team) return zone
+  return showZone ? `${team} (${zone})` : team
+}
+
+// Just the team name, no zone suffix. Returns null if the zone has no
+// team name yet — caller decides what to render (usually "Zone N").
+export function teamName(zone) {
+  return ZONE_TEAMS[zone] || null
+}
+
 // The Rt 50 split rule, surfaced as a helper string for tooltips /
 // notes. Anywhere we render the ** counties we should explain it.
 export const ZONE_SPLIT_NOTE =

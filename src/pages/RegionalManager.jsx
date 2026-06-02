@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { teamLabel } from '../lib/zones.js'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -119,7 +120,7 @@ export default function RegionalManager() {
           {manager.first_name} {manager.last_name}
         </h1>
         <div className="mt-1 text-sm text-amber-200/90">
-          You're managing the <strong>{manager.region}</strong> region.
+          You're managing the <strong>{teamLabel(manager.region)}</strong> region.
         </div>
       </header>
 
@@ -570,7 +571,7 @@ function BlastTool({ token, region, repCount }) {
         Message your team
       </h2>
       <p className="mt-1 text-xs text-slate-200/70">
-        Goes to every active rep in <strong>{region}</strong> ({repCount} {repCount === 1 ? 'person' : 'people'}).
+        Goes to every active rep in <strong>{teamLabel(region)}</strong> ({repCount} {repCount === 1 ? 'person' : 'people'}).
       </p>
 
       <div className="mt-4 flex flex-wrap gap-3 text-sm">
