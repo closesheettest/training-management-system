@@ -495,6 +495,7 @@ function RepsTable({ token, reps, onChanged }) {
 function BlastTool({ token, region, repCount }) {
   const [wantSms, setWantSms] = useState(true)
   const [wantEmail, setWantEmail] = useState(false)
+  const [replyToMe, setReplyToMe] = useState(false)
   const [smsBody, setSmsBody] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
@@ -537,6 +538,7 @@ function BlastTool({ token, region, repCount }) {
               ...(wantEmail ? { email: true } : {}),
             },
             sms_body: wantSms ? smsBody : undefined,
+            reply_to_manager: wantSms ? replyToMe : undefined,
             email_subject: wantEmail ? emailSubject : undefined,
             email_body: wantEmail ? emailBody : undefined,
             offset,
@@ -605,6 +607,37 @@ function BlastTool({ token, region, repCount }) {
           />
           <div className="mt-1 text-[11px] text-slate-300/70">
             Tip: use <code>{'{firstName}'}</code> to personalize. Char count: {smsBody.length}.
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="sms-mode"
+                className="mt-0.5"
+                checked={!replyToMe}
+                onChange={() => setReplyToMe(false)}
+              />
+              <span>
+                <span className="font-medium">Announcement</span>
+                <span className="block text-[11px] text-slate-300/70">One-way. Your number stays private.</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="sms-mode"
+                className="mt-0.5"
+                checked={replyToMe}
+                onChange={() => setReplyToMe(true)}
+              />
+              <span>
+                <span className="font-medium">Let reps reply to me</span>
+                <span className="block text-[11px] text-slate-300/70">
+                  Adds a “Reply to {'{you}'}: your number” line so reps can text you back directly.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
       )}

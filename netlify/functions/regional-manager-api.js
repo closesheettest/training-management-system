@@ -154,6 +154,7 @@ export const handler = async (event) => {
     if (!wantSms && !wantEmail) {
       return json(400, { error: 'Pick at least one channel — SMS or email.' })
     }
+    const replyToManager = !!body.reply_to_manager
     const smsBody = (body.sms_body || '').toString()
     const emailSubject = (body.email_subject || '').toString()
     const emailBody = (body.email_body || '').toString()
@@ -184,7 +185,17 @@ export const handler = async (event) => {
       include_trainee_ids: [manager.id],
       offset: Number.isFinite(+body.offset) ? +body.offset : 0,
     }
-    if (wantSms) payload.sms_body = smsBody
+    if (wantSms) {
+      // Reply mode: GHL texts from one company line, so a rep's reply never
+      // lands on the manager's phone on its own. The only way replies reach
+      // the manager is to put their number in the text and let reps text it
+      // directly. Appended server-side so the number is authoritative and
+      // survives every batch. Announcement mode omits it (one-way).
+      const num = replyToManager ? formatPhone(manager.phone) : null
+      payload.sms_body = num
+        ? `${smsBody.trimEnd()}\n\nReply to ${manager.first_name}: ${num}`
+        : smsBody
+    }
     if (wantEmail) {
       payload.email_subject = emailSubject
       payload.email_body = emailBody
@@ -198,6 +209,15 @@ export const handler = async (event) => {
   }
 
   return json(400, { error: `Unknown action: ${action}` })
+}
+
+// (XXX) XXX-XXXX for the appended reply line; falls back to the raw value
+// if it isn't a recognizable 10/11-digit US number.
+function formatPhone(raw) {
+  const d = String(raw || '').replace(/\D/g, '')
+  const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d
+  if (ten.length !== 10) return String(raw || '').trim() || null
+  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`
 }
 
 function json(status, body) {
