@@ -481,109 +481,116 @@ function RepsTable({ token, reps, onChanged }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setConfirming({ rep: r, reason: '' })}
+                      onClick={() =>
+                        setConfirming((c) =>
+                          c?.rep.id === r.id ? null : { rep: r, reason: '' },
+                        )
+                      }
                       className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
                     >
                       Mark as departed
                     </button>
                   </div>
                 </div>
+
+                {/* Inline edit — opens directly under THIS rep so the panel is
+                    always in view next to the button that was clicked. */}
+                {editing?.rep.id === r.id && (
+                  <div className="mt-3 rounded-md border border-sky-400/50 bg-sky-950/40 p-4">
+                    <div className="text-sm font-semibold">
+                      Edit {editing.rep.first_name} {editing.rep.last_name}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-200/80">
+                      Update their phone or personal email. When you save, the office is
+                      automatically texted what changed so they can update their records.
+                    </p>
+                    <label className="mt-3 block text-xs font-medium text-slate-200/80">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editing.phone}
+                      onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
+                      placeholder="(555) 123-4567"
+                      className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                    />
+                    <label className="mt-3 block text-xs font-medium text-slate-200/80">
+                      Personal email
+                    </label>
+                    <input
+                      type="email"
+                      value={editing.email}
+                      onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                      placeholder="name@email.com"
+                      className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={submitEdit}
+                        disabled={savingEdit}
+                        className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                      >
+                        {savingEdit ? 'Saving…' : 'Save changes'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(null)}
+                        disabled={savingEdit}
+                        className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline confirm — opens directly under THIS rep. */}
+                {confirming?.rep.id === r.id && (
+                  <div className="mt-3 rounded-md border border-red-400/50 bg-red-950/40 p-4">
+                    <div className="text-sm font-semibold">
+                      Mark {confirming.rep.first_name} {confirming.rep.last_name} as departed?
+                    </div>
+                    <p className="mt-1 text-xs text-slate-200/80">
+                      This removes them from your team list and flags them for cleanup in the
+                      office systems (GHL, RepCard, etc.). The office will see who you marked.
+                    </p>
+                    <label className="mt-3 block text-xs font-medium text-slate-200/80">
+                      Reason (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={confirming.reason}
+                      onChange={(e) =>
+                        setConfirming({ ...confirming, reason: e.target.value })
+                      }
+                      placeholder="e.g. No-show 3 days in a row"
+                      className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={submitDeactivate}
+                        disabled={submitting}
+                        className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {submitting ? 'Saving…' : 'Yes, mark as departed'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(null)}
+                        disabled={submitting}
+                        className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             )
           })}
         </ul>
-      )}
-
-      {/* Inline confirm — keeps the flow on one screen, no modal jump. */}
-      {confirming && (
-        <div className="mt-4 rounded-md border border-red-400/50 bg-red-950/40 p-4">
-          <div className="text-sm font-semibold">
-            Mark {confirming.rep.first_name} {confirming.rep.last_name} as departed?
-          </div>
-          <p className="mt-1 text-xs text-slate-200/80">
-            This removes them from your team list and flags them for cleanup in the
-            office systems (GHL, RepCard, etc.). The office will see who you marked.
-          </p>
-          <label className="mt-3 block text-xs font-medium text-slate-200/80">
-            Reason (optional)
-          </label>
-          <input
-            type="text"
-            value={confirming.reason}
-            onChange={(e) =>
-              setConfirming({ ...confirming, reason: e.target.value })
-            }
-            placeholder="e.g. No-show 3 days in a row"
-            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
-          />
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={submitDeactivate}
-              disabled={submitting}
-              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {submitting ? 'Saving…' : 'Yes, mark as departed'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming(null)}
-              disabled={submitting}
-              className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Inline edit — phone / email only. The office gets texted the change. */}
-      {editing && (
-        <div className="mt-4 rounded-md border border-sky-400/50 bg-sky-950/40 p-4">
-          <div className="text-sm font-semibold">
-            Edit {editing.rep.first_name} {editing.rep.last_name}
-          </div>
-          <p className="mt-1 text-xs text-slate-200/80">
-            Update their phone or personal email. When you save, the office is automatically
-            texted what changed so they can update their records.
-          </p>
-          <label className="mt-3 block text-xs font-medium text-slate-200/80">Phone</label>
-          <input
-            type="tel"
-            value={editing.phone}
-            onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
-            placeholder="(555) 123-4567"
-            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
-          />
-          <label className="mt-3 block text-xs font-medium text-slate-200/80">
-            Personal email
-          </label>
-          <input
-            type="email"
-            value={editing.email}
-            onChange={(e) => setEditing({ ...editing, email: e.target.value })}
-            placeholder="name@email.com"
-            className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
-          />
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={submitEdit}
-              disabled={savingEdit}
-              className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-            >
-              {savingEdit ? 'Saving…' : 'Save changes'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              disabled={savingEdit}
-              className="rounded-md border border-white/30 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
       )}
     </section>
   )
