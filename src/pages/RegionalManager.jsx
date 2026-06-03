@@ -173,6 +173,12 @@ function ShellFrame({ children }) {
 // Zoom and the Help Line. Each falls back to a non-clickable "Coming
 // soon" pill when the underlying URL is still null on the manager
 // record. Admin sets the URLs on /active-reps Edit Info.
+// Company-wide regional-managers meeting — same link for every manager
+// (Mon–Thu 8:30 AM ET). Passcode is embedded in the pwd param, so tapping
+// joins directly. If the room changes, update this one line.
+const MANAGERS_MEETING_URL =
+  'https://us06web.zoom.us/j/3462393037?pwd=wSzImr09UTv0imz9h6b6nYi6Hc2yM5.1'
+
 function QuickActions({ manager, token, reps }) {
   const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
   const hasRecords = !!(manager.ccg_records_url && String(manager.ccg_records_url).trim())
@@ -197,6 +203,12 @@ function QuickActions({ manager, token, reps }) {
           subtitle="Daily sales training · 9:30 AM Eastern"
           href={hasZoom ? manager.zoom_url : null}
           comingSoonNote="Zoom link coming soon — admin is finalizing."
+        />
+        <ActionTile
+          icon="👔"
+          title="Managers Meeting"
+          subtitle="Mon–Thu · 8:30 AM Eastern"
+          href={MANAGERS_MEETING_URL}
         />
         <ActionTile
           icon="✉️"
