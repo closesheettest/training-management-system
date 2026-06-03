@@ -25,6 +25,15 @@
 [functions."notify-trainee-dropout"]
   schedule = "*/30 14-22 * * *"
 
+# Scheduled function: pull rep SMS replies out of GoHighLevel into
+# rep_messages so the regional-manager Team Replies inbox can show them.
+# Every minute — replies surface within ~1 min. We poll because GHL's push
+# (Workflow webhook) wasn't usable on this account; see the function header.
+# MUST stay in sync with export config.schedule in the function file —
+# Netlify reads THIS value.
+[functions."cron-poll-rep-replies"]
+  schedule = "* * * * *"
+
 # SPA routing: any path that's not a real file goes to index.html
 # so React Router can handle it (otherwise /register/:token would 404 on a hard refresh).
 [[redirects]]

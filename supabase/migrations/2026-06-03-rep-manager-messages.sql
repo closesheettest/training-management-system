@@ -9,8 +9,9 @@
 -- message is still in GHL); this is a convenience window into it.
 --
 -- WHAT LANDS HERE:
---   - direction='inbound'  : a rep's reply, captured by the
---     ghl-inbound-sms webhook (GHL fires it on "Customer replied").
+--   - direction='inbound'  : a rep's reply, pulled from GHL every minute by
+--     the cron-poll-rep-replies function (we poll GHL's conversations API;
+--     GHL's push/Workflow webhook wasn't usable on this account).
 --   - direction='outbound' : a manager's reply, sent from the portal via
 --     regional-manager-api send_reply (and pushed to GHL).
 -- The original team blast is NOT logged here in v1 — the thread shows the
@@ -46,8 +47,9 @@ create table if not exists rep_messages (
   -- inbound. Lets the portal label "You" vs the rep.
   manager_id uuid references trainees(id) on delete set null,
 
-  -- GHL identifiers. ghl_message_id makes webhook delivery idempotent —
-  -- GHL retries on non-2xx, so a unique constraint dedupes replays.
+  -- GHL identifiers. ghl_message_id makes the minute-by-minute poll
+  -- idempotent — the poller re-scans an overlapping window, so a unique
+  -- constraint dedupes messages it has already mirrored.
   ghl_message_id text,
   ghl_contact_id text,
 
@@ -66,11 +68,11 @@ create index if not exists rep_messages_region_created_idx
 create index if not exists rep_messages_trainee_created_idx
   on rep_messages (trainee_id, created_at desc);
 
--- Idempotency for the inbound webhook. Unique only when an id is present
+-- Idempotency for the inbound poll. Unique only when an id is present
 -- (outbound rows we author have none), so multiple null-id rows are fine.
 create unique index if not exists rep_messages_ghl_message_id_uidx
   on rep_messages (ghl_message_id)
   where ghl_message_id is not null;
 
 comment on table rep_messages is
-  'Mirror of rep<->regional-manager SMS so the manager portal can show an inbox + reply. GHL remains source of truth. inbound=rep reply (ghl-inbound-sms webhook), outbound=manager reply (regional-manager-api send_reply).';
+  'Mirror of rep<->regional-manager SMS so the manager portal can show an inbox + reply. GHL remains source of truth. inbound=rep reply (cron-poll-rep-replies, polls GHL every minute), outbound=manager reply (regional-manager-api send_reply).';
