@@ -193,6 +193,7 @@ export function zoneForCounty(county) {
 //     managed_region, period.
 export function detectZoneMismatch(rep) {
   if (!rep || !rep.county) return null
+  if (rep.zone_locked) return null  // admin explicitly accepted this placement
   if (rep.managed_region) return null  // org-structure trumps geography
   const suggestion = zoneForCounty(rep.county)
   if (!suggestion || suggestion.zones.length === 0) return null

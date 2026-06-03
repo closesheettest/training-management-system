@@ -115,7 +115,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, zone_locked, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -457,6 +457,32 @@ export default function ActiveReps() {
     setFlash({
       kind: 'success',
       text: `${trainee.first_name} ${trainee.last_name} is no longer a regional manager. Their old link is now dead.`,
+    })
+    await load()
+  }
+
+  // Lock (or unlock) a rep's zone so the county→zone mismatch badge is
+  // suppressed. Used when admin INTENTIONALLY places a rep in a zone that
+  // disagrees with their home county (e.g. Rob Sexton — county now maps to
+  // Zone 3 after the territory rewrite, but Neal wants him in Zone 2).
+  // Locking just sets a flag; it doesn't change region. Unlock re-enables
+  // the warning so a genuinely-stale assignment can resurface later.
+  async function setZoneLock(trainee, locked) {
+    setSavingId(trainee.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({ zone_locked: locked })
+      .eq('id', trainee.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({
+      kind: 'success',
+      text: locked
+        ? `${trainee.first_name} ${trainee.last_name} locked to ${trainee.region} — county mismatch warning hidden.`
+        : `${trainee.first_name} ${trainee.last_name} unlocked — county mismatch warning will show again if it applies.`,
     })
     await load()
   }
@@ -1141,6 +1167,7 @@ export default function ActiveReps() {
                   onAnnounceToZone={() => openAnnounceModal(t)}
                   onEditInfo={() => setEditModal({ trainee: t, draft: editableDraftFor(t) })}
                   onMoveManagerAssignment={(newRegion) => moveManagerAssignment(t, newRegion)}
+                  onSetZoneLock={(locked) => setZoneLock(t, locked)}
                   allZonesAssigned={allZonesAssigned}
                   availableZones={availableZones}
                   managerName={t.managed_region ? null : managerNameByRegion[t.region]}
@@ -1502,7 +1529,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones, managerName }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, onSetZoneLock, allZonesAssigned, availableZones, managerName }) {
   // A manager whose managed_region is a legacy city region
   // (Jacksonville / Miami / etc.) when the rep themselves now lives in
   // a Zone is in a stale state — Edit Info changed t.region but not
@@ -1562,11 +1589,26 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               2026-06-01 territory rewrite that moved Citrus/Hernando to
               Zone 2 and Okeechobee/St. Lucie to Zone 3). Click ✏️ Edit
               info → the county-zone suggestion already there will offer
-              a one-click "Use Zone X" fix. */}
+              a one-click "Use Zone X" fix. OR click the badge itself to
+              LOCK the rep in their current zone (admin says "this
+              placement is intentional"), which hides the warning. */}
           {(() => {
             const mm = detectZoneMismatch(t)
             if (!mm) return null
             const expectedLabel = mm.expected.join(' or ')
+            if (onSetZoneLock) {
+              return (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => onSetZoneLock(true)}
+                  className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-900 hover:bg-orange-200 disabled:opacity-50"
+                  title={`Home county "${mm.county}" is now in ${expectedLabel} (territory rewrite). Click to LOCK ${t.first_name} in ${t.region} and hide this warning, or use ✏️ Edit info to reassign.`}
+                >
+                  ⚠ County now in {expectedLabel} · click to keep in {t.region}
+                </button>
+              )
+            }
             return (
               <span
                 className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-900"
@@ -1576,6 +1618,20 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               </span>
             )
           })()}
+          {/* Locked-zone marker — admin intentionally overrode the
+              county→zone suggestion. Click to unlock and re-enable the
+              mismatch warning. */}
+          {t.zone_locked && onSetZoneLock && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => onSetZoneLock(false)}
+              className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+              title={`${t.first_name} is locked to ${t.region} — county mismatch warning is hidden. Click to unlock.`}
+            >
+              📍 Zone locked
+            </button>
+          )}
         </div>
         <div className="text-xs text-slate-500">
           {t.phone || '—'}
