@@ -20,14 +20,16 @@ const TOOLS = [
     desc: "One tap into their zone's daily 9:30 AM sales-training room." },
   { icon: '🆘', name: 'Help Line', field: 'manager_helpline_url',
     desc: "Tap-to-call their zone's live support number." },
-  { icon: '📄', name: 'CCG Records', field: null, soon: true,
-    desc: 'Token-gated deal board — Pending Signatures, Push to Job Nimbus, per-deal status.' },
+  { icon: '📄', name: 'CCG Records', field: null,
+    desc: 'Their CCG deal board — Pending Signatures, per-deal status, Push to Job Nimbus. Auto-linked by zone (no setup). Always on.' },
   { icon: '🗺️', name: 'Zone Map', field: null,
     desc: 'Map of every rep in their zone, pinned by home address. Always on.' },
   { icon: '📣', name: 'Team Broadcast', field: null,
-    desc: 'Text the whole zone — Announcement (one-way) or Reply-to-me (replies come back to them). Always on.' },
-  { icon: '👥', name: 'Roster', field: null,
-    desc: 'See their active reps and mark anyone who has departed. Always on.' },
+    desc: 'Text the whole zone. Reps can reply — replies land in Team Replies and the manager gets a heads-up text. Always on.' },
+  { icon: '💬', name: 'Team Replies', field: null,
+    desc: 'Inbox of rep replies, grouped per rep, with reply-from-here. Mirrored from GoHighLevel every minute. Always on.' },
+  { icon: '👥', name: 'Roster + Edit info', field: null,
+    desc: 'See their active reps, edit a rep’s phone / email / home address (office auto-texted the change), and mark anyone departed. Always on.' },
 ]
 
 const CONFIG_TOOLS = TOOLS.filter((t) => t.field)

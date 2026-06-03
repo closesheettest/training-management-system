@@ -176,8 +176,16 @@ function ShellFrame({ children }) {
 function QuickActions({ manager }) {
   const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
   const hasHelpline = !!(manager.helpline_url && String(manager.helpline_url).trim())
+  const hasRecords = !!(manager.ccg_records_url && String(manager.ccg_records_url).trim())
   return (
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ActionTile
+        icon="📄"
+        title="CCG Records"
+        subtitle="Your team's deals · pending signatures · status"
+        href={hasRecords ? manager.ccg_records_url : null}
+        comingSoonNote="Deal board coming soon — admin is finalizing."
+      />
       <ActionTile
         icon="📹"
         title="Join Zone Zoom"

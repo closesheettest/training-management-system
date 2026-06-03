@@ -72,6 +72,40 @@ import { sendSmsViaGhl } from './_ghl.js'
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
 
+// CCG deal board ("CCG Records") lives in a SEPARATE app + database
+// (free-roof-inspections.netlify.app, CCG's Supabase). Each zone's
+// manager has a row in CCG's regional_managers table with their own
+// token. We auto-resolve the manager's board link by zone: TMS's
+// managed_region ('Zone 1'…) is the SAME string as CCG's zone column,
+// so we look up the token and hand the manager a deep link to their
+// own board — no per-manager setup. The CCG anon key is public (it's
+// bundled into CCG's browser JS), so this is a read of public data.
+const CCG_SB_URL = process.env.CCG_SUPABASE_URL
+const CCG_SB_KEY = process.env.CCG_SUPABASE_ANON_KEY
+const CCG_BOARD_URL = process.env.CCG_BOARD_URL || 'https://free-roof-inspections.netlify.app'
+
+// Look up a manager's CCG deal-board deep link by zone. Best-effort:
+// returns null on any miss (env unset, no matching zone, network) so a
+// missing board just hides the tile rather than breaking the dashboard.
+async function resolveCcgRecordsUrl(zone) {
+  if (!CCG_SB_URL || !CCG_SB_KEY || !zone) return null
+  try {
+    const url =
+      `${CCG_SB_URL}/rest/v1/regional_managers` +
+      `?zone=eq.${encodeURIComponent(zone)}&select=token&limit=1`
+    const res = await fetch(url, {
+      headers: { apikey: CCG_SB_KEY, Authorization: `Bearer ${CCG_SB_KEY}` },
+    })
+    if (!res.ok) return null
+    const rows = await res.json().catch(() => [])
+    const tok = rows[0]?.token
+    if (!tok) return null
+    return `${CCG_BOARD_URL}/?manager=${encodeURIComponent(tok)}`
+  } catch {
+    return null
+  }
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
   if (!SB_URL || !SB_KEY) return json(500, { error: 'Missing SUPABASE env vars' })
@@ -117,6 +151,9 @@ export const handler = async (event) => {
       .order('last_name', { ascending: true })
     if (repsErr) return json(500, { error: repsErr.message })
 
+    // Auto-resolve this manager's CCG deal-board link by zone.
+    const ccgRecordsUrl = await resolveCcgRecordsUrl(region)
+
     return json(200, {
       ok: true,
       manager: {
@@ -126,6 +163,7 @@ export const handler = async (event) => {
         region,
         zoom_url: manager.manager_zoom_url || null,
         helpline_url: manager.manager_helpline_url || null,
+        ccg_records_url: ccgRecordsUrl,
       },
       reps: reps || [],
     })
