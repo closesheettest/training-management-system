@@ -133,7 +133,7 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      <QuickActions manager={manager} />
+      <QuickActions manager={manager} token={token} reps={reps} />
 
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
 
@@ -173,38 +173,156 @@ function ShellFrame({ children }) {
 // Zoom and the Help Line. Each falls back to a non-clickable "Coming
 // soon" pill when the underlying URL is still null on the manager
 // record. Admin sets the URLs on /active-reps Edit Info.
-function QuickActions({ manager }) {
+function QuickActions({ manager, token, reps }) {
   const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
-  const hasHelpline = !!(manager.helpline_url && String(manager.helpline_url).trim())
   const hasRecords = !!(manager.ccg_records_url && String(manager.ccg_records_url).trim())
+  // "Message a rep" composer toggle — replaces the old rep-facing Help
+  // Line tile (managers don't call the help line; reps do). Lets the
+  // manager start a 1:1 text with any one rep; the reply lands in Team
+  // Replies below, so the whole thread stays in one place.
+  const [composing, setComposing] = useState(false)
   return (
-    <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <ActionTile
-        icon="📄"
-        title="Roof Inspection Records"
-        subtitle="Your team's deals · pending signatures · status"
-        href={hasRecords ? manager.ccg_records_url : null}
-        comingSoonNote="Deal board coming soon — admin is finalizing."
-      />
-      <ActionTile
-        icon="📹"
-        title="Join Zone Zoom"
-        subtitle="Daily sales training · 9:30 AM Eastern"
-        href={hasZoom ? manager.zoom_url : null}
-        comingSoonNote="Zoom link coming soon — admin is finalizing."
-      />
-      <ActionTile
-        icon="🆘"
-        title="Help Line"
-        subtitle="Direct line to support"
-        href={hasHelpline ? manager.helpline_url : null}
-        comingSoonNote="Help-line contact coming soon."
-      />
+    <section className="mt-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ActionTile
+          icon="📄"
+          title="Roof Inspection Records"
+          subtitle="Your team's deals · pending signatures · status"
+          href={hasRecords ? manager.ccg_records_url : null}
+          comingSoonNote="Deal board coming soon — admin is finalizing."
+        />
+        <ActionTile
+          icon="📹"
+          title="Join Zone Zoom"
+          subtitle="Daily sales training · 9:30 AM Eastern"
+          href={hasZoom ? manager.zoom_url : null}
+          comingSoonNote="Zoom link coming soon — admin is finalizing."
+        />
+        <ActionTile
+          icon="✉️"
+          title="Message a rep"
+          subtitle="Text one teammate directly"
+          onClick={() => setComposing((v) => !v)}
+          active={composing}
+        />
+      </div>
+      {composing && (
+        <MessageRepComposer
+          token={token}
+          reps={reps}
+          onClose={() => setComposing(false)}
+        />
+      )}
     </section>
   )
 }
 
-function ActionTile({ icon, title, subtitle, href, comingSoonNote }) {
+// Inline composer for a 1:1 text to a single rep. Reuses the send_reply
+// action (same path Team Replies uses), so the message goes out through
+// the company GHL line and is mirrored into that rep's thread — the rep's
+// answer comes back into Team Replies.
+function MessageRepComposer({ token, reps, onClose }) {
+  const [repId, setRepId] = useState('')
+  const [msg, setMsg] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null) // { ok } | { error }
+
+  async function send() {
+    setResult(null)
+    if (!repId) {
+      setResult({ error: 'Pick a rep first.' })
+      return
+    }
+    if (!msg.trim()) {
+      setResult({ error: 'Type a message first.' })
+      return
+    }
+    setSending(true)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_reply', token, trainee_id: repId, body: msg }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setResult({ error: data?.error || 'Could not send.' })
+        return
+      }
+      setResult({ ok: true })
+      setMsg('')
+    } catch (e) {
+      setResult({ error: e?.message || 'Network error.' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-50/5 p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-amber-200">Message a rep</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-slate-300/70 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+      <label className="mt-3 block text-xs font-medium text-slate-200/80">To</label>
+      <select
+        value={repId}
+        onChange={(e) => setRepId(e.target.value)}
+        className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white"
+      >
+        <option value="" className="bg-[#0a1730]">
+          Pick a rep…
+        </option>
+        {reps.map((r) => (
+          <option key={r.id} value={r.id} className="bg-[#0a1730]">
+            {r.first_name} {r.last_name}
+            {r.phone ? '' : ' (no phone on file)'}
+          </option>
+        ))}
+      </select>
+      <label className="mt-3 block text-xs font-medium text-slate-200/80">Message</label>
+      <textarea
+        value={msg}
+        onChange={(e) => setMsg(e.target.value)}
+        rows={3}
+        placeholder="Type your text…"
+        className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+      />
+      <div className="mt-1 text-[11px] text-slate-300/70">
+        Their reply comes back into <strong>Team Replies</strong> below.
+      </div>
+      {result?.error && (
+        <div className="mt-2 rounded-md bg-red-500/15 px-3 py-2 text-xs text-red-100">
+          {result.error}
+        </div>
+      )}
+      {result?.ok && (
+        <div className="mt-2 rounded-md bg-emerald-500/15 px-3 py-2 text-xs text-emerald-100">
+          Sent ✓
+        </div>
+      )}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={send}
+          disabled={sending}
+          className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-400 disabled:opacity-50"
+        >
+          {sending ? 'Sending…' : 'Send text'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ActionTile({ icon, title, subtitle, href, comingSoonNote, onClick, active }) {
+  const interactive = !!href || !!onClick
   const inner = (
     <div className="flex items-center gap-3 p-4">
       <span className="text-3xl leading-none" aria-hidden="true">
@@ -212,20 +330,21 @@ function ActionTile({ icon, title, subtitle, href, comingSoonNote }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={`text-base font-semibold ${href ? 'text-white' : 'text-slate-300'}`}>
+          <span className={`text-base font-semibold ${interactive ? 'text-white' : 'text-slate-300'}`}>
             {title}
           </span>
-          {!href && (
+          {!interactive && (
             <span className="rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
               Coming soon
             </span>
           )}
         </div>
-        <div className={`mt-0.5 text-xs ${href ? 'text-white/70' : 'text-slate-400'}`}>
-          {href ? subtitle : comingSoonNote}
+        <div className={`mt-0.5 text-xs ${interactive ? 'text-white/70' : 'text-slate-400'}`}>
+          {interactive ? subtitle : comingSoonNote}
         </div>
       </div>
       {href && <span className="text-2xl text-white/70">↗</span>}
+      {onClick && <span className="text-2xl text-white/70">{active ? '×' : '✏️'}</span>}
     </div>
   )
   if (href) {
@@ -238,6 +357,21 @@ function ActionTile({ icon, title, subtitle, href, comingSoonNote }) {
       >
         {inner}
       </a>
+    )
+  }
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`block w-full rounded-lg border text-left shadow-sm ${
+          active
+            ? 'border-amber-300/70 bg-amber-500/25'
+            : 'border-amber-300/40 bg-amber-500/15 hover:bg-amber-500/25'
+        }`}
+      >
+        {inner}
+      </button>
     )
   }
   return (

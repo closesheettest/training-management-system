@@ -18,8 +18,8 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 const TOOLS = [
   { icon: '📹', name: 'Join Zone Zoom', field: 'manager_zoom_url',
     desc: "One tap into their zone's daily 9:30 AM sales-training room." },
-  { icon: '🆘', name: 'Help Line', field: 'manager_helpline_url',
-    desc: "Tap-to-call their zone's live support number." },
+  { icon: '✉️', name: 'Message a rep', field: null,
+    desc: 'Text any one rep on their team directly; the reply lands in Team Replies. Always on.' },
   { icon: '📄', name: 'Roof Inspection Records', field: null,
     desc: 'Their deal board — Pending Signatures, per-deal status, Push to Job Nimbus. Auto-linked by zone (no setup). Always on.' },
   { icon: '🗺️', name: 'Zone Map', field: null,
