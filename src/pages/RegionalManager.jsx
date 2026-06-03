@@ -16,6 +16,10 @@ import { teamLabel } from '../lib/zones.js'
 //      is_active_sales_rep off and stamps left_company_at so the
 //      regular admin cleanup workflow can take it from there.
 //   4. Blast their region with SMS, email, or both.
+//   5. Read + answer replies their reps text back (Team Replies inbox).
+//      Reps reply through the company GHL line; this mirrors the thread
+//      so the manager has ONE place to see and answer it. GHL stays the
+//      source of truth — they can always open it there too.
 //
 // All actions go through /.netlify/functions/regional-manager-api
 // which gates every request by the token in the URL. The manager can't
@@ -134,6 +138,8 @@ export default function RegionalManager() {
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
 
       <BlastTool token={token} region={manager.region} repCount={reps.length} />
+
+      <TeamReplies token={token} />
 
       <RepsTable token={token} reps={reps} onChanged={reload} />
 
@@ -807,4 +813,238 @@ function BlastTool({ token, region, repCount }) {
       )}
     </section>
   )
+}
+
+// ── Team Replies inbox ─────────────────────────────────────────────
+// The other side of the blast: when a rep texts back, GHL drops it in a
+// company inbox the manager never opens. ghl-inbound-sms.js mirrors that
+// reply into rep_messages; this panel renders it as per-rep threads the
+// manager can read and answer right here. GHL remains the source of
+// truth — this is just a window into it.
+//
+// Loads on mount and after every reply. No live push (a manager refresh
+// or a reply re-pulls); the unread badge is driven by read_at on the
+// inbound rows, cleared when the manager opens or answers a thread.
+
+function TeamReplies({ token }) {
+  const [threads, setThreads] = useState(null) // null=loading, []=none
+  const [error, setError] = useState(null)
+  const [openId, setOpenId] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [flash, setFlash] = useState(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_messages', token }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setError(data?.error || 'Could not load replies.')
+        return
+      }
+      setThreads(data.threads || [])
+    } catch (e) {
+      setError(e?.message || 'Network error.')
+    }
+  }, [token])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  // Opening a thread clears its unread badge server-side (and locally so
+  // the UI updates without a full reload).
+  async function openThread(t) {
+    const next = openId === t.trainee_id ? null : t.trainee_id
+    setOpenId(next)
+    setReplyText('')
+    setFlash(null)
+    if (next && t.unread > 0) {
+      setThreads((cur) =>
+        (cur || []).map((x) => (x.trainee_id === t.trainee_id ? { ...x, unread: 0 } : x)),
+      )
+      try {
+        await fetch('/.netlify/functions/regional-manager-api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'mark_read', token, trainee_id: t.trainee_id }),
+        })
+      } catch {
+        // Non-fatal — the badge is cleared locally; a reload re-syncs.
+      }
+    }
+  }
+
+  async function sendReply(t) {
+    const text = replyText.trim()
+    if (!text) return
+    setSending(true)
+    setFlash(null)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_reply', token, trainee_id: t.trainee_id, body: text }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setFlash({ kind: 'error', text: data?.error || 'Could not send.' })
+      } else {
+        setReplyText('')
+        setFlash({ kind: 'success', text: `Reply sent to ${t.rep_name}.` })
+        await load()
+      }
+    } catch (e) {
+      setFlash({ kind: 'error', text: e?.message || 'Network error.' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const totalUnread = (threads || []).reduce((n, t) => n + (t.unread || 0), 0)
+
+  return (
+    <section className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-amber-200">
+          Team Replies
+          {totalUnread > 0 && (
+            <span className="ml-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white align-middle">
+              {totalUnread} new
+            </span>
+          )}
+        </h2>
+        <button
+          type="button"
+          onClick={load}
+          className="rounded-md border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/80 hover:bg-white/10"
+          title="Check for new replies"
+        >
+          ↻ Refresh
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-slate-200/70">
+        Replies your reps text back. You can answer right here — it texts them from the
+        company line. (These also live in GoHighLevel, the source of truth.)
+      </p>
+
+      {error && (
+        <div className="mt-3 rounded-md bg-red-500/20 px-3 py-2 text-sm text-red-100">{error}</div>
+      )}
+
+      {threads === null ? (
+        <p className="mt-3 text-sm text-slate-300">Loading…</p>
+      ) : threads.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-300">No replies yet.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-white/10">
+          {threads.map((t) => {
+            const last = t.messages[t.messages.length - 1]
+            const isOpen = openId === t.trainee_id
+            return (
+              <li key={t.trainee_id} className="py-3">
+                <button
+                  type="button"
+                  onClick={() => openThread(t)}
+                  className="flex w-full items-baseline justify-between gap-2 text-left"
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-base font-semibold">{t.rep_name}</span>
+                      {t.unread > 0 && (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          {t.unread}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-slate-300">
+                      {last ? `${last.direction === 'outbound' ? 'You: ' : ''}${last.body}` : ''}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {fmtWhen(t.last_at)} {isOpen ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {isOpen && (
+                  <div className="mt-3 rounded-md border border-white/10 bg-[#0a1730]/60 p-3">
+                    <div className="max-h-72 space-y-2 overflow-y-auto">
+                      {t.messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                              m.direction === 'outbound'
+                                ? 'bg-amber-500/20 text-amber-50'
+                                : 'bg-white/10 text-white'
+                            }`}
+                          >
+                            <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                            <div className="mt-1 text-[10px] text-slate-300/70">
+                              {m.direction === 'outbound' ? 'You' : t.rep_name} · {fmtWhen(m.created_at)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3">
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        rows={2}
+                        placeholder={`Reply to ${t.rep_name}…`}
+                        className="w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                      />
+                      <div className="mt-2 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => sendReply(t)}
+                          disabled={sending || !replyText.trim()}
+                          className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-[#0a1730] hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {sending ? 'Sending…' : 'Send reply'}
+                        </button>
+                        {flash && (
+                          <span
+                            className={`text-xs ${
+                              flash.kind === 'error' ? 'text-red-200' : 'text-emerald-200'
+                            }`}
+                          >
+                            {flash.text}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+// Compact relative-ish timestamp for the inbox: time-of-day if today,
+// otherwise short month/day. Keeps thread rows from wrapping.
+function fmtWhen(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  return sameDay
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }

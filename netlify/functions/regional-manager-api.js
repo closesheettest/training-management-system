@@ -39,6 +39,23 @@
 //     region. The manager can't pass scope/region themselves — those are
 //     decided server-side from the token.
 //
+//   POST { action: 'list_messages', token }
+//     → { ok, threads: [{ trainee_id, rep_name, rep_phone, last_at,
+//          unread, messages: [{ id, direction, body, created_at }] }] }
+//     The Team Replies inbox: every rep_messages row in the manager's
+//     region, grouped into per-rep threads (latest first, chronological
+//     within). Unmatched-sender rows (trainee_id null) never surface.
+//
+//   POST { action: 'send_reply', token, trainee_id, body }
+//     → { ok }
+//     Sends a manager's reply to a rep via GHL (the same company line),
+//     mirrors it as an outbound rep_messages row, and clears that rep's
+//     unread inbound count. Region-gated.
+//
+//   POST { action: 'mark_read', token, trainee_id }
+//     → { ok }
+//     Stamps read_at on the rep's unread inbound messages. Region-gated.
+//
 // All other request bodies / methods are rejected.
 //
 // No CRON_SECRET — this endpoint is intentionally public (it powers a
@@ -283,6 +300,147 @@ export const handler = async (event) => {
       return json(status, { error: data?.error || 'Send failed.' })
     }
     return json(200, { ok: true, ...data })
+  }
+
+  // ── Team Replies inbox ───────────────────────────────────────────────
+  // rep_messages mirrors rep<->manager SMS (see ghl-inbound-sms.js and the
+  // 2026-06-03-rep-manager-messages.sql migration). These three actions
+  // back the portal's inbox: read the threads, reply to a rep, mark read.
+  // All region-gated by the token, same as everything else here.
+
+  if (action === 'list_messages') {
+    // Newest-first across the whole region, then grouped into per-rep
+    // threads in JS. The region index makes this one cheap query; 500 rows
+    // is far more than a regional inbox will hold but caps a runaway.
+    const { data: rows, error: msgErr } = await supabase
+      .from('rep_messages')
+      .select('id, trainee_id, direction, body, from_phone, manager_id, read_at, created_at')
+      .eq('region', region)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (msgErr) return json(500, { error: msgErr.message })
+
+    // Resolve rep names for the threads in one extra query.
+    const repIds = [...new Set((rows || []).map((r) => r.trainee_id).filter(Boolean))]
+    let nameById = {}
+    if (repIds.length) {
+      const { data: reps } = await supabase
+        .from('trainees')
+        .select('id, first_name, last_name, phone')
+        .in('id', repIds)
+      nameById = Object.fromEntries(
+        (reps || []).map((r) => [r.id, { name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), phone: r.phone }]),
+      )
+    }
+
+    // Group into threads. rows are newest-first, so the first row we see
+    // for a rep is their latest message (drives thread ordering); we push
+    // messages and reverse to chronological at the end.
+    const threadMap = new Map()
+    for (const r of rows || []) {
+      if (!r.trainee_id) continue // unmatched senders never surface
+      let t = threadMap.get(r.trainee_id)
+      if (!t) {
+        const who = nameById[r.trainee_id] || {}
+        t = {
+          trainee_id: r.trainee_id,
+          rep_name: who.name || 'Unknown rep',
+          rep_phone: who.phone || null,
+          last_at: r.created_at,
+          unread: 0,
+          messages: [],
+        }
+        threadMap.set(r.trainee_id, t)
+      }
+      if (r.direction === 'inbound' && !r.read_at) t.unread += 1
+      t.messages.push({
+        id: r.id,
+        direction: r.direction,
+        body: r.body,
+        created_at: r.created_at,
+        read_at: r.read_at,
+      })
+    }
+    const threads = [...threadMap.values()].map((t) => ({
+      ...t,
+      messages: t.messages.reverse(), // chronological for display
+    }))
+    // Threads already in latest-first order (rows were newest-first).
+
+    return json(200, { ok: true, threads })
+  }
+
+  if (action === 'send_reply') {
+    const targetId = String(body.trainee_id || '').trim()
+    const replyBody = (body.body || '').toString().trim()
+    if (!targetId) return json(400, { error: 'Missing trainee_id' })
+    if (!replyBody) return json(400, { error: 'Reply is empty.' })
+
+    // Region-gate — managers can only answer their own crew.
+    const { data: target } = await supabase
+      .from('trainees')
+      .select('id, first_name, last_name, region, phone')
+      .eq('id', targetId)
+      .maybeSingle()
+    if (!target) return json(404, { error: 'Rep not found.' })
+    if (target.region !== region) {
+      return json(403, { error: 'That rep is not in your region.' })
+    }
+    if (!target.phone) return json(400, { error: 'That rep has no phone on file.' })
+
+    // Push the reply out through GHL (same company line the blast used, so
+    // the rep sees it as part of the same thread on their phone).
+    const sent = await sendSmsViaGhl(target.phone, replyBody, {
+      firstName: target.first_name || 'Rep',
+      lastName: target.last_name || '',
+    })
+    if (!sent.ok) {
+      return json(502, { error: `Could not send: ${sent.error || sent.step || 'unknown'}` })
+    }
+
+    // Mirror the outbound reply so the thread shows it. manager_id labels
+    // it "You" in the portal. We don't get a ghl_message_id back from the
+    // send helper, so this row stays null there (the unique index allows
+    // many null-id rows).
+    const { error: insErr } = await supabase.from('rep_messages').insert({
+      trainee_id: target.id,
+      region,
+      direction: 'outbound',
+      body: replyBody,
+      to_phone: target.phone,
+      manager_id: manager.id,
+    })
+    if (insErr) return json(500, { error: insErr.message })
+
+    // Replying implicitly clears the rep's unread inbound messages — the
+    // manager has clearly engaged with the thread.
+    await supabase
+      .from('rep_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('trainee_id', target.id)
+      .eq('region', region)
+      .eq('direction', 'inbound')
+      .is('read_at', null)
+
+    return json(200, { ok: true })
+  }
+
+  if (action === 'mark_read') {
+    const targetId = String(body.trainee_id || '').trim()
+    if (!targetId) return json(400, { error: 'Missing trainee_id' })
+
+    // Clear unread inbound messages for this rep's thread. Region-scoped in
+    // the WHERE so a manager can only ever touch their own region's rows.
+    const { error: upErr } = await supabase
+      .from('rep_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('trainee_id', targetId)
+      .eq('region', region)
+      .eq('direction', 'inbound')
+      .is('read_at', null)
+    if (upErr) return json(500, { error: upErr.message })
+
+    return json(200, { ok: true })
   }
 
   return json(400, { error: `Unknown action: ${action}` })
