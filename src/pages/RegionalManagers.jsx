@@ -6,7 +6,7 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 // Admin hub for the regional-manager program. One place to grab any
 // manager's private dashboard link ("where do I go again?") and to see,
 // at a glance, every tool we build for them and whether each manager's
-// configurable pieces (Zoom / Help Line / CCG Records) are filled in.
+// configurable piece (Zone Zoom URL) is filled in.
 //
 // This page is read-only on purpose. The URLs themselves are edited on
 // Active Reps → Edit Info (the manager record is the source of truth);
@@ -48,7 +48,7 @@ export default function RegionalManagers() {
     const { data, error } = await supabase
       .from('trainees')
       .select(
-        'id, first_name, last_name, phone, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, manager_helpline_url',
+        'id, first_name, last_name, phone, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url',
       )
       .not('managed_region', 'is', null)
       .order('managed_region', { ascending: true })

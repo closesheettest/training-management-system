@@ -128,7 +128,7 @@ export const handler = async (event) => {
   // manager whose row was cleared.
   const { data: manager } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, managed_region, manager_zoom_url, manager_helpline_url')
+    .select('id, first_name, last_name, phone, managed_region, manager_zoom_url')
     .eq('manager_access_token', token)
     .maybeSingle()
   if (!manager || !manager.managed_region) {
@@ -162,7 +162,6 @@ export const handler = async (event) => {
         last_name: manager.last_name,
         region,
         zoom_url: manager.manager_zoom_url || null,
-        helpline_url: manager.manager_helpline_url || null,
         ccg_records_url: ccgRecordsUrl,
       },
       reps: reps || [],

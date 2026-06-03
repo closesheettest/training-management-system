@@ -169,10 +169,10 @@ function ShellFrame({ children }) {
 // optional reason field.
 
 // ── Quick Actions ──────────────────────────────────────────────────
-// Two big touch-friendly buttons at the top of the page — the Zone
-// Zoom and the Help Line. Each falls back to a non-clickable "Coming
-// soon" pill when the underlying URL is still null on the manager
-// record. Admin sets the URLs on /active-reps Edit Info.
+// Touch-friendly tiles at the top of the page: Roof Inspection Records
+// (auto-resolved by zone), Join Zone Zoom (admin-set URL, falls back to
+// a "Coming soon" pill when null), the fixed Managers Meeting link, and
+// Message a rep (opens the inline composer below).
 // Company-wide regional-managers meeting — same link for every manager
 // (Mon–Thu 8:30 AM ET). Passcode is embedded in the pwd param, so tapping
 // joins directly. If the room changes, update this one line.
