@@ -181,7 +181,7 @@ function QuickActions({ manager }) {
     <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
       <ActionTile
         icon="📄"
-        title="CCG Records"
+        title="Roof Inspection Records"
         subtitle="Your team's deals · pending signatures · status"
         href={hasRecords ? manager.ccg_records_url : null}
         comingSoonNote="Deal board coming soon — admin is finalizing."
