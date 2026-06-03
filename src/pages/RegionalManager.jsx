@@ -212,8 +212,8 @@ function QuickActions({ manager, token, reps }) {
         />
         <ActionTile
           icon="✉️"
-          title="Message a rep"
-          subtitle="Text one teammate directly"
+          title="Message your team"
+          subtitle="Text anyone — pick one, several, or all"
           onClick={() => setComposing((v) => !v)}
           active={composing}
         />
@@ -229,20 +229,39 @@ function QuickActions({ manager, token, reps }) {
   )
 }
 
-// Inline composer for a 1:1 text to a single rep. Reuses the send_reply
-// action (same path Team Replies uses), so the message goes out through
-// the company GHL line and is mirrored into that rep's thread — the rep's
-// answer comes back into Team Replies.
+// Inline composer for a text to any subset of the manager's team — one
+// rep, a few, or everyone (no min/max). Reuses the send_reply action
+// (same path Team Replies uses) once per selected rep, so each message
+// goes out through the company GHL line and is mirrored into that rep's
+// own thread — every reply comes back into Team Replies.
 function MessageRepComposer({ token, reps, onClose }) {
-  const [repId, setRepId] = useState('')
+  // Reps without a phone can't be texted (send_reply rejects them), so
+  // they're shown disabled and never selectable.
+  const reachable = reps.filter((r) => r.phone)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
-  const [result, setResult] = useState(null) // { ok } | { error }
+  const [result, setResult] = useState(null) // { ok, count } | { error } | { partial }
+
+  function toggle(id) {
+    setResult(null)
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  const allReachableSelected =
+    reachable.length > 0 && reachable.every((r) => selectedIds.has(r.id))
+  function selectAll() {
+    setResult(null)
+    setSelectedIds(allReachableSelected ? new Set() : new Set(reachable.map((r) => r.id)))
+  }
 
   async function send() {
     setResult(null)
-    if (!repId) {
-      setResult({ error: 'Pick a rep first.' })
+    if (selectedIds.size === 0) {
+      setResult({ error: 'Pick at least one teammate.' })
       return
     }
     if (!msg.trim()) {
@@ -250,30 +269,40 @@ function MessageRepComposer({ token, reps, onClose }) {
       return
     }
     setSending(true)
-    try {
-      const res = await fetch('/.netlify/functions/regional-manager-api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_reply', token, trainee_id: repId, body: msg }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setResult({ error: data?.error || 'Could not send.' })
-        return
+    // Fire one send_reply per selected rep. Sequential so a flaky GHL
+    // call surfaces per-rep instead of failing the whole batch.
+    const targets = reachable.filter((r) => selectedIds.has(r.id))
+    const failed = []
+    for (const r of targets) {
+      try {
+        const res = await fetch('/.netlify/functions/regional-manager-api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send_reply', token, trainee_id: r.id, body: msg }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data.ok) {
+          failed.push(`${r.first_name} ${r.last_name}`.trim() || 'a rep')
+        }
+      } catch {
+        failed.push(`${r.first_name} ${r.last_name}`.trim() || 'a rep')
       }
-      setResult({ ok: true })
+    }
+    setSending(false)
+    const sentCount = targets.length - failed.length
+    if (failed.length === 0) {
+      setResult({ ok: true, count: sentCount })
       setMsg('')
-    } catch (e) {
-      setResult({ error: e?.message || 'Network error.' })
-    } finally {
-      setSending(false)
+      setSelectedIds(new Set())
+    } else {
+      setResult({ partial: true, count: sentCount, failed })
     }
   }
 
   return (
     <div className="mt-3 rounded-lg border border-amber-300/30 bg-amber-50/5 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-amber-200">Message a rep</h3>
+        <h3 className="text-sm font-semibold text-amber-200">Message your team</h3>
         <button
           type="button"
           onClick={onClose}
@@ -282,22 +311,53 @@ function MessageRepComposer({ token, reps, onClose }) {
           Close
         </button>
       </div>
-      <label className="mt-3 block text-xs font-medium text-slate-200/80">To</label>
-      <select
-        value={repId}
-        onChange={(e) => setRepId(e.target.value)}
-        className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white"
-      >
-        <option value="" className="bg-[#0a1730]">
-          Pick a rep…
-        </option>
-        {reps.map((r) => (
-          <option key={r.id} value={r.id} className="bg-[#0a1730]">
-            {r.first_name} {r.last_name}
-            {r.phone ? '' : ' (no phone on file)'}
-          </option>
-        ))}
-      </select>
+
+      <div className="mt-3 flex items-center justify-between">
+        <label className="block text-xs font-medium text-slate-200/80">
+          To {selectedIds.size > 0 && `(${selectedIds.size} selected)`}
+        </label>
+        {reachable.length > 0 && (
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-[11px] font-semibold text-amber-200 hover:text-amber-100"
+          >
+            {allReachableSelected ? 'Clear all' : 'Select all'}
+          </button>
+        )}
+      </div>
+      <div className="mt-1 max-h-48 space-y-1 overflow-y-auto rounded-md border border-white/15 bg-white/5 p-2">
+        {reps.length === 0 && (
+          <div className="px-1 py-2 text-xs text-slate-300/70">No reps in your team yet.</div>
+        )}
+        {reps.map((r) => {
+          const reachableRep = !!r.phone
+          const checked = selectedIds.has(r.id)
+          return (
+            <label
+              key={r.id}
+              className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm ${
+                reachableRep ? 'cursor-pointer text-white hover:bg-white/10' : 'text-slate-400'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={!reachableRep}
+                onChange={() => toggle(r.id)}
+                className="h-4 w-4 rounded border-white/30 bg-white/10 accent-amber-500"
+              />
+              <span>
+                {r.first_name} {r.last_name}
+                {!reachableRep && (
+                  <span className="ml-1 text-[11px] text-slate-400">(no phone on file)</span>
+                )}
+              </span>
+            </label>
+          )
+        })}
+      </div>
+
       <label className="mt-3 block text-xs font-medium text-slate-200/80">Message</label>
       <textarea
         value={msg}
@@ -307,7 +367,7 @@ function MessageRepComposer({ token, reps, onClose }) {
         className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
       />
       <div className="mt-1 text-[11px] text-slate-300/70">
-        Their reply comes back into <strong>Team Replies</strong> below.
+        Each reply comes back into <strong>Team Replies</strong> below.
       </div>
       {result?.error && (
         <div className="mt-2 rounded-md bg-red-500/15 px-3 py-2 text-xs text-red-100">
@@ -316,7 +376,12 @@ function MessageRepComposer({ token, reps, onClose }) {
       )}
       {result?.ok && (
         <div className="mt-2 rounded-md bg-emerald-500/15 px-3 py-2 text-xs text-emerald-100">
-          Sent ✓
+          Sent to {result.count} {result.count === 1 ? 'teammate' : 'teammates'} ✓
+        </div>
+      )}
+      {result?.partial && (
+        <div className="mt-2 rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-100">
+          Sent to {result.count}, but couldn't reach: {result.failed.join(', ')}.
         </div>
       )}
       <div className="mt-3 flex gap-2">
@@ -326,7 +391,9 @@ function MessageRepComposer({ token, reps, onClose }) {
           disabled={sending}
           className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-400 disabled:opacity-50"
         >
-          {sending ? 'Sending…' : 'Send text'}
+          {sending
+            ? 'Sending…'
+            : `Send text${selectedIds.size > 0 ? ` to ${selectedIds.size}` : ''}`}
         </button>
       </div>
     </div>
