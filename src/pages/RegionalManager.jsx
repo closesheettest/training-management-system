@@ -347,15 +347,20 @@ function RepsTable({ token, reps, onChanged }) {
     if (!editing) return
     setSavingEdit(true)
     try {
+      const repId = editing.rep.id
       const res = await fetch('/.netlify/functions/regional-manager-api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update_rep',
           token,
-          trainee_id: editing.rep.id,
+          trainee_id: repId,
           phone: editing.phone,
           email: editing.email,
+          street_address: editing.street_address,
+          city: editing.city,
+          state: editing.state,
+          zip: editing.zip,
         }),
       })
       const data = await res.json()
@@ -365,6 +370,15 @@ function RepsTable({ token, reps, onChanged }) {
         setFlash({ kind: 'success', text: 'No changes to save.' })
         setEditing(null)
       } else {
+        // Address changed → re-pin the map. Fire-and-forget, same as the
+        // rep's own /update-info form; we don't block the save on it.
+        if (data.address_changed) {
+          fetch('/.netlify/functions/geocode-trainee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trainee_id: repId, force: true }),
+          }).catch(() => {})
+        }
         setFlash({
           kind: 'success',
           text: `Saved. The office has been texted to update ${editing.rep.first_name}'s record.`,
@@ -478,10 +492,18 @@ function RepsTable({ token, reps, onChanged }) {
                     <button
                       type="button"
                       onClick={() =>
-                        setEditing({ rep: r, phone: r.phone || '', email: r.email || '' })
+                        setEditing({
+                          rep: r,
+                          phone: r.phone || '',
+                          email: r.email || '',
+                          street_address: r.street_address || '',
+                          city: r.city || '',
+                          state: r.state || '',
+                          zip: r.zip || '',
+                        })
                       }
                       className="rounded-md border border-sky-300/40 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-100 hover:bg-sky-500/20"
-                      title="Update this rep's phone or email. The office is texted the change."
+                      title="Update this rep's phone, email, or home address. The office is texted the change."
                     >
                       ✏️ Edit info
                     </button>
@@ -507,8 +529,9 @@ function RepsTable({ token, reps, onChanged }) {
                       Edit {editing.rep.first_name} {editing.rep.last_name}
                     </div>
                     <p className="mt-1 text-xs text-slate-200/80">
-                      Update their phone or personal email. When you save, the office is
-                      automatically texted what changed so they can update their records.
+                      Update their phone, personal email, or home address. When you save,
+                      the office is automatically texted exactly what changed so they can
+                      update their other records (GHL, JobNimbus, RepCard).
                     </p>
                     <label className="mt-3 block text-xs font-medium text-slate-200/80">
                       Phone
@@ -530,6 +553,56 @@ function RepsTable({ token, reps, onChanged }) {
                       placeholder="name@email.com"
                       className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
                     />
+                    <label className="mt-3 block text-xs font-medium text-slate-200/80">
+                      Street address
+                    </label>
+                    <input
+                      type="text"
+                      value={editing.street_address}
+                      onChange={(e) =>
+                        setEditing({ ...editing, street_address: e.target.value })
+                      }
+                      placeholder="123 Main St"
+                      className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                    />
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-200/80">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          value={editing.city}
+                          onChange={(e) => setEditing({ ...editing, city: e.target.value })}
+                          placeholder="Tampa"
+                          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-200/80">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          value={editing.state}
+                          onChange={(e) => setEditing({ ...editing, state: e.target.value })}
+                          placeholder="FL"
+                          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400 sm:w-20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-200/80">
+                          Zip
+                        </label>
+                        <input
+                          type="text"
+                          value={editing.zip}
+                          onChange={(e) => setEditing({ ...editing, zip: e.target.value })}
+                          placeholder="33601"
+                          className="mt-1 w-full rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-slate-400 sm:w-28"
+                        />
+                      </div>
+                    </div>
                     <div className="mt-3 flex gap-2">
                       <button
                         type="button"
@@ -610,7 +683,6 @@ function RepsTable({ token, reps, onChanged }) {
 function BlastTool({ token, region, repCount }) {
   const [wantSms, setWantSms] = useState(true)
   const [wantEmail, setWantEmail] = useState(false)
-  const [replyToMe, setReplyToMe] = useState(false)
   const [smsBody, setSmsBody] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
@@ -653,7 +725,6 @@ function BlastTool({ token, region, repCount }) {
               ...(wantEmail ? { email: true } : {}),
             },
             sms_body: wantSms ? smsBody : undefined,
-            reply_to_manager: wantSms ? replyToMe : undefined,
             email_subject: wantEmail ? emailSubject : undefined,
             email_body: wantEmail ? emailBody : undefined,
             offset,
@@ -724,35 +795,9 @@ function BlastTool({ token, region, repCount }) {
             Tip: use <code>{'{firstName}'}</code> to personalize. Char count: {smsBody.length}.
           </div>
 
-          <div className="mt-3 space-y-2">
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="sms-mode"
-                className="mt-0.5"
-                checked={!replyToMe}
-                onChange={() => setReplyToMe(false)}
-              />
-              <span>
-                <span className="font-medium">Announcement</span>
-                <span className="block text-[11px] text-slate-300/70">One-way. Your number stays private.</span>
-              </span>
-            </label>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="sms-mode"
-                className="mt-0.5"
-                checked={replyToMe}
-                onChange={() => setReplyToMe(true)}
-              />
-              <span>
-                <span className="font-medium">Let reps reply to me</span>
-                <span className="block text-[11px] text-slate-300/70">
-                  Adds a “Reply to {'{you}'}: your number” line so reps can text you back directly.
-                </span>
-              </span>
-            </label>
+          <div className="mt-3 rounded-md border border-sky-300/30 bg-sky-500/10 px-3 py-2 text-[11px] text-sky-100/90">
+            Reps can reply to this text. Their replies show up in <strong>Team Replies</strong> below,
+            and we’ll text you whenever one comes in.
           </div>
         </div>
       )}

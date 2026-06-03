@@ -24,12 +24,15 @@
 //     manager's region — the manager has zero reach outside their own
 //     team.
 //
-//   POST { action: 'update_rep', token, trainee_id, phone?, email? }
-//     → { ok, trainee: <updated> }
-//     Edits a rep's personal contact info (phone / email only). Region-
-//     gated like deactivate. On any change, texts the office (admins
-//     subscribed to 'rep_info_updated_by_manager', ADMIN_PHONE fallback)
-//     a summary so they can mirror it in GHL / JobNimbus / RepCard.
+//   POST { action: 'update_rep', token, trainee_id, phone?, email?,
+//          street_address?, city?, state?, zip? }
+//     → { ok, trainee: <updated>, address_changed }
+//     Edits a rep's personal contact info + home address (NAME, rep level,
+//     and company email/number stay locked — name keys the JobNimbus match).
+//     Region-gated like deactivate. On any change, texts the office (admins
+//     subscribed to 'rep_info_updated_by_manager') a plain-English summary
+//     of what changed so they mirror it in GHL / JobNimbus / RepCard. When
+//     the address changes the geocode is cleared; the client re-geocodes.
 //
 //   POST { action: 'send_message', token, channels, sms_body?,
 //          email_subject?, email_body?, offset? }
@@ -180,7 +183,7 @@ export const handler = async (event) => {
     // Region-gate, same as deactivate — managers can only touch their crew.
     const { data: target } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, region, phone, email')
+      .select('id, first_name, last_name, region, phone, email, street_address, city, state, zip')
       .eq('id', targetId)
       .maybeSingle()
     if (!target) return json(404, { error: 'Rep not found.' })
@@ -188,25 +191,52 @@ export const handler = async (event) => {
       return json(403, { error: 'That rep is not in your region.' })
     }
 
-    // Only personal contact fields are editable here. Provisioned fields
-    // (company email/number), rep level, and NAME are intentionally off
-    // limits — names key the JobNimbus↔TMS zone match, so a manager rename
-    // would silently break sale/inspection attribution.
+    // Editable: personal contact info + home address. NAME, rep level, and
+    // provisioned company email/number stay off limits — the name keys the
+    // JobNimbus↔TMS zone match, so a manager rename would silently break
+    // sale/inspection attribution. The office handles those via the alert
+    // text below.
     const updates = {}
     const changes = []
     if (body.phone !== undefined) {
       const next = String(body.phone || '').trim()
       if (next && next !== (target.phone || '')) {
         updates.phone = next
-        changes.push(`Phone changed to ${next}`)
+        changes.push(`phone changed to ${next}`)
       }
     }
     if (body.email !== undefined) {
       const next = String(body.email || '').trim()
       if (next !== (target.email || '')) {
         updates.email = next
-        changes.push(next ? `Email changed to ${next}` : 'Email cleared')
+        changes.push(next ? `personal email changed to ${next}` : 'personal email cleared')
       }
+    }
+    // Home address — four fields, but reported as one "address changed to …"
+    // line so the office gets a single readable address, not four diffs.
+    let addressChanged = false
+    for (const f of ['street_address', 'city', 'state', 'zip']) {
+      if (body[f] !== undefined) {
+        const next = String(body[f] || '').trim()
+        if (next !== (target[f] || '')) {
+          updates[f] = next
+          addressChanged = true
+        }
+      }
+    }
+    if (addressChanged) {
+      const merged = { ...target, ...updates }
+      const addrStr = [merged.street_address, merged.city, [merged.state, merged.zip].filter(Boolean).join(' ')]
+        .filter((s) => s && String(s).trim())
+        .join(', ')
+      changes.push(addrStr ? `home address changed to ${addrStr}` : 'home address cleared')
+      // The map pin is keyed off the geocoded address; null the geocode so a
+      // stale pin doesn't linger until the client re-geocodes (it will, on
+      // success, fire geocode-trainee). geocoded_address mismatch also lets
+      // the geocoder know the address is new.
+      updates.latitude = null
+      updates.longitude = null
+      updates.geocoded_at = null
     }
     if (changes.length === 0) {
       return json(200, { ok: true, trainee: target, no_change: true })
@@ -226,7 +256,7 @@ export const handler = async (event) => {
     // RepCard. A failed alert must NOT fail the manager's edit — the DB is
     // already updated, so we swallow notify errors and just log them.
     const repName = `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'A rep'
-    const msg = `${repName}'s record was updated by ${manager.first_name} (${region}). ${changes.join('. ')}. Please update your records.`
+    const msg = `${repName}'s info was updated by ${manager.first_name} (${region}): ${changes.join('; ')}. Please update your other records (GHL, JobNimbus, RepCard).`
     try {
       const { phones } = await recipientPhonesForEvent(supabase, 'rep_info_updated_by_manager', {
         legacyRole: 'admin',
@@ -238,7 +268,7 @@ export const handler = async (event) => {
       console.warn('rep_info_updated_by_manager notify failed:', e?.message || e)
     }
 
-    return json(200, { ok: true, trainee: updated })
+    return json(200, { ok: true, trainee: updated, address_changed: addressChanged })
   }
 
   if (action === 'send_message') {
@@ -248,7 +278,6 @@ export const handler = async (event) => {
     if (!wantSms && !wantEmail) {
       return json(400, { error: 'Pick at least one channel — SMS or email.' })
     }
-    const replyToManager = !!body.reply_to_manager
     const smsBody = (body.sms_body || '').toString()
     const emailSubject = (body.email_subject || '').toString()
     const emailBody = (body.email_body || '').toString()
@@ -280,15 +309,11 @@ export const handler = async (event) => {
       offset: Number.isFinite(+body.offset) ? +body.offset : 0,
     }
     if (wantSms) {
-      // Reply mode: GHL texts from one company line, so a rep's reply never
-      // lands on the manager's phone on its own. The only way replies reach
-      // the manager is to put their number in the text and let reps text it
-      // directly. Appended server-side so the number is authoritative and
-      // survives every batch. Announcement mode omits it (one-way).
-      const num = replyToManager ? formatPhone(manager.phone) : null
-      payload.sms_body = num
-        ? `${smsBody.trimEnd()}\n\nReply to ${manager.first_name}: ${num}`
-        : smsBody
+      // No "reply to my number" line anymore: reps reply to the company
+      // line, those replies are mirrored into the Team Replies inbox, and
+      // cron-poll-rep-replies texts the manager a heads-up. So every blast
+      // is implicitly two-way without exposing the manager's personal cell.
+      payload.sms_body = smsBody
     }
     if (wantEmail) {
       payload.email_subject = emailSubject
@@ -303,10 +328,10 @@ export const handler = async (event) => {
   }
 
   // ── Team Replies inbox ───────────────────────────────────────────────
-  // rep_messages mirrors rep<->manager SMS (see ghl-inbound-sms.js and the
-  // 2026-06-03-rep-manager-messages.sql migration). These three actions
-  // back the portal's inbox: read the threads, reply to a rep, mark read.
-  // All region-gated by the token, same as everything else here.
+  // rep_messages mirrors rep<->manager SMS (inbound rows come from
+  // cron-poll-rep-replies; see the 2026-06-03-rep-manager-messages.sql
+  // migration). These three actions back the portal's inbox: read the
+  // threads, reply to a rep, mark read. All region-gated by the token.
 
   if (action === 'list_messages') {
     // Newest-first across the whole region, then grouped into per-rep
@@ -444,15 +469,6 @@ export const handler = async (event) => {
   }
 
   return json(400, { error: `Unknown action: ${action}` })
-}
-
-// (XXX) XXX-XXXX for the appended reply line; falls back to the raw value
-// if it isn't a recognizable 10/11-digit US number.
-function formatPhone(raw) {
-  const d = String(raw || '').replace(/\D/g, '')
-  const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d
-  if (ten.length !== 10) return String(raw || '').trim() || null
-  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`
 }
 
 function json(status, body) {
