@@ -797,6 +797,16 @@ export default function ActiveReps() {
   }, [active])
   const TOTAL_ZONES = Object.keys(ZONE_COUNTIES).length
   const allZonesAssigned = zonesWithManager.size >= TOTAL_ZONES
+
+  // region (zone) → that zone's manager name, so each rep row can show
+  // who they report to at a glance — not just under the group header.
+  const managerNameByRegion = useMemo(() => {
+    const m = {}
+    for (const t of active) {
+      if (t.managed_region) m[t.managed_region] = `${t.first_name || ''} ${t.last_name || ''}`.trim()
+    }
+    return m
+  }, [active])
   // Available zones (no manager yet) — drives the AssignManagerModal
   // dropdown so the only things in the picker are zones admin can
   // actually pick.
@@ -1133,6 +1143,7 @@ export default function ActiveReps() {
                   onMoveManagerAssignment={(newRegion) => moveManagerAssignment(t, newRegion)}
                   allZonesAssigned={allZonesAssigned}
                   availableZones={availableZones}
+                  managerName={t.managed_region ? null : managerNameByRegion[t.region]}
                 />
               )
               return (
@@ -1482,7 +1493,7 @@ export default function ActiveReps() {
   )
 }
 
-function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones }) {
+function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, allZonesAssigned, availableZones, managerName }) {
   // A manager whose managed_region is a legacy city region
   // (Jacksonville / Miami / etc.) when the rep themselves now lives in
   // a Zone is in a stale state — Edit Info changed t.region but not
@@ -1503,6 +1514,11 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
           <span className="font-medium text-slate-900">
             {t.first_name} {t.last_name}
           </span>
+          {managerName && (
+            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-800">
+              👑 Mgr: {managerName}
+            </span>
+          )}
           {active && t.rep_level && (
             <RepLevelBadge
               level={t.rep_level}
