@@ -1451,6 +1451,7 @@ export default function ActiveReps() {
           draft={editModal.draft}
           setDraft={(d) => setEditModal({ ...editModal, draft: d })}
           regionNames={regionNames}
+          managerNameByRegion={managerNameByRegion}
           sending={savingId === editModal.trainee.id}
           onCancel={() => setEditModal(null)}
           onConfirm={() => saveRepEdits(editModal.trainee, editModal.draft)}
@@ -2195,7 +2196,7 @@ function CountyZoneSuggestion({ county, currentRegion, onPickZone }) {
   )
 }
 
-function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel, onConfirm }) {
+function EditRepModal({ trainee, draft, setDraft, regionNames, managerNameByRegion = {}, sending, onCancel, onConfirm }) {
   function set(field, value) {
     setDraft({ ...draft, [field]: value })
   }
@@ -2280,7 +2281,7 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
               <option value="">— No region —</option>
               {regionNames.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {managerNameByRegion[r] ? `${r} — ${managerNameByRegion[r]}` : r}
                 </option>
               ))}
             </select>
