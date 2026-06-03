@@ -39,7 +39,6 @@ const EDITABLE_FIELDS = [
   // modal renders them inside a "Regional Manager settings" block
   // that only shows when this trainee has managed_region set.
   'manager_zoom_url',
-  'manager_records_url',
 ]
 
 function editableDraftFor(t) {
@@ -116,7 +115,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, manager_records_url, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -2388,23 +2387,9 @@ function EditRepModal({ trainee, draft, setDraft, regionNames, sending, onCancel
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="CCG Records URL">
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={draft.manager_records_url || ''}
-                    onChange={(e) => set('manager_records_url', e.target.value)}
-                    disabled={sending}
-                    placeholder="https://free-roof-inspections.netlify.app/?manager=..."
-                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono text-xs"
-                  />
-                  <CopyButton value={draft.manager_records_url} disabled={!draft.manager_records_url || sending} />
-                </div>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Token-gated URL where this manager sees their zone's deals (Pending Signatures, Push to JN, etc.).
-                  One-time paste — run the CCG migration to get the URL, then copy from there.
-                </p>
-              </Field>
+              <p className="text-[11px] text-slate-500">
+                Roof Inspection Records auto-links by zone — no URL to paste.
+              </p>
             </div>
           </div>
         )}
@@ -2444,52 +2429,6 @@ function Field({ label, required, span2, children }) {
       </span>
       <div className="mt-1">{children}</div>
     </label>
-  )
-}
-
-// Small button that copies a string to the clipboard with a green
-// "Copied!" flash for 1.5s. Used in the Edit Info modal next to the
-// CCG Records URL field so admin can grab the manager's link with
-// one click and paste it into a text message. Falls back to a
-// textarea trick on browsers that don't expose navigator.clipboard.
-function CopyButton({ value, disabled }) {
-  const [copied, setCopied] = useState(false)
-  const doCopy = async () => {
-    if (!value) return
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      const ta = document.createElement('textarea')
-      ta.value = value
-      document.body.appendChild(ta)
-      ta.select()
-      try {
-        document.execCommand('copy')
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      } finally {
-        document.body.removeChild(ta)
-      }
-    }
-  }
-  return (
-    <button
-      type="button"
-      onClick={doCopy}
-      disabled={disabled}
-      className={
-        'shrink-0 rounded-md px-3 py-2 text-xs font-semibold ' +
-        (copied
-          ? 'bg-emerald-600 text-white'
-          : disabled
-            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50')
-      }
-    >
-      {copied ? '✓ Copied' : 'Copy'}
-    </button>
   )
 }
 
