@@ -1165,6 +1165,14 @@ export default function ActiveReps() {
                         {renderRepRow(g.manager)}
                       </ul>
                     </div>
+                  ) : !isNoRegion && managerNameByRegion[g.region] ? (
+                    // Region HAS a manager, but they're not in the current
+                    // filtered/searched view (e.g. searching one rep's name).
+                    // Show who's in charge from the unfiltered map so the
+                    // header doesn't falsely read "no manager assigned".
+                    <p className="mt-2 text-xs italic text-purple-800">
+                      👑 Regional manager: {managerNameByRegion[g.region]} (not shown in current view)
+                    </p>
                   ) : !isNoRegion ? (
                     <p className="mt-2 text-xs italic text-amber-700">
                       No regional manager assigned yet — click the 👑 button on a rep below to designate one.
