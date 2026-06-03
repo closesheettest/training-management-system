@@ -29,15 +29,30 @@
 // minute, so this overlaps heavily — that overlap is intentional belt-and-
 // suspenders against a missed/late fire, and dedup makes it free.
 //
+// MANAGER HEADS-UP: the inbox only helps if the manager looks at it, so
+// when a reply lands we also text the manager "your rep replied — open your
+// dashboard." To avoid spamming during an active back-and-forth, we only
+// text on the 0→unread transition: the FIRST reply after the manager last
+// caught up. Once a rep's thread already has unread messages (manager
+// hasn't read them yet), more replies don't re-text — they're already on
+// notice. Reading/replying clears unread, so the next reply notifies again.
+//
 // Required env: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN,
-// GHL_LOCATION_ID.
+// GHL_LOCATION_ID. Optional: PUBLIC_SITE_URL (for the dashboard link).
 
 import { createClient } from '@supabase/supabase-js'
+import { sendSmsViaGhl } from './_ghl.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
 const GHL_TOKEN = process.env.GHL_PIT_TOKEN
 const GHL_LOC = process.env.GHL_LOCATION_ID
+const SITE_URL = (
+  process.env.PUBLIC_SITE_URL ||
+  process.env.URL ||
+  process.env.DEPLOY_URL ||
+  'https://trainingmanagementsys.netlify.app'
+).replace(/\/$/, '')
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 // Conversations endpoints use the 2021-04-15 API version (the SMS-send
@@ -59,13 +74,14 @@ export const handler = async () => {
   // contact to a rep without an extra query per conversation.
   const { data: reps, error: repsErr } = await supabase
     .from('trainees')
-    .select('id, region, phone, company_number')
+    .select('id, first_name, region, phone, company_number')
     .eq('is_active_sales_rep', true)
   if (repsErr) return json(500, { error: repsErr.message })
   const repByPhone = new Map()
   for (const r of reps || []) {
+    const rep = { id: r.id, region: r.region || null, firstName: r.first_name || 'A rep' }
     for (const p of [last10(r.phone), last10(r.company_number)]) {
-      if (p && !repByPhone.has(p)) repByPhone.set(p, { id: r.id, region: r.region || null })
+      if (p && !repByPhone.has(p)) repByPhone.set(p, rep)
     }
   }
 
@@ -74,6 +90,9 @@ export const handler = async () => {
   let inserted = 0
   let skippedDup = 0
   let startAfterDate = null
+  // Reps whose thread went from all-read to a fresh reply this run — their
+  // region's manager gets one heads-up text. Deduped by trainee id.
+  const toNotify = new Map()
 
   try {
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -102,6 +121,9 @@ export const handler = async () => {
         const res = await mirrorConversation(supabase, c, rep, sinceMs)
         inserted += res.inserted
         skippedDup += res.skipped
+        if (res.notify && !toNotify.has(rep.id)) {
+          toNotify.set(rep.id, { region: rep.region, firstName: rep.firstName })
+        }
       }
 
       if (reachedWindowEnd) break
@@ -113,7 +135,78 @@ export const handler = async () => {
     return json(502, { ok: false, error: e?.message || 'GHL poll failed', scanned, inserted })
   }
 
-  return json(200, { ok: true, scanned, matched_convs: matchedConvs, inserted, skipped_dup: skippedDup })
+  let notified = 0
+  if (toNotify.size > 0) {
+    notified = await notifyManagers(supabase, [...toNotify.values()])
+  }
+
+  return json(200, {
+    ok: true,
+    scanned,
+    matched_convs: matchedConvs,
+    inserted,
+    skipped_dup: skippedDup,
+    managers_notified: notified,
+  })
+}
+
+// Text the managers whose reps just replied. One SMS per manager per run,
+// naming the rep(s). Region → manager via managed_region + a live token.
+// Best-effort: a failed text must never fail the poll (the row is already
+// mirrored), so we swallow per-manager errors.
+async function notifyManagers(supabase, reps) {
+  const regions = [...new Set(reps.map((r) => r.region).filter(Boolean))]
+  if (regions.length === 0) return 0
+
+  const { data: managers } = await supabase
+    .from('trainees')
+    .select('first_name, phone, managed_region, manager_access_token')
+    .in('managed_region', regions)
+    .not('manager_access_token', 'is', null)
+  const mgrByRegion = new Map()
+  for (const m of managers || []) {
+    if (m.phone && m.manager_access_token && !mgrByRegion.has(m.managed_region)) {
+      mgrByRegion.set(m.managed_region, m)
+    }
+  }
+
+  // Group the replying reps by region so each manager gets one combined text.
+  const repsByRegion = new Map()
+  for (const r of reps) {
+    if (!r.region) continue
+    if (!repsByRegion.has(r.region)) repsByRegion.set(r.region, [])
+    repsByRegion.get(r.region).push(r.firstName)
+  }
+
+  let sent = 0
+  for (const [region, names] of repsByRegion) {
+    const mgr = mgrByRegion.get(region)
+    if (!mgr) continue
+    const who = joinNames(names)
+    const url = `${SITE_URL}/regional-manager/${mgr.manager_access_token}`
+    const message =
+      `U.S. Shingle: ${who} replied to your team text. ` +
+      `Open your dashboard to read & reply:\n\n${url}`
+    try {
+      const res = await sendSmsViaGhl(mgr.phone, message, {
+        firstName: mgr.first_name || 'Manager',
+        lastName: 'Reply alert',
+      })
+      if (res?.ok) sent++
+      else console.warn('manager reply-alert send failed:', res?.error || res?.step)
+    } catch (e) {
+      console.warn('manager reply-alert exception:', e?.message || e)
+    }
+  }
+  return sent
+}
+
+// "Jose" | "Jose and Maria" | "Jose, Maria and 2 others"
+function joinNames(names) {
+  const u = [...new Set(names)]
+  if (u.length === 1) return u[0]
+  if (u.length === 2) return `${u[0]} and ${u[1]}`
+  return `${u[0]}, ${u[1]} and ${u.length - 2} other${u.length - 2 === 1 ? '' : 's'}`
 }
 
 // Fetch a matched conversation's recent messages and insert every inbound
@@ -131,7 +224,7 @@ async function mirrorConversation(supabase, conv, rep, sinceMs) {
       m.id &&
       Date.parse(m.dateAdded || '') >= sinceMs,
   )
-  if (candidates.length === 0) return { inserted: 0, skipped: 0 }
+  if (candidates.length === 0) return { inserted: 0, skipped: 0, notify: false }
 
   // Drop ids we already mirrored (overlapping windows + prior pushes).
   const ids = candidates.map((m) => m.id)
@@ -140,6 +233,16 @@ async function mirrorConversation(supabase, conv, rep, sinceMs) {
     .select('ghl_message_id')
     .in('ghl_message_id', ids)
   const have = new Set((existing || []).map((r) => r.ghl_message_id))
+
+  // Did this rep's thread have any UNREAD inbound before this run's inserts?
+  // If not, the new reply is a fresh 0→unread transition and the manager
+  // should be texted. Counted before inserting so the new rows don't skew it.
+  const { count: unreadBefore } = await supabase
+    .from('rep_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('trainee_id', rep.id)
+    .eq('direction', 'inbound')
+    .is('read_at', null)
 
   let inserted = 0
   let skipped = 0
@@ -166,7 +269,9 @@ async function mirrorConversation(supabase, conv, rep, sinceMs) {
       inserted++
     }
   }
-  return { inserted, skipped }
+  // Notify only when we actually stored something new AND the thread was
+  // previously all caught up.
+  return { inserted, skipped, notify: inserted > 0 && (unreadBefore || 0) === 0 }
 }
 
 // GET a GHL endpoint as JSON with a small retry on 429/5xx.
