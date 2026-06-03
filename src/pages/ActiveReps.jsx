@@ -781,6 +781,117 @@ export default function ActiveReps() {
     URL.revokeObjectURL(url)
   }
 
+  // Team-roster CSV: one row per person, tagged with their team name and
+  // that team's manager, grouped by team — manager listed first, then
+  // every rep on the team, for ALL teams.
+  //
+  // Deliberately built from the FULL active roster (not activeFiltered):
+  // an "org chart by team" export should always show every team and
+  // everyone on it, regardless of any region/level/search filter that
+  // happens to be applied on screen.
+  function downloadTeamRosterCsv() {
+    // Same grouping rules as the on-page section: seed every region a rep
+    // lives in OR manages, drop reps into their region bucket, then promote
+    // each manager to the team header and dedupe them out of rep buckets.
+    const groups = new Map()
+    const ensure = (region) => {
+      if (!groups.has(region)) groups.set(region, { region, manager: null, reps: [] })
+      return groups.get(region)
+    }
+    for (const t of active) {
+      ensure(t.region || '__no_region')
+      if (t.managed_region) ensure(t.managed_region)
+    }
+    for (const t of active) ensure(t.region || '__no_region').reps.push(t)
+    for (const t of active) {
+      if (!t.managed_region) continue
+      const g = ensure(t.managed_region)
+      g.manager = t
+      g.reps = g.reps.filter((r) => r.id !== t.id)
+      for (const og of groups.values()) {
+        if (og.region === t.managed_region) continue
+        og.reps = og.reps.filter((r) => r.id !== t.id)
+      }
+    }
+    const ordered = Array.from(groups.values()).sort((a, b) => {
+      if (a.region === '__no_region') return 1
+      if (b.region === '__no_region') return -1
+      return a.region.localeCompare(b.region)
+    })
+
+    const levelLabel = (t) =>
+      !t.rep_level || !t.rep_level_confirmed_at
+        ? 'Needs assignment'
+        : LEVEL_LABEL[t.rep_level] || t.rep_level
+
+    const headers = [
+      'Team',
+      'Team Manager',
+      'Role',
+      'First Name',
+      'Last Name',
+      'Phone',
+      'Personal Email',
+      'Company Email',
+      'Rep Level',
+    ]
+    const rows = []
+    for (const g of ordered) {
+      const teamName = g.region === '__no_region' ? 'No team / region yet' : teamLabel(g.region)
+      const managerName = g.manager
+        ? `${g.manager.first_name || ''} ${g.manager.last_name || ''}`.trim()
+        : '(no manager assigned)'
+      const members = []
+      if (g.manager) members.push({ t: g.manager, role: 'Manager' })
+      for (const r of g.reps.slice().sort((a, b) =>
+        `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`),
+      )) {
+        members.push({ t: r, role: 'Rep' })
+      }
+      if (members.length === 0) {
+        // Team exists but has nobody on it yet — still emit a row so the
+        // team itself shows up in the export.
+        rows.push([teamName, managerName, '', '', '', '', '', '', ''])
+        continue
+      }
+      for (const { t, role } of members) {
+        rows.push([
+          teamName,
+          managerName,
+          role,
+          t.first_name || '',
+          t.last_name || '',
+          t.phone || '',
+          t.email || '',
+          t.company_email || '',
+          levelLabel(t),
+        ])
+      }
+    }
+
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((v) => {
+            const s = String(v ?? '')
+            return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+          })
+          .join(','),
+      )
+      .join('\r\n')
+
+    const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const today = new Date().toISOString().slice(0, 10)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `team-rosters-${today}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
   // "Re-send update-info request" button.
@@ -1114,6 +1225,15 @@ export default function ActiveReps() {
             title="Download the currently-filtered active field reps as a CSV (name, contact, region, rep level)."
           >
             ⬇ Download CSV ({activeFiltered.length})
+          </button>
+          <button
+            type="button"
+            onClick={downloadTeamRosterCsv}
+            disabled={active.length === 0}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Download every team as a CSV: team name, team manager, and all reps on that team (ignores the on-screen filters)."
+          >
+            ⬇ Download team rosters
           </button>
         </div>
         <div className="text-sm text-slate-600">
