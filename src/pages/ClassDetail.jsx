@@ -509,27 +509,28 @@ export default function ClassDetail() {
 
   async function sendCredentialsToTrainees() {
     const today = todayLocalIso()
+    // Eligible = enrolled, has a company email, and not already texted.
+    // (No "attended today" requirement — credentials can go out to any
+    // provisioned trainee. The no-show flow below stays decoupled.)
     const unsent = (cls?.trainees || []).filter((t) => {
       if (t.enrolled === false) return false
       if (!t.company_email) return false
       if (t.credentials_sent_at) return false
-      // Must have a confirmed attendance record for today — no-shows are skipped.
-      return (t.attendance || []).some((a) => a.confirmed && a.attendance_date === today)
+      return true
     })
     if (unsent.length === 0) {
       setMessage({
         type: 'error',
         text:
-          'Nobody to text right now. The button only sends to trainees who have a confirmed attendance for today AND are provisioned AND haven\'t already been texted.',
+          'Nobody to text right now. The button sends to provisioned trainees (enrolled + have a company email) who haven\'t already been texted.',
       })
       return
     }
     if (
       !confirm(
-        `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} who attended today?\n\n` +
+        `Send credentials text to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'}?\n\n` +
           `Each gets a personal link with their company email + password and iPhone/Android setup steps. ` +
-          `Anyone who didn't sign in today OR already received their text is skipped.\n\n` +
-          `Also fires dropout notifications for today's no-shows: IT gets a "delete the Google Workspace account" message and HR/VA get a "remove them from RepCard/JobNimbus/Sales Academy" message.`,
+          `Anyone already texted is skipped.`,
       )
     ) {
       return
@@ -563,8 +564,19 @@ export default function ClassDetail() {
       // from apps). Best-effort — credentials are the headline action; if
       // dropout fan-out hits a snag we still want the success banner to
       // surface what worked.
+      //
+      // SAFETY GATE: only run the no-show sweep when at least one trainee
+      // actually checked in TODAY. The dropout flow auto-unenrolls every
+      // enrolled trainee with no confirmed attendance today and tells IT to
+      // DELETE their Google Workspace accounts. Now that credentials can be
+      // sent on any day (not just after today's kiosk check-ins), firing it
+      // on an off-day would flag the whole roster as dropouts. The standalone
+      // dropout cron still catches real no-shows during training-day hours.
+      const hasCheckinsToday = (cls?.trainees || []).some((t) =>
+        (t.attendance || []).some((a) => a.confirmed && a.attendance_date === today),
+      )
       let dropoutNote = ''
-      try {
+      if (hasCheckinsToday) try {
         const dRes = await fetch('/.netlify/functions/notify-trainee-dropout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1653,16 +1665,13 @@ function pct(numerator, denominator) {
 function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
   const notifiedAt = cls.day_2_it_notified_at
   const completedAt = cls.it_completed_at
-  const today = todayLocalIso()
   const provisioned = (cls.trainees || []).filter(
     (t) => t.enrolled !== false && t.company_email,
   )
-  // Only trainees who actually attended today are eligible to receive credentials.
-  const attendedToday = provisioned.filter((t) =>
-    (t.attendance || []).some((a) => a.confirmed && a.attendance_date === today),
-  )
+  // Any provisioned trainee who hasn't been texted yet is eligible —
+  // no "attended today" requirement.
   const sentCount = provisioned.filter((t) => t.credentials_sent_at).length
-  const eligibleNow = attendedToday.filter((t) => !t.credentials_sent_at).length
+  const eligibleNow = provisioned.filter((t) => !t.credentials_sent_at).length
   const lastSentAt = provisioned
     .map((t) => t.credentials_sent_at)
     .filter(Boolean)
@@ -1674,13 +1683,13 @@ function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
   if (provisioned.length === 0) {
     credentialsStatusText = 'Waiting on IT to provision emails.'
   } else if (sentCount === 0) {
-    credentialsStatusText = `${eligibleNow} of ${provisioned.length} attended today and are ready to receive their credentials text.`
+    credentialsStatusText = `${eligibleNow} of ${provisioned.length} provisioned trainees are ready to receive their credentials text.`
   } else if (eligibleNow > 0) {
-    credentialsStatusText = `${sentCount} texted so far · ${eligibleNow} more attended today and still need theirs.`
+    credentialsStatusText = `${sentCount} texted so far · ${eligibleNow} still need theirs.`
   } else if (sentCount === provisioned.length) {
     credentialsStatusText = `All ${sentCount} trainees received their credentials.`
   } else {
-    credentialsStatusText = `${sentCount} texted · waiting on today's attendance for the rest.`
+    credentialsStatusText = `${sentCount} texted.`
   }
 
   return (
@@ -1705,11 +1714,11 @@ function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
               !completedAt
                 ? 'Available once IT marks provisioning complete.'
                 : eligibleNow === 0
-                  ? 'No eligible trainees right now — needs at least one provisioned attendee who has signed in today and not yet been texted.'
-                  : `Texts ${eligibleNow} trainee${eligibleNow === 1 ? '' : 's'} who attended today their company email + password and setup link. No-shows are skipped.`
+                  ? 'No one to text — every provisioned trainee has already received their credentials.'
+                  : `Texts ${eligibleNow} provisioned trainee${eligibleNow === 1 ? '' : 's'} their company email + password and setup link. Anyone already texted is skipped.`
             }
           >
-            📤 Send credentials to {eligibleNow > 0 ? `${eligibleNow} attendee${eligibleNow === 1 ? '' : 's'}` : 'attendees'}
+            📤 Send credentials to {eligibleNow > 0 ? `${eligibleNow} trainee${eligibleNow === 1 ? '' : 's'}` : 'trainees'}
           </button>
         </div>
       </div>

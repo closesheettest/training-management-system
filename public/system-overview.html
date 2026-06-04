@@ -409,7 +409,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><strong>Trainee dropped out — delete email</strong></td>
       <td>IT</td>
       <td>📱 Text · ✉️ Email</td>
-      <td><span class="pill pill-cron">Daily cron at 1 PM Eastern</span> <span class="pill pill-manual">+ auto-fires when trainer clicks "Send credentials" (same-day no-shows)</span></td>
+      <td><span class="pill pill-cron">Daily cron at 1 PM Eastern</span> <span class="pill pill-manual">+ auto-fires when trainer clicks "Send credentials" on a day people checked in (same-day no-shows only)</span></td>
     </tr>
     <tr>
       <td><strong>Trainee dropped out — remove from apps</strong></td>
@@ -425,9 +425,9 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
     </tr>
     <tr>
       <td><strong>Final credentials</strong><br><em>Email + password for trainee</em></td>
-      <td>Trainees who attended today</td>
+      <td>Provisioned trainees not yet texted</td>
       <td>📱 Text · with link to setup page</td>
-      <td><span class="pill pill-manual">Trainer clicks "📤 Send credentials to attendees" on the Class detail page — no-shows for the day are skipped</span></td>
+      <td><span class="pill pill-manual">Trainer clicks "📤 Send credentials to trainees" on the Class detail page — any enrolled trainee with a company email who hasn't already received theirs</span></td>
     </tr>
     <tr>
       <td><strong>Review request — 2 emails</strong><br><em>One email per business (U.S. Shingle and Neal) so trainees can tell them apart at a glance.</em></td>
