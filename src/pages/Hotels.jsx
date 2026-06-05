@@ -208,6 +208,43 @@ export default function Hotels() {
     await loadForClass()
   }
 
+  // "Cancelled Hotel" — the trainee no-showed and HR has cancelled the
+  // unused room. Stamps cancelled_at, which is the OFF SWITCH for the
+  // hourly "cancel this room" nag texts. The booking stays on record
+  // (shown as cancelled) so HR can see it was handled.
+  async function cancelStay(stay) {
+    if (!confirm(`Mark ${stayLabel(stay)}'s room as cancelled? This stops the hourly "cancel the room" alert texts.`)) return
+    setBusyTraineeId(stay.trainee_id)
+    const { error } = await supabase
+      .from('trainee_hotel_stays')
+      .update({ cancelled_at: new Date().toISOString() })
+      .eq('id', stay.id)
+    setBusyTraineeId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `Hotel cancelled for ${stayLabel(stay)}. The hourly alerts will stop.` })
+    await loadForClass()
+  }
+
+  // Undo a cancel (e.g. pressed by mistake, or the trainee showed up after
+  // all). Clears cancelled_at so the booking is "open" again.
+  async function uncancelStay(stay) {
+    setBusyTraineeId(stay.trainee_id)
+    const { error } = await supabase
+      .from('trainee_hotel_stays')
+      .update({ cancelled_at: null })
+      .eq('id', stay.id)
+    setBusyTraineeId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `Reopened booking for ${stayLabel(stay)}.` })
+    await loadForClass()
+  }
+
   async function sendOne(stay) {
     if (!confirm(`Text ${stayLabel(stay)} their hotel info now?`)) return
     setSending(true)
@@ -354,7 +391,7 @@ export default function Hotels() {
       {selectedClassId && !meetingVenue && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           ⚠ This class doesn't have a meeting venue assigned yet. Add one on the Schedule
-          page before booking rooms — "Booked (same hotel)" needs a venue to default from.
+          page before booking rooms — "Hotel Booked" needs a venue to default from.
         </div>
       )}
 
@@ -402,9 +439,11 @@ export default function Hotels() {
                     className={
                       'rounded-lg border p-4 shadow-sm ' +
                       (stay
-                        ? stay.info_sent_at
-                          ? 'border-emerald-200 bg-emerald-50/30'
-                          : 'border-sky-200 bg-sky-50/30'
+                        ? stay.cancelled_at
+                          ? 'border-slate-300 bg-slate-100'
+                          : stay.info_sent_at
+                            ? 'border-emerald-200 bg-emerald-50/30'
+                            : 'border-sky-200 bg-sky-50/30'
                         : 'border-slate-200 bg-white')
                     }
                   >
@@ -437,7 +476,7 @@ export default function Hotels() {
                                   : 'Add a meeting venue to the class first'
                               }
                             >
-                              {busyTraineeId === t.id ? 'Saving…' : '✓ Booked (same hotel)'}
+                              {busyTraineeId === t.id ? 'Saving…' : '🏨 Hotel Booked'}
                             </button>
                             <button
                               type="button"
@@ -447,6 +486,15 @@ export default function Hotels() {
                               Different hotel
                             </button>
                           </>
+                        ) : stay.cancelled_at ? (
+                          <button
+                            type="button"
+                            onClick={() => uncancelStay(stay)}
+                            disabled={busyTraineeId === t.id}
+                            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                          >
+                            {busyTraineeId === t.id ? 'Working…' : 'Undo cancel'}
+                          </button>
                         ) : (
                           <>
                             {!stay.info_sent_at && (
@@ -475,6 +523,15 @@ export default function Hotels() {
                               className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cancelStay(stay)}
+                              disabled={busyTraineeId === t.id}
+                              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
+                              title="The trainee no-showed — cancel their unused room and stop the hourly alert texts"
+                            >
+                              Cancelled Hotel
                             </button>
                             <button
                               type="button"
@@ -516,9 +573,11 @@ export default function Hotels() {
                         {stay.room_number && <div>Room: {stay.room_number}</div>}
                         {stay.notes && <div className="italic text-slate-600">"{stay.notes}"</div>}
                         <div className="mt-2 text-[10px] uppercase tracking-wide text-slate-400">
-                          {stay.info_sent_at
-                            ? `✓ Notification sent ${new Date(stay.info_sent_at).toLocaleString()}`
-                            : '⏳ Booked — notification ready to send'}
+                          {stay.cancelled_at
+                            ? `✕ Hotel cancelled ${new Date(stay.cancelled_at).toLocaleString()} — no-show alerts stopped`
+                            : stay.info_sent_at
+                              ? `✓ Notification sent ${new Date(stay.info_sent_at).toLocaleString()}`
+                              : '⏳ Booked — notification ready to send'}
                         </div>
                       </div>
                     )}

@@ -1,52 +1,53 @@
-// Netlify Function: hotel-no-show alert.
+// Netlify Function: hotel no-show "cancel the room" nag.
 //
-// Runs daily (via cron-job.org or similar). Finds every trainee whose
-// needs_hotel=true who hasn't checked in by the time class has started
-// today, then sends a summary SMS to HR (falls back to admin recipients,
-// then to ADMIN_PHONE env var). Helps HR cancel unused hotel rooms.
+// Fires HOURLY during the training day. For every trainee who (a) has a
+// hotel room booked (a trainee_hotel_stays row), (b) hasn't been cancelled
+// yet (stay.cancelled_at is null), and (c) hasn't signed into class today,
+// it texts the HR/Admin no-show subscribers so they can cancel the unused
+// room. The text repeats every hour until a human presses "Cancelled
+// Hotel" on the trainee (Hotels page or the class roster), which stamps
+// stay.cancelled_at and drops them from the list for good.
 //
-// Class start time is day-of-week aware:
-//   Mon          → noon (class is 12 → 4 PM)
-//   Tue-Fri      → 8 AM
-//   Sat/Sun      → 8 AM (no class scheduled, no-op in practice)
-// We add a 30-min grace, so the alert fires no earlier than 12:30 PM
-// on Mondays and 8:30 AM on Tue-Fri. The existing 10:30 AM cron-job.org
-// call is fine for Tue-Fri. To cover Mondays, schedule a second call
-// at 1 PM Mondays (or 1 PM daily — it'll just no-op Tue-Fri since the
-// alert won't re-fire for the same date once trainees are stamped).
-// If no Monday-PM cron exists, Mondays go un-alerted but Tuesday's
-// 10:30 AM cron will catch persistent no-shows.
+// This replaces the old once-a-day batch alert. Two things changed:
+//   1. Only BOOKED trainees are nagged (no room = nothing to cancel).
+//   2. It repeats hourly instead of firing once — stay.cancel_nag_at
+//      throttles to one text per hour; stay.cancelled_at is the off switch.
 //
-// Required env vars: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN,
-// GHL_LOCATION_ID, CRON_SECRET
+// The SMS wording is the same shape HR already knows (buildMessage).
 //
-// Auth: include ?secret=<CRON_SECRET> or an X-Cron-Secret header.
+// Schedule: hourly 14:00–23:00 UTC (= 10 AM–7 PM ET, DST-safe via the
+// per-trainee clock gate below). Configured both in netlify.toml and the
+// export const config at the bottom — keep them in sync.
 //
-// Query params:
-//   ?dry_run=1   — log who would be alerted without sending SMS or stamping DB
-//   ?date=YYYY-MM-DD — override the "today" check (useful for testing).
-//                       When set, the too-early gate is bypassed so you can
-//                       backfill or replay historical dates from your laptop.
-//   ?hour=N      — override the "current ET hour" gate (0-23). Useful for
-//                       testing the Monday gate locally without waiting until noon.
+// Required env: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN,
+// GHL_LOCATION_ID. CRON_SECRET only enforced for manual HTTP calls.
 //
-// Response: {
-//   target_date, absent_count, sent_count, recipient_count,
-//   role_used, absentees: [...], dry_run?, skipped_reason?
-// }
+// Manual call (testing): GET ?secret=<CRON_SECRET> with optional
+//   ?dry_run=1            — log who'd be nagged, send nothing, stamp nothing
+//   ?date=YYYY-MM-DD      — override "today" (also bypasses the too-early gate)
+//   ?hour=N               — override the current ET hour (0-23)
+//   ?force=1              — bypass the per-trainee time + once-an-hour gates
 
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
 
+// Don't re-text the same booking more than once an hour. 55 min (not 60)
+// so a cron that fires a hair early on the next hour still passes the gate.
+const NAG_INTERVAL_MS = 55 * 60 * 1000
+
 export const handler = async (event) => {
-  // Auth
-  const provided =
-    event.headers['x-cron-secret'] ||
-    event.headers['X-Cron-Secret'] ||
-    event.queryStringParameters?.secret
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
-    return json(401, { error: 'Unauthorized' })
+  // Scheduled invocations (from Netlify) have no httpMethod and carry no
+  // secret — allow those. Manual HTTP calls still require the secret.
+  const isHttp = !!event.httpMethod
+  if (isHttp) {
+    const provided =
+      event.headers['x-cron-secret'] ||
+      event.headers['X-Cron-Secret'] ||
+      event.queryStringParameters?.secret
+    if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+      return json(401, { error: 'Unauthorized' })
+    }
   }
 
   const missing = []
@@ -57,22 +58,22 @@ export const handler = async (event) => {
 
   const params = event.queryStringParameters || {}
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
+  const force = params.force === '1' || params.force === 'true'
   const today = params.date || computeFloridaToday()
-  // Override-able for testing. Real cron passes nothing → we compute from clock.
   const nowEtHour = params.hour != null ? Number(params.hour) : computeFloridaHour()
+  const nowMs = Date.now()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
-  // Pull all needs_hotel trainees who are enrolled and registered. We'll filter
-  // by "class active today" and "no attendance today" in code (simpler than
-  // building a complex PostgREST query).
+  // 1. All hotel-needing, enrolled, registered trainees + their class +
+  //    today's attendance. (We filter to "booked" + "absent" in code.)
   const { data: trainees, error: trErr } = await supabase
     .from('trainees')
     .select(`
       id,
       first_name,
       last_name,
-      hotel_alert_sent_at,
+      class_id,
       classes!class_id(week_start_date, week_end_date, region, locations(name)),
       attendance(attendance_date, confirmed)
     `)
@@ -82,40 +83,60 @@ export const handler = async (event) => {
 
   if (trErr) return json(500, { error: `Supabase: ${trErr.message}` })
 
-  // Per-trainee class-start-aware grace.
-  //   Day 1 (today === week_start_date) → class runs noon-4, so
-  //     alert no earlier than 12:30 PM ET.
-  //   Day 2+ → class starts 10 AM, alert no earlier than 10:30 AM ET.
-  // The 30-min grace matches the dropout cron so both alerts fire on
-  // the same cadence. Without per-trainee gating, a Mon-start Day 2
-  // trainee on Tuesday would either get spammed early (function-wide
-  // 10:30) or alerted way too late (function-wide 12:30 to be safe
-  // for Tue-start Day 1). Going per-trainee threads the needle.
-  const absentees = (trainees || []).filter((t) => {
+  // 2. Open (un-cancelled) hotel bookings, keyed by trainee. A booking =
+  //    proof a room exists to cancel. cancelled_at is the off switch.
+  const { data: stays, error: stErr } = await supabase
+    .from('trainee_hotel_stays')
+    .select('id, trainee_id, cancel_nag_at, cancelled_at')
+    .is('cancelled_at', null)
+  if (stErr) return json(500, { error: `Supabase stays: ${stErr.message}` })
+
+  const stayByTrainee = {}
+  for (const s of stays || []) stayByTrainee[s.trainee_id] = s
+
+  // 3. Eligible = booked + within class week + past the start grace +
+  //    absent today + this booking's hourly nag is due.
+  const eligible = []
+  for (const t of trainees || []) {
+    const stay = stayByTrainee[t.id]
+    if (!stay) continue // no room booked → nothing to cancel
     const start = t.classes?.week_start_date
     const end = t.classes?.week_end_date
-    if (!start || !end) return false
-    if (today < start || today > end) return false
+    if (!start || !end) continue
+    if (today < start || today > end) continue
+
+    // Class-start-aware grace: Day 1 starts at noon (alert ≥ 12:30 PM ET),
+    // Day 2+ starts at 10 AM (alert ≥ 10:30 AM ET). Skip when overriding date.
     const isDay1 = today === start
     const earliestAlertHour = isDay1 ? 12.5 : 10.5
-    if (!params.date && nowEtHour < earliestAlertHour) return false
+    if (!force && !params.date && nowEtHour < earliestAlertHour) continue
+
     const checkedIn = (t.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,
     )
-    return !checkedIn
-  })
+    if (checkedIn) continue // signed in → room is needed, no nag
 
-  if (absentees.length === 0) {
+    // Once-an-hour throttle per booking.
+    if (!force && stay.cancel_nag_at) {
+      const last = new Date(stay.cancel_nag_at).getTime()
+      if (nowMs - last < NAG_INTERVAL_MS) continue
+    }
+
+    eligible.push({ trainee: t, stay })
+  }
+
+  if (eligible.length === 0) {
     return json(200, {
       target_date: today,
-      absent_count: 0,
+      booked_noshow_count: 0,
       sent_count: 0,
-      message: 'No hotel-needing no-shows today.',
+      message: 'No booked-room no-shows due for a nag right now.',
     })
   }
 
+  const absentees = eligible.map((e) => e.trainee)
   const smsBody = buildMessage(absentees, today)
-  const emailSubject = `Hotel no-show alert — ${absentees.length} trainee${absentees.length === 1 ? '' : 's'}`
+  const emailSubject = `Hotel no-show — cancel ${absentees.length} room${absentees.length === 1 ? '' : 's'}?`
   const emailBody = smsBody
 
   const { recipients, source: roleUsed } = await recipientsForEvent(
@@ -127,10 +148,10 @@ export const handler = async (event) => {
   if (recipients.length === 0) {
     return json(200, {
       target_date: today,
-      absent_count: absentees.length,
+      booked_noshow_count: absentees.length,
       sent_count: 0,
       role_used: null,
-      warning: 'No active recipients found in HR or Admin roles, and no ADMIN_PHONE env var. Add at least one in /notifications.',
+      warning: 'No active recipients in HR or Admin roles, and no ADMIN_PHONE env var. Add at least one in /notifications.',
       absentees: absentees.map((t) => `${t.first_name} ${t.last_name} (${t.classes?.region || 'Region'})`),
     })
   }
@@ -138,7 +159,7 @@ export const handler = async (event) => {
   if (dryRun) {
     return json(200, {
       target_date: today,
-      absent_count: absentees.length,
+      booked_noshow_count: absentees.length,
       role_used: roleUsed,
       recipient_count: recipients.length,
       dry_run: true,
@@ -155,14 +176,16 @@ export const handler = async (event) => {
     contactLabel: 'HR',
   })
 
+  // Stamp the nag time on every booking we just texted about, so each one
+  // is throttled to roughly hourly until someone presses "Cancelled Hotel".
   await supabase
-    .from('trainees')
-    .update({ hotel_alert_sent_at: new Date().toISOString() })
-    .in('id', absentees.map((t) => t.id))
+    .from('trainee_hotel_stays')
+    .update({ cancel_nag_at: new Date().toISOString() })
+    .in('id', eligible.map((e) => e.stay.id))
 
   return json(200, {
     target_date: today,
-    absent_count: absentees.length,
+    booked_noshow_count: absentees.length,
     sent_count: r.sms_sent + r.email_sent,
     sms_sent: r.sms_sent,
     email_sent: r.email_sent,
@@ -177,22 +200,18 @@ function buildMessage(absentees, dateIso) {
   const dateLabel = new Date(dateIso + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   })
-  // Generic "class start" wording — the gate is now per-trainee (Day 1
-  // noon, Day 2+ 10 AM), so a single batched SMS may include trainees
-  // whose classes had different start times. "By class start" reads
-  // correctly for all of them.
   if (absentees.length === 1) {
     const t = absentees[0]
     const region = t.classes?.region || 'training'
     const loc = t.classes?.locations?.name
     const locStr = loc ? ` at ${loc}` : ''
-    return `[Training] ${t.first_name} ${t.last_name} (${region}${locStr}) hasn't checked in by class start on ${dateLabel}. They need a hotel — consider cancelling their room.`
+    return `[Training] ${t.first_name} ${t.last_name} (${region}${locStr}) hasn't checked in by class start on ${dateLabel}. They have a room booked — cancel it, then press "Cancelled Hotel" to stop these texts.`
   }
   const lines = absentees.map((t) => {
     const region = t.classes?.region || 'training'
     return `• ${t.first_name} ${t.last_name} (${region})`
   })
-  return `[Training] ${absentees.length} hotel-needing trainees haven't checked in by class start on ${dateLabel}:\n${lines.join('\n')}\nConsider cancelling their rooms.`
+  return `[Training] ${absentees.length} trainees with booked rooms haven't checked in by class start on ${dateLabel}:\n${lines.join('\n')}\nCancel their rooms, then press "Cancelled Hotel" on each to stop these texts.`
 }
 
 function computeFloridaToday() {
@@ -205,8 +224,6 @@ function computeFloridaToday() {
   return fmt.format(new Date())
 }
 
-// Current hour (0-23) in Eastern Time. Used to decide whether class has
-// started yet — Mondays start at noon, so a 10:30 AM cron is too early.
 function computeFloridaHour() {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
@@ -216,18 +233,6 @@ function computeFloridaHour() {
   return Number(fmt.format(new Date()))
 }
 
-// Day-of-week (0=Sun..6=Sat) for an ET date string. Mondays = 1 → we
-// know class starts at noon instead of 8 AM.
-function computeFloridaDayOfWeek(isoDate) {
-  // Anchor noon ET to avoid DST midnight edge cases.
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    weekday: 'short',
-  })
-  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
-  return map[fmt.format(new Date(isoDate + 'T17:00:00Z'))] ?? 0
-}
-
 function json(statusCode, body) {
   return {
     statusCode,
@@ -235,3 +240,6 @@ function json(statusCode, body) {
     body: JSON.stringify(body),
   }
 }
+
+// Hourly, 10 AM–7 PM ET (14:00–23:00 UTC). Keep in sync with netlify.toml.
+export const config = { schedule: '0 14-23 * * *' }

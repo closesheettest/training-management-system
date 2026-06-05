@@ -11,6 +11,8 @@ export default function ClassDetail() {
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
+  const [stays, setStays] = useState([])
+  const [hotelBusyId, setHotelBusyId] = useState(null)
   const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -56,6 +58,12 @@ export default function ClassDetail() {
       setCls(data)
       setTrainees((data.trainees || []).sort(byName))
       setLocationDraft(data.location_id || '')
+      // Hotel bookings for this class (room cards + the no-show cancel flow).
+      const { data: stayRows } = await supabase
+        .from('trainee_hotel_stays')
+        .select('id, trainee_id, cancelled_at, info_sent_at')
+        .eq('class_id', id)
+      setStays(stayRows || [])
     }
     setLoading(false)
   }
@@ -66,6 +74,57 @@ export default function ClassDetail() {
       .select('id, name, region, street_address, city, state, zip')
       .order('name', { ascending: true })
     setLocations(data || [])
+  }
+
+  // "Hotel Booked" on the roster — one-click create a stay row using the
+  // class's meeting venue as the hotel, booked under the trainee's name.
+  // Mirrors quickBook() on the Hotels page. A stay row = "booked"; the
+  // hourly no-show nag keys off it.
+  async function bookHotel(t) {
+    const venue = cls?.locations || null
+    if (!venue) {
+      setMessage({ type: 'error', text: 'This class has no meeting venue yet — set one (or use the Hotels page) before booking a room.' })
+      return
+    }
+    setHotelBusyId(t.id)
+    setMessage(null)
+    const { error: err } = await supabase.from('trainee_hotel_stays').insert({
+      trainee_id: t.id,
+      class_id: id,
+      hotel_name: venue.name || '',
+      hotel_street_address: venue.street_address || null,
+      hotel_city: venue.city || null,
+      hotel_state: venue.state || null,
+      hotel_zip: venue.zip || null,
+      hotel_phone: venue.phone || null,
+      guest_name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
+    })
+    setHotelBusyId(null)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({ type: 'success', text: `Hotel booked for ${t.first_name} ${t.last_name}.` })
+    load()
+  }
+
+  // "Cancelled Hotel" — stamps cancelled_at, the OFF SWITCH for the hourly
+  // no-show alert texts. The booking stays on record as cancelled.
+  async function cancelHotel(stay, t) {
+    if (!confirm(`Mark ${t.first_name} ${t.last_name}'s room as cancelled? This stops the hourly "cancel the room" alert texts.`)) return
+    setHotelBusyId(t.id)
+    setMessage(null)
+    const { error: err } = await supabase
+      .from('trainee_hotel_stays')
+      .update({ cancelled_at: new Date().toISOString() })
+      .eq('id', stay.id)
+    setHotelBusyId(null)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({ type: 'success', text: `Hotel cancelled for ${t.first_name} ${t.last_name}. The hourly alerts will stop.` })
+    load()
   }
 
   async function saveLocation() {
@@ -729,6 +788,7 @@ export default function ClassDetail() {
     (cls.test_attempts || []).map((a) => [a.trainee_id, a]),
   )
   const summary = computeSummary(enrolled, attemptsByTrainee)
+  const stayByTraineeId = Object.fromEntries((stays || []).map((s) => [s.trainee_id, s]))
 
   return (
     <div className="space-y-8">
@@ -1084,6 +1144,10 @@ export default function ClassDetail() {
           onSaveEdit={saveEditTrainee}
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
+          stayByTraineeId={stayByTraineeId}
+          hotelBusyId={hotelBusyId}
+          onBookHotel={bookHotel}
+          onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
@@ -1114,6 +1178,10 @@ export default function ClassDetail() {
           onSaveEdit={saveEditTrainee}
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
+          stayByTraineeId={stayByTraineeId}
+          hotelBusyId={hotelBusyId}
+          onBookHotel={bookHotel}
+          onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
@@ -1144,6 +1212,10 @@ export default function ClassDetail() {
           onSaveEdit={saveEditTrainee}
           onDraftChange={setTraineeDraft}
           onDelete={deleteTrainee}
+          stayByTraineeId={stayByTraineeId}
+          hotelBusyId={hotelBusyId}
+          onBookHotel={bookHotel}
+          onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
@@ -1304,6 +1376,10 @@ function TraineeGroup({
   onReschedule,
   onAdmit,
   isHolding = false,
+  stayByTraineeId = {},
+  hotelBusyId = null,
+  onBookHotel,
+  onCancelHotel,
 }) {
   const palette = {
     green: 'border-green-200 bg-green-50',
@@ -1373,11 +1449,28 @@ function TraineeGroup({
                           ⏳ Confirmation reminder sent, awaiting reply
                         </div>
                       )}
-                      {t.needs_hotel && (
-                        <div className="mt-0.5 text-xs font-semibold text-sky-700">
-                          🏨 Needs hotel accommodation
-                        </div>
-                      )}
+                      {t.needs_hotel && (() => {
+                        const stay = stayByTraineeId[t.id]
+                        if (stay?.cancelled_at) {
+                          return (
+                            <div className="mt-0.5 text-xs font-semibold text-slate-500">
+                              🏨 Hotel cancelled — no-show alerts stopped
+                            </div>
+                          )
+                        }
+                        if (stay) {
+                          return (
+                            <div className="mt-0.5 text-xs font-semibold text-emerald-700">
+                              🏨 Hotel booked
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="mt-0.5 text-xs font-semibold text-sky-700">
+                            🏨 Needs hotel — not booked yet
+                          </div>
+                        )
+                      })()}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       <a
@@ -1388,6 +1481,34 @@ function TraineeGroup({
                       >
                         Preview
                       </a>
+                      {t.needs_hotel && onBookHotel && (() => {
+                        const stay = stayByTraineeId[t.id]
+                        if (!stay) {
+                          return (
+                            <button
+                              onClick={() => onBookHotel(t)}
+                              disabled={editingTraineeId !== null || hotelBusyId === t.id}
+                              className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                              title="Book this trainee at the meeting venue under their own name"
+                            >
+                              {hotelBusyId === t.id ? 'Saving…' : '🏨 Hotel Booked'}
+                            </button>
+                          )
+                        }
+                        if (!stay.cancelled_at) {
+                          return (
+                            <button
+                              onClick={() => onCancelHotel(stay, t)}
+                              disabled={editingTraineeId !== null || hotelBusyId === t.id}
+                              className="rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                              title="The trainee no-showed — cancel their unused room and stop the hourly alert texts"
+                            >
+                              {hotelBusyId === t.id ? 'Saving…' : 'Cancelled Hotel'}
+                            </button>
+                          )
+                        }
+                        return null
+                      })()}
                       <button
                         onClick={() => onStartEdit(t)}
                         disabled={editingTraineeId !== null}
