@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Financing — U.S. Shingle &amp; Metal Retail Training</title>
+<!--
+  Financing slide deck — projector / clicker mode.
+
+  This is the LAST teaching day before the final exam (Day 5 on a full
+  week, Day 4 on a short week — always a Friday, exam right after).
+
+  Topic (per Neal 2026-06-05): WHO we use, their CRITERIA, and the
+  ORDER we submit in — the finance "waterfall."
+
+    1. Upgrade Financial   — ALWAYS first. Soft pull, so a decline does
+                             NOT hurt the homeowner's credit. 650+ (second-
+                             look program goes down to 600).
+    2. Service Finance     — 650+ too, BUT has a manual override: call
+                             customer service for a second look, and they
+                             accept cosigners.
+       (No-prepayment-penalty explainer slide — true of EVERY program
+        U.S. Shingle offers.)
+    3. PACE (Property Assessed Clean Energy) — FL statute, government-
+                             APPROVED (not a government program). Equity-
+                             based, not score-based. 10%+ equity, current
+                             mortgage, on-time property taxes 3 yrs (or
+                             since purchase), no active bankruptcy, prove
+                             household income.
+    4. Credit-repair fallback — if declined everywhere, we sign + pay for
+                             credit repair, fix the score, then get them
+                             their roof.
+
+  Same visual system as /day-1-slides … /day-3-slides — navy/gold,
+  Reveal.js 5.0.4, 1600x900 canvas. Open on the projector laptop,
+  F for fullscreen, clicker controls.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+<style>
+  :root {
+    --uss-navy: #13294b;
+    --uss-red: #b8324f;
+    --uss-gold: #d4a142;
+    --uss-cream: #f8f5ed;
+    --uss-teal: #14b8a6;
+    --uss-green: #16a34a;
+  }
+  .reveal { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 {
+    font-family: 'Oswald', 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  }
+  .reveal h1 { color: var(--uss-gold); font-size: 2.4em; line-height: 1.15; }
+  .reveal h2 { color: var(--uss-cream); font-size: 1.7em; line-height: 1.2; }
+  .reveal h3 { color: var(--uss-gold); font-size: 1.3em; line-height: 1.3; }
+  .reveal section { color: #fff; }
+  .reveal .highlight-red { color: var(--uss-red); }
+  .reveal .highlight-gold { color: var(--uss-gold); }
+  .reveal .highlight-teal { color: var(--uss-teal); }
+  .reveal .highlight-green { color: var(--uss-green); }
+  .reveal ul, .reveal ol { display: inline-block; text-align: left; margin: 0 auto; }
+  .reveal li { margin: 0.4em 0; }
+  .reveal strong { color: var(--uss-gold); }
+  .reveal em { color: var(--uss-cream); font-style: italic; }
+  .reveal .title-slide h1 { font-size: 3em; color: #fff; }
+  .reveal .title-slide .subtitle {
+    color: var(--uss-gold); font-size: 1em;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-top: 0.5em;
+  }
+  .reveal .label-pill {
+    display: inline-block;
+    background: var(--uss-red);
+    color: #fff;
+    padding: 0.15em 0.7em;
+    border-radius: 999px;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.5em;
+  }
+  .reveal .label-pill.teal { background: var(--uss-teal); }
+  .reveal .label-pill.gold { background: var(--uss-gold); color: var(--uss-navy); }
+  .reveal .label-pill.green { background: var(--uss-green); }
+  /* Waterfall order — numbered lender tiles, same DNA as Day 3's
+     step-grid but tuned for 3 stops + a fallback. */
+  .reveal .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    max-width: 1450px;
+    margin: 0.9em auto 0;
+  }
+  .reveal .flow-tile {
+    background: rgba(212, 161, 66, 0.15);
+    border: 2px solid var(--uss-gold);
+    border-radius: 12px;
+    padding: 0.8em 0.6em;
+    text-align: center;
+  }
+  .reveal .flow-tile.fallback {
+    background: rgba(184, 50, 79, 0.16);
+    border-color: var(--uss-red);
+  }
+  .reveal .flow-tile .num {
+    font-size: 1.9em;
+    font-weight: 800;
+    color: var(--uss-gold);
+    line-height: 1;
+  }
+  .reveal .flow-tile.fallback .num { color: var(--uss-red); font-size: 1.3em; }
+  .reveal .flow-tile .name {
+    font-size: 0.78em;
+    margin-top: 0.4em;
+    font-weight: 700;
+    color: var(--uss-cream);
+  }
+  .reveal .flow-tile .sub {
+    font-size: 0.55em;
+    margin-top: 0.25em;
+    color: var(--uss-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  /* Criteria / detail card */
+  .reveal .info-card {
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 5px solid var(--uss-gold);
+    padding: 0.8em 1.2em;
+    text-align: left;
+    max-width: 1200px;
+    margin: 0.6em auto;
+    border-radius: 6px;
+  }
+  .reveal .info-card.red { border-left-color: var(--uss-red); }
+  .reveal .info-card.teal { border-left-color: var(--uss-teal); }
+  .reveal .info-card.green { border-left-color: var(--uss-green); }
+  .reveal .info-card h3 { margin: 0 0 0.4em; }
+  /* Two-up compare row */
+  .reveal .two-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1350px;
+    margin: 0.7em auto 0;
+  }
+  .reveal .pay-box {
+    border-radius: 14px;
+    padding: 0.9em 1em;
+    text-align: left;
+  }
+  .reveal .pay-box.good { background: rgba(22, 163, 74, 0.16); border: 3px solid var(--uss-green); }
+  .reveal .pay-box.bad { background: rgba(184, 50, 79, 0.16); border: 3px solid var(--uss-red); }
+  .reveal .pay-box .cap {
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 1.1em;
+    margin-bottom: 0.3em;
+  }
+  .reveal .pay-box.good .cap { color: var(--uss-green); }
+  .reveal .pay-box.bad .cap { color: var(--uss-red); }
+  .reveal .slide-number {
+    background: rgba(184, 50, 79, 0.85);
+    color: #fff;
+    font-family: 'Oswald', sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+  <!-- ─────────────────────────── 1 — Title ─────────────────────────── -->
+  <section class="title-slide" data-background-color="#13294b">
+    <h1>Financing</h1>
+    <p class="subtitle">U.S. Shingle &amp; Metal LLC</p>
+    <p style="margin-top: 1.5em;"><span class="label-pill gold">Who · Criteria · Order</span></p>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.6em;">
+      The last thing we teach. Final exam is next — so lock this in.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 2 — Why this matters ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <h1>Financing is how the deal closes</h1>
+    <ul style="font-size: 0.95em;">
+      <li>Most homeowners <strong>can't write a check</strong> for a roof.</li>
+      <li>The right financing turns a <strong class="highlight-red">"I can't afford it"</strong> into a <strong class="highlight-green">monthly payment they can.</strong></li>
+      <li>But you have to submit them in the <strong class="highlight-gold">right order</strong> — to protect their credit and get the most people approved.</li>
+    </ul>
+    <p style="font-size: 0.72em; opacity: 0.85; margin-top: 1em;">
+      Today: <strong>who we use</strong>, <strong>what each one requires</strong>, and <strong>the order we run them in.</strong>
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 3 — The waterfall ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1>The order — top to bottom</h1>
+    <div class="flow-grid">
+      <div class="flow-tile">
+        <div class="num">1</div>
+        <div class="name">Upgrade Financial</div>
+        <div class="sub">Always first · soft pull</div>
+      </div>
+      <div class="flow-tile">
+        <div class="num">2</div>
+        <div class="name">Service Finance</div>
+        <div class="sub">Manual override · cosigners</div>
+      </div>
+      <div class="flow-tile">
+        <div class="num">3</div>
+        <div class="name">PACE</div>
+        <div class="sub">Equity-based · FL statute</div>
+      </div>
+      <div class="flow-tile fallback">
+        <div class="num">↻</div>
+        <div class="name">Credit Repair</div>
+        <div class="sub">If declined everywhere</div>
+      </div>
+    </div>
+    <p style="font-size: 0.72em; opacity: 0.85; margin-top: 0.9em;">
+      Work it <strong class="highlight-gold">left to right.</strong> Don't jump ahead — each stop exists for a reason.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 4 — The golden rule ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill gold">The #1 rule</span></p>
+    <h1 style="font-size: 2.1em;">Protect their <span class="highlight-gold">credit</span> first.</h1>
+    <div class="info-card" style="border-left-color: var(--uss-green);">
+      <p style="font-size: 0.9em; margin: 0;">
+        We start with the lender that does a <strong class="highlight-green">soft pull</strong>. If they get declined,
+        <strong>it does NOT hurt their credit.</strong>
+      </p>
+      <p style="font-size: 0.9em; margin: 0.5em 0 0;">
+        There's no reason to take a <em>hard hit</em> on someone's credit if they're just going to get denied anyway.
+        That's why <strong>Upgrade Financial is always first.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       LENDER 1 — UPGRADE FINANCIAL
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 5 — Upgrade Financial ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill gold">Stop 1 · Always first</span></p>
+    <h1 class="highlight-gold">Upgrade Financial</h1>
+    <div class="info-card green">
+      <h3 class="highlight-green">Why it's first</h3>
+      <p style="font-size: 0.82em; margin: 0;">
+        It's a <strong class="highlight-green">soft pull</strong> — a decline here <strong>does not hurt their credit.</strong>
+        Run everyone through Upgrade before anything else.
+      </p>
+    </div>
+    <div class="info-card">
+      <h3>Criteria</h3>
+      <ul style="font-size: 0.82em; margin: 0;">
+        <li><strong>650 score or better</strong> for the standard approval.</li>
+        <li><strong>Second-look program</strong> drops down to a <strong class="highlight-gold">600 score.</strong></li>
+      </ul>
+    </div>
+    <p style="font-size: 0.68em; opacity: 0.85; margin-top: 0.4em;">
+      Declined even on the second look? Move to <strong>Stop 2 — Service Finance.</strong>
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       LENDER 2 — SERVICE FINANCE
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 6 — Service Finance ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill gold">Stop 2 · The human override</span></p>
+    <h1 class="highlight-gold">Service Finance</h1>
+    <div class="info-card">
+      <h3>Criteria</h3>
+      <ul style="font-size: 0.82em; margin: 0;">
+        <li>Same as Upgrade — <strong>650 score or better.</strong></li>
+      </ul>
+    </div>
+    <div class="info-card teal">
+      <h3 class="highlight-teal">What makes it different</h3>
+      <ul style="font-size: 0.82em; margin: 0;">
+        <li><strong>Manual override.</strong> If their automatic system denies it, <strong class="highlight-teal">call customer service</strong> and ask for a second look — sometimes they'll <strong>manually approve it.</strong> Worth the call every time.</li>
+        <li>They <strong>accept cosigners</strong> to get a deal approved.</li>
+      </ul>
+    </div>
+    <p style="font-size: 0.68em; opacity: 0.85; margin-top: 0.3em;">
+      Pick up the phone. A 5-minute call can turn a decline into a sold roof.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       UNIVERSAL — NO PREPAYMENT PENALTY
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 7 — No prepay penalty (statement) ─────────────────────────── -->
+  <section data-background-color="#b8324f">
+    <p><span class="label-pill" style="background:#fff;color:var(--uss-red);">True of every program we offer</span></p>
+    <h1 style="font-size: 2.3em; color:#fff;">No prepayment penalties. <span style="color:var(--uss-gold);">Ever.</span></h1>
+    <p style="font-size: 0.9em; color:#fff; opacity:0.92; margin-top:0.5em;">
+      Upgrade, Service Finance, and <em>every program U.S. Shingle &amp; Metal will ever offer.</em>
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 8 — What IS a prepayment penalty ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill gold">Know this cold — homeowners ask</span></p>
+    <h1 style="font-size: 1.9em;">Prepayment penalty — what it means</h1>
+    <div class="two-up">
+      <div class="pay-box bad">
+        <div class="cap">⚠ Prepayment PENALTY</div>
+        <p style="font-size: 0.7em; margin: 0;">
+          A <strong>fee the lender charges if you pay the loan off early.</strong> They tack on a
+          charge to make up for the interest they'd miss out on. Pay it off ahead of schedule →
+          you get <strong class="highlight-red">penalized for it.</strong>
+        </p>
+      </div>
+      <div class="pay-box good">
+        <div class="cap">✓ NO Prepayment Penalty</div>
+        <p style="font-size: 0.7em; margin: 0;">
+          The homeowner can <strong>pay the loan off early — partial or in full — with zero extra fees.</strong>
+          Pay it down as fast as they want and <strong class="highlight-green">save on interest.</strong> That's what
+          <em>all</em> of ours are.
+        </p>
+      </div>
+    </div>
+    <p style="font-size: 0.68em; opacity: 0.85; margin-top: 0.7em;">
+      Why it matters: lots of homeowners want to finance now and <strong>pay it off when they can</strong> — an
+      insurance check, a tax return, a refinance. With our programs, paying early is <strong class="highlight-gold">always free</strong>.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       LENDER 3 — PACE
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 9 — PACE intro ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill gold">Stop 3 · A whole different lane</span></p>
+    <h1 class="highlight-gold">PACE</h1>
+    <h2 style="font-size: 1.2em; margin-top: 0.2em;">Property Assessed Clean Energy</h2>
+    <div class="info-card">
+      <ul style="font-size: 0.82em; margin: 0;">
+        <li>A <strong>Florida statute</strong> — it's a <strong class="highlight-gold">government-APPROVED</strong> program, <strong class="highlight-red">not a government program.</strong> Say it that way.</li>
+        <li>Approval is based on the <strong>home's equity</strong>, not just a credit score — so it approves a lot of people the score-based lenders can't.</li>
+        <li>It's repaid through the property — tied to the home, assessed with the <strong>property taxes.</strong></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── 10 — PACE criteria ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <p><span class="label-pill gold">PACE · the checklist</span></p>
+    <h1 class="highlight-gold" style="font-size: 1.7em;">PACE criteria</h1>
+    <div class="info-card">
+      <ul style="font-size: 0.8em; margin: 0;">
+        <li><strong>At least 10% equity</strong> in the home.</li>
+        <li><strong>Mortgage is current</strong> — up to date, not behind.</li>
+        <li><strong>Property taxes paid on time</strong> for the last 3 years — or for however long they've owned it, if that's less than 3 years.</li>
+        <li><strong>Not currently filing bankruptcy.</strong></li>
+        <li>Income entered is <strong>household income</strong> — they may need to <strong class="highlight-gold">prove it.</strong></li>
+      </ul>
+    </div>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.5em;">
+      That's the whole list — which is why PACE <strong class="highlight-gold">gets a lot of people approved.</strong>
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       FALLBACK — CREDIT REPAIR
+       ════════════════════════════════════════════════════════════════════════ -->
+
+  <!-- ─────────────────────────── 11 — Credit repair fallback ─────────────────────────── -->
+  <section data-background-color="#0a1730">
+    <p><span class="label-pill red">If they're declined everywhere</span></p>
+    <h1 class="highlight-red" style="font-size: 1.9em;">We don't walk away.</h1>
+    <div class="info-card red">
+      <h3 class="highlight-red">The credit-repair play</h3>
+      <ul style="font-size: 0.82em; margin: 0;">
+        <li>If the customer gets denied across the board, let them know <strong>we have a credit-repair company.</strong></li>
+        <li><strong>We sign them up and pay for it.</strong></li>
+        <li>Once we get their credit to where it needs to be, <strong class="highlight-gold">we come back and get them their roof.</strong></li>
+      </ul>
+    </div>
+    <p style="font-size: 0.7em; opacity: 0.85; margin-top: 0.5em;">
+      A "no" today is just a <strong>"not yet."</strong> Keep the relationship — the deal comes back around.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 12 — Recap ─────────────────────────── -->
+  <section data-background-color="#13294b">
+    <h1>The whole play, one screen</h1>
+    <div class="flow-grid">
+      <div class="flow-tile">
+        <div class="num">1</div>
+        <div class="name">Upgrade Financial</div>
+        <div class="sub">650+ (600 2nd look) · soft pull</div>
+      </div>
+      <div class="flow-tile">
+        <div class="num">2</div>
+        <div class="name">Service Finance</div>
+        <div class="sub">650+ · call for override · cosigners</div>
+      </div>
+      <div class="flow-tile">
+        <div class="num">3</div>
+        <div class="name">PACE</div>
+        <div class="sub">10% equity · taxes current · no BK</div>
+      </div>
+      <div class="flow-tile fallback">
+        <div class="num">↻</div>
+        <div class="name">Credit Repair</div>
+        <div class="sub">We sign + pay · then the roof</div>
+      </div>
+    </div>
+    <p style="font-size: 0.74em; opacity: 0.9; margin-top: 0.9em;">
+      Soft pull first. Phone calls win deals. Equity beats score. And nobody gets left behind.
+    </p>
+    <p style="font-size: 0.66em; opacity: 0.8; margin-top: 0.4em;">
+      Remember: <strong class="highlight-gold">every one of these — no prepayment penalty, ever.</strong>
+    </p>
+  </section>
+
+  <!-- ─────────────────────────── 13 — Wrap → exam ─────────────────────────── -->
+  <section class="title-slide" data-background-color="#0a1730">
+    <h1>That's the program.</h1>
+    <p class="subtitle">Next up — the final exam</p>
+    <p style="font-size: 0.72em; opacity: 0.85; margin-top: 1em;">
+      Know the order, know each one's criteria, and know what "no prepayment penalty" means.
+      You'll see it on the test — and at every kitchen table.
+    </p>
+  </section>
+
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    width: 1600,
+    height: 900,
+    margin: 0.05,
+    minScale: 0.2,
+    maxScale: 2.0,
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'fade',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    keyboard: true,
+    overview: true,
+    touch: true,
+    showNotes: false,
+  });
+</script>
+</body>
+</html>
