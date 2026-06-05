@@ -570,6 +570,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li><strong>Manual re-send:</strong> the Class detail page has a "🎓 Graduation report email" card with a Send / Re-send button. Use it if the auto-cron run errored (Resend outage, sender not yet verified, no subscribers) — the button surfaces the actual delivery result so you can fix root causes.</li>
   <li><strong>Sent once.</strong> Each class fires exactly one graduation report; subsequent cron runs see the timestamp and skip.</li>
   <li><strong>Graduation social post fires at the same time</strong> — a generic "🎓 Just wrapped another training week …" post goes out <strong>immediately</strong> to the Facebook Page and LinkedIn personal profile (with a random venue photo attached when available). This is separate from the paced testimonial queue described below.</li>
+  <li><strong>Manager rep-handoff text fires at the same time</strong> — the new grads are grouped by their zone, and each zone's <strong>regional manager</strong> gets an SMS: "🎓 N new reps just graduated on your team, SQUAD (Zone 1)! Call each one right away to congratulate them, then set up sales + inspection ride-alongs." The text links to a mobile handoff page listing only that manager's new reps; tapping a name (or the "📇 Save to my phone" button) downloads the rep's vCard straight into the manager's contacts. A zone with no regional manager assigned (or no phone on file) is skipped and reported in the cron result.</li>
 </ul>
 
 <h3>Paced testimonial queue (after graduation)</h3>

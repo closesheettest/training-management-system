@@ -23,6 +23,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { sendEmail } from './_email.js'
+import { sendSmsViaGhl } from './_ghl.js'
 import { buildReportHtml, renderPdf, filenameFor, formatDateRange } from './_graduation_pdf.js'
 
 export const handler = async (event) => {
@@ -201,6 +202,20 @@ export const handler = async (event) => {
         .eq('id', cls.id)
     }
 
+    // Manager rep-handoff SMS — fires at the same moment the report goes
+    // out. Group the new grads by zone and text each zone's regional
+    // manager a link to a handoff page scoped to their team (tap a name →
+    // save the rep's vCard; instructions to call/congratulate + set up
+    // sales & inspection ride-alongs). Best-effort; never blocks the report.
+    let handoffResult = null
+    if (sentCount > 0) {
+      try {
+        handoffResult = await fireManagerHandoff(supabase, cls, graduates)
+      } catch (e) {
+        handoffResult = { ok: false, error: e.message }
+      }
+    }
+
     // Fire-and-forget Facebook post celebrating the graduation. Generic copy,
     // optional venue photo. Best-effort — never blocks the report email.
     let socialResult = null
@@ -226,6 +241,7 @@ export const handler = async (event) => {
       sent_count: sentCount,
       recipient_count: emailRecipients.length,
       facebook: socialResult,
+      manager_handoff: handoffResult,
       ...(sendErrors.length ? { errors: sendErrors } : {}),
     })
   }
@@ -242,6 +258,57 @@ export const handler = async (event) => {
 // PDF builder + renderer + phone/address/date helpers all live in
 // _graduation_pdf.js so download-graduation-report.js can reuse them
 // without duplicating ~150 lines.
+
+// Zone → team name. Mirrors src/lib/zones.js ZONE_TEAMS (functions can't
+// import from src/). Kept in lock-step with _graduation_pdf.js.
+const ZONE_TEAMS = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
+
+// Group the class's graduates by zone, then text each zone's regional
+// manager a link to their team-scoped handoff page. Returns a per-zone
+// summary so the cron response shows who got notified.
+async function fireManagerHandoff(supabase, cls, graduates) {
+  const siteBase = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app')
+    .replace(/\/$/, '')
+
+  // Grads with no zone of their own inherit the class region.
+  const byZone = {}
+  for (const t of graduates) {
+    const zone = t.region || cls.region || ''
+    if (!zone) continue
+    ;(byZone[zone] = byZone[zone] || []).push(t)
+  }
+  const zones = Object.keys(byZone)
+  if (zones.length === 0) return { ok: true, zones: [], note: 'No graduates had a zone to route by.' }
+
+  // One lookup for every regional manager → keyed by the zone they manage.
+  const { data: managers } = await supabase
+    .from('trainees')
+    .select('first_name, last_name, phone, managed_region')
+    .not('managed_region', 'is', null)
+  const managerByZone = {}
+  for (const m of managers || []) managerByZone[m.managed_region] = m
+
+  const out = []
+  for (const zone of zones) {
+    const grads = byZone[zone]
+    const team = ZONE_TEAMS[zone] ? `${ZONE_TEAMS[zone]} (${zone})` : zone
+    const mgr = managerByZone[zone]
+    if (!mgr || !mgr.phone) {
+      out.push({ zone, team, graduates: grads.length, sent: false, reason: mgr ? 'manager has no phone on file' : 'no manager assigned to this zone' })
+      continue
+    }
+    const link = `${siteBase}/.netlify/functions/graduation-handoff?class_id=${encodeURIComponent(cls.id)}&zone=${encodeURIComponent(zone)}`
+    const n = grads.length
+    const body =
+      `🎓 ${n} new rep${n === 1 ? '' : 's'} just graduated on your team, ${team}!\n\n` +
+      `Call ${n === 1 ? 'them' : 'each one'} right away to congratulate ${n === 1 ? 'them' : 'them'}, ` +
+      `then set up a plan to ride along on sales AND inspections.\n\n` +
+      `Tap to see ${n === 1 ? 'them' : 'them all'} + save their contact${n === 1 ? '' : 's'} to your phone:\n${link}`
+    const sms = await sendSmsViaGhl(mgr.phone, body, { firstName: mgr.first_name, lastName: mgr.last_name })
+    out.push({ zone, team, graduates: n, manager: `${mgr.first_name || ''} ${mgr.last_name || ''}`.trim(), sent: !!sms.ok, ...(sms.ok ? {} : { error: sms.error || sms.step }) })
+  }
+  return { ok: true, zones: out }
+}
 
 function json(status, body) {
   return {
