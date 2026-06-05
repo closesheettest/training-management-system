@@ -59,7 +59,7 @@ export default function Hotels() {
     const [tRes, sRes] = await Promise.all([
       supabase
         .from('trainees')
-        .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel')
+        .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
         .eq('class_id', selectedClassId)
         .eq('needs_hotel', true)
         .order('last_name', { ascending: true }),
@@ -476,7 +476,7 @@ export default function Hotels() {
                                   : 'Add a meeting venue to the class first'
                               }
                             >
-                              {busyTraineeId === t.id ? 'Saving…' : '🏨 Hotel Booked'}
+                              {busyTraineeId === t.id ? 'Saving…' : '🏨 Book Hotel'}
                             </button>
                             <button
                               type="button"
@@ -497,6 +497,9 @@ export default function Hotels() {
                           </button>
                         ) : (
                           <>
+                            <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                              ✓ Hotel booked
+                            </span>
                             {!stay.info_sent_at && (
                               <button
                                 type="button"
@@ -524,15 +527,22 @@ export default function Hotels() {
                             >
                               Edit
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => cancelStay(stay)}
-                              disabled={busyTraineeId === t.id}
-                              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
-                              title="The trainee no-showed — cancel their unused room and stop the hourly alert texts"
-                            >
-                              Cancelled Hotel
-                            </button>
+                            {(() => {
+                              const noShow = isHotelNoShow(t, selectedClass)
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => cancelStay(stay)}
+                                  disabled={busyTraineeId === t.id || !noShow}
+                                  className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
+                                  title={noShow
+                                    ? 'The trainee no-showed — cancel their unused room and stop the hourly alert texts'
+                                    : 'Only available once the trainee is a no-show (hasn\'t signed into class by class start)'}
+                                >
+                                  Cancel Hotel
+                                </button>
+                              )
+                            })()}
                             <button
                               type="button"
                               onClick={() => deleteStay(stay)}
@@ -791,6 +801,37 @@ function Field({ label, children, className = '' }) {
       <div className="mt-1">{children}</div>
     </label>
   )
+}
+
+// Current date + hour in Florida (America/New_York), DST-safe — mirrors
+// the clock logic in send-hotel-noshow-alert.js.
+function floridaNowParts() {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: '2-digit', hour12: false,
+  }).format(new Date()))
+  return { today, hour }
+}
+
+// A booked trainee is a hotel "no-show" — and their room can be cancelled —
+// when it's a class day, we're past the class-start grace (Day 1 noon /
+// Day 2+ 10 AM, matching the cron), and they have no confirmed attendance
+// today. Until then the Cancel Hotel button stays disabled.
+function isHotelNoShow(trainee, cls) {
+  if (!cls) return false
+  const start = cls.week_start_date
+  const end = cls.week_end_date
+  if (!start || !end) return false
+  const { today, hour } = floridaNowParts()
+  if (today < start || today > end) return false
+  const earliestHour = today === start ? 12.5 : 10.5
+  if (hour < earliestHour) return false
+  const checkedIn = (trainee.attendance || []).some(
+    (a) => a.attendance_date === today && a.confirmed,
+  )
+  return !checkedIn
 }
 
 function formatDate(iso) {

@@ -789,6 +789,9 @@ export default function ClassDetail() {
   )
   const summary = computeSummary(enrolled, attemptsByTrainee)
   const stayByTraineeId = Object.fromEntries((stays || []).map((s) => [s.trainee_id, s]))
+  const hotelNoShowSet = new Set(
+    (trainees || []).filter((t) => t.needs_hotel && isHotelNoShow(t, cls)).map((t) => t.id),
+  )
 
   return (
     <div className="space-y-8">
@@ -1146,6 +1149,7 @@ export default function ClassDetail() {
           onDelete={deleteTrainee}
           stayByTraineeId={stayByTraineeId}
           hotelBusyId={hotelBusyId}
+          hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
@@ -1180,6 +1184,7 @@ export default function ClassDetail() {
           onDelete={deleteTrainee}
           stayByTraineeId={stayByTraineeId}
           hotelBusyId={hotelBusyId}
+          hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
@@ -1214,6 +1219,7 @@ export default function ClassDetail() {
           onDelete={deleteTrainee}
           stayByTraineeId={stayByTraineeId}
           hotelBusyId={hotelBusyId}
+          hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
@@ -1378,6 +1384,7 @@ function TraineeGroup({
   isHolding = false,
   stayByTraineeId = {},
   hotelBusyId = null,
+  hotelNoShowSet = new Set(),
   onBookHotel,
   onCancelHotel,
 }) {
@@ -1458,18 +1465,14 @@ function TraineeGroup({
                             </div>
                           )
                         }
-                        if (stay) {
+                        if (!stay) {
                           return (
-                            <div className="mt-0.5 text-xs font-semibold text-emerald-700">
-                              🏨 Hotel booked
+                            <div className="mt-0.5 text-xs font-semibold text-sky-700">
+                              🏨 Needs hotel — not booked yet
                             </div>
                           )
                         }
-                        return (
-                          <div className="mt-0.5 text-xs font-semibold text-sky-700">
-                            🏨 Needs hotel — not booked yet
-                          </div>
-                        )
+                        return null
                       })()}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1483,6 +1486,7 @@ function TraineeGroup({
                       </a>
                       {t.needs_hotel && onBookHotel && (() => {
                         const stay = stayByTraineeId[t.id]
+                        // Not booked yet → the action button.
                         if (!stay) {
                           return (
                             <button
@@ -1491,23 +1495,38 @@ function TraineeGroup({
                               className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
                               title="Book this trainee at the meeting venue under their own name"
                             >
-                              {hotelBusyId === t.id ? 'Saving…' : '🏨 Hotel Booked'}
+                              {hotelBusyId === t.id ? 'Saving…' : '🏨 Book Hotel'}
                             </button>
                           )
                         }
-                        if (!stay.cancelled_at) {
+                        // Cancelled → quiet status pill.
+                        if (stay.cancelled_at) {
                           return (
+                            <span className="rounded-md border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
+                              ✕ Hotel cancelled
+                            </span>
+                          )
+                        }
+                        // Booked → green check + a Cancel Hotel button that only
+                        // lights up once the trainee is an actual no-show.
+                        const noShow = hotelNoShowSet.has(t.id)
+                        return (
+                          <>
+                            <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                              ✓ Hotel booked
+                            </span>
                             <button
                               onClick={() => onCancelHotel(stay, t)}
-                              disabled={editingTraineeId !== null || hotelBusyId === t.id}
-                              className="rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                              title="The trainee no-showed — cancel their unused room and stop the hourly alert texts"
+                              disabled={editingTraineeId !== null || hotelBusyId === t.id || !noShow}
+                              className="rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
+                              title={noShow
+                                ? 'Cancel this no-show\'s unused room and stop the hourly alert texts'
+                                : 'Only available once the trainee is a no-show (hasn\'t signed into class by class start)'}
                             >
-                              {hotelBusyId === t.id ? 'Saving…' : 'Cancelled Hotel'}
+                              {hotelBusyId === t.id ? 'Saving…' : 'Cancel Hotel'}
                             </button>
-                          )
-                        }
-                        return null
+                          </>
+                        )
                       })()}
                       <button
                         onClick={() => onStartEdit(t)}
@@ -1767,6 +1786,39 @@ function byName(a, b) {
   const an = `${a.first_name} ${a.last_name}`.toLowerCase()
   const bn = `${b.first_name} ${b.last_name}`.toLowerCase()
   return an < bn ? -1 : an > bn ? 1 : 0
+}
+
+// Current date + hour in Florida (America/New_York), DST-safe. Mirrors
+// the clock logic in send-hotel-noshow-alert.js so the "Cancel Hotel"
+// button only lights up for the same people the hourly nag targets.
+function floridaNowParts() {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: '2-digit', hour12: false,
+  }).format(new Date()))
+  return { today, hour }
+}
+
+// A booked trainee is a hotel "no-show" — i.e. the room can be cancelled —
+// when it's a class day, we're past the class-start grace (Day 1 noon /
+// Day 2+ 10 AM, matching the cron), and they have no confirmed attendance
+// today. Until then the Cancel Hotel button stays disabled so HR can't
+// cancel a room for someone who simply hasn't badged in yet.
+function isHotelNoShow(t, cls) {
+  if (!cls) return false
+  const start = cls.week_start_date
+  const end = cls.week_end_date
+  if (!start || !end) return false
+  const { today, hour } = floridaNowParts()
+  if (today < start || today > end) return false
+  const earliestHour = today === start ? 12.5 : 10.5
+  if (hour < earliestHour) return false
+  const checkedIn = (t.attendance || []).some(
+    (a) => a.attendance_date === today && a.confirmed,
+  )
+  return !checkedIn
 }
 
 function computeSummary(trainees, attemptsByTrainee = {}) {
