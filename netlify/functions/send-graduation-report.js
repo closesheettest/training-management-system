@@ -297,7 +297,7 @@ async function fireManagerHandoff(supabase, cls, graduates) {
       out.push({ zone, team, graduates: grads.length, sent: false, reason: mgr ? 'manager has no phone on file' : 'no manager assigned to this zone' })
       continue
     }
-    const link = `${siteBase}/.netlify/functions/graduation-handoff?class_id=${encodeURIComponent(cls.id)}&zone=${encodeURIComponent(zone)}`
+    const link = `${siteBase}/handoff?class_id=${encodeURIComponent(cls.id)}&zone=${encodeURIComponent(zone)}`
     const n = grads.length
     const body =
       `🎓 ${n} new rep${n === 1 ? '' : 's'} just graduated on your team, ${team}!\n\n` +

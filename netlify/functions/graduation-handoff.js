@@ -60,24 +60,57 @@ export const handler = async (event) => {
 
   // Graduate = enrolled AND submitted the final test. Same filter the
   // report PDF uses, so the manager's list matches the report exactly.
-  let graduates = (cls.trainees || [])
+  const allGraduates = (cls.trainees || [])
     .filter((t) => t.enrolled !== false)
     .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     .map((t) => ({ ...t, zone: t.region || cls.region || '' }))
 
-  if (zoneFilter) graduates = graduates.filter((t) => t.zone === zoneFilter)
+  // zone given → just that team (per-manager text). No zone → all-teams
+  // view: every team that has graduates, grouped under its own header.
+  let graduates = zoneFilter
+    ? allGraduates.filter((t) => t.zone === zoneFilter)
+    : allGraduates
 
   graduates.sort((a, b) =>
     `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
   )
 
-  const headingZone = zoneFilter || cls.region || ''
-  const team = teamLabel(headingZone)
-  const accent = ZONE_COLORS[headingZone] || '#13294b'
+  // Per-team view uses that team's color; all-teams view uses brand navy
+  // for the hero and gives each team section its own colored header.
+  const accent = zoneFilter ? (ZONE_COLORS[zoneFilter] || '#13294b') : '#13294b'
+  const team = zoneFilter ? teamLabel(zoneFilter) : ''
 
-  const cards = graduates.length
-    ? graduates.map((t) => repCard(t, accent)).join('')
-    : `<div class="empty">No new graduates to hand off for this team.</div>`
+  // Group graduates by team, ordered Zone 1..4 (then any stragglers).
+  const ZONE_ORDER = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4']
+  const byZone = {}
+  for (const g of graduates) (byZone[g.zone] = byZone[g.zone] || []).push(g)
+  const zonesPresent = Object.keys(byZone).sort((a, b) => {
+    const ia = ZONE_ORDER.indexOf(a)
+    const ib = ZONE_ORDER.indexOf(b)
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+  })
+
+  let cards
+  if (!graduates.length) {
+    cards = `<div class="empty">No new graduates to hand off${zoneFilter ? ' for this team' : ''}.</div>`
+  } else if (zoneFilter) {
+    cards = graduates.map((t) => repCard(t, accent)).join('')
+  } else {
+    // All-teams: one colored section per team, e.g. HURRICANE then its
+    // graduates' contact cards, then SitSold, etc.
+    cards = zonesPresent
+      .map((z) => {
+        const color = ZONE_COLORS[z] || '#13294b'
+        const label = teamLabel(z) || 'Unassigned'
+        const n = byZone[z].length
+        const sec = byZone[z].map((t) => repCard(t, color)).join('')
+        return `<div class="team-section">
+          <div class="team-header" style="background:${color}">${esc(label)} · ${n} new rep${n === 1 ? '' : 's'}</div>
+          ${sec}
+        </div>`
+      })
+      .join('')
+  }
 
   const body = `<!doctype html>
 <html lang="en">
@@ -110,6 +143,9 @@ export const handler = async (event) => {
   .card .save { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
     background: ${accent}; color: #fff; text-decoration: none; font-weight: 800; font-size: 14px;
     padding: 11px 16px; border-radius: 12px; }
+  .team-section { margin-bottom: 22px; }
+  .team-header { color: #fff; border-radius: 12px; padding: 12px 16px; font-size: 16px; font-weight: 800;
+    letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 12px; }
   .empty { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; text-align: center; color: #64748b; }
   .foot { text-align: center; color: #94a3b8; font-size: 12px; margin: 18px 0 6px; }
 </style>
@@ -118,7 +154,13 @@ export const handler = async (event) => {
   <div class="wrap">
     <div class="hero">
       <div class="badge">🎓 New grads${team ? ` · ${esc(team)}` : ''}</div>
-      <h1>${graduates.length} new rep${graduates.length === 1 ? '' : 's'} on your team</h1>
+      <h1>${graduates.length} new rep${graduates.length === 1 ? '' : 's'}${
+        zoneFilter
+          ? ' on your team'
+          : zonesPresent.length > 1
+            ? ` across ${zonesPresent.length} teams`
+            : ''
+      }</h1>
       <p>They just graduated. Let's get them rolling.</p>
     </div>
     <div class="steps">

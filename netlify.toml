@@ -44,6 +44,16 @@
 [functions."send-hotel-noshow-alert"]
   schedule = "0 14-23 * * *"
 
+# Clean URL for the manager "new rep handoff" page. The link texted to
+# managers reads /handoff?class_id=...&zone=... but is served by the
+# dynamic graduation-handoff function (queries Supabase for that team's
+# graduates). MUST come before the SPA catch-all below, or /* swallows it.
+# status 200 = rewrite (proxy), so the address bar keeps /handoff.
+[[redirects]]
+  from = "/handoff"
+  to = "/.netlify/functions/graduation-handoff"
+  status = 200
+
 # SPA routing: any path that's not a real file goes to index.html
 # so React Router can handle it (otherwise /register/:token would 404 on a hard refresh).
 [[redirects]]
