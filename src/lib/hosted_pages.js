@@ -30,6 +30,7 @@ export const CATEGORIES = [
   'Day 1',
   'Day 2',
   'Day 3',
+  'Day 4',
   'Training overview & resources',
   'Trainee-facing (post-grad)',
   'Internal admin',
@@ -145,6 +146,25 @@ export const HOSTED_PAGES = [
       'this page while running the Day 3 practice deal homework.',
     created: '2026-05-28',
     category: 'Day 3',
+  },
+
+  // ─────────────────────── Day 4 (last teaching day) ───────────────────────
+  {
+    slug: 'finance-slides',
+    title: 'Financing slides — finance waterfall + whole-week recap',
+    url: '/finance-slides/',
+    description:
+      'Reveal.js slide deck for the last teaching day (Day 5 on a full week, Day 4 on a ' +
+      'short week — always the Friday before the final exam). Covers the financing waterfall: ' +
+      'WHO we use, each lender\'s criteria, and the ORDER we submit in — Upgrade Financial ' +
+      '(soft pull, always first) → Service Finance (manual override + cosigners) → PACE ' +
+      '(equity-based FL statute) → credit-repair fallback, plus a no-prepayment-penalty ' +
+      'explainer. Then a whole-week recap section (Day 1 psychology, Day 2 products, Day 3 ' +
+      'tools/JN, Day 4 objections, financing) that runs right before the test — gold ' +
+      'highlights = the exact testable facts. Open on the projector, F for fullscreen, ' +
+      'advance with a clicker.',
+    created: '2026-06-05',
+    category: 'Day 4',
   },
 
   // ─────────────────────── Training overview & resources ───────────────────────
