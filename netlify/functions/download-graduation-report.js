@@ -49,7 +49,7 @@ export const handler = async (event) => {
       id, region, week_start_date, week_end_date,
       locations(name, street_address, city, state, zip),
       trainees!class_id(
-        id, first_name, last_name, enrolled,
+        id, first_name, last_name, enrolled, region,
         phone, street_address, city, state, zip,
         test_attempts(submitted_at)
       )

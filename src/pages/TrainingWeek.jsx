@@ -256,22 +256,40 @@ export default function TrainingWeek() {
 // Stats panel (Phase 2 results) only renders when there's at least one
 // attempt row for this day.
 function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuestion, onSaveQuestion, onDeleteQuestion, stats }) {
+  // Collapsed by default so the page is a scannable list of 7 days that
+  // admin expands one at a time to edit. The label input + Enabled toggle
+  // stay live in the collapsed header (their clicks don't toggle the card).
+  const [open, setOpen] = useState(false)
   // Substitute {firstName} → "Sample" for the live preview so admin sees
   // a realistic example without thinking about the variable.
   const previewBody = (draft.homework_sms_body || '').replace(/\{firstName\}/g, 'Sample')
   const previewLink = (draft.homework_link_url || '').trim()
+  // One-line summary shown when collapsed so admin can scan a day's state
+  // without expanding it.
+  const summaryBits = [
+    (draft.homework_sms_body || '').trim() ? 'homework set' : 'no homework',
+    `${questions.length} quiz Q${questions.length === 1 ? '' : 's'}`,
+  ]
   return (
     <section
       className={
-        'rounded-lg border bg-white p-5 shadow-sm space-y-4 ' +
+        'rounded-lg border bg-white p-5 shadow-sm ' +
+        (open ? 'space-y-4 ' : '') +
         (draft.enabled ? 'border-emerald-300' : 'border-slate-200')
       }
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            title={open ? 'Collapse this day' : 'Expand this day'}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white hover:bg-slate-800"
+          >
+            <span className="text-[10px]">{open ? '▴' : '▾'}</span>
             Day {day.day_number}
-          </span>
+          </button>
           <input
             type="text"
             value={draft.label || ''}
@@ -293,6 +311,22 @@ function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuest
         </label>
       </header>
 
+      {/* Collapsed summary — click to expand. */}
+      {!open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-3 w-full text-left text-xs text-slate-500 hover:text-slate-700"
+        >
+          {summaryBits.join(' · ')}
+          {stats && stats.attempts && stats.attempts.length > 0 && (
+            <> · {stats.sent} sent · {stats.completed} completed</>
+          )}
+          <span className="ml-1 font-semibold text-slate-400">— click to edit</span>
+        </button>
+      )}
+
+      {open && (<>
       {/* Homework editor */}
       <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
@@ -398,6 +432,7 @@ function DayCard({ day, draft, patchDraft, saving, onSave, questions, onAddQuest
           </ol>
         )}
       </div>
+      </>)}
     </section>
   )
 }

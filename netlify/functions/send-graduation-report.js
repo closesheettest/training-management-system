@@ -73,7 +73,7 @@ export const handler = async (event) => {
       id, region, week_start_date, week_end_date,
       locations(name, street_address, city, state, zip),
       trainees!class_id(
-        id, first_name, last_name, company_email, enrolled,
+        id, first_name, last_name, company_email, enrolled, region,
         phone, street_address, city, state, zip,
         repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at,
         attendance(attendance_date, confirmed),

@@ -40,6 +40,22 @@ export function formatAddress(street, city, state, zip) {
   return [street, cityStateZip].filter(Boolean).join(', ')
 }
 
+// Zone → team name. Mirrors src/lib/zones.js ZONE_TEAMS (kept in sync by
+// hand — this is a Netlify function and can't import from src/). The team
+// is stored on trainees.region as "Zone 1".."Zone 4".
+const ZONE_TEAMS = {
+  'Zone 1': 'SQUAD',
+  'Zone 2': 'SitSold',
+  'Zone 3': 'SHARKS',
+  'Zone 4': 'HURRICANE',
+}
+
+export function teamLabel(zone) {
+  if (!zone) return ''
+  const team = ZONE_TEAMS[zone]
+  return team ? `${team} (${zone})` : zone
+}
+
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -68,10 +84,12 @@ export function buildReportHtml(cls) {
     .map((t, i) => {
       const phone = formatPhone(t.phone)
       const address = formatAddress(t.street_address, t.city, t.state, t.zip)
+      const team = teamLabel(t.region)
       return `
         <tr>
           <td style="text-align:center;color:#94a3b8;width:32px;">${i + 1}</td>
           <td><div style="font-weight:600;">${esc(t.first_name)} ${esc(t.last_name)}</div></td>
+          <td style="white-space:nowrap;">${team ? esc(team) : '<span style="color:#94a3b8;">—</span>'}</td>
           <td style="white-space:nowrap;">${phone ? esc(phone) : '<span style="color:#94a3b8;">—</span>'}</td>
           <td style="color:#334155;">${esc(address) || '<span style="color:#94a3b8;">—</span>'}</td>
         </tr>
@@ -109,12 +127,13 @@ export function buildReportHtml(cls) {
     <thead>
       <tr>
         <th style="text-align:center;width:32px;">#</th>
-        <th style="width:30%;">Name</th>
-        <th style="width:22%;">Phone</th>
+        <th style="width:26%;">Name</th>
+        <th style="width:18%;">Team</th>
+        <th style="width:20%;">Phone</th>
         <th>Home address</th>
       </tr>
     </thead>
-    <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
+    <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">No enrolled trainees</td></tr>'}</tbody>
   </table>
 
   <p class="footer">Generated ${new Date().toLocaleString('en-US')} · U.S. Shingle &amp; Metal Training System</p>
