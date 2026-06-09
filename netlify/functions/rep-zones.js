@@ -53,7 +53,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data, error } = await supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, phone')
+    .select('first_name, last_name, jobnimbus_id, region, phone, rep_level')
     .eq('is_active_sales_rep', true)
     .neq('rep_level', 'non_field')
     .order('last_name', { ascending: true })
@@ -69,6 +69,7 @@ export const handler = async (event) => {
     jobnimbus_id: t.jobnimbus_id || null,
     zone: t.region || null,
     phone: t.phone || null,
+    rep_level: t.rep_level || null,   // 'junior' | 'senior'
   }))
 
   return cors(
