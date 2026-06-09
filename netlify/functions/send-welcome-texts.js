@@ -34,12 +34,20 @@ import { renderTemplate } from './_templates.js'
 const MAX_DAYS = 7
 const MIN_HOURS_BETWEEN = 18
 
+// Native Netlify SCHEDULED function (daily 14:00 UTC = 10 AM EDT) — same
+// model as the leaderboard texts, so it no longer depends on cron-job.org +
+// a secret (which kept getting the wrong secret / auto-disabled). Auth is now
+// permissive like the leaderboard crons: a WRONG secret is rejected, but
+// scheduled runs (and no-secret calls) are allowed. Harm is bounded — the
+// graduation gate + 18h guard mean at most a recent grad gets one extra text.
+export const config = { schedule: '0 14 * * *' }
+
 export const handler = async (event) => {
   const provided =
-    event.headers['x-cron-secret'] ||
-    event.headers['X-Cron-Secret'] ||
-    event.queryStringParameters?.secret
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+    event?.headers?.['x-cron-secret'] ||
+    event?.headers?.['X-Cron-Secret'] ||
+    event?.queryStringParameters?.secret
+  if (provided && process.env.CRON_SECRET && provided !== process.env.CRON_SECRET) {
     return json(401, { error: 'Unauthorized' })
   }
 

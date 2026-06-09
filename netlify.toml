@@ -60,3 +60,10 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Welcome drip — native Netlify scheduled function (daily 10 AM EDT). Texts
+# the current graduating class (final test in last 7 days) one /welcome link
+# per day for 7 days, then stops. Replaces the cron-job.org trigger. Mirrors
+# export config.schedule in the function file.
+[functions."send-welcome-texts"]
+  schedule = "0 14 * * *"
