@@ -87,20 +87,19 @@ export const handler = async (event) => {
     .not('phone', 'is', null)
     .not('region', 'is', null)
     .lt('welcome_texts_sent', MAX_DAYS)
+    // Fairness: never-texted (null) first, then longest-waiting — so nobody
+    // starves at the tail if a run can't finish everyone.
+    .order('last_welcome_text_at', { ascending: true, nullsFirst: true })
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 
-  const results = []
-  for (const t of trainees || []) {
-    if (t.last_welcome_text_at) {
-      const lastMs = new Date(t.last_welcome_text_at).getTime()
-      if (lastMs > cutoffMs) continue // already texted within the last 18h
-    }
+  // Skip anyone texted within the last 18h (double-send guard).
+  const due = (trainees || []).filter(
+    (t) => !(t.last_welcome_text_at && new Date(t.last_welcome_text_at).getTime() > cutoffMs),
+  )
 
-    // Per-zone Zoom — fall back to "(coming soon)" if this zone's
-    // manager hasn't sent Neal a link yet. The user-facing string here
-    // is what shows up in the SMS where {salesMeetingZoom} appears.
+  // Process ONE trainee → render + (send + stamp). Returns a result row.
+  async function processOne(t) {
     const zoneZoom = zoomByRegion.get(t.region) || '(Zoom coming soon — check the dashboard)'
-
     const dayNumber = (t.welcome_texts_sent || 0) + 1
     const message = await renderTemplate(supabase, 'welcome_drip', {
       firstName: t.first_name || 'there',
@@ -109,39 +108,34 @@ export const handler = async (event) => {
       salesMeetingZoom: zoneZoom,
       region: t.region,
     })
-
-    if (dryRun) {
-      results.push({
-        trainee_id: t.id,
-        dry_run: true,
-        day_number: dayNumber,
-        preview: message,
-      })
-      continue
-    }
+    if (dryRun) return { trainee_id: t.id, dry_run: true, day_number: dayNumber, preview: message }
 
     const sms = await sendSmsViaGhl(t.phone, message, {
       firstName: t.first_name || 'Trainee',
       lastName: 'Welcome',
     })
-    if (!sms.ok) {
-      results.push({ trainee_id: t.id, ok: false, error: sms.error, step: sms.step })
-      continue
-    }
+    if (!sms.ok) return { trainee_id: t.id, ok: false, error: sms.error, step: sms.step }
 
     await supabase
       .from('trainees')
-      .update({
-        welcome_texts_sent: dayNumber,
-        last_welcome_text_at: new Date().toISOString(),
-      })
+      .update({ welcome_texts_sent: dayNumber, last_welcome_text_at: new Date().toISOString() })
       .eq('id', t.id)
+    return { trainee_id: t.id, ok: true, day_number: dayNumber }
+  }
 
-    results.push({ trainee_id: t.id, ok: true, day_number: dayNumber })
+  // Send in PARALLEL batches so a full class clears well within the function
+  // timeout (the old one-by-one loop timed out after a handful, starving the
+  // rest of the list — eligible reps sat at 0 texts forever).
+  const results = []
+  const CONCURRENCY = 20
+  for (let i = 0; i < due.length; i += CONCURRENCY) {
+    const batch = due.slice(i, i + CONCURRENCY)
+    results.push(...(await Promise.all(batch.map(processOne))))
   }
 
   return json(200, {
     candidates: (trainees || []).length,
+    due: due.length,
     fired: results.filter((r) => r.ok || r.dry_run).length,
     results,
   })
