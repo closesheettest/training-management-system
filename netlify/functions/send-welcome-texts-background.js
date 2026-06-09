@@ -75,20 +75,35 @@ export const handler = async (event) => {
     }
   }
 
-  // Pull candidate reps. Trigger changed (2026-06-02): we now key off
-  // region (zone assigned by trainer), not test_attempts.submitted_at.
+  // GRADUATION WINDOW — the drip is ONLY for reps who passed the final test
+  // in the last 7 days (one welcome/day for 7 days after graduation, then it
+  // stops until the next class graduates). Without this it swept in every
+  // zoned rep under 7 texts (~86 people, incl. months-old grads). The
+  // graduation signal is a test_attempts row (no pass/fail stored — taking
+  // the final = graduating).
+  const gradSince = new Date(nowMs - MAX_DAYS * 24 * 3600 * 1000).toISOString()
+  const { data: attempts, error: aErr } = await supabase
+    .from('test_attempts')
+    .select('trainee_id, submitted_at')
+    .gte('submitted_at', gradSince)
+  if (aErr) return json(500, { error: `Supabase test_attempts: ${aErr.message}` })
+  const recentGradIds = [...new Set((attempts || []).map((a) => a.trainee_id).filter(Boolean))]
+  if (recentGradIds.length === 0) {
+    return json(200, { candidates: 0, due: 0, fired: 0, note: 'no graduations in the last 7 days' })
+  }
+
+  // Candidate reps: recent graduates who still owe welcome texts.
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
       'id, first_name, phone, region, welcome_texts_sent, last_welcome_text_at',
     )
+    .in('id', recentGradIds)
     .eq('enrolled', true)
     .is('declined_at', null)
     .not('phone', 'is', null)
-    .not('region', 'is', null)
     .lt('welcome_texts_sent', MAX_DAYS)
-    // Fairness: never-texted (null) first, then longest-waiting — so nobody
-    // starves at the tail if a run can't finish everyone.
+    // Fairness: never-texted (null) first, then longest-waiting.
     .order('last_welcome_text_at', { ascending: true, nullsFirst: true })
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 
