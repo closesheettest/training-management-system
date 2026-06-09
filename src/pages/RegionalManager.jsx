@@ -178,9 +178,11 @@ function Leaderboard({ myZone }) {
   const [period, setPeriod] = useState('week')
   const [insp, setInsp] = useState(null)
   const [sales, setSales] = useState(null)
+  const [openInsp, setOpenInsp] = useState(null)   // zone string | null
+  const [openSales, setOpenSales] = useState(null)
   useEffect(() => {
     let cancelled = false
-    setInsp(null); setSales(null)
+    setInsp(null); setSales(null); setOpenInsp(null); setOpenSales(null)
     fetch(LB_ORIGIN + 'zone-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setInsp(d.zones) }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
@@ -188,10 +190,12 @@ function Leaderboard({ myZone }) {
     return () => { cancelled = true }
   }, [period])
 
-  const card = (z, i, kind) => {
+  const card = (z, i, kind, openZone, setOpen) => {
     const mine = z.zone === myZone
+    const isOpen = openZone === z.zone
     return (
-      <div key={z.zone} className="rounded-lg p-3 text-white"
+      <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
+        className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
         style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
         <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{LB_MEDALS[i] ? LB_MEDALS[i] + ' ' : ''}{lbOrdinal(z.rank)} Place</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
@@ -200,12 +204,73 @@ function Leaderboard({ myZone }) {
           <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : 'signed'}
           {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
         </div>
+        <div className="mt-1 text-[10px] underline opacity-90">{isOpen ? '▾ Hide' : '▸ Details'}</div>
+      </button>
+    )
+  }
+
+  // Inspections detail: reps + their signed counts.
+  const inspDetail = (z) => {
+    const reps = z.reps || []
+    if (!reps.length) return <div className="text-xs text-slate-300/70">No inspections logged yet.</div>
+    return (
+      <div className="divide-y divide-white/10">
+        {reps.map((r) => (
+          <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
+            <span className="truncate">{r.name}</span>
+            <span className="font-bold">{r.count}</span>
+          </div>
+        ))}
       </div>
     )
   }
-  const grid = (zones, kind) => zones === null
-    ? <div className="text-xs text-slate-300/70">Loading…</div>
-    : <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind))}</div>
+  // Sales detail: group deals by rep (ranked by $), customers nested.
+  const salesDetail = (z) => {
+    const deals = z.deals || []
+    if (!deals.length) return <div className="text-xs text-slate-300/70">No sales logged yet.</div>
+    const byRep = {}, order = []
+    deals.forEach((d) => {
+      const k = d.rep || '—'
+      if (!byRep[k]) { byRep[k] = { rep: k, total: 0, deals: [] }; order.push(k) }
+      byRep[k].total += Number(d.amount) || 0
+      byRep[k].deals.push(d)
+    })
+    const groups = order.map((k) => byRep[k]).sort((a, b) => b.total - a.total)
+    return (
+      <div className="space-y-2">
+        {groups.map((g) => (
+          <div key={g.rep}>
+            <div className="flex items-center justify-between text-sm font-bold">
+              <span className="truncate">{g.rep}</span>
+              <span>${g.total.toLocaleString()}</span>
+            </div>
+            {g.deals.sort((a, b) => b.amount - a.amount).map((d, j) => (
+              <div key={j} className="flex items-center justify-between pl-3 text-xs opacity-90">
+                <span className="truncate">🏠 {d.customer}</span>
+                <span>${(Number(d.amount) || 0).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const board = (zones, kind, openZone, setOpen, detailFn) => {
+    if (zones === null) return <div className="text-xs text-slate-300/70">Loading…</div>
+    const openZ = zones.find((z) => z.zone === openZone)
+    return (
+      <>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind, openZone, setOpen))}</div>
+        {openZ && (
+          <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
+            <div className="mb-1 text-xs font-bold text-amber-200">{openZ.team} · {openZ.zone}</div>
+            {detailFn(openZ)}
+          </div>
+        )}
+      </>
+    )
+  }
 
   return (
     <section className="mt-6">
@@ -216,10 +281,10 @@ function Leaderboard({ myZone }) {
           <button onClick={() => setPeriod('month')} className={'px-3 py-1 ' + (period === 'month' ? 'bg-amber-400 text-black' : 'text-slate-200')}>This Month</button>
         </div>
       </div>
-      <div className="mb-1 text-xs font-semibold text-slate-200/70">🔍 Inspections signed</div>
-      {grid(insp, 'inspections')}
-      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales</div>
-      {grid(sales, 'sales')}
+      <div className="mb-1 text-xs font-semibold text-slate-200/70">🔍 Inspections signed — tap a team for reps</div>
+      {board(insp, 'inspections', openInsp, setOpenInsp, inspDetail)}
+      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales — tap a team for the deals</div>
+      {board(sales, 'sales', openSales, setOpenSales, salesDetail)}
     </section>
   )
 }
