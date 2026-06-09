@@ -133,6 +133,8 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      <Leaderboard myZone={manager.region} />
+
       <QuickActions manager={manager} token={token} reps={reps} />
 
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
@@ -160,6 +162,65 @@ function ShellFrame({ children }) {
       <div className="h-1 bg-[#b8324f]" />
       <div className="mx-auto max-w-3xl px-4 py-8">{children}</div>
     </div>
+  )
+}
+
+// ── Leaderboard ────────────────────────────────────────────────────
+// Same team standings as the Sales Rep Dashboard (inspections + sales),
+// fed by the CCG zone-leaderboard / zone-sales-leaderboard functions, with
+// a This Week / This Month toggle. The manager's own zone is gold-outlined.
+const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
+const LB_ZONE_COLOR = { 'Zone 1': '#dc2626', 'Zone 2': '#2563eb', 'Zone 3': '#16a34a', 'Zone 4': '#ea580c' }
+const LB_MEDALS = ['🥇', '🥈', '🥉', '']
+function lbOrdinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]) }
+
+function Leaderboard({ myZone }) {
+  const [period, setPeriod] = useState('week')
+  const [insp, setInsp] = useState(null)
+  const [sales, setSales] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    setInsp(null); setSales(null)
+    fetch(LB_ORIGIN + 'zone-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d && d.ok) setInsp(d.zones) }).catch(() => {})
+    fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d && d.ok) setSales(d.zones) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [period])
+
+  const card = (z, i, kind) => {
+    const mine = z.zone === myZone
+    return (
+      <div key={z.zone} className="rounded-lg p-3 text-white"
+        style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
+        <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{LB_MEDALS[i] ? LB_MEDALS[i] + ' ' : ''}{lbOrdinal(z.rank)} Place</div>
+        <div className="text-base font-extrabold leading-tight">{z.team}</div>
+        <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
+        <div className="mt-1 text-xs font-bold">
+          <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : 'signed'}
+          {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
+        </div>
+      </div>
+    )
+  }
+  const grid = (zones, kind) => zones === null
+    ? <div className="text-xs text-slate-300/70">Loading…</div>
+    : <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind))}</div>
+
+  return (
+    <section className="mt-6">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">🏆 Team Standings</h2>
+        <div className="flex overflow-hidden rounded-md border border-white/20 text-xs font-semibold">
+          <button onClick={() => setPeriod('week')} className={'px-3 py-1 ' + (period === 'week' ? 'bg-amber-400 text-black' : 'text-slate-200')}>This Week</button>
+          <button onClick={() => setPeriod('month')} className={'px-3 py-1 ' + (period === 'month' ? 'bg-amber-400 text-black' : 'text-slate-200')}>This Month</button>
+        </div>
+      </div>
+      <div className="mb-1 text-xs font-semibold text-slate-200/70">🔍 Inspections signed</div>
+      {grid(insp, 'inspections')}
+      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales</div>
+      {grid(sales, 'sales')}
+    </section>
   )
 }
 
