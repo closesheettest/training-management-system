@@ -30,12 +30,19 @@ import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
 import { renderEmailTemplate } from './_templates.js'
 
+// Native Netlify scheduled function (daily 14:00 UTC = 10 AM EDT) — no longer
+// depends on cron-job.org + a secret (which kept failing 401 / getting
+// disabled). A WRONG secret is still rejected; scheduled / no-secret runs are
+// allowed. Idempotent via itinerary_email_sent_at, so a daily run never
+// double-sends.
+export const config = { schedule: '0 14 * * *' }
+
 export const handler = async (event) => {
   const provided =
-    event.headers['x-cron-secret'] ||
-    event.headers['X-Cron-Secret'] ||
-    event.queryStringParameters?.secret
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+    event?.headers?.['x-cron-secret'] ||
+    event?.headers?.['X-Cron-Secret'] ||
+    event?.queryStringParameters?.secret
+  if (provided && process.env.CRON_SECRET && provided !== process.env.CRON_SECRET) {
     return json(401, { error: 'Unauthorized' })
   }
 

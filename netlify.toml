@@ -67,3 +67,13 @@
 # export config.schedule in the function file.
 [functions."send-welcome-texts"]
   schedule = "0 14 * * *"
+
+# Registration follow-ups — native Netlify scheduled (daily 10 AM EDT).
+# Replaces the cron-job.org trigger. Idempotent (registration_followup_*_sent_at).
+[functions."send-registration-followups"]
+  schedule = "0 14 * * *"
+
+# Itinerary emails — native Netlify scheduled (daily 10 AM EDT). Replaces the
+# cron-job.org trigger. Idempotent (itinerary_email_sent_at).
+[functions."send-itinerary-emails"]
+  schedule = "0 14 * * *"

@@ -34,12 +34,19 @@ const FOLLOWUP_1_DELAY_HOURS = 24
 const FOLLOWUP_2_DELAY_HOURS = 48
 const FOLLOWUP_2_CLASS_WINDOW_DAYS = 7
 
+// Native Netlify scheduled function (daily 14:00 UTC = 10 AM EDT) — no longer
+// depends on cron-job.org + a secret (which kept failing 401 / getting
+// disabled). A WRONG secret is still rejected; scheduled / no-secret runs are
+// allowed. Idempotent via registration_followup_*_sent_at, so a daily run
+// never double-sends.
+export const config = { schedule: '0 14 * * *' }
+
 export const handler = async (event) => {
   const provided =
-    event.headers['x-cron-secret'] ||
-    event.headers['X-Cron-Secret'] ||
-    event.queryStringParameters?.secret
-  if (!process.env.CRON_SECRET || provided !== process.env.CRON_SECRET) {
+    event?.headers?.['x-cron-secret'] ||
+    event?.headers?.['X-Cron-Secret'] ||
+    event?.queryStringParameters?.secret
+  if (provided && process.env.CRON_SECRET && provided !== process.env.CRON_SECRET) {
     return json(401, { error: 'Unauthorized' })
   }
 
