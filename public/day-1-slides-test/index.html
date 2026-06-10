@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 1 — TEST (condensed · Cardone style)</title>
+<!--
+  DAY 1 — CONDENSED + CARDONE-STYLE TEST DECK.
+  Hidden test URL: /day-1-slides-test/  (not linked anywhere, doesn't touch
+  the live /day-1-slides/). Condenses the 171-slide original to ~50 power
+  slides — same arc, same scripts, same income numbers, far less reading.
+  When approved, this file's contents replace public/day-1-slides/index.html.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#F5B400; --red:#E0203B; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  html,body{background:var(--ink);}
+  .reveal{font-family:'Oswald',sans-serif;}
+  .reveal .slides{text-align:center;}
+  .reveal section{color:#fff;}
+  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.15), transparent 60%), var(--ink);}
+
+  .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.94;letter-spacing:.005em;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
+  .reveal h1{font-size:4.4rem;color:#fff;}
+  .reveal h2{font-size:2.9rem;color:#fff;}
+  .reveal h3.kick,.reveal .kicker{font-family:'Oswald';font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);font-size:.95rem;margin-bottom:1.1rem;}
+  .gold{color:var(--gold);} .red{color:var(--red);} .smoke{color:var(--smoke);}
+  .reveal .tag{font-family:'Oswald';font-weight:500;font-size:1.3rem;color:var(--smoke);margin-top:1.2rem;line-height:1.3;}
+  .reveal .tag .gold{color:var(--gold);}
+
+  .reveal .mega{font-family:'Anton';font-size:8rem;line-height:.85;color:var(--gold);text-shadow:0 6px 30px rgba(245,180,0,.25);}
+  .reveal .mega.white{color:#fff;}
+  .reveal .sub{font-family:'Oswald';font-weight:500;font-size:1.4rem;color:#fff;margin-top:.8rem;letter-spacing:.02em;}
+
+  .reveal .pill{display:inline-block;border:2px solid var(--red);color:#fff;font-family:'Anton';text-transform:uppercase;font-size:2.2rem;padding:.28em .75em;margin:.3em;border-radius:.15em;}
+
+  /* quote / script */
+  .reveal .quote{font-family:'Oswald';font-weight:500;font-style:italic;font-size:1.7rem;color:#fff;max-width:24ch;margin:.4rem auto 0;line-height:1.25;}
+  .reveal .quote.sm{font-size:1.35rem;max-width:34ch;}
+  .reveal .quote .gold{font-style:normal;}
+  .reveal .why{font-family:'Oswald';font-weight:500;font-size:1rem;color:var(--smoke);margin-top:1rem;max-width:42ch;margin-left:auto;margin-right:auto;}
+  .reveal .why b{color:var(--gold);font-weight:700;}
+
+  /* stat cards + math rows */
+  .reveal .row{display:flex;gap:.5rem;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:1.2rem;}
+  .reveal .card{border:2px solid #3a3a3a;border-radius:.6rem;padding:.7rem 1rem;min-width:150px;}
+  .reveal .card.g{border-color:var(--gold);background:rgba(245,180,0,.1);}
+  .reveal .card .n{font-family:'Anton';font-size:2.6rem;line-height:1;color:#fff;}
+  .reveal .card.g .n{color:var(--gold);}
+  .reveal .card .l{font-family:'Oswald';font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--smoke);margin-top:.3rem;}
+  .reveal .op{font-family:'Anton';font-size:2rem;color:var(--smoke);}
+
+  /* 4-up grid (drivers, recap) */
+  .reveal .grid{display:grid;gap:.7rem;max-width:60rem;margin:1.1rem auto 0;}
+  .reveal .grid.c2{grid-template-columns:1fr 1fr;}
+  .reveal .grid.c3{grid-template-columns:repeat(3,1fr);}
+  .reveal .box{border:1px solid #333;border-left:4px solid var(--gold);border-radius:.4rem;padding:.7rem .9rem;text-align:left;}
+  .reveal .box b{color:var(--gold);font-family:'Oswald';font-weight:700;font-size:1.05rem;display:block;}
+  .reveal .box span{font-family:'Oswald';font-weight:400;font-size:.85rem;color:var(--smoke);}
+
+  .reveal ol.recap{display:inline-block;text-align:left;font-family:'Oswald';font-weight:500;font-size:1.25rem;color:#fff;line-height:1.55;margin-top:.8rem;}
+  .reveal ol.recap li{margin:.1em 0;}
+  .reveal ol.recap b{color:var(--gold);}
+
+  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.65rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
+  .preview-banner{position:fixed;top:0;left:0;right:0;z-index:60;background:var(--red);color:#fff;font-family:'Oswald';font-weight:700;letter-spacing:.15em;text-transform:uppercase;font-size:.68rem;text-align:center;padding:4px;}
+</style>
+</head>
+<body>
+<div class="preview-banner">TEST DECK — condensed + Cardone style — not the live Day 1</div>
+<div class="reveal"><div class="slides">
+
+  <!-- ═══════════ A · WHO WE ARE ═══════════ -->
+  <section><div class="kicker">U.S. Shingle &amp; Metal · Retail Training</div><h1>DAY <span class="gold">ONE</span></h1><div class="tag">Sign in at the kiosk — then watch your phone for the onboarding text.</div></section>
+
+  <section><h3 class="kick">Where we started</h3><div class="mega white">15<span class="gold">+</span></div><div class="sub">YEARS IN BUSINESS</div></section>
+
+  <section><h3 class="kick">Hank Sr. &amp; Hank Jr.</h3><div class="mega">$3M</div><div class="sub">A YEAR · GREAT REPUTATION</div></section>
+
+  <section><h1>THEN<br><span class="red">COLLIER COUNTY</span><br>GOT HIT.</h1></section>
+
+  <section><h3 class="kick">24 months later · all of Florida</h3><div class="mega">$30M<span class="white">+</span></div><div class="sub">SAME PLAYBOOK. BIGGER STORM.</div></section>
+
+  <section><h2>NOW LICENSED IN<br><span class="gold">CALIFORNIA</span></h2><div class="tag">We're just getting started.</div></section>
+
+  <!-- ═══════════ B · TWO RULES ═══════════ -->
+  <section data-background-color="#1a0509"><h3 class="kick">Zero grace · we credit our success to this</h3><div><span class="pill">Lying</span><span class="pill">Gossip</span></div></section>
+
+  <section><h2 class="red">LYING</h2><div class="tag">A character call — <span class="gold">not</span> a coachable mistake. Choose right, every time.</div></section>
+
+  <section><h2 class="red">GOSSIP</h2><div class="tag">Venting to people who <span class="gold">can't fix it.</span> Real problems go to people who can.</div></section>
+
+  <!-- ═══════════ C · THE CODE ═══════════ -->
+  <section><h1>WE<br><span class="gold">CRACKED</span><br>THE CODE.</h1><div class="tag">How do you move someone toward what they need — when they don't think they need it?</div></section>
+
+  <section><h3 class="kick">Freedman &amp; Fraser · 1966</h3><h2 class="gold">FOOT-IN-<br>THE-DOOR</h2><div class="tag">Small sticker first → then the giant lawn billboard.</div></section>
+
+  <section><h3 class="kick">The result</h3><div class="row">
+    <div class="card g"><div class="n">76%</div><div class="l">said yes — after the small sticker</div></div>
+    <div class="op">vs</div>
+    <div class="card"><div class="n">17%</div><div class="l">asked cold</div></div>
+  </div><div class="tag"><span class="gold">4.5×</span> — from one small yes first.</div></section>
+
+  <section><h2>THE SMALL YES<br>REWIRES HOW THEY<br><span class="gold">SEE THEMSELVES.</span></h2>
+    <div class="grid c2">
+      <div class="box"><b>Self-Perception</b><span>"I'm someone who takes action on my home."</span></div>
+      <div class="box"><b>Cognitive Dissonance</b><span>Saying no now means step one was meaningless.</span></div>
+      <div class="box"><b>Commitment &amp; Consistency</b><span>Public · voluntary · written = sticky.</span></div>
+      <div class="box"><b>Sunk Cost</b><span>Walking away feels like losing what they put in.</span></div>
+    </div></section>
+
+  <!-- ═══════════ D · EFFICIENCY / TECH ═══════════ -->
+  <section><h3 class="kick">Goal #1</h3><h1>MAKE IT<br><span class="gold">EFFICIENT.</span></h1><div class="tag">Door-to-door isn't dead — it's just not as effective as it was.</div></section>
+
+  <section><h3 class="kick">The old 50-30 way</h3><div class="row">
+    <div class="card"><div class="n">50</div><div class="l">old roofs spotted</div></div>
+    <div class="op">→</div>
+    <div class="card g"><div class="n">20</div><div class="l">actually owner-occupied</div></div>
+  </div><div class="tag"><span class="gold">60% lost</span> — before you even knock.</div></section>
+
+  <section><h1>SO WE BUILT<br>THE <span class="gold">TECH.</span></h1>
+    <div class="grid c2">
+      <div class="box"><b>Owner-occupied</b><span>Pre-scrubbed against the property appraiser.</span></div>
+      <div class="box"><b>Roofs 15 yrs+</b><span>By permit / build date — not a guess from the curb.</span></div>
+    </div></section>
+
+  <section><h1 style="font-size:3.4rem;">EVERY DOT =<br><span class="gold">PRE-QUALIFIED</span></h1><div class="tag">📍 No renters. No new builds. No wasted stops.</div></section>
+
+  <!-- ═══════════ E · THE 15-YEAR LETTER ═══════════ -->
+  <section><h3 class="kick">Florida · the 15-year letter</h3><div class="quote">"Change your roof — <span class="gold">or we're dropping you.</span>"</div><div class="why">Dropped → the mortgage company forces its own policy on the home. Their terms. Their price.</div></section>
+
+  <section><h3 class="kick">What forced-place does to their bill</h3><div class="row">
+    <div class="card"><div class="n">$2,200</div><div class="l">/yr · before</div></div>
+    <div class="op">→</div>
+    <div class="card g" style="border-color:var(--red);background:rgba(224,32,59,.12);"><div class="n red">$8,000</div><div class="l">/yr · forced-place</div></div>
+  </div><div class="tag"><span class="gold">3–4×</span> — overnight.</div></section>
+
+  <section data-background-color="#1a0509"><h1>AND NONE OF<br>THEIR <span class="gold">STUFF</span><br>IS INSURED.</h1><div class="tag">Forced-place covers the structure only. Not the furniture. Not the photos.</div></section>
+
+  <!-- ═══════════ F · THE SMALL YES PITCH ═══════════ -->
+  <section><h1>THE OLD PITCH<br>IS <span class="red">DEAD.</span></h1><div class="tag">"Let us inspect your roof and get insurance to pay." → two problems now.</div></section>
+
+  <section><h3 class="kick">Problem 1 · the media narrative</h3><div class="quote sm">"Your rates went up because <span class="gold">roofing companies</span> keep filing claims."</div><div class="why">Not what's really driving it — but in media, <b>what's real matters less than what sells.</b></div></section>
+
+  <section><h3 class="kick">Problem 2</h3><h2>"ROOFER" =<br>THE WHOLE <span class="gold">STAIRCASE</span></h2><div class="tag">Insurance fight, claim, rates, contractor in the yard — that's not a small yes.</div></section>
+
+  <section><h3 class="kick">The reframe</h3><h1>WE'RE THE<br><span class="gold">ALLY.</span></h1><div class="tag">We showed up <span class="gold">before the letter</span> — to hand them ammunition against it.</div></section>
+
+  <section><h3 class="kick">A small yes must do 3 things</h3>
+    <div class="grid c3">
+      <div class="box"><b>Cost nothing</b><span>No money. No risk.</span></div>
+      <div class="box"><b>Solve THEIR problem</b><span>Not pitch ours.</span></div>
+      <div class="box"><b>Be an added option</b><span>Never take away what they have.</span></div>
+    </div></section>
+
+  <section><h3 class="kick">The ask</h3><div class="quote sm">"Would you want <em>just</em> the option of paying out of pocket — or the <span class="gold">added option</span> of an inspection report that makes them leave you alone?"</div></section>
+
+  <section data-background-color="#1a0509"><h3 class="kick">Guéguen · roughly doubles compliance</h3><div class="quote">"But you are <span class="gold">free</span> to accept or refuse."</div><div class="why">Removes the pressure response. Reinforces autonomy — so they're <b>more</b> likely to say yes.</div></section>
+
+  <!-- ═══════════ G · RESULTS ═══════════ -->
+  <section><div class="mega">30–50<span class="white">%</span></div><div class="sub">SAY YES TO THE INSPECTION</div><div class="tag">New rep ≈ 30% · trained rep ≈ 50%. Same ask — different reps.</div></section>
+
+  <section><h2>THE CHALLENGE ISN'T<br>THE YES — IT'S<br><span class="gold">CATCHING THEM HOME.</span></h2><div class="tag">You may talk to only 10–15 people all day. That's the job.</div></section>
+
+  <section data-background-color="#1a0509"><h1>NOTHING REPLACES<br><span class="gold">YOUR EFFORT.</span></h1></section>
+
+  <section><h3 class="kick">What's actually on the roofs</h3><div class="row">
+    <div class="card g"><div class="n">58%</div><div class="l">storm damage</div></div>
+    <div class="card"><div class="n">32%</div><div class="l">wear &amp; tear</div></div>
+    <div class="card"><div class="n">10%</div><div class="l">no damage</div></div>
+  </div><div class="tag">Three paths. Every one pays.</div></section>
+
+  <!-- ═══════════ H · PATH 1 · PA / 401(k) ═══════════ -->
+  <section><h3 class="kick">Storm path · 58%</h3><h1>ENTER THE<br><span class="gold">PUBLIC ADJUSTER.</span></h1><div class="tag">A licensed pro on the <span class="gold">homeowner's</span> side. Your job ends at the inspection.</div></section>
+
+  <section><h2>YOU EARN WHEN IT'S<br><span class="gold">APPROVED + INSTALLED.</span></h2><div class="tag">A 401(k) on steroids — each inspection is a deposit toward a check.</div></section>
+
+  <section><h3 class="kick">The math · starts at 10 inspections / wk</h3><div class="row">
+    <div class="card"><div class="n">10</div><div class="l">inspections</div></div>
+    <div class="op">×</div>
+    <div class="card"><div class="n">58%</div><div class="l">storm</div></div>
+    <div class="op">×</div>
+    <div class="card"><div class="n">90%</div><div class="l">PA approves</div></div>
+    <div class="op">=</div>
+    <div class="card g"><div class="n">~5</div><div class="l">paid / week</div></div>
+  </div><div class="why"><b>Why 90%?</b> The PA only takes claims they believe they can win.</div></section>
+
+  <section><h3 class="kick">Stack the week →</h3><div class="row">
+    <div class="card g"><div class="n">~$3,900</div><div class="l">/wk · 5 × $750</div></div>
+    <div class="op">× 52</div>
+    <div class="card g"><div class="n">~$203K</div><div class="l">/year · to YOU</div></div>
+  </div><div class="tag">$15K avg claim × your 5% — at the <span class="gold">low</span> floor of 10/wk.</div></section>
+
+  <section data-background-color="#1a0509"><h1>THAT'S A 401(k)<br>THAT PAID YOU<br><span class="gold">THIS YEAR.</span></h1><div class="tag">And that's only the storm-damage 58%.</div></section>
+
+  <!-- ═══════════ I · NO-DAMAGE 10% · REFERRALS ═══════════ -->
+  <section><h3 class="kick">No damage · 10%</h3><h2>HAND THEM THE<br><span class="gold">CERTIFICATE.</span></h2><div class="tag">Proof for the insurer: "You can't drop me. Here's the paper." We solved a real fear — free.</div></section>
+
+  <section><h3 class="kick">Who else in their life needs that?</h3><div class="row">
+    <div class="card"><div class="n">1</div><div class="l">home you inspected</div></div>
+    <div class="op">→</div>
+    <div class="card g"><div class="n">10×</div><div class="l">referrals — without leaving your seat</div></div>
+  </div><div class="tag">One yes multiplies. They do the selling for you.</div></section>
+
+  <!-- ═══════════ J · PATH 2 · WEAR & TEAR / GO-BACK ═══════════ -->
+  <section><h3 class="kick">Wear &amp; tear · 32%</h3><h1>NOT ONE HAS<br>SAID <span class="gold">NO.</span></h1><div class="tag">The second yes = a retail appointment at the kitchen table. Zero rejections to date.</div></section>
+
+  <section><h1>THE <span class="gold">GO-BACK.</span></h1><div class="tag">Every line earns a small yes first — so by the ask, they've agreed <span class="gold">4 times.</span></div></section>
+
+  <section><div class="grid c2" style="max-width:64rem;">
+    <div class="box"><b>Yes #1 · Anchor</b><span>"You don't plan on moving in the next year or two — right?" → it's their problem now.</span></div>
+    <div class="box"><b>Yes #2 · Ethics</b><span>"A company's ethics matter to you — right?" Nobody says no. That's the trap.</span></div>
+  </div></section>
+
+  <section><h3 class="kick">Yes #3 · the trap springs</h3><div class="quote sm">"I'd <em>love</em> to give you a report saying your roof has 5 years left — but that'd be <span class="gold">unethical</span>, and we don't operate that way. You understand, right?"</div><div class="why">They just told us ethics matter — so they can't ask for a fake certificate later.</div></section>
+
+  <section><h3 class="kick">Walk the report</h3><div class="quote sm">"This isn't a scare tactic… although <span class="gold">the leak you don't see is the worst kind.</span>"</div><div class="why">Calibrated honesty disarms them. The leak line plants urgency without selling it.</div></section>
+
+  <section><h3 class="kick">Yes #4 · THE yes</h3><div class="quote sm">"Since you're not moving — you'd agree this is something you'll have to <span class="gold">address</span> at some point soon, right?"</div><div class="why">Now the only question left is <b>when.</b></div></section>
+
+  <section><h3 class="kick">Why now, not later</h3>
+    <div class="grid c2">
+      <div class="box"><b>Cheapest today</b><span>Storm season + two supplier price hikes since January. Waiting = thousands more.</span></div>
+      <div class="box"><b>A new roof drops insurance</b><span>Shop it after — up to 30%+ savings. Thousands back.</span></div>
+    </div><div class="tag">We're not costing them money — we're <span class="gold">saving</span> it.</div></section>
+
+  <section><h3 class="kick">The Alternate Choice Close</h3><div class="quote">"Is the <span class="gold">afternoon</span> or <span class="gold">evening</span> better — when you'll <span class="gold">both</span> be home?"</div><div class="why">Never a yes/no. A choice between two yeses — there's no exit. (The attic gives you the reason to return.)</div></section>
+
+  <section data-background-color="#1a0509"><h3 class="kick">By the time you asked…</h3><h2>THEY ALREADY SAID<br><span class="gold">YES 4 TIMES.</span></h2>
+    <ol class="recap">
+      <li><b>1.</b> Not moving.</li>
+      <li><b>2.</b> Ethics matter.</li>
+      <li><b>3.</b> No fake certificate.</li>
+      <li><b>4.</b> They'll have to address it.</li>
+    </ol></section>
+
+  <!-- ═══════════ K · RETAIL MATH ═══════════ -->
+  <section><h3 class="kick">Retail math · same 10 inspections</h3><div class="row">
+    <div class="card"><div class="n">10</div><div class="l">inspections</div></div>
+    <div class="op">×</div>
+    <div class="card"><div class="n">50%</div><div class="l">sit down</div></div>
+    <div class="op">×</div>
+    <div class="card"><div class="n">30%</div><div class="l">close</div></div>
+    <div class="op">=</div>
+    <div class="card g"><div class="n">~1.5</div><div class="l">sales / wk · ~78 / yr</div></div>
+  </div></section>
+
+  <section><h3 class="kick">Stack the year →</h3><div class="row">
+    <div class="card g"><div class="n">~$3,300</div><div class="l">/wk · 1.5 × $2,200</div></div>
+    <div class="op">× 52</div>
+    <div class="card g"><div class="n">~$172K</div><div class="l">/year · PAID 100% UPFRONT</div></div>
+  </div><div class="tag">$22K avg sale × your 10%. Retail = your paycheck (now). Storm = bonus checks (later).</div></section>
+
+  <!-- ═══════════ L · COMBINED + EFFORT + CLOSE ═══════════ -->
+  <section><h3 class="kick">Same 10 inspections a week</h3><div class="row">
+    <div class="card g"><div class="n">~$203K</div><div class="l">storm 401(k)</div></div>
+    <div class="op">+</div>
+    <div class="card g"><div class="n">~$172K</div><div class="l">retail paycheck</div></div>
+    <div class="op">=</div>
+    <div class="card g" style="border-width:3px;"><div class="n">~$375K</div><div class="l">/year</div></div>
+  </div><div class="tag">…and the <span class="gold">referral multiplier</span> is still on top.</div></section>
+
+  <section><h2>EASY ≠ <span class="gold">EFFORTLESS.</span></h2><div class="tag">A free library card costs nothing — most people never get one. Because it was easier not to.</div></section>
+
+  <section data-background-color="#0a0a0a"><div class="kicker">Honest question</div><h1>ARE YOU<br><span class="gold">IN?</span></h1></section>
+
+</div></div>
+<div class="corner">Day 1 · condensed test · ~50 of 171</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0.04 });
+</script>
+</body>
+</html>
