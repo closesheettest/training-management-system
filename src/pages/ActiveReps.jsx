@@ -235,6 +235,13 @@ export default function ActiveReps() {
       kind: 'success',
       text: `${trainee.first_name} ${trainee.last_name} moved to "no longer a sales rep" — see Cleanup pending below.`,
     })
+    // Alert the cleanup crew (GHL / Google / RepCard / JobNimbus / Sales
+    // Academy) with the step-by-step link. Best-effort — never block the UI.
+    fetch('/.netlify/functions/notify-offboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trainee_id: trainee.id, reason: reason || '', flaggedBy: 'the office' }),
+    }).catch(() => {})
     await load()
   }
 

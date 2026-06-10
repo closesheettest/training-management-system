@@ -127,6 +127,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires when a regional manager updates one of their reps from the manager dashboard — e.g. a new phone number. The SMS names the rep and what changed. Subscribers should be Admin so they can mirror the change in GHL / JobNimbus / RepCard.',
   },
+  {
+    key: 'rep_marked_offboarding',
+    label: 'Rep marked Quit / Fired — needs off-boarding cleanup',
+    desc:
+      'Fires when a regional manager (or admin) marks a rep Quit / Fired. The SMS names the rep, who flagged them, the reason, and links to the off-boarding instructions page. Subscribers should be whoever clears reps out of GHL / Google Workspace / RepCard / JobNimbus / Sales Academy.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

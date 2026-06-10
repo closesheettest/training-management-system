@@ -68,6 +68,7 @@ import { createClient } from '@supabase/supabase-js'
 import { runGroupSend } from './_group-send.js'
 import { recipientPhonesForEvent } from './_recipients.js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { notifyOffboarding } from './_offboard-notify.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -209,6 +210,17 @@ export const handler = async (event) => {
       .select('id, first_name, last_name, left_company_at')
       .maybeSingle()
     if (upErr) return json(500, { error: upErr.message })
+
+    // Tell whoever clears reps out of the outside systems (GHL, Google
+    // Workspace, RepCard, JobNimbus, Sales Academy). Shared helper so the
+    // manager + admin paths fire the identical text. The DB is already
+    // updated, so a failed alert must NOT fail the manager's action.
+    await notifyOffboarding(supabase, {
+      repName: `${target.first_name || ''} ${target.last_name || ''}`,
+      region,
+      flaggedBy: `${manager.first_name} ${manager.last_name}`,
+      reason,
+    })
 
     return json(200, { ok: true, trainee: updated })
   }
