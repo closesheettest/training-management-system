@@ -304,7 +304,7 @@ function DealsToFix({ zone }) {
   const load = async () => {
     setLoading(true); setErr('')
     try {
-      const res = await fetch(LB_ORIGIN + 'zone-deals-to-fix?zone=' + encodeURIComponent(zone) + '&days=14')
+      const res = await fetch(LB_ORIGIN + 'zone-deals-to-fix?zone=' + encodeURIComponent(zone))
       const d = await res.json()
       if (d && d.ok) { setData(d); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
@@ -318,7 +318,7 @@ function DealsToFix({ zone }) {
         className="w-full rounded-lg bg-[#b8324f] px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60">
         🛠 Deals need to be fixed{data ? ` (${data.total_flagged})` : ''}
         <div className="text-xs font-normal opacity-90">
-          {loading ? 'Checking JobNimbus…' : `Last 14 days of sales in your zone with missing/wrong info — tap to ${data ? 'refresh' : 'load'}`}
+          {loading ? 'Checking JobNimbus…' : `Sales in your zone (since June 1) with missing/wrong info — stays until fixed. Tap to ${data ? 'refresh' : 'load'}`}
         </div>
       </button>
       {err && <div className="mt-2 text-xs text-red-300">{err}</div>}
