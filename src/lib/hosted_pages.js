@@ -241,6 +241,19 @@ export const HOSTED_PAGES = [
     category: 'Internal admin',
   },
   {
+    slug: 'offboarding',
+    title: 'Off-boarding a rep — cleanup steps',
+    url: '/offboarding/',
+    description:
+      'Step-by-step guide for clearing a rep who was marked Quit / Fired out of every ' +
+      'outside system (GHL, Google Workspace, RepCard, JobNimbus, Sales Academy), then ' +
+      'marking cleanup done on Active Sales Reps. Texted to the cleanup crew automatically ' +
+      'the moment a rep is flagged, and again every morning at 10 AM until the Cleanup ' +
+      'pending list is empty (rep_marked_offboarding event — set who gets it on /notifications).',
+    created: '2026-06-10',
+    category: 'Internal admin',
+  },
+  {
     slug: 'system-overview',
     title: 'TMS system overview',
     url: '/system-overview.html',
