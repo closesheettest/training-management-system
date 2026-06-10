@@ -36,6 +36,9 @@ const TOOLS = [
 
 const CONFIG_TOOLS = TOOLS.filter((t) => t.field)
 
+// CCG functions origin (same one the per-manager dashboard uses).
+const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
+
 export default function RegionalManagers() {
   const [managers, setManagers] = useState(null)
   const [error, setError] = useState(null)
@@ -74,6 +77,8 @@ export default function RegionalManagers() {
         </p>
       </header>
 
+      <AllDealsToFix />
+
       <ToolsetReference />
 
       {error && (
@@ -94,6 +99,125 @@ export default function RegionalManagers() {
         </div>
       )}
     </div>
+  )
+}
+
+// Company-wide "needs to be fixed" — every flagged JN sale across ALL
+// zones, grouped by region → rep → deal. Same scan + checklist as the
+// per-manager "Deals need to be fixed" button and the morning audit
+// (CCG all-deals-to-fix → _sales-audit.js). Admin-only view at the top of
+// this hub so the whole company's data-hygiene backlog is one tap away.
+function AllDealsToFix() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null) // { zones, total_flagged } | null
+  const [openZone, setOpenZone] = useState(null)
+  const [openRep, setOpenRep] = useState(null) // `${zone}|${rep}`
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-deals-to-fix')
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+
+  return (
+    <section className="mb-6">
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="w-full rounded-lg bg-[#b8324f] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60"
+      >
+        🛠 All JN sales that need to be fixed{data ? ` (${data.total_flagged})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading
+            ? 'Checking JobNimbus…'
+            : `Every zone's sales (since June 1) with missing/wrong info, grouped by region — stays until fixed. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3 space-y-3">
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              ✅ All clean — nothing to fix company-wide since June 1.
+            </div>
+          ) : (
+            data.zones.map((z) => {
+              const zoneOpen = openZone === z.zone
+              return (
+                <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                    className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                    style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>
+                        {teamLabel(z.zone) || z.zone}
+                      </span>
+                      <span className="text-xs text-slate-500">{z.zone}</span>
+                    </span>
+                    <span className="text-sm text-slate-700">
+                      <span className="font-bold text-[#b8324f]">{z.count}</span> deal{z.count === 1 ? '' : 's'} {zoneOpen ? '▾' : '▸'}
+                    </span>
+                  </button>
+
+                  {zoneOpen && (
+                    <div className="space-y-2 border-t border-slate-100 p-3">
+                      {z.reps.map((r) => {
+                        const key = `${z.zone}|${r.rep}`
+                        const repOpen = openRep === key
+                        return (
+                          <div key={key} className="rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => setOpenRep(repOpen ? null : key)}
+                              className="flex w-full items-center justify-between p-3 text-left"
+                            >
+                              <span className="font-semibold text-slate-800">{r.rep}</span>
+                              <span className="text-sm text-slate-600">
+                                <span className="font-bold text-amber-600">{r.count}</span> deal{r.count === 1 ? '' : 's'} {repOpen ? '▾' : '▸'}
+                              </span>
+                            </button>
+                            {repOpen && (
+                              <div className="space-y-2 border-t border-slate-100 p-3">
+                                {r.deals.map((dl, i) => (
+                                  <div key={i} className="rounded bg-slate-50 p-2">
+                                    <div className="text-sm font-bold text-slate-900">{dl.customer}</div>
+                                    <div className="text-[11px] text-slate-500">
+                                      {dl.address}{dl.sold ? ` · sold ${dl.sold}` : ''}
+                                    </div>
+                                    {dl.missing.map((m, j) => (
+                                      <div key={'m' + j} className="text-xs text-amber-700">• Missing: {m}</div>
+                                    ))}
+                                    {dl.errors.map((e, j) => (
+                                      <div key={'e' + j} className="text-xs text-red-600">• Wrong: {e}</div>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 
