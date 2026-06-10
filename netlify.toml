@@ -86,3 +86,10 @@
 # cron-job.org trigger. Idempotent (itinerary_email_sent_at).
 [functions."send-itinerary-emails"]
   schedule = "0 14 * * *"
+
+# Off-boarding cleanup reminder — native Netlify scheduled (daily 10 AM EDT).
+# Texts the cleanup crew everyone still flagged for off-boarding (left the
+# company, cleanup not done) until the list is empty. Silent when nothing's
+# pending. Mirrors export config.schedule in the function file.
+[functions."cron-offboarding-reminder"]
+  schedule = "0 14 * * *"
