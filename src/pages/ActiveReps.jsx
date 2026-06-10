@@ -1915,7 +1915,7 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
             className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-50"
             title="Mark this person as no longer a sales rep. Adds them to the Cleanup pending list so admin can deactivate them in GHL / RepCard / etc."
           >
-            {saving ? '…' : 'Mark as departed →'}
+            {saving ? '…' : 'Quit / Fired →'}
           </button>
         </div>
       ) : (
@@ -2649,7 +2649,7 @@ function AssignManagerModal({ trainee, region, setRegion, availableZones, sendin
         </h3>
         <p className="mt-2 text-sm text-slate-600">
           They'll get a private dashboard URL where they can see every active rep in their
-          zone, mark someone as departed, and SMS / email the whole team. That's
+          zone, mark someone as Quit / Fired, and SMS / email the whole team. That's
           <em> all </em> they'll see — no admin chrome, no other zones.
         </p>
 

@@ -824,7 +824,7 @@ function RepsTable({ token, reps, onChanged }) {
       } else {
         setFlash({
           kind: 'success',
-          text: `${confirming.rep.first_name} ${confirming.rep.last_name} marked as departed.`,
+          text: `${confirming.rep.first_name} ${confirming.rep.last_name} marked as Quit / Fired.`,
         })
         setConfirming(null)
         await onChanged()
@@ -927,7 +927,7 @@ function RepsTable({ token, reps, onChanged }) {
                       }
                       className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
                     >
-                      Mark as departed
+                      Quit / Fired
                     </button>
                   </div>
                 </div>
@@ -1039,7 +1039,7 @@ function RepsTable({ token, reps, onChanged }) {
                 {confirming?.rep.id === r.id && (
                   <div className="mt-3 rounded-md border border-red-400/50 bg-red-950/40 p-4">
                     <div className="text-sm font-semibold">
-                      Mark {confirming.rep.first_name} {confirming.rep.last_name} as departed?
+                      Mark {confirming.rep.first_name} {confirming.rep.last_name} as Quit / Fired?
                     </div>
                     <p className="mt-1 text-xs text-slate-200/80">
                       This removes them from your team list and flags them for cleanup in the
@@ -1064,7 +1064,7 @@ function RepsTable({ token, reps, onChanged }) {
                         disabled={submitting}
                         className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                       >
-                        {submitting ? 'Saving…' : 'Yes, mark as departed'}
+                        {submitting ? 'Saving…' : 'Yes — Quit / Fired'}
                       </button>
                       <button
                         type="button"
