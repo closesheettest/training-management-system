@@ -39,6 +39,33 @@ export default function Calendar() {
     setLocations(data || [])
   }
 
+  // Delete a training week. Guard: refuse if any trainees are still attached
+  // (their class_id points here) — deleting would orphan or lose their
+  // records. The admin must move/remove the trainees on the class page first.
+  // Empty weeks (created by mistake, or a meeting that never filled) delete
+  // freely after a confirm.
+  async function deleteWeek(cls) {
+    const attached = cls.trainees?.length || 0
+    if (attached > 0) {
+      setMessage({
+        type: 'error',
+        text: `Can't delete the week of ${cls.week_start_date} — it still has ${attached} trainee${attached === 1 ? '' : 's'} attached. Open the class and remove or move them first.`,
+        classId: cls.id,
+      })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (!window.confirm(`Delete the week of ${cls.week_start_date}? This can't be undone.`)) return
+    setMessage(null)
+    const { error: err } = await supabase.from('classes').delete().eq('id', cls.id)
+    if (err) {
+      setMessage({ type: 'error', text: `Couldn't delete: ${err.message}` })
+      return
+    }
+    setMessage({ type: 'success', text: `Week of ${cls.week_start_date} deleted.` })
+    load()
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const upcoming = classes.filter((c) => {
@@ -117,7 +144,7 @@ export default function Calendar() {
         <EmptyState />
       ) : (
         <>
-          <Section title="Upcoming" classes={upcoming} emptyText="No upcoming weeks scheduled." />
+          <Section title="Upcoming" classes={upcoming} emptyText="No upcoming weeks scheduled." onDelete={deleteWeek} />
           {past.length > 0 && (
             <Section
               title={`Past weeks (${past.length})`}
@@ -125,6 +152,7 @@ export default function Calendar() {
               emptyText=""
               subtitle="Past classes — click any to view test results, re-send the graduation report, or browse attendance."
               isPast
+              onDelete={deleteWeek}
             />
           )}
         </>
@@ -321,7 +349,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
   )
 }
 
-function Section({ title, classes, emptyText, subtitle, isPast = false }) {
+function Section({ title, classes, emptyText, subtitle, isPast = false, onDelete }) {
   if (classes.length === 0) {
     return emptyText ? (
       <section>
@@ -345,7 +373,7 @@ function Section({ title, classes, emptyText, subtitle, isPast = false }) {
           </h3>
           <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
             {items.map((cls) => (
-              <ClassRow key={cls.id} cls={cls} isPast={isPast} />
+              <ClassRow key={cls.id} cls={cls} isPast={isPast} onDelete={onDelete} />
             ))}
           </ul>
         </div>
@@ -354,7 +382,7 @@ function Section({ title, classes, emptyText, subtitle, isPast = false }) {
   )
 }
 
-function ClassRow({ cls, isPast = false }) {
+function ClassRow({ cls, isPast = false, onDelete }) {
   // Match ClassDetail: only count enrolled trainees (unenrolled people are hidden there too).
   const enrolledTrainees = cls.trainees?.filter((t) => t.enrolled !== false) ?? []
   const total = enrolledTrainees.length
@@ -371,10 +399,10 @@ function ClassRow({ cls, isPast = false }) {
   const isTBD = !cls.locations?.name
 
   return (
-    <li>
+    <li className="flex items-stretch">
       <Link
         to={`/class/${cls.id}`}
-        className="grid gap-3 px-4 py-4 transition hover:bg-slate-50 sm:grid-cols-[1fr_auto] sm:items-center"
+        className="grid flex-1 gap-3 px-4 py-4 transition hover:bg-slate-50 sm:grid-cols-[1fr_auto] sm:items-center"
       >
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -421,6 +449,17 @@ function ClassRow({ cls, isPast = false }) {
           )}
         </div>
       </Link>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(cls)}
+          title="Delete this week"
+          aria-label={`Delete the week of ${cls.week_start_date}`}
+          className="shrink-0 border-l border-slate-100 px-4 text-slate-300 transition hover:bg-red-50 hover:text-red-600"
+        >
+          🗑
+        </button>
+      )}
     </li>
   )
 }
