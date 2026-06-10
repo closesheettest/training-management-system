@@ -47,6 +47,29 @@ function editableDraftFor(t) {
   return out
 }
 
+// Collapsible wrapper for each list section. Collapsed by default so the
+// page opens as a clean stack of section headers (each showing its count) —
+// the admin expands only what they need. The heading itself is the toggle.
+function CollapsibleSection({ sectionClass, headingClass, title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={sectionClass}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={open}
+      >
+        <h2 className={headingClass}>{title}</h2>
+        <span className="shrink-0 rounded-full border border-slate-300 bg-white/70 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+          {open ? '▾ Hide' : '▸ Show'}
+        </span>
+      </button>
+      {open && children}
+    </section>
+  )
+}
+
 // Active Sales Reps page — admin's master list of "in the field" reps.
 //
 // The is_active_sales_rep flag on trainees is the durable "on the sales
@@ -1256,10 +1279,11 @@ export default function ActiveReps() {
         </div>
       </div>
 
-      <section className="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-emerald-900">
-          ⭐ Active field sales reps ({activeFiltered.length})
-        </h2>
+      <CollapsibleSection
+        sectionClass="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm"
+        headingClass="text-lg font-semibold text-emerald-900"
+        title={`⭐ Active field sales reps (${activeFiltered.length})`}
+      >
         {loading ? (
           <p className="mt-3 text-sm text-slate-500">Loading…</p>
         ) : activeFiltered.length === 0 ? (
@@ -1346,13 +1370,14 @@ export default function ActiveReps() {
             })}
           </div>
         )}
-      </section>
+      </CollapsibleSection>
 
       {unconfirmedLevel.length > 0 && (
-        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
-          <h2 className="text-lg font-semibold text-indigo-900">
-            🎖 Rep levels to confirm ({unconfirmedLevel.length})
-          </h2>
+        <CollapsibleSection
+          sectionClass="rounded-lg border border-indigo-200 bg-indigo-50 p-5"
+          headingClass="text-lg font-semibold text-indigo-900"
+          title={`🎖 Rep levels to confirm (${unconfirmedLevel.length})`}
+        >
           <p className="mt-1 text-sm text-indigo-900">
             The system has auto-guessed Junior or Senior for each rep below — Junior if they
             graduated through this system, Senior if they were already on the team when bulk-imported.
@@ -1419,14 +1444,15 @@ export default function ActiveReps() {
               )
             })}
           </ul>
-        </section>
+        </CollapsibleSection>
       )}
 
       {suggested.length > 0 && (
-        <section className="rounded-lg border border-sky-200 bg-sky-50 p-5">
-          <h2 className="text-lg font-semibold text-sky-900">
-            🎓 Past graduates not yet flagged active ({suggested.length})
-          </h2>
+        <CollapsibleSection
+          sectionClass="rounded-lg border border-sky-200 bg-sky-50 p-5"
+          headingClass="text-lg font-semibold text-sky-900"
+          title={`🎓 Past graduates not yet flagged active (${suggested.length})`}
+        >
           <p className="mt-1 text-sm text-sky-900">
             These trainees submitted their final test before the auto-flip rule existed (or it
             missed them). One click each to promote — or skip if they've left the company since.
@@ -1455,14 +1481,15 @@ export default function ActiveReps() {
               </li>
             ))}
           </ul>
-        </section>
+        </CollapsibleSection>
       )}
 
       {pendingCleanup.length > 0 && (
-        <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-amber-900">
-            🚪 Cleanup pending — reps to remove from other systems ({pendingCleanup.length})
-          </h2>
+        <CollapsibleSection
+          sectionClass="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm"
+          headingClass="text-lg font-semibold text-amber-900"
+          title={`🚪 Cleanup pending — reps to remove from other systems (${pendingCleanup.length})`}
+        >
           <p className="mt-1 text-sm text-amber-900">
             These reps are flagged "no longer with the company." Go deactivate them in each
             external system below, then click <strong>✓ All cleanup done</strong> to clear them
@@ -1479,13 +1506,14 @@ export default function ActiveReps() {
               />
             ))}
           </ul>
-        </section>
+        </CollapsibleSection>
       )}
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          🧑‍💼 Non-field roles ({nonFieldFiltered.length})
-        </h2>
+      <CollapsibleSection
+        sectionClass="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+        headingClass="text-lg font-semibold text-slate-900"
+        title={`🧑‍💼 Non-field roles (${nonFieldFiltered.length})`}
+      >
         <p className="mt-1 text-xs text-slate-500">
           Still on the company team but not field sales reps (admin / ops / other). They don't
           receive "All active sales reps" broadcasts and aren't counted in the field map. Use the
@@ -1516,12 +1544,13 @@ export default function ActiveReps() {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">
-          ⏳ Trainees in the pipeline ({notYetActiveFiltered.length})
-        </h2>
+      <CollapsibleSection
+        sectionClass="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+        headingClass="text-lg font-semibold text-slate-900"
+        title={`⏳ Trainees in the pipeline (${notYetActiveFiltered.length})`}
+      >
         <p className="mt-1 text-xs text-slate-500">
           People scheduled for a current or upcoming training class. They'll auto-flip to active
           reps when they submit their final test. Listed here so you can promote anyone manually
@@ -1547,12 +1576,13 @@ export default function ActiveReps() {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-        <h2 className="text-lg font-semibold text-slate-700">
-          ❌ Dropouts / dead ({dropoutsFiltered.length})
-        </h2>
+      <CollapsibleSection
+        sectionClass="rounded-lg border border-slate-200 bg-slate-50 p-5"
+        headingClass="text-lg font-semibold text-slate-700"
+        title={`❌ Dropouts / dead (${dropoutsFiltered.length})`}
+      >
         <p className="mt-1 text-xs text-slate-500">
           Trainees whose class week ended without them graduating — never submitted the final
           test, or no-showed entirely. Kept here for record-keeping. If someone in this list
@@ -1578,7 +1608,7 @@ export default function ActiveReps() {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
       <p className="text-xs text-slate-400">
         Want to send a message to this list? <Link to="/group-messages" className="underline">Open Group messages</Link>.
