@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 1 — TEST 2 (reveal-condensed · Cardone style)</title>
+<!--
+  DAY 1 — TEST 2 · "REVEAL-CONDENSED."
+  Same content as /day-1-slides-test/ but consolidated the FIGS way: each
+  cluster of one-point-per-slide is now ONE slide that builds point-by-point
+  on each click (Reveal fragments). ~51 slides → ~22. Projector pacing is
+  the same (one click = one new point); far fewer slides to flip through.
+  Hidden URL, not linked, doesn't touch the live deck.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#F5B400; --red:#E0203B; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  html,body{background:var(--ink);}
+  .reveal{font-family:'Oswald',sans-serif;}
+  .reveal .slides{text-align:center;}
+  .reveal section{color:#fff;}
+  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.15), transparent 60%), var(--ink);}
+
+  .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.94;letter-spacing:.005em;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
+  .reveal h1{font-size:4rem;color:#fff;}
+  .reveal h2{font-size:2.7rem;color:#fff;}
+  .reveal h3.kick,.reveal .kicker{font-family:'Oswald';font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);font-size:.92rem;margin-bottom:1rem;}
+  .gold{color:var(--gold);} .red{color:var(--red);} .smoke{color:var(--smoke);}
+  .reveal .tag{font-family:'Oswald';font-weight:500;font-size:1.2rem;color:var(--smoke);margin-top:1rem;line-height:1.3;}
+  .reveal .tag .gold{color:var(--gold);}
+  .reveal .mega{font-family:'Anton';font-size:6.5rem;line-height:.85;color:var(--gold);}
+  .reveal .mega.white{color:#fff;}
+  .reveal .sub{font-family:'Oswald';font-weight:500;font-size:1.3rem;color:#fff;margin-top:.6rem;}
+
+  /* generic reveal stack: each line drops in on click */
+  .reveal .stack{display:inline-block;text-align:left;margin-top:1.1rem;}
+  .reveal .stack .line{display:flex;align-items:baseline;gap:.8rem;margin:.55rem 0;}
+  .reveal .stack .line .b{font-family:'Anton';font-size:2.3rem;color:var(--gold);line-height:1;min-width:2.6em;text-align:right;}
+  .reveal .stack .line .b.sm{font-size:1.5rem;min-width:auto;}
+  .reveal .stack .line .t{font-family:'Oswald';font-weight:600;font-size:1.3rem;color:#fff;}
+  .reveal .stack .line .t small{display:block;font-weight:400;font-size:.92rem;color:var(--smoke);}
+
+  /* F.I.G.S. lettered list */
+  .reveal .figs{display:inline-block;text-align:left;margin-top:1rem;}
+  .reveal .figrow{display:flex;align-items:center;gap:1.1rem;margin:.5rem 0;}
+  .reveal .figrow .L{font-family:'Anton';font-size:2.6rem;color:var(--gold);width:1.3em;text-align:center;line-height:1;}
+  .reveal .figrow .d b{font-family:'Oswald';font-weight:700;font-size:1.3rem;color:#fff;display:block;line-height:1.1;}
+  .reveal .figrow .d span{font-family:'Oswald';font-weight:400;font-size:.95rem;color:var(--smoke);}
+
+  /* math build row */
+  .reveal .row{display:flex;gap:.5rem;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:1.2rem;}
+  .reveal .card{border:2px solid #3a3a3a;border-radius:.6rem;padding:.6rem .9rem;min-width:120px;}
+  .reveal .card.g{border-color:var(--gold);background:rgba(245,180,0,.1);}
+  .reveal .card .n{font-family:'Anton';font-size:2.2rem;line-height:1;color:#fff;}
+  .reveal .card.g .n{color:var(--gold);}
+  .reveal .card .l{font-family:'Oswald';font-size:.66rem;letter-spacing:.04em;text-transform:uppercase;color:var(--smoke);margin-top:.25rem;}
+  .reveal .op{font-family:'Anton';font-size:1.7rem;color:var(--smoke);}
+
+  .reveal .quote{font-family:'Oswald';font-weight:500;font-style:italic;font-size:1.5rem;color:#fff;max-width:30ch;margin:.4rem auto 0;line-height:1.25;}
+  .reveal .quote .gold{font-style:normal;}
+
+  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.65rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
+  .preview-banner{position:fixed;top:0;left:0;right:0;z-index:60;background:#0b6b3a;color:#fff;font-family:'Oswald';font-weight:700;letter-spacing:.15em;text-transform:uppercase;font-size:.68rem;text-align:center;padding:4px;}
+</style>
+</head>
+<body>
+<div class="preview-banner">TEST 2 — reveal-condensed (click builds each slide) — not the live Day 1</div>
+<div class="reveal"><div class="slides">
+
+  <!-- 1 · TITLE -->
+  <section><div class="kicker">U.S. Shingle &amp; Metal · Retail Training</div><h1>DAY <span class="gold">ONE</span></h1><div class="tag">Sign in at the kiosk — then watch your phone for the onboarding text.</div></section>
+
+  <!-- 2 · WHO WE ARE (build the timeline) -->
+  <section><h3 class="kick">Where we started · Hank Sr. &amp; Hank Jr.</h3>
+    <div class="stack">
+      <div class="line fragment"><span class="b">15+</span><span class="t">years in business</span></div>
+      <div class="line fragment"><span class="b">$3M</span><span class="t">a year — in Collier County<small>great reputation</small></span></div>
+      <div class="line fragment"><span class="b sm gold">→</span><span class="t">Then we took the playbook statewide</span></div>
+      <div class="line fragment"><span class="b">$30M+</span><span class="t">24 months later — all of Florida</span></div>
+    </div></section>
+
+  <!-- 3 · TWO RULES -->
+  <section><h3 class="kick">Zero grace — we credit our success to this</h3>
+    <div class="figs">
+      <div class="figrow fragment"><span class="L red">✕</span><div class="d"><b>Lying</b><span>A character call — not a coachable mistake.</span></div></div>
+      <div class="figrow fragment"><span class="L red">✕</span><div class="d"><b>Gossip</b><span>Venting to people who can't fix it. Real problems go to people who can.</span></div></div>
+    </div></section>
+
+  <!-- 4 · THE CODE + FITD -->
+  <section><h1>WE <span class="gold">CRACKED</span><br>THE CODE.</h1>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">Foot-in-the-Door<small>Freedman &amp; Fraser, 1966 — small sticker, then the giant lawn billboard</small></span></div>
+      <div class="line fragment"><span class="b">4.5×</span><span class="t">76% said yes after the small sticker — vs 17% cold</span></div>
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">The small yes rewires how they see themselves</span></div>
+    </div></section>
+
+  <!-- 5 · 4 DRIVERS -->
+  <section><h3 class="kick">Why a small yes works · the 4 drivers</h3>
+    <div class="figs">
+      <div class="figrow fragment"><span class="L">1</span><div class="d"><b>Self-Perception</b><span>"I'm someone who takes action on my home."</span></div></div>
+      <div class="figrow fragment"><span class="L">2</span><div class="d"><b>Cognitive Dissonance</b><span>Saying no now makes step one meaningless.</span></div></div>
+      <div class="figrow fragment"><span class="L">3</span><div class="d"><b>Commitment &amp; Consistency</b><span>Public · voluntary · written = sticky.</span></div></div>
+      <div class="figrow fragment"><span class="L">4</span><div class="d"><b>Sunk Cost</b><span>Walking away feels like losing what they put in.</span></div></div>
+    </div></section>
+
+  <!-- 6 · EFFICIENCY / TECH -->
+  <section><h3 class="kick">Goal #1 · make it efficient</h3>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">Door-to-door isn't dead — just not as effective</span></div>
+      <div class="line fragment"><span class="b">60%</span><span class="t">lost the old way: 50 old roofs → only 20 owner-occupied</span></div>
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">So we built the tech: owner-occupied + roofs 15 yrs+</span></div>
+      <div class="line fragment"><span class="b sm gold">📍</span><span class="t">Every dot pre-qualified — no renters, no new builds</span></div>
+    </div></section>
+
+  <!-- 7 · THE 15-YEAR LETTER -->
+  <section><h3 class="kick">Florida · the 15-year letter</h3>
+    <div class="quote fragment">"Change your roof — <span class="gold">or we're dropping you.</span>"</div>
+    <div class="stack">
+      <div class="line fragment"><span class="b">$2,200<span class="gold">→$8,000</span></span><span class="t">forced-place insurance — 3–4× overnight</span></div>
+      <div class="line fragment"><span class="b sm red">!</span><span class="t">And none of their <span class="gold">stuff</span> is insured — structure only</span></div>
+    </div></section>
+
+  <!-- 8 · THE OLD PITCH IS DEAD -->
+  <section><h1>THE OLD PITCH<br>IS <span class="red">DEAD.</span></h1>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm red">1</span><span class="t">Media narrative<small>"roofers raised your rates" — what's real matters less than what sells</small></span></div>
+      <div class="line fragment"><span class="b sm red">2</span><span class="t">"Roofer" = the whole staircase, not a small yes</span></div>
+      <div class="line fragment"><span class="b sm gold">✓</span><span class="t">The reframe: we're the <span class="gold">ally</span> — showed up before the letter</span></div>
+    </div></section>
+
+  <!-- 9 · THE SMALL YES -->
+  <section><h3 class="kick">A small yes must do 3 things</h3>
+    <div class="figs">
+      <div class="figrow fragment"><span class="L">1</span><div class="d"><b>Cost nothing</b><span>No money. No risk.</span></div></div>
+      <div class="figrow fragment"><span class="L">2</span><div class="d"><b>Solve THEIR problem</b><span>Not pitch ours.</span></div></div>
+      <div class="figrow fragment"><span class="L">3</span><div class="d"><b>Be an added option</b><span>Never take away what they have.</span></div></div>
+    </div>
+    <div class="quote fragment" style="margin-top:1.2rem;">"…or the <span class="gold">added option</span> of a report that makes them leave you alone? <span class="gold">But you're free to accept or refuse.</span>"</div></section>
+
+  <!-- 10 · RESULTS -->
+  <section><div class="mega">30–50<span class="white">%</span></div><div class="sub">SAY YES TO THE INSPECTION</div>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">New rep ≈ 30% · trained rep ≈ 50% — same ask</span></div>
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">The real challenge is <span class="gold">catching them home</span></span></div>
+      <div class="line fragment"><span class="b sm gold">★</span><span class="t">Nothing replaces YOUR EFFORT</span></div>
+    </div></section>
+
+  <!-- 11 · WHAT'S ON THE ROOFS -->
+  <section><h3 class="kick">What's actually on the roofs</h3>
+    <div class="row">
+      <div class="card g fragment"><div class="n">58%</div><div class="l">storm damage → PA</div></div>
+      <div class="card fragment"><div class="n">32%</div><div class="l">wear &amp; tear → retail</div></div>
+      <div class="card fragment"><div class="n">10%</div><div class="l">no damage → referrals</div></div>
+    </div><div class="tag fragment">Three paths. Every one pays.</div></section>
+
+  <!-- 12 · PATH 1 · PA -->
+  <section><h3 class="kick">Storm path · 58%</h3><h1>THE <span class="gold">PUBLIC ADJUSTER.</span></h1>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">A licensed pro on the homeowner's side — your job ends at the inspection</span></div>
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">You earn when it's <span class="gold">approved + installed</span></span></div>
+      <div class="line fragment"><span class="b sm gold">★</span><span class="t">A 401(k) on steroids — each inspection is a deposit</span></div>
+    </div></section>
+
+  <!-- 13 · STORM MATH (builds on click) -->
+  <section><h3 class="kick">The math · builds from 10 inspections / wk</h3>
+    <div class="row">
+      <div class="card fragment"><div class="n">10</div><div class="l">inspections</div></div>
+      <div class="op fragment">×</div>
+      <div class="card fragment"><div class="n">58%</div><div class="l">storm</div></div>
+      <div class="op fragment">×</div>
+      <div class="card fragment"><div class="n">90%</div><div class="l">PA approves</div></div>
+      <div class="op fragment">=</div>
+      <div class="card g fragment"><div class="n">~5</div><div class="l">paid / wk</div></div>
+    </div>
+    <div class="row">
+      <div class="card g fragment"><div class="n">~$3,900</div><div class="l">/wk · 5 × $750</div></div>
+      <div class="op fragment">× 52</div>
+      <div class="card g fragment"><div class="n">~$203K</div><div class="l">/year — a 401(k) that paid you THIS year</div></div>
+    </div></section>
+
+  <!-- 14 · NO DAMAGE → REFERRALS -->
+  <section><h3 class="kick">No damage · 10%</h3><h2>HAND THEM THE<br><span class="gold">CERTIFICATE.</span></h2>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">▸</span><span class="t">Proof for the insurer — we solved a real fear, free</span></div>
+      <div class="line fragment"><span class="b">10×</span><span class="t">"Who else in your life needs that?" → referrals, no doorbell</span></div>
+    </div></section>
+
+  <!-- 15 · GO-BACK · 4 YESES (FIGS-style build) -->
+  <section><h3 class="kick">Wear &amp; tear · 32% · the Go-Back</h3><h2>YES <span class="gold">4 TIMES</span><br>BEFORE YOU ASK.</h2>
+    <div class="figs">
+      <div class="figrow fragment"><span class="L">1</span><div class="d"><b>Not moving</b><span>"No plans to move in the next year or two — right?"</span></div></div>
+      <div class="figrow fragment"><span class="L">2</span><div class="d"><b>Ethics matter</b><span>"A company's ethics matter to you — right?"</span></div></div>
+      <div class="figrow fragment"><span class="L">3</span><div class="d"><b>The trap springs</b><span>"I'd love to say 5 years left — but that'd be unethical."</span></div></div>
+      <div class="figrow fragment"><span class="L">4</span><div class="d"><b>You'll address it</b><span>"…something you'll have to address soon — right?" (the leak you don't see is the worst kind)</span></div></div>
+    </div></section>
+
+  <!-- 16 · WHY NOW + CLOSE -->
+  <section><h3 class="kick">Why now, not later</h3>
+    <div class="stack">
+      <div class="line fragment"><span class="b sm gold">$</span><span class="t">Cheapest today<small>storm season + two supplier price hikes since January</small></span></div>
+      <div class="line fragment"><span class="b">30%</span><span class="t">A new roof drops insurance — shop it, save thousands</span></div>
+    </div>
+    <div class="quote fragment" style="margin-top:1rem;">"Is the <span class="gold">afternoon</span> or <span class="gold">evening</span> better — when you'll both be home?"</div>
+    <div class="tag fragment">The Alternate Choice Close — two yeses, no exit.</div></section>
+
+  <!-- 17 · RETAIL MATH (builds on click) -->
+  <section><h3 class="kick">Retail math · same 10 inspections</h3>
+    <div class="row">
+      <div class="card fragment"><div class="n">10</div><div class="l">inspections</div></div>
+      <div class="op fragment">×</div>
+      <div class="card fragment"><div class="n">50%</div><div class="l">sit down</div></div>
+      <div class="op fragment">×</div>
+      <div class="card fragment"><div class="n">30%</div><div class="l">close</div></div>
+      <div class="op fragment">=</div>
+      <div class="card g fragment"><div class="n">~1.5</div><div class="l">sales / wk</div></div>
+    </div>
+    <div class="row">
+      <div class="card g fragment"><div class="n">~$3,300</div><div class="l">/wk · 1.5 × $2,200</div></div>
+      <div class="op fragment">× 52</div>
+      <div class="card g fragment"><div class="n">~$172K</div><div class="l">/year — PAID 100% UPFRONT</div></div>
+    </div></section>
+
+  <!-- 18 · COMBINED -->
+  <section><h3 class="kick">Same 10 inspections a week</h3>
+    <div class="row">
+      <div class="card g fragment"><div class="n">~$203K</div><div class="l">storm 401(k)</div></div>
+      <div class="op fragment">+</div>
+      <div class="card g fragment"><div class="n">~$172K</div><div class="l">retail paycheck</div></div>
+      <div class="op fragment">=</div>
+      <div class="card g fragment" style="border-width:3px;"><div class="n">~$375K</div><div class="l">/year</div></div>
+    </div><div class="tag fragment">…and the <span class="gold">referral multiplier</span> is still on top.</div></section>
+
+  <!-- 19 · F.I.G.S. -->
+  <section><h3 class="kick">Why people buy · the 4 impulse factors</h3><h1 class="gold" style="letter-spacing:.12em;">F.I.G.S.</h1>
+    <div class="figs">
+      <div class="figrow fragment"><span class="L">F</span><div class="d"><b>Fear of Loss</b><span>Here today, gone tomorrow.</span></div></div>
+      <div class="figrow fragment"><span class="L">I</span><div class="d"><b>Indifference</b><span>So confident you'll walk away.</span></div></div>
+      <div class="figrow fragment"><span class="L">G</span><div class="d"><b>Greed</b><span>People want what others have.</span></div></div>
+      <div class="figrow fragment"><span class="L">S</span><div class="d"><b>Sense of Urgency</b><span>"Only in your area a short while."</span></div></div>
+    </div></section>
+
+  <!-- 20 · STACK ALL FOUR / 25% -->
+  <section><h3 class="kick">Hit only one of them?</h3><div class="mega" style="color:var(--red);">25%</div><div class="sub">CHANCE YOU PRESSED THEIR HOT BUTTON</div><div class="tag fragment">So we <span class="gold">stack all four</span> into every pitch.</div></section>
+
+  <!-- 21 · EFFORT -->
+  <section><h2>EASY ≠ <span class="gold">EFFORTLESS.</span></h2><div class="tag">A free library card costs nothing — most people never get one. Because it was easier not to.</div></section>
+
+  <!-- 22 · CLOSE -->
+  <section data-background-color="#0a0a0a"><div class="kicker">Honest question</div><h1>ARE YOU<br><span class="gold">IN?</span></h1></section>
+
+</div></div>
+<div class="corner">Day 1 · reveal-condensed test · 22 slides</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0.04 });
+</script>
+</body>
+</html>
