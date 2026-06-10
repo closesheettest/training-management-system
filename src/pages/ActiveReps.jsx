@@ -1027,10 +1027,14 @@ export default function ActiveReps() {
   async function loadSuggestions() {
     const { data } = await supabase
       .from('test_attempts')
-      .select('trainee_id, submitted_at, trainees(id, first_name, last_name, phone, is_active_sales_rep)')
+      .select('trainee_id, submitted_at, trainees(id, first_name, last_name, phone, is_active_sales_rep, left_company_at)')
       .not('submitted_at', 'is', null)
     const rows = (data || [])
-      .filter((a) => a.trainees && !a.trainees.is_active_sales_rep)
+      // Suggest only graduates who AREN'T active yet AND haven't left the
+      // company. Someone marked Quit / Fired is handled by the Cleanup
+      // pending / Dropouts flow — don't resurface them as a "promote"
+      // suggestion (that's what cluttered this list with departed grads).
+      .filter((a) => a.trainees && !a.trainees.is_active_sales_rep && !a.trainees.left_company_at)
       .map((a) => ({ ...a.trainees, submitted_at: a.submitted_at }))
     // Dedup in case a trainee has multiple attempts
     const seen = new Set()
@@ -1041,6 +1045,38 @@ export default function ActiveReps() {
       dedup.push(r)
     }
     setSuggested(dedup)
+  }
+
+  // "Skip" a suggested past-graduate who never joined the field team and
+  // isn't being promoted. Stamps left_company_at + cleanup_done_at (so they
+  // drop off this list AND don't show in Cleanup pending or trigger an
+  // off-boarding text — they never had outside accounts to scrub). The
+  // classifyInactive guard (left_company_at → null) also keeps them out of
+  // Dropouts. Reversible by clearing the flags in the DB if needed.
+  async function dismissSuggestion(t) {
+    if (!window.confirm(
+      `Remove ${t.first_name} ${t.last_name} from this list?\n\n` +
+      `Use this if they graduated but never joined the field team. ` +
+      `They won't be promoted, and won't show up as a cleanup task.`
+    )) return
+    setSavingId(t.id)
+    const { error } = await supabase
+      .from('trainees')
+      .update({
+        is_active_sales_rep: false,
+        left_company_at: new Date().toISOString(),
+        left_company_reason: 'Graduated but never joined the field team (skipped from suggestions)',
+        cleanup_done_at: new Date().toISOString(),
+      })
+      .eq('id', t.id)
+    setSavingId(null)
+    if (error) {
+      setFlash({ kind: 'error', text: error.message })
+      return
+    }
+    setFlash({ kind: 'success', text: `${t.first_name} ${t.last_name} removed from suggestions.` })
+    await loadSuggestions()
+    await load()
   }
 
   return (
@@ -1470,14 +1506,25 @@ export default function ActiveReps() {
                     graduated {new Date(t.submitted_at).toLocaleDateString()}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => toggle(t, true)}
-                  disabled={savingId === t.id}
-                  className="rounded-md bg-sky-700 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
-                >
-                  {savingId === t.id ? 'Saving…' : 'Promote'}
-                </button>
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggle(t, true)}
+                    disabled={savingId === t.id}
+                    className="rounded-md bg-sky-700 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+                  >
+                    {savingId === t.id ? 'Saving…' : 'Promote'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissSuggestion(t)}
+                    disabled={savingId === t.id}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                    title="Graduated but never joined the field team — remove from this list. Won't promote them or create a cleanup task."
+                  >
+                    Skip
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
