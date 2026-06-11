@@ -139,6 +139,10 @@ export default function RegionalManager() {
 
       <NoSits zone={manager.region} />
 
+      <BackToRetail zone={manager.region} />
+
+      <NoDamage zone={manager.region} />
+
       <QuickActions manager={manager} token={token} reps={reps} />
 
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
@@ -355,19 +359,21 @@ function DealsToFix({ zone }) {
   )
 }
 
-// No-sits to re-book — JN jobs in any "No Sit…" status in this zone, grouped
-// by rep, each showing when the appointment was for so the manager can chase
-// them back onto the calendar.
-function NoSits({ zone }) {
+// Generic JN-appt-status report for a regional manager: pulls jobs in
+// one status family for this zone, grouped by rep and showing when the
+// appointment was for. Any deal whose rep is NO LONGER ACTIVE is listed
+// in a separate "Non-active rep" section (data.inactive_reps) so the
+// manager knows to pass those leads out to an active rep.
+function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg }) {
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState(null)   // { reps, total } | null
+  const [data, setData] = useState(null)   // { reps, inactive_reps, total } | null
   const [openRep, setOpenRep] = useState(null)
   const [err, setErr] = useState('')
 
   const load = async () => {
     setLoading(true); setErr('')
     try {
-      const res = await fetch(LB_ORIGIN + 'zone-no-sits?zone=' + encodeURIComponent(zone))
+      const res = await fetch(LB_ORIGIN + fn + '?zone=' + encodeURIComponent(zone))
       const d = await res.json()
       if (d && d.ok) { setData(d); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
@@ -375,45 +381,81 @@ function NoSits({ zone }) {
     setLoading(false)
   }
 
+  const RepGroup = ({ r, keyPrefix }) => {
+    const k = keyPrefix + r.rep
+    return (
+      <div className="rounded-lg border border-white/15 bg-white/5">
+        <button type="button" onClick={() => setOpenRep(openRep === k ? null : k)}
+          className="flex w-full items-center justify-between p-3 text-left">
+          <span className="font-semibold">{r.rep}</span>
+          <span className="text-sm"><span className="font-bold text-amber-200">{r.count}</span> {unit}{r.count === 1 ? '' : 's'} {openRep === k ? '▾' : '▸'}</span>
+        </button>
+        {openRep === k && (
+          <div className="space-y-2 border-t border-white/10 p-3">
+            {r.deals.map((dl, i) => (
+              <div key={i} className="rounded bg-black/20 p-2">
+                <div className="text-sm font-bold">{dl.customer}</div>
+                <div className="text-[11px] text-slate-300/70">{dl.address}</div>
+                <div className="text-xs text-sky-200">🗓 Appt was for: {dl.appt_label}</div>
+                {dl.status && <div className="text-[11px] text-slate-400">{dl.status}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const inactive = data?.inactive_reps || []
+  const nothing = data && data.reps.length === 0 && inactive.length === 0
+
   return (
     <section className="mt-6">
       <button type="button" onClick={load} disabled={loading}
-        className="w-full rounded-lg bg-[#475569] px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60">
-        📵 No-sits to re-book{data ? ` (${data.total})` : ''}
+        className="w-full rounded-lg px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60"
+        style={{ backgroundColor: color }}>
+        {emoji} {title}{data ? ` (${data.total})` : ''}
         <div className="text-xs font-normal opacity-90">
-          {loading ? 'Checking JobNimbus…' : `Appointments in your zone that didn't sit — chase them back onto the calendar. Tap to ${data ? 'refresh' : 'load'}`}
+          {loading ? 'Checking JobNimbus…' : `${blurb} Tap to ${data ? 'refresh' : 'load'}`}
         </div>
       </button>
       {err && <div className="mt-2 text-xs text-red-300">{err}</div>}
       {data && (
         <div className="mt-2 space-y-2">
-          {data.reps.length === 0 ? (
-            <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/5 p-3 text-sm text-emerald-200">✅ No no-sits to re-book right now.</div>
-          ) : data.reps.map((r) => (
-            <div key={r.rep} className="rounded-lg border border-white/15 bg-white/5">
-              <button type="button" onClick={() => setOpenRep(openRep === r.rep ? null : r.rep)}
-                className="flex w-full items-center justify-between p-3 text-left">
-                <span className="font-semibold">{r.rep}</span>
-                <span className="text-sm"><span className="font-bold text-amber-200">{r.count}</span> no-sit{r.count === 1 ? '' : 's'} {openRep === r.rep ? '▾' : '▸'}</span>
-              </button>
-              {openRep === r.rep && (
-                <div className="space-y-2 border-t border-white/10 p-3">
-                  {r.deals.map((dl, i) => (
-                    <div key={i} className="rounded bg-black/20 p-2">
-                      <div className="text-sm font-bold">{dl.customer}</div>
-                      <div className="text-[11px] text-slate-300/70">{dl.address}</div>
-                      <div className="text-xs text-sky-200">🗓 Appt was for: {dl.appt_label}</div>
-                      <div className="text-[11px] text-slate-400">{dl.status}</div>
-                    </div>
-                  ))}
+          {nothing ? (
+            <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/5 p-3 text-sm text-emerald-200">{emptyMsg}</div>
+          ) : (
+            <>
+              {data.reps.map((r) => <RepGroup key={'a' + r.rep} r={r} keyPrefix="a" />)}
+              {inactive.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 rounded-md bg-rose-900/40 px-3 py-2 text-xs font-bold uppercase tracking-wide text-rose-200">
+                    ⚠️ Non-active rep — reassign these leads
+                  </div>
+                  <div className="space-y-2">
+                    {inactive.map((r) => <RepGroup key={'i' + r.rep} r={r} keyPrefix="i" />)}
+                  </div>
                 </div>
               )}
-            </div>
-          ))}
+            </>
+          )}
         </div>
       )}
     </section>
   )
+}
+
+function NoSits({ zone }) {
+  return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569"
+    blurb="Appointments in your zone that didn't sit — chase them back onto the calendar." emptyMsg="✅ No no-sits to re-book right now." />
+}
+function BackToRetail({ zone }) {
+  return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e"
+    blurb="Appts in your zone that went back to retail — work them as retail roof sales." emptyMsg="✅ Nothing back-to-retail right now." />
+}
+function NoDamage({ zone }) {
+  return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9"
+    blurb="Appts in your zone that came back no-damage." emptyMsg="✅ No no-damage appts right now." />
 }
 
 // ── Reps Table ─────────────────────────────────────────────────────
