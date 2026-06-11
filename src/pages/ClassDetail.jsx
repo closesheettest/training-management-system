@@ -1766,7 +1766,8 @@ function formatFailures(failures, allTrainees) {
 // Map a raw GHL/Resend error string to a short admin-friendly label.
 function classifyError(raw) {
   const lc = String(raw).toLowerCase()
-  if (lc.includes('dnd') || lc.includes('do not disturb') || lc.includes('opted out')) return 'DND'
+  if (lc.includes('unsubscrib')) return 'Unsubscribed — they texted STOP; have them text START to opt back in'
+  if (lc.includes('dnd') || lc.includes('do not disturb') || lc.includes('opted out')) return 'DND — opted out of texts'
   if (lc.includes('invalid phone')) return 'Invalid phone'
   if (lc.includes('contact upsert')) return 'Contact create failed'
   if (lc.includes('sms send') || lc.includes('messages')) return 'GHL send failed'
