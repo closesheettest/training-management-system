@@ -50,13 +50,22 @@ export const handler = async (event) => {
     return cors(500, JSON.stringify({ ok: false, error: 'Missing SUPABASE env vars' }))
   }
 
+  // ?include_inactive=1 → return inactive sales reps too, each tagged
+  // with active:true/false. Default (no param) is UNCHANGED: active
+  // field reps only. Used by CCG's back-to-retail / no-damage reports so
+  // a former rep's leftover deals can be grouped under a "Non-active rep"
+  // header for the manager to reassign.
+  const qp = event.queryStringParameters || {}
+  const includeInactive = ['1', 'true', 'yes'].includes(String(qp.include_inactive || '').toLowerCase())
+
   const supabase = createClient(SB_URL, SB_KEY)
-  const { data, error } = await supabase
+  let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, phone, rep_level')
-    .eq('is_active_sales_rep', true)
+    .select('first_name, last_name, jobnimbus_id, region, phone, rep_level, is_active_sales_rep')
     .neq('rep_level', 'non_field')
     .order('last_name', { ascending: true })
+  if (!includeInactive) q = q.eq('is_active_sales_rep', true)
+  const { data, error } = await q
 
   if (error) {
     return cors(500, JSON.stringify({ ok: false, error: error.message }))
@@ -70,6 +79,7 @@ export const handler = async (event) => {
     zone: t.region || null,
     phone: t.phone || null,
     rep_level: t.rep_level || null,   // 'junior' | 'senior'
+    active: t.is_active_sales_rep !== false,
   }))
 
   return cors(
