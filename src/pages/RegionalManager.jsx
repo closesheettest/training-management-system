@@ -198,14 +198,21 @@ function Leaderboard({ myZone }) {
     return () => { cancelled = true }
   }, [period])
 
-  const card = (z, i, kind, openZone, setOpen) => {
+  const card = (z, i, kind, openZone, setOpen, rankByZone) => {
     const mine = z.zone === myZone
     const isOpen = openZone === z.zone
+    // Tie-aware standing: teams level on count share the place ("Tied for
+    // 1st") until one pulls ahead. Computed from counts so it's correct
+    // even if two zones are level. Medal follows the real rank (both
+    // leaders get 🥇). Zero-count teams just show the plain ordinal.
+    const ri = (rankByZone && rankByZone[z.zone]) || { rank: z.rank, tied: false }
+    const medal = LB_MEDALS[ri.rank - 1] || ''
+    const placeLabel = (ri.tied && (z.count || 0) > 0) ? `Tied for ${lbOrdinal(ri.rank)}` : `${lbOrdinal(ri.rank)} Place`
     return (
       <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
         className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
         style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
-        <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{LB_MEDALS[i] ? LB_MEDALS[i] + ' ' : ''}{lbOrdinal(z.rank)} Place</div>
+        <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
         <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
         <div className="mt-1 text-xs font-bold">
@@ -267,9 +274,17 @@ function Leaderboard({ myZone }) {
   const board = (zones, kind, openZone, setOpen, detailFn) => {
     if (zones === null) return <div className="text-xs text-slate-300/70">Loading…</div>
     const openZ = zones.find((z) => z.zone === openZone)
+    // Standard competition ranking by count (1,1,3,4 on a tie at the top).
+    const rankByZone = {}
+    zones.forEach((z) => {
+      const c = z.count || 0
+      const rank = 1 + zones.filter((o) => (o.count || 0) > c).length
+      const tied = zones.filter((o) => (o.count || 0) === c).length > 1
+      rankByZone[z.zone] = { rank, tied }
+    })
     return (
       <>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind, openZone, setOpen))}</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
         {openZ && (
           <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
             <div className="mb-1 text-xs font-bold text-amber-200">{openZ.team} · {openZ.zone}</div>
@@ -364,7 +379,7 @@ function DealsToFix({ zone }) {
 // appointment was for. Any deal whose rep is NO LONGER ACTIVE is listed
 // in a separate "Non-active rep" section (data.inactive_reps) so the
 // manager knows to pass those leads out to an active rep.
-function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg }) {
+function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, dateLabel = 'Appt was for' }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { reps, inactive_reps, total } | null
   const [openRep, setOpenRep] = useState(null)
@@ -396,7 +411,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg }
               <div key={i} className="rounded bg-black/20 p-2">
                 <div className="text-sm font-bold">{dl.customer}</div>
                 <div className="text-[11px] text-slate-300/70">{dl.address}</div>
-                <div className="text-xs text-sky-200">🗓 Appt was for: {dl.appt_label}</div>
+                <div className="text-xs text-sky-200">🗓 {dateLabel}: {dl.appt_label}</div>
                 {dl.status && <div className="text-[11px] text-slate-400">{dl.status}</div>}
               </div>
             ))}
@@ -450,12 +465,12 @@ function NoSits({ zone }) {
     blurb="Appointments in your zone that didn't sit — chase them back onto the calendar." emptyMsg="✅ No no-sits to re-book right now." />
 }
 function BackToRetail({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e"
-    blurb="Appts in your zone that went back to retail — work them as retail roof sales." emptyMsg="✅ Nothing back-to-retail right now." />
+  return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e" dateLabel="Inspected"
+    blurb="Inspections in your zone that came back retail — work them as retail roof sales. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ Nothing back-to-retail right now." />
 }
 function NoDamage({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9"
-    blurb="Appts in your zone that came back no-damage." emptyMsg="✅ No no-damage appts right now." />
+  return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected"
+    blurb="Inspections in your zone that came back no-damage. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ No no-damage inspections right now." />
 }
 
 // ── Reps Table ─────────────────────────────────────────────────────
