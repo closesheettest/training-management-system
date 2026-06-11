@@ -133,6 +133,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Fires when a regional manager (or admin) marks a rep Quit / Fired. The SMS names the rep, who flagged them, the reason, and links to the off-boarding instructions page. Subscribers should be whoever clears reps out of GHL / Google Workspace / RepCard / JobNimbus / Sales Academy.',
   },
+  {
+    key: 'sales_audit_noon',
+    label: 'Deals that need fixing (noon SMS)',
+    desc:
+      'Every day at 12:00 PM ET, the sales system scans yesterday\'s JobNimbus sales and texts what\'s missing or wrong. Each zone\'s regional manager gets their deals; subscribers here get the company-wide summary. Check this to get the daily summary text; uncheck to stop. (Sent by the sales app — this just controls who gets the summary.)',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',
