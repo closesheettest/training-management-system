@@ -137,6 +137,8 @@ export default function RegionalManager() {
 
       <DealsToFix zone={manager.region} />
 
+      <NoSits zone={manager.region} />
+
       <QuickActions manager={manager} token={token} reps={reps} />
 
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
@@ -341,6 +343,67 @@ function DealsToFix({ zone }) {
                       <div className="text-[11px] text-slate-300/70">{dl.address}{dl.sold ? ` · sold ${dl.sold}` : ''}</div>
                       {dl.missing.map((m, j) => <div key={'m' + j} className="text-xs text-amber-200">• Missing: {m}</div>)}
                       {dl.errors.map((e, j) => <div key={'e' + j} className="text-xs text-red-300">• Wrong: {e}</div>)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// No-sits to re-book — JN jobs in any "No Sit…" status in this zone, grouped
+// by rep, each showing when the appointment was for so the manager can chase
+// them back onto the calendar.
+function NoSits({ zone }) {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)   // { reps, total } | null
+  const [openRep, setOpenRep] = useState(null)
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'zone-no-sits?zone=' + encodeURIComponent(zone))
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenRep(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+
+  return (
+    <section className="mt-6">
+      <button type="button" onClick={load} disabled={loading}
+        className="w-full rounded-lg bg-[#475569] px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60">
+        📵 No-sits to re-book{data ? ` (${data.total})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Checking JobNimbus…' : `Appointments in your zone that didn't sit — chase them back onto the calendar. Tap to ${data ? 'refresh' : 'load'}`}
+        </div>
+      </button>
+      {err && <div className="mt-2 text-xs text-red-300">{err}</div>}
+      {data && (
+        <div className="mt-2 space-y-2">
+          {data.reps.length === 0 ? (
+            <div className="rounded-lg border border-emerald-400/30 bg-emerald-50/5 p-3 text-sm text-emerald-200">✅ No no-sits to re-book right now.</div>
+          ) : data.reps.map((r) => (
+            <div key={r.rep} className="rounded-lg border border-white/15 bg-white/5">
+              <button type="button" onClick={() => setOpenRep(openRep === r.rep ? null : r.rep)}
+                className="flex w-full items-center justify-between p-3 text-left">
+                <span className="font-semibold">{r.rep}</span>
+                <span className="text-sm"><span className="font-bold text-amber-200">{r.count}</span> no-sit{r.count === 1 ? '' : 's'} {openRep === r.rep ? '▾' : '▸'}</span>
+              </button>
+              {openRep === r.rep && (
+                <div className="space-y-2 border-t border-white/10 p-3">
+                  {r.deals.map((dl, i) => (
+                    <div key={i} className="rounded bg-black/20 p-2">
+                      <div className="text-sm font-bold">{dl.customer}</div>
+                      <div className="text-[11px] text-slate-300/70">{dl.address}</div>
+                      <div className="text-xs text-sky-200">🗓 Appt was for: {dl.appt_label}</div>
+                      <div className="text-[11px] text-slate-400">{dl.status}</div>
                     </div>
                   ))}
                 </div>
