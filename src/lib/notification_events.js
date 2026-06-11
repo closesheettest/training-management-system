@@ -134,6 +134,12 @@ export const NOTIFICATION_EVENTS = [
       'Fires when a regional manager (or admin) marks a rep Quit / Fired. The SMS names the rep, who flagged them, the reason, and links to the off-boarding instructions page. Subscribers should be whoever clears reps out of GHL / Google Workspace / RepCard / JobNimbus / Sales Academy.',
   },
   {
+    key: 'pa_needs_jn_add',
+    label: 'New PA to add in JobNimbus',
+    desc:
+      "Fires when a PA company owner adds a new adjuster in their portal. The SMS gives the person's name + email to add as a JobNimbus user — type them EXACTLY as shown so the system links the new JN user back to that adjuster automatically. Subscribers = whoever manages JobNimbus users.",
+  },
+  {
     key: 'sales_audit_noon',
     label: 'Deals that need fixing (noon SMS)',
     desc:
