@@ -379,7 +379,7 @@ function DealsToFix({ zone }) {
 // appointment was for. Any deal whose rep is NO LONGER ACTIVE is listed
 // in a separate "Non-active rep" section (data.inactive_reps) so the
 // manager knows to pass those leads out to an active rep.
-function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, dateLabel = 'Appt was for' }) {
+function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, dateLabel = 'Appt was for', statusLabel }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { reps, inactive_reps, total } | null
   const [openRep, setOpenRep] = useState(null)
@@ -412,7 +412,9 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                 <div className="text-sm font-bold">{dl.customer}</div>
                 <div className="text-[11px] text-slate-300/70">{dl.address}</div>
                 <div className="text-xs text-sky-200">🗓 {dateLabel}: {dl.appt_label}</div>
-                {dl.status && <div className="text-[11px] text-slate-400">{dl.status}</div>}
+                {dl.status && (statusLabel
+                  ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
+                  : <div className="text-[11px] text-slate-400">{dl.status}</div>)}
               </div>
             ))}
           </div>
@@ -461,7 +463,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
 }
 
 function NoSits({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569"
+  return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569" statusLabel="Status"
     blurb="Appointments in your zone that didn't sit — chase them back onto the calendar." emptyMsg="✅ No no-sits to re-book right now." />
 }
 function BackToRetail({ zone }) {
