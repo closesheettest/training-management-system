@@ -49,7 +49,10 @@
   /* emotional-line diagram */
   .reveal .emo{width:92%;max-width:1180px;margin:1rem auto 0;display:block;}
   .reveal .emo .nl{stroke:#c2c7cd;stroke-width:3;stroke-dasharray:10 10;}
-  .reveal .emo .seg{stroke:var(--gold);stroke-width:6;stroke-linecap:round;}
+  .reveal .emo .seg{stroke:var(--gold);stroke-width:6;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;}
+  /* draw each segment from its start point when its click reveals it */
+  .reveal .emo .fragment.visible .seg{animation:drawSeg .6s ease forwards;}
+  @keyframes drawSeg{to{stroke-dashoffset:0;}}
   .reveal .emo .xm{fill:var(--gold);font-family:'Anton',sans-serif;font-size:52px;text-anchor:middle;dominant-baseline:middle;}
   .reveal .emo .xm.close{fill:var(--green);font-size:66px;}
   .reveal .emo .xl{fill:#e8e8e8;font-family:'Oswald',sans-serif;font-weight:600;font-size:25px;text-anchor:middle;}
@@ -187,21 +190,21 @@
 
       <!-- 2 · warm-up brings them up to neutral -->
       <g class="fragment">
-        <line class="seg" x1="180" y1="455" x2="470" y2="305"/>
+        <line class="seg" pathLength="1" x1="180" y1="455" x2="470" y2="305"/>
         <text class="xm" x="480" y="290">X</text>
         <text class="xl" x="480" y="350">Intro + Short Story (warm-up)</text>
       </g>
 
       <!-- 3 · presentation lifts them way above — CLOSE here -->
       <g class="fragment">
-        <line class="seg" x1="490" y1="275" x2="780" y2="128"/>
+        <line class="seg" pathLength="1" x1="490" y1="275" x2="780" y2="128"/>
         <text class="xm close" x="790" y="110">X</text>
         <text class="xl close" x="790" y="62">Presentation → CLOSE here</text>
       </g>
 
       <!-- 4 · rehash brings them back to neutral before you leave -->
       <g class="fragment">
-        <line class="seg" x1="800" y1="128" x2="1085" y2="278"/>
+        <line class="seg" pathLength="1" x1="800" y1="128" x2="1085" y2="278"/>
         <text class="xm" x="1090" y="290">X</text>
         <text class="xl r" x="1140" y="350">Rehash → back to neutral before you leave</text>
       </g>
