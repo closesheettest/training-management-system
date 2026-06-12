@@ -61,7 +61,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, phone, rep_level, is_active_sales_rep')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep')
     .neq('rep_level', 'non_field')
     .order('last_name', { ascending: true })
   if (!includeInactive) q = q.eq('is_active_sales_rep', true)
@@ -77,6 +77,7 @@ export const handler = async (event) => {
     last_name: t.last_name || '',
     jobnimbus_id: t.jobnimbus_id || null,
     zone: t.region || null,
+    county: t.county || null,
     phone: t.phone || null,
     rep_level: t.rep_level || null,   // 'junior' | 'senior'
     active: t.is_active_sales_rep !== false,
