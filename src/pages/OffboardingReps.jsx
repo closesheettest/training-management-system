@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase.js'
 
 const SYSTEMS = [
   { name: 'GoHighLevel', note: 'open contact, tag as inactive or delete' },
-  { name: 'Google Workspace', note: 'suspend or delete their @shingleusa.com email' },
+  { name: 'Google Workspace', note: 'convert the address to a free Google Group forwarding to their manager, then DELETE the paid user (a suspended account still costs a full license)' },
   { name: 'RepCard', note: 'remove user' },
   { name: 'JobNimbus', note: 'deactivate user' },
   { name: 'Sales Academy', note: 'remove user' },
@@ -221,7 +221,7 @@ function CleanupCard({ t, saving, onToggle, onAllDone, onRestore }) {
                 <span>
                   <strong>{s.name}</strong> —{' '}
                   {s.name === 'Google Workspace'
-                    ? <>suspend or delete <code>{t.company_email || '(no @shingleusa.com email)'}</code></>
+                    ? <>convert <code>{t.company_email || '(no @shingleusa.com email)'}</code> to a free Google Group forwarding to their manager, then <strong>delete the paid user</strong> (a suspended account still costs a full license)</>
                     : s.note}
                 </span>
               </label>
