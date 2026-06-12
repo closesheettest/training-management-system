@@ -23,17 +23,20 @@
   .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.13), transparent 60%), var(--ink);}
 
   .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.95;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
-  .reveal h1{font-size:3.2rem;color:#fff;}
-  .reveal h2{font-size:2.3rem;color:#fff;}
-  .reveal h3.kick{font-family:'Oswald';font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-size:.85rem;margin-bottom:.7rem;}
+  .reveal h1{font-size:4.4rem;color:#fff;}
+  .reveal h2{font-size:3.1rem;color:#fff;}
+  .reveal h3.kick{font-family:'Oswald';font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-size:1.1rem;margin-bottom:.7rem;}
   .gold{color:var(--gold);} .red{color:var(--red);} .smoke{color:var(--smoke);}
-  .reveal .hero{font-family:'Anton';font-size:3rem;line-height:.95;color:var(--gold);text-transform:uppercase;margin:.1rem 0 .2rem;}
-  .reveal .hero.white{color:#fff;} .reveal .hero.big{font-size:4.2rem;}
-  .reveal .subhero{font-family:'Oswald';font-weight:500;font-size:1.1rem;color:#fff;margin-bottom:.4rem;}
+  .reveal .hero{font-family:'Anton';font-size:4rem;line-height:.95;color:var(--gold);text-transform:uppercase;margin:.1rem 0 .2rem;}
+  .reveal .hero.white{color:#fff;} .reveal .hero.big{font-size:5.6rem;}
+  .reveal .subhero{font-family:'Oswald';font-weight:500;font-size:1.5rem;color:#fff;margin-bottom:.4rem;}
 
-  /* detail reveal list — point by point */
-  .reveal .det{display:inline-block;text-align:left;max-width:50rem;margin:.7rem auto 0;}
-  .reveal .det .di{font-family:'Oswald';font-weight:500;font-size:1.12rem;color:#e8e8e8;line-height:1.34;margin:.42rem 0;padding-left:1.3rem;position:relative;}
+  /* detail reveal list — point by point. Indent is em-based so the gold
+     ▸ and spacing stay proportional at any text size. */
+  .reveal .det{display:inline-block;text-align:left;max-width:62rem;margin:.8rem auto 0;}
+  .reveal .det .di{font-family:'Oswald';font-weight:500;font-size:2.1rem;color:#e8e8e8;line-height:1.3;margin:.5em 0;padding-left:1.15em;position:relative;}
+  /* .lg — for sparse "pre-start" slides that should read even bigger */
+  .reveal .det.lg .di{font-size:2.9rem;line-height:1.25;}
   .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
   .reveal .det .di b{color:var(--gold);font-weight:700;}
   .reveal .det .di small{color:var(--smoke);font-weight:400;}
@@ -44,10 +47,10 @@
   .reveal .row{display:flex;gap:.45rem;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:.9rem;}
   .reveal .card{border:2px solid #3a3a3a;border-radius:.55rem;padding:.5rem .8rem;min-width:110px;}
   .reveal .card.g{border-color:var(--gold);background:rgba(245,180,0,.1);}
-  .reveal .card .n{font-family:'Anton';font-size:2rem;line-height:1;color:#fff;}
+  .reveal .card .n{font-family:'Anton';font-size:2.7rem;line-height:1;color:#fff;}
   .reveal .card.g .n{color:var(--gold);}
-  .reveal .card .l{font-family:'Oswald';font-size:.62rem;letter-spacing:.03em;text-transform:uppercase;color:var(--smoke);margin-top:.2rem;}
-  .reveal .op{font-family:'Anton';font-size:1.5rem;color:var(--smoke);}
+  .reveal .card .l{font-family:'Oswald';font-size:.85rem;letter-spacing:.03em;text-transform:uppercase;color:var(--smoke);margin-top:.2rem;}
+  .reveal .op{font-family:'Anton';font-size:2rem;color:var(--smoke);}
 
   .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
   .preview-banner{position:fixed;top:0;left:0;right:0;z-index:60;background:#5b3a8a;color:#fff;font-family:'Oswald';font-weight:700;letter-spacing:.13em;text-transform:uppercase;font-size:.66rem;text-align:center;padding:4px;}
@@ -59,10 +62,10 @@
 
   <!-- 1 · WELCOME + ONBOARDING STEPS (all shown, no clicks — pre-start screen) -->
   <section><h3 class="kick">U.S. Shingle &amp; Metal · Retail Training</h3><h1>WELCOME TO <span class="gold">DAY 1</span></h1>
-    <div class="det" style="max-width:62rem;margin-top:1.4rem;">
-      <div class="di" style="font-size:3.3rem;line-height:1.25;margin:1.1rem 0;padding-left:2.4rem;"><b>Step 1</b> — you'll get a text; tap the link.</div>
-      <div class="di" style="font-size:3.3rem;line-height:1.25;margin:1.1rem 0;padding-left:2.4rem;"><b>Step 2</b> — fill out your information.</div>
-      <div class="di" style="font-size:3.3rem;line-height:1.25;margin:1.1rem 0;padding-left:2.4rem;"><b>Step 3</b> — check your email (and spam) and finish the rest from there.</div>
+    <div class="det lg" style="margin-top:1.2rem;">
+      <div class="di"><b>Step 1</b> — you'll get a text; tap the link.</div>
+      <div class="di"><b>Step 2</b> — fill out your information.</div>
+      <div class="di"><b>Step 3</b> — check your email (and spam) and finish the rest from there.</div>
     </div></section>
 
   <!-- 2 · WHERE WE STARTED -->
