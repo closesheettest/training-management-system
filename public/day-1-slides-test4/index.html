@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --gold:#F5B400; --red:#E0203B; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  :root{ --gold:#F5B400; --red:#E0203B; --green:#27c46b; --ink:#0a0a0a; --smoke:#9aa0a6; }
   html,body{background:var(--ink);}
   .reveal{font-family:'Oswald',sans-serif;}
   .reveal .slides{text-align:center;}
@@ -48,13 +48,13 @@
 
   /* emotional-line diagram */
   .reveal .emo{width:92%;max-width:1180px;margin:1rem auto 0;display:block;}
-  .reveal .emo .nl{stroke:#9aa0a6;stroke-width:3;stroke-dasharray:10 10;}
+  .reveal .emo .nl{stroke:#c2c7cd;stroke-width:3;stroke-dasharray:10 10;}
   .reveal .emo .seg{stroke:var(--gold);stroke-width:6;stroke-linecap:round;}
   .reveal .emo .xm{fill:var(--gold);font-family:'Anton',sans-serif;font-size:52px;text-anchor:middle;dominant-baseline:middle;}
-  .reveal .emo .xm.close{fill:var(--red);font-size:66px;}
+  .reveal .emo .xm.close{fill:var(--green);font-size:66px;}
   .reveal .emo .xl{fill:#e8e8e8;font-family:'Oswald',sans-serif;font-weight:600;font-size:25px;text-anchor:middle;}
   .reveal .emo .xl.r{text-anchor:end;}
-  .reveal .emo .xl.close{fill:var(--red);font-weight:700;}
+  .reveal .emo .xl.close{fill:var(--green);font-weight:700;}
   .reveal .emo .nlabel{fill:#9aa0a6;font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:.08em;text-transform:uppercase;}
   .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
   .reveal .det .di b{color:var(--gold);font-weight:700;}
@@ -172,34 +172,12 @@
       <div class="di step fragment"><span class="lbl"><b>5. Rehash</b> —</span><span class="tx">see the value, what's next, visualize the new roof.</span></div>
     </div></section>
 
-  <!-- 10 · 4 IMPULSE FACTORS — F.I.G.S. -->
-  <section><h3 class="kick">Why people buy · F.I.G.S.</h3><h2>THE 4 <span class="gold">IMPULSE FACTORS</span></h2>
-    <div class="det spaced">
-      <div class="di step fragment"><span class="lbl"><b>F — Fear of Loss</b> —</span><span class="tx">it won't always be available. Here today, gone tomorrow.</span></div>
-      <div class="di step fragment"><span class="lbl"><b>I — Indifference</b> —</span><span class="tx">confidence in your product; comfortably willing to walk away.</span></div>
-      <div class="di step fragment"><span class="lbl"><b>G — Greed</b> —</span><span class="tx">people want what others have. Keeping up with the Joneses.</span></div>
-      <div class="di step fragment"><span class="lbl"><b>S — Sense of Urgency</b> —</span><span class="tx">"I'm only in your area for a short while."</span></div>
-    </div></section>
-
-  <!-- 11 · EIGHT HABITS OF A SUCCESSFUL PERSON -->
-  <section><h3 class="kick">Sales 101</h3><h2>EIGHT HABITS OF A <span class="gold">SUCCESSFUL PERSON</span></h2>
-    <div class="det grid2">
-      <div class="di fragment"><b>1.</b> Great Attitude</div>
-      <div class="di fragment"><b>2.</b> Maintain that Great Attitude</div>
-      <div class="di fragment"><b>3.</b> Be On Time</div>
-      <div class="di fragment"><b>4.</b> Appearance</div>
-      <div class="di fragment"><b>5.</b> Be Prepared</div>
-      <div class="di fragment"><b>6.</b> Work All Day</div>
-      <div class="di fragment"><b>7.</b> Work Your Territory Correctly</div>
-      <div class="di fragment"><b>8.</b> Set and Achieve Goals</div>
-    </div></section>
-
-  <!-- 12 · THE EMOTIONAL LINE (diagram, builds per click) -->
+  <!-- 10 · THE EMOTIONAL LINE (diagram, builds per click) -->
   <section><h3 class="kick">Reading the room</h3><h2>THE <span class="gold">EMOTIONAL LINE</span></h2>
     <svg class="emo" viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg">
       <!-- neutral line (base) -->
       <line class="nl" x1="60" y1="290" x2="1140" y2="290"/>
-      <text class="nlabel" x="60" y="272">Neutral — not happy, defenses down</text>
+      <text class="nlabel" x="60" y="272">Neutral — not happy; defenses not up and not down</text>
 
       <!-- 1 · start: far below the line -->
       <g class="fragment">
@@ -228,6 +206,28 @@
         <text class="xl r" x="1140" y="350">Rehash → back to neutral before you leave</text>
       </g>
     </svg></section>
+
+  <!-- 11 · 4 IMPULSE FACTORS — F.I.G.S. -->
+  <section><h3 class="kick">Why people buy · F.I.G.S.</h3><h2>THE 4 <span class="gold">IMPULSE FACTORS</span></h2>
+    <div class="det spaced">
+      <div class="di step fragment"><span class="lbl"><b>F — Fear of Loss</b> —</span><span class="tx">it won't always be available. Here today, gone tomorrow.</span></div>
+      <div class="di step fragment"><span class="lbl"><b>I — Indifference</b> —</span><span class="tx">confidence in your product; comfortably willing to walk away.</span></div>
+      <div class="di step fragment"><span class="lbl"><b>G — Greed</b> —</span><span class="tx">people want what others have. Keeping up with the Joneses.</span></div>
+      <div class="di step fragment"><span class="lbl"><b>S — Sense of Urgency</b> —</span><span class="tx">"I'm only in your area for a short while."</span></div>
+    </div></section>
+
+  <!-- 11 · EIGHT HABITS OF A SUCCESSFUL PERSON -->
+  <section><h3 class="kick">Sales 101</h3><h2>EIGHT HABITS OF A <span class="gold">SUCCESSFUL PERSON</span></h2>
+    <div class="det grid2">
+      <div class="di fragment"><b>1.</b> Great Attitude</div>
+      <div class="di fragment"><b>2.</b> Maintain that Great Attitude</div>
+      <div class="di fragment"><b>3.</b> Be On Time</div>
+      <div class="di fragment"><b>4.</b> Appearance</div>
+      <div class="di fragment"><b>5.</b> Be Prepared</div>
+      <div class="di fragment"><b>6.</b> Work All Day</div>
+      <div class="di fragment"><b>7.</b> Work Your Territory Correctly</div>
+      <div class="di fragment"><b>8.</b> Set and Achieve Goals</div>
+    </div></section>
 
 </div></div>
 <div class="corner">Day 1 · test 4</div>
