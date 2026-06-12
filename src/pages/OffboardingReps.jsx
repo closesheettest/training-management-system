@@ -5,12 +5,11 @@ import { supabase } from '../lib/supabase.js'
 // Offboarding Reps — the dedicated home for cleaning up a rep who left the
 // company. A rep is flagged "no longer a sales rep" on Active sales reps
 // (sets left_company_at + fires notify-offboarding). They land here until
-// their accounts in the OTHER systems (GoHighLevel, Google Workspace,
-// RepCard, JobNimbus, Sales Academy) are deactivated and the office clicks
-// "✓ All cleanup done."
+// every external system is deactivated.
 //
-// This page only reads/writes the offboarding fields on trainees; the
-// "mark as left" action still lives on Active sales reps.
+// Each system is a checkbox saved per rep (trainees.cleanup_systems jsonb).
+// When ALL boxes are checked, the rep auto-completes (cleanup_done_at gets
+// stamped) and drops to the "cleanup done" history below.
 
 const SYSTEMS = [
   { name: 'GoHighLevel', note: 'open contact, tag as inactive or delete' },
@@ -18,7 +17,10 @@ const SYSTEMS = [
   { name: 'RepCard', note: 'remove user' },
   { name: 'JobNimbus', note: 'deactivate user' },
   { name: 'Sales Academy', note: 'remove user' },
+  { name: 'RoofR', note: 'remove user' },
 ]
+const SYSTEM_NAMES = SYSTEMS.map((s) => s.name)
+const allChecked = (sys) => SYSTEM_NAMES.every((n) => sys && sys[n])
 
 export default function OffboardingReps() {
   const [pending, setPending] = useState(null) // left, cleanup not done
@@ -33,7 +35,7 @@ export default function OffboardingReps() {
     setError(null)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, left_company_at, left_company_reason, cleanup_done_at, is_active_sales_rep')
+      .select('id, first_name, last_name, phone, email, company_email, region, left_company_at, left_company_reason, cleanup_done_at, cleanup_systems, is_active_sales_rep')
       .not('left_company_at', 'is', null)
       .order('left_company_at', { ascending: false })
     if (error) { setError(error.message); setPending([]); return }
@@ -42,18 +44,38 @@ export default function OffboardingReps() {
     setDone(rows.filter((t) => t.cleanup_done_at).slice(0, 50))
   }
 
-  async function markCleanupDone(t) {
+  // Toggle one system checkbox. If that flips the LAST box on, the rep
+  // auto-completes (cleanup_done_at stamped) and moves to the done list.
+  async function toggleSystem(t, name) {
+    const cur = t.cleanup_systems || {}
+    const next = { ...cur, [name]: !cur[name] }
+    const patch = { cleanup_systems: next }
+    const justFinished = allChecked(next)
+    if (justFinished) patch.cleanup_done_at = new Date().toISOString()
     setSavingId(t.id)
-    const { error } = await supabase.from('trainees').update({ cleanup_done_at: new Date().toISOString() }).eq('id', t.id)
+    const { error } = await supabase.from('trainees').update(patch).eq('id', t.id)
+    setSavingId(null)
+    if (error) { setFlash({ kind: 'error', text: error.message }); return }
+    if (justFinished) setFlash({ kind: 'success', text: `All systems cleared for ${t.first_name} ${t.last_name} — cleanup done.` })
+    await load()
+  }
+
+  // Shortcut: check everything + complete in one tap.
+  async function markAllDone(t) {
+    const all = {}
+    SYSTEM_NAMES.forEach((n) => { all[n] = true })
+    setSavingId(t.id)
+    const { error } = await supabase.from('trainees').update({ cleanup_systems: all, cleanup_done_at: new Date().toISOString() }).eq('id', t.id)
     setSavingId(null)
     if (error) { setFlash({ kind: 'error', text: error.message }); return }
     setFlash({ kind: 'success', text: `Cleanup marked done for ${t.first_name} ${t.last_name}.` })
     await load()
   }
 
+  // Re-open: back to pending with a fresh (empty) checklist.
   async function reopenCleanup(t) {
     setSavingId(t.id)
-    const { error } = await supabase.from('trainees').update({ cleanup_done_at: null }).eq('id', t.id)
+    const { error } = await supabase.from('trainees').update({ cleanup_done_at: null, cleanup_systems: {} }).eq('id', t.id)
     setSavingId(null)
     if (error) { setFlash({ kind: 'error', text: error.message }); return }
     setFlash({ kind: 'success', text: `Re-opened cleanup for ${t.first_name} ${t.last_name}.` })
@@ -65,7 +87,7 @@ export default function OffboardingReps() {
     setSavingId(t.id)
     const { error } = await supabase
       .from('trainees')
-      .update({ is_active_sales_rep: true, became_active_rep_at: new Date().toISOString(), left_company_at: null, left_company_reason: null, cleanup_done_at: null })
+      .update({ is_active_sales_rep: true, became_active_rep_at: new Date().toISOString(), left_company_at: null, left_company_reason: null, cleanup_done_at: null, cleanup_systems: {} })
       .eq('id', t.id)
     setSavingId(null)
     if (error) { setFlash({ kind: 'error', text: error.message }); return }
@@ -80,8 +102,8 @@ export default function OffboardingReps() {
         <p className="mt-1 max-w-2xl text-sm text-slate-600">
           When a rep leaves, flag them on{' '}
           <Link to="/active-reps" className="font-semibold text-brand-navy underline">Active sales reps</Link>{' '}
-          → they show up here for cleanup. Deactivate their accounts in each system below, then click
-          {' '}<strong>✓ All cleanup done</strong>.
+          → they show up here. Check off each system as you deactivate their account; when all{' '}
+          {SYSTEM_NAMES.length} are checked, they move to <strong>done</strong> automatically.
         </p>
       </header>
 
@@ -92,7 +114,6 @@ export default function OffboardingReps() {
       )}
       {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-      {/* Cleanup pending */}
       <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-amber-900">
           🚪 Cleanup pending {pending ? `(${pending.length})` : ''}
@@ -105,13 +126,14 @@ export default function OffboardingReps() {
           <ul className="mt-3 space-y-3">
             {pending.map((t) => (
               <CleanupCard key={t.id} t={t} saving={savingId === t.id}
-                onDone={() => markCleanupDone(t)} onRestore={() => restoreActive(t)} />
+                onToggle={(name) => toggleSystem(t, name)}
+                onAllDone={() => markAllDone(t)}
+                onRestore={() => restoreActive(t)} />
             ))}
           </ul>
         )}
       </section>
 
-      {/* Recently completed — reference / undo */}
       {done.length > 0 && (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -141,7 +163,9 @@ export default function OffboardingReps() {
   )
 }
 
-function CleanupCard({ t, saving, onDone, onRestore }) {
+function CleanupCard({ t, saving, onToggle, onAllDone, onRestore }) {
+  const sys = t.cleanup_systems || {}
+  const doneCount = SYSTEM_NAMES.filter((n) => sys[n]).length
   const stamp = t.left_company_at ? new Date(t.left_company_at).toLocaleDateString() : '?'
   return (
     <li className="rounded-md border border-amber-200 bg-white p-3">
@@ -170,27 +194,44 @@ function CleanupCard({ t, saving, onDone, onRestore }) {
             title="Restore them to active reps — clears the 'left the company' flag.">
             Undo (still active)
           </button>
-          <button type="button" onClick={onDone} disabled={saving}
-            className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50">
-            {saving ? '…' : '✓ All cleanup done'}
+          <button type="button" onClick={onAllDone} disabled={saving}
+            className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+            title="Check every system and mark cleanup done in one tap.">
+            {saving ? '…' : '✓ Mark all done'}
           </button>
         </div>
       </div>
-      <details className="mt-2" open>
-        <summary className="cursor-pointer text-xs font-semibold text-amber-800">Systems to deactivate</summary>
-        <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
+
+      <div className="mt-3 rounded-md bg-slate-50 p-2">
+        <div className="mb-1 flex items-center justify-between text-xs font-semibold text-amber-800">
+          <span>Systems to deactivate</span>
+          <span className="text-slate-500">{doneCount}/{SYSTEM_NAMES.length} done</span>
+        </div>
+        <ul className="space-y-1">
           {SYSTEMS.map((s) => (
             <li key={s.name}>
-              ☐ <strong>{s.name}</strong> — {s.name === 'Google Workspace'
-                ? <>suspend or delete <code>{t.company_email || '(no @shingleusa.com email)'}</code></>
-                : s.note}
+              <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-amber-700"
+                  checked={!!sys[s.name]}
+                  disabled={saving}
+                  onChange={() => onToggle(s.name)}
+                />
+                <span>
+                  <strong>{s.name}</strong> —{' '}
+                  {s.name === 'Google Workspace'
+                    ? <>suspend or delete <code>{t.company_email || '(no @shingleusa.com email)'}</code></>
+                    : s.note}
+                </span>
+              </label>
             </li>
           ))}
         </ul>
         <p className="mt-1 text-[11px] italic text-slate-500">
-          Reminders only — the app doesn't reach into those tools. Walk through each, then click "✓ All cleanup done."
+          Check each as you deactivate it — the last check completes cleanup automatically.
         </p>
-      </details>
+      </div>
     </li>
   )
 }
