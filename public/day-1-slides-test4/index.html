@@ -65,18 +65,27 @@
      over when it tries to stop it. Phases driven by clicks (see script). */
   .reveal .mom{width:94%;max-width:1180px;margin:.3rem auto 0;display:block;}
   .reveal .mom .ground{stroke:#c2c7cd;stroke-width:3;}
-  .reveal .mom .ball{transition:transform 1.15s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:center;transform:translate(280px,0);}
+  .reveal .mom .ball{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:center;transform:translate(250px,0);}
   .reveal .mom .ball circle{fill:#2c2c2c;stroke:var(--gold);stroke-width:5;}
   .reveal .mom .ball .spin{stroke:var(--gold);stroke-width:3;opacity:.55;}
-  .reveal .mom .fig{transition:transform 1.15s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(170px,0);}
+  .reveal .mom .fig{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(140px,0) rotate(75deg);}
   .reveal .mom .fig line{stroke:#fff;stroke-width:7;stroke-linecap:round;}
   .reveal .mom .fig .head{fill:#fff;}
-  #momentum[data-phase="1"] .ball{transform:translate(330px,0) rotate(70deg);}
-  #momentum[data-phase="2"] .ball{transform:translate(640px,0) rotate(400deg);}
-  #momentum[data-phase="3"] .ball{transform:translate(980px,0) rotate(760deg);}
-  #momentum[data-phase="1"] .fig{transform:translate(205px,0) rotate(16deg);}
-  #momentum[data-phase="2"] .fig{transform:translate(545px,0) rotate(0deg);}
-  #momentum[data-phase="3"] .fig{transform:translate(1055px,0) rotate(86deg);}
+  /* ball rolls + spins rightward across the 6 phases */
+  #momentum[data-phase="1"] .ball{transform:translate(330px,0) rotate(60deg);}
+  #momentum[data-phase="2"] .ball{transform:translate(470px,0) rotate(180deg);}
+  #momentum[data-phase="3"] .ball{transform:translate(620px,0) rotate(320deg);}
+  #momentum[data-phase="4"] .ball{transform:translate(770px,0) rotate(460deg);}
+  #momentum[data-phase="5"] .ball{transform:translate(900px,0) rotate(600deg);}
+  #momentum[data-phase="6"] .ball{transform:translate(1010px,0) rotate(720deg);}
+  /* figure: near-laying (75°) → upright (8°) over phases 1-3, then jumps in
+     front and is bowled flat (90°) over phases 4-6 */
+  #momentum[data-phase="1"] .fig{transform:translate(215px,0) rotate(55deg);}
+  #momentum[data-phase="2"] .fig{transform:translate(360px,0) rotate(32deg);}
+  #momentum[data-phase="3"] .fig{transform:translate(510px,0) rotate(8deg);}
+  #momentum[data-phase="4"] .fig{transform:translate(885px,0) rotate(26deg);}
+  #momentum[data-phase="5"] .fig{transform:translate(965px,0) rotate(56deg);}
+  #momentum[data-phase="6"] .fig{transform:translate(1045px,0) rotate(90deg);}
   .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
   .reveal .det .di b{color:var(--gold);font-weight:700;}
   .reveal .det .di small{color:var(--smoke);font-weight:400;}
@@ -184,9 +193,9 @@
     <svg class="mom" viewBox="0 0 1200 440" xmlns="http://www.w3.org/2000/svg">
       <line class="ground" x1="40" y1="400" x2="1160" y2="400"/>
       <g class="ball">
-        <circle cx="0" cy="345" r="55"/>
-        <line class="spin" x1="-36" y1="345" x2="36" y2="345"/>
-        <line class="spin" x1="0" y1="309" x2="0" y2="381"/>
+        <circle cx="0" cy="315" r="85"/>
+        <line class="spin" x1="-56" y1="315" x2="56" y2="315"/>
+        <line class="spin" x1="0" y1="259" x2="0" y2="371"/>
       </g>
       <g class="fig">
         <line x1="-16" y1="400" x2="0" y2="354"/>
@@ -197,10 +206,14 @@
       </g>
     </svg>
     <div class="det" style="margin-top:.4rem;">
-      <div class="di fragment" data-phase="1">Brace and get low — every bit of effort just to <b>start it rolling.</b></div>
-      <div class="di fragment" data-phase="2">Mid-court — <b>standing tall, almost no effort</b> to keep it going.</div>
-      <div class="di fragment" data-phase="3">Now jump in front to stop it? <b>It runs you right over.</b></div>
-    </div></section>
+      <div class="di fragment" data-fragment-index="1" data-phase="1">Brace and get low — every bit of effort just to <b>start it rolling.</b></div>
+      <div class="di fragment" data-fragment-index="3" data-phase="3">As it rolls, you <b>stand taller</b> — less and less effort.</div>
+      <div class="di fragment" data-fragment-index="6" data-phase="6">Try to stop it now? <b>It runs you right over.</b></div>
+    </div>
+    <!-- invisible click triggers for the in-between motion steps -->
+    <span class="fragment" data-fragment-index="2" data-phase="2"></span>
+    <span class="fragment" data-fragment-index="4" data-phase="4"></span>
+    <span class="fragment" data-fragment-index="5" data-phase="5"></span></section>
 
   <!-- 8 · SALES 101 — SECTION TITLE -->
   <section><h3 class="kick">Now the craft</h3><h1>SALES <span class="gold">101</span></h1>
