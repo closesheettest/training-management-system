@@ -37,6 +37,7 @@ import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
 import RegionalManager from './pages/RegionalManager.jsx'
 import RegionalManagers from './pages/RegionalManagers.jsx'
+import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
           <Route path="/regional-managers" element={<RouteGate pageKey="settings.active_reps"><RegionalManagers /></RouteGate>} />
+          <Route path="/offboarding" element={<RouteGate pageKey="settings.offboarding"><OffboardingReps /></RouteGate>} />
           <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />
           <Route path="/rep-map" element={<RouteGate pageKey="team.map"><RepMap /></RouteGate>} />
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />

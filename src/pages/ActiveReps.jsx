@@ -256,7 +256,7 @@ export default function ActiveReps() {
     }
     setFlash({
       kind: 'success',
-      text: `${trainee.first_name} ${trainee.last_name} moved to "no longer a sales rep" — see Cleanup pending below.`,
+      text: `${trainee.first_name} ${trainee.last_name} moved to "no longer a sales rep" — see the Offboarding Reps page to finish cleanup.`,
     })
     // Alert the cleanup crew (GHL / Google / RepCard / JobNimbus / Sales
     // Academy) with the step-by-step link. Best-effort — never block the UI.
@@ -601,24 +601,6 @@ export default function ActiveReps() {
       kind: 'success',
       text: `${trainee.first_name} ${trainee.last_name} set to ${level === 'junior' ? 'Junior' : 'Senior'} rep.`,
     })
-    await load()
-  }
-
-  // Mark a former rep's other-system cleanup as done. They disappear
-  // from the pending list once stamped. Reversible: clear cleanup_done_at
-  // in Supabase if admin needs to redo.
-  async function markCleanupDone(trainee) {
-    setSavingId(trainee.id)
-    const { error } = await supabase
-      .from('trainees')
-      .update({ cleanup_done_at: new Date().toISOString() })
-      .eq('id', trainee.id)
-    setSavingId(null)
-    if (error) {
-      setFlash({ kind: 'error', text: error.message })
-      return
-    }
-    setFlash({ kind: 'success', text: `Cleanup marked done for ${trainee.first_name} ${trainee.last_name}.` })
     await load()
   }
 
@@ -1532,28 +1514,15 @@ export default function ActiveReps() {
       )}
 
       {pendingCleanup.length > 0 && (
-        <CollapsibleSection
-          sectionClass="rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-sm"
-          headingClass="text-lg font-semibold text-amber-900"
-          title={`🚪 Cleanup pending — reps to remove from other systems (${pendingCleanup.length})`}
+        <Link
+          to="/offboarding"
+          className="flex items-center justify-between gap-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-4 shadow-sm hover:bg-amber-100"
         >
-          <p className="mt-1 text-sm text-amber-900">
-            These reps are flagged "no longer with the company." Go deactivate them in each
-            external system below, then click <strong>✓ All cleanup done</strong> to clear them
-            from this list.
-          </p>
-          <ul className="mt-3 space-y-3">
-            {pendingCleanup.map((t) => (
-              <CleanupRow
-                key={t.id}
-                t={t}
-                saving={savingId === t.id}
-                onDone={() => markCleanupDone(t)}
-                onUndo={() => toggle(t, true)}
-              />
-            ))}
-          </ul>
-        </CollapsibleSection>
+          <span className="text-sm font-semibold text-amber-900">
+            🚪 {pendingCleanup.length} rep{pendingCleanup.length === 1 ? '' : 's'} pending offboarding cleanup
+          </span>
+          <span className="text-sm font-semibold text-amber-800">Go to Offboarding Reps →</span>
+        </Link>
       )}
 
       <CollapsibleSection
@@ -2071,76 +2040,6 @@ function RepLevelBadge({ level, confirmed, onChange, busy }) {
         </select>
       )}
     </span>
-  )
-}
-
-// Row in the "Cleanup pending" section. Surfaces the rep's contact info,
-// reason for leaving, plus a checklist of the external systems they
-// need to be deactivated in. The "✓ All cleanup done" button is the
-// finish line — once clicked, they disappear from this list.
-function CleanupRow({ t, saving, onDone, onUndo }) {
-  const stamp = t.left_company_at ? new Date(t.left_company_at).toLocaleDateString() : '?'
-  return (
-    <li className="rounded-md border border-amber-200 bg-white p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-semibold text-slate-900">
-            {t.first_name} {t.last_name}
-            {t.region && (
-              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
-                📍 {t.region}
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 text-xs text-slate-600">
-            {t.phone || '—'}
-            {t.company_email && (
-              <> · <span className="text-emerald-700">{t.company_email}</span></>
-            )}
-            {!t.company_email && t.email && <> · {t.email}</>}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500">
-            Flagged {stamp}
-            {t.left_company_reason ? <> · Reason: <em>{t.left_company_reason}</em></> : <> · No reason given</>}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={saving}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            title="Restore them to the active rep list — clears the 'left the company' flag."
-          >
-            Undo (still active)
-          </button>
-          <button
-            type="button"
-            onClick={onDone}
-            disabled={saving}
-            className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
-          >
-            {saving ? '…' : '✓ All cleanup done'}
-          </button>
-        </div>
-      </div>
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs font-semibold text-amber-800">
-          Systems to deactivate (click to expand)
-        </summary>
-        <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
-          <li>☐ <strong>GoHighLevel</strong> — open contact, tag as inactive or delete</li>
-          <li>☐ <strong>Google Workspace</strong> — suspend or delete <code>{t.company_email || '(no @shingleusa.com email)'}</code></li>
-          <li>☐ <strong>RepCard</strong> — remove user</li>
-          <li>☐ <strong>JobNimbus</strong> — deactivate user</li>
-          <li>☐ <strong>Sales Academy</strong> — remove user</li>
-        </ul>
-        <p className="mt-1 text-[11px] italic text-slate-500">
-          These are reminders — the system doesn't reach into those tools automatically. Walk
-          through each, then click "✓ All cleanup done" to clear from this list.
-        </p>
-      </details>
-    </li>
   )
 }
 
@@ -2983,7 +2882,7 @@ function LeavingModal({ trainee, reason, setReason, sending, onCancel, onConfirm
         </h3>
         <p className="mt-2 text-sm text-slate-600">
           This will remove them from the active reps list (no more group broadcasts) and add
-          them to the <strong>Cleanup pending</strong> section above, so you can deactivate
+          them to the <strong>Offboarding Reps</strong> page, so you can deactivate
           their accounts in GoHighLevel, RepCard, JobNimbus, Sales Academy, and Google Workspace.
         </p>
         <label className="mt-4 block">
