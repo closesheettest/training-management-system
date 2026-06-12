@@ -59,6 +59,24 @@
   .reveal .emo .xl.r{text-anchor:end;}
   .reveal .emo .xl.close{fill:var(--green);font-weight:700;}
   .reveal .emo .nlabel{fill:#9aa0a6;font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:.08em;text-transform:uppercase;}
+
+  /* momentum — the cement-ball story. Ball rolls + spins across; the stick
+     figure braces low to start, stands tall mid-court, then gets bowled
+     over when it tries to stop it. Phases driven by clicks (see script). */
+  .reveal .mom{width:94%;max-width:1180px;margin:.3rem auto 0;display:block;}
+  .reveal .mom .ground{stroke:#c2c7cd;stroke-width:3;}
+  .reveal .mom .ball{transition:transform 1.15s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:center;transform:translate(280px,0);}
+  .reveal .mom .ball circle{fill:#2c2c2c;stroke:var(--gold);stroke-width:5;}
+  .reveal .mom .ball .spin{stroke:var(--gold);stroke-width:3;opacity:.55;}
+  .reveal .mom .fig{transition:transform 1.15s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(170px,0);}
+  .reveal .mom .fig line{stroke:#fff;stroke-width:7;stroke-linecap:round;}
+  .reveal .mom .fig .head{fill:#fff;}
+  #momentum[data-phase="1"] .ball{transform:translate(330px,0) rotate(70deg);}
+  #momentum[data-phase="2"] .ball{transform:translate(640px,0) rotate(400deg);}
+  #momentum[data-phase="3"] .ball{transform:translate(980px,0) rotate(760deg);}
+  #momentum[data-phase="1"] .fig{transform:translate(205px,0) rotate(16deg);}
+  #momentum[data-phase="2"] .fig{transform:translate(545px,0) rotate(0deg);}
+  #momentum[data-phase="3"] .fig{transform:translate(1055px,0) rotate(86deg);}
   .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
   .reveal .det .di b{color:var(--gold);font-weight:700;}
   .reveal .det .di small{color:var(--smoke);font-weight:400;}
@@ -161,6 +179,29 @@
       <div class="di fragment">It's <b>learned</b> — like anything else.</div>
     </div></section>
 
+  <!-- 7d · MOMENTUM — the cement ball (click-driven animation) -->
+  <section id="momentum" data-phase="0"><h3 class="kick">Effort &amp; momentum</h3><h2>THE <span class="gold">CEMENT BALL</span></h2>
+    <svg class="mom" viewBox="0 0 1200 440" xmlns="http://www.w3.org/2000/svg">
+      <line class="ground" x1="40" y1="400" x2="1160" y2="400"/>
+      <g class="ball">
+        <circle cx="0" cy="345" r="55"/>
+        <line class="spin" x1="-36" y1="345" x2="36" y2="345"/>
+        <line class="spin" x1="0" y1="309" x2="0" y2="381"/>
+      </g>
+      <g class="fig">
+        <line x1="-16" y1="400" x2="0" y2="354"/>
+        <line x1="16" y1="400" x2="0" y2="354"/>
+        <line x1="0" y1="354" x2="0" y2="300"/>
+        <line x1="0" y1="312" x2="48" y2="332"/>
+        <circle class="head" cx="0" cy="283" r="17"/>
+      </g>
+    </svg>
+    <div class="det" style="margin-top:.4rem;">
+      <div class="di fragment" data-phase="1">Brace and get low — every bit of effort just to <b>start it rolling.</b></div>
+      <div class="di fragment" data-phase="2">Mid-court — <b>standing tall, almost no effort</b> to keep it going.</div>
+      <div class="di fragment" data-phase="3">Now jump in front to stop it? <b>It runs you right over.</b></div>
+    </div></section>
+
   <!-- 8 · SALES 101 — SECTION TITLE -->
   <section><h3 class="kick">Now the craft</h3><h1>SALES <span class="gold">101</span></h1>
     <div class="subhero" style="margin-top:1rem;">The conversation, what makes people buy, and the habits that win.</div></section>
@@ -238,6 +279,24 @@
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
 <script>
   Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0.04 });
+
+  // Momentum slide: set data-phase to the highest revealed click so the
+  // ball + stick figure animate to that stage (CSS transitions do the move).
+  (function () {
+    const mom = document.getElementById('momentum');
+    if (!mom) return;
+    function setPhase() {
+      let p = 0;
+      mom.querySelectorAll('.fragment[data-phase]').forEach((f) => {
+        if (f.classList.contains('visible')) p = Math.max(p, Number(f.dataset.phase) || 0);
+      });
+      mom.dataset.phase = String(p);
+    }
+    Reveal.on('fragmentshown', setPhase);
+    Reveal.on('fragmenthidden', setPhase);
+    Reveal.on('slidechanged', setPhase);
+    setPhase();
+  })();
 </script>
 </body>
 </html>
