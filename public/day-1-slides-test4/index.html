@@ -68,7 +68,7 @@
   .reveal .mom .ball{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:center;transform:translate(250px,0);}
   .reveal .mom .ball circle{fill:#2c2c2c;stroke:var(--gold);stroke-width:5;}
   .reveal .mom .ball .spin{stroke:var(--gold);stroke-width:3;opacity:.55;}
-  .reveal .mom .fig{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(140px,0) rotate(75deg);}
+  .reveal .mom .fig{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(95px,0) rotate(50deg) scale(.85);}
   .reveal .mom .fig line{stroke:#fff;stroke-width:7;stroke-linecap:round;}
   .reveal .mom .fig .head{fill:#fff;}
   /* ball rolls + spins rightward across the 6 phases */
@@ -78,14 +78,15 @@
   #momentum[data-phase="4"] .ball{transform:translate(770px,0) rotate(460deg);}
   #momentum[data-phase="5"] .ball{transform:translate(900px,0) rotate(600deg);}
   #momentum[data-phase="6"] .ball{transform:translate(1010px,0) rotate(720deg);}
-  /* figure: near-laying (75°) → upright (8°) over phases 1-3, then jumps in
-     front and is bowled flat (90°) over phases 4-6 */
-  #momentum[data-phase="1"] .fig{transform:translate(215px,0) rotate(55deg);}
-  #momentum[data-phase="2"] .fig{transform:translate(360px,0) rotate(32deg);}
-  #momentum[data-phase="3"] .fig{transform:translate(510px,0) rotate(8deg);}
-  #momentum[data-phase="4"] .fig{transform:translate(885px,0) rotate(26deg);}
-  #momentum[data-phase="5"] .fig{transform:translate(965px,0) rotate(56deg);}
-  #momentum[data-phase="6"] .fig{transform:translate(1045px,0) rotate(90deg);}
+  /* figure: small + crouched-low at the lower-left, leaning into the ball,
+     grows to full upright over phases 1-3, then jumps in front and is
+     bowled flat (90°) over phases 4-6 */
+  #momentum[data-phase="1"] .fig{transform:translate(175px,0) rotate(36deg) scale(.9);}
+  #momentum[data-phase="2"] .fig{transform:translate(320px,0) rotate(20deg) scale(.95);}
+  #momentum[data-phase="3"] .fig{transform:translate(480px,0) rotate(5deg) scale(1);}
+  #momentum[data-phase="4"] .fig{transform:translate(885px,0) rotate(26deg) scale(1);}
+  #momentum[data-phase="5"] .fig{transform:translate(965px,0) rotate(56deg) scale(1);}
+  #momentum[data-phase="6"] .fig{transform:translate(1045px,0) rotate(90deg) scale(1);}
   /* captions overlay in one spot; only the active one is shown (replaces) */
   .reveal .momcaps{position:relative;min-height:6.5rem;max-width:64rem;margin:.5rem auto 0;text-align:left;}
   .reveal .momcap{position:absolute;left:0;right:0;top:0;opacity:0;transition:opacity .35s ease;font-family:'Oswald',sans-serif;font-weight:600;font-size:2.6rem;line-height:1.28;color:#e8e8e8;padding-left:1.15em;}
@@ -290,7 +291,7 @@
         <line x1="-16" y1="400" x2="0" y2="354"/>
         <line x1="16" y1="400" x2="0" y2="354"/>
         <line x1="0" y1="354" x2="0" y2="300"/>
-        <line x1="0" y1="312" x2="48" y2="332"/>
+        <line x1="0" y1="310" x2="82" y2="346"/>
         <circle class="head" cx="0" cy="283" r="17"/>
       </g>
       <g class="ball">
