@@ -86,6 +86,12 @@
   #momentum[data-phase="4"] .fig{transform:translate(885px,0) rotate(26deg);}
   #momentum[data-phase="5"] .fig{transform:translate(965px,0) rotate(56deg);}
   #momentum[data-phase="6"] .fig{transform:translate(1045px,0) rotate(90deg);}
+  /* captions overlay in one spot; only the active one is shown (replaces) */
+  .reveal .momcaps{position:relative;min-height:6.5rem;max-width:64rem;margin:.5rem auto 0;text-align:left;}
+  .reveal .momcap{position:absolute;left:0;right:0;top:0;opacity:0;transition:opacity .35s ease;font-family:'Oswald',sans-serif;font-weight:600;font-size:2.6rem;line-height:1.28;color:#e8e8e8;padding-left:1.15em;}
+  .reveal .momcap::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
+  .reveal .momcap b{color:var(--gold);font-weight:700;}
+  .reveal .momcap.on{opacity:1;}
   .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
   .reveal .det .di b{color:var(--gold);font-weight:700;}
   .reveal .det .di small{color:var(--smoke);font-weight:400;}
@@ -188,33 +194,6 @@
       <div class="di fragment">It's <b>learned</b> — like anything else.</div>
     </div></section>
 
-  <!-- 7d · MOMENTUM — the cement ball (click-driven animation) -->
-  <section id="momentum" data-phase="0"><h3 class="kick">Effort &amp; momentum</h3><h2>THE <span class="gold">CEMENT BALL</span></h2>
-    <svg class="mom" viewBox="0 0 1200 440" xmlns="http://www.w3.org/2000/svg">
-      <line class="ground" x1="40" y1="400" x2="1160" y2="400"/>
-      <g class="ball">
-        <circle cx="0" cy="315" r="85"/>
-        <line class="spin" x1="-56" y1="315" x2="56" y2="315"/>
-        <line class="spin" x1="0" y1="259" x2="0" y2="371"/>
-      </g>
-      <g class="fig">
-        <line x1="-16" y1="400" x2="0" y2="354"/>
-        <line x1="16" y1="400" x2="0" y2="354"/>
-        <line x1="0" y1="354" x2="0" y2="300"/>
-        <line x1="0" y1="312" x2="48" y2="332"/>
-        <circle class="head" cx="0" cy="283" r="17"/>
-      </g>
-    </svg>
-    <div class="det" style="margin-top:.4rem;">
-      <div class="di fragment" data-fragment-index="1" data-phase="1">Brace and get low — every bit of effort just to <b>start it rolling.</b></div>
-      <div class="di fragment" data-fragment-index="3" data-phase="3">As it rolls, you <b>stand taller</b> — less and less effort.</div>
-      <div class="di fragment" data-fragment-index="6" data-phase="6">Try to stop it now? <b>It runs you right over.</b></div>
-    </div>
-    <!-- invisible click triggers for the in-between motion steps -->
-    <span class="fragment" data-fragment-index="2" data-phase="2"></span>
-    <span class="fragment" data-fragment-index="4" data-phase="4"></span>
-    <span class="fragment" data-fragment-index="5" data-phase="5"></span></section>
-
   <!-- 8 · SALES 101 — SECTION TITLE -->
   <section><h3 class="kick">Now the craft</h3><h1>SALES <span class="gold">101</span></h1>
     <div class="subhero" style="margin-top:1rem;">The conversation, what makes people buy, and the habits that win.</div></section>
@@ -286,6 +265,38 @@
       <div class="di fragment"><b>8.</b> Set and Achieve Goals</div>
     </div></section>
 
+  <!-- 15 · MOMENTUM — the cement ball (click-driven animation) -->
+  <section id="momentum" data-phase="0"><h3 class="kick">Effort &amp; momentum</h3><h2>THE <span class="gold">CEMENT BALL</span></h2>
+    <svg class="mom" viewBox="0 0 1200 440" xmlns="http://www.w3.org/2000/svg">
+      <line class="ground" x1="40" y1="400" x2="1160" y2="400"/>
+      <!-- figure FIRST so the ball renders on top (figure pushes from behind) -->
+      <g class="fig">
+        <line x1="-16" y1="400" x2="0" y2="354"/>
+        <line x1="16" y1="400" x2="0" y2="354"/>
+        <line x1="0" y1="354" x2="0" y2="300"/>
+        <line x1="0" y1="312" x2="48" y2="332"/>
+        <circle class="head" cx="0" cy="283" r="17"/>
+      </g>
+      <g class="ball">
+        <circle cx="0" cy="315" r="85"/>
+        <line class="spin" x1="-56" y1="315" x2="56" y2="315"/>
+        <line class="spin" x1="0" y1="259" x2="0" y2="371"/>
+      </g>
+    </svg>
+    <!-- captions REPLACE each other (only the current one shows) — driven by JS -->
+    <div class="momcaps">
+      <div class="momcap" data-min="1" data-max="2">Brace and get low — every bit of effort just to <b>start it rolling.</b></div>
+      <div class="momcap" data-min="3" data-max="3">As it rolls, you <b>stand taller</b> — less and less effort.</div>
+      <div class="momcap" data-min="4" data-max="6">Try to stop it now? <b>It runs you right over.</b></div>
+    </div>
+    <!-- invisible click triggers: 6 clicks (3 to stand, 3 to roll over) -->
+    <span class="fragment" data-fragment-index="1" data-phase="1"></span>
+    <span class="fragment" data-fragment-index="2" data-phase="2"></span>
+    <span class="fragment" data-fragment-index="3" data-phase="3"></span>
+    <span class="fragment" data-fragment-index="4" data-phase="4"></span>
+    <span class="fragment" data-fragment-index="5" data-phase="5"></span>
+    <span class="fragment" data-fragment-index="6" data-phase="6"></span></section>
+
 </div></div>
 <div class="corner">Day 1 · test 4</div>
 
@@ -304,6 +315,11 @@
         if (f.classList.contains('visible')) p = Math.max(p, Number(f.dataset.phase) || 0);
       });
       mom.dataset.phase = String(p);
+      // show only the caption whose phase range covers the current phase
+      mom.querySelectorAll('.momcap').forEach((c) => {
+        const lo = Number(c.dataset.min), hi = Number(c.dataset.max);
+        c.classList.toggle('on', p >= lo && p <= hi);
+      });
     }
     Reveal.on('fragmentshown', setPhase);
     Reveal.on('fragmenthidden', setPhase);
