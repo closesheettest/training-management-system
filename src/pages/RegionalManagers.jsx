@@ -79,6 +79,8 @@ export default function RegionalManagers() {
 
       <AllDealsToFix />
 
+      <AllNoSits />
+
       <ToolsetReference />
 
       {error && (
@@ -218,6 +220,216 @@ function AllDealsToFix() {
         </div>
       )}
     </section>
+  )
+}
+
+// Company-wide "No-sits to re-book" — every team's no-sit backlog (JN jobs
+// the homeowner didn't sit), grouped by region -> rep -> deal, PLUS a
+// progress report. The office freezes "today's numbers" as a benchmark with
+// one tap, then sees per team + company-wide how many they started with,
+// how many moved off the list (re-booked), and how many were added since.
+// Backed by the CCG all-no-sits function.
+function AllNoSits() {
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false) // benchmark set/reset in flight
+  const [data, setData] = useState(null) // { total, zones, benchmark_at, progress } | null
+  const [openZone, setOpenZone] = useState(null)
+  const [openRep, setOpenRep] = useState(null) // `${zone}|${rep}`
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-no-sits')
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+
+  const runBenchmark = async (action) => {
+    if (action === 'clear-benchmark' && !window.confirm('Clear the benchmark? Progress tracking will reset.')) return
+    setBusy(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-no-sits?action=' + action)
+      const d = await res.json()
+      if (!d || !d.ok) { setErr(d?.error || 'Could not update benchmark.'); setBusy(false); return }
+    } catch { setErr('Network error.'); setBusy(false); return }
+    setBusy(false)
+    await load()
+  }
+
+  const benchDate = data?.benchmark_at
+    ? new Date(data.benchmark_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : null
+
+  return (
+    <section className="mb-6">
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="w-full rounded-lg bg-[#475569] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60"
+      >
+        📵 No-sits to re-book — all teams{data ? ` (${data.total})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading
+            ? 'Checking JobNimbus…'
+            : `Every team's no-sit backlog, grouped by region — chase them back onto the calendar. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3 space-y-3">
+          {/* ── Progress report ── */}
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-slate-800">📈 Progress report</div>
+              <div className="flex items-center gap-2">
+                {data.benchmark_at ? (
+                  <>
+                    <button type="button" onClick={() => runBenchmark('set-benchmark')} disabled={busy}
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                      Re-set to now
+                    </button>
+                    <button type="button" onClick={() => runBenchmark('clear-benchmark')} disabled={busy}
+                      className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60">
+                      Clear
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => runBenchmark('set-benchmark')} disabled={busy}
+                    className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60">
+                    {busy ? 'Setting…' : 'Set today as benchmark'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!data.progress ? (
+              <p className="mt-2 text-xs text-slate-500">
+                No benchmark set yet. Tap <strong>Set today as benchmark</strong> to freeze the current list as your
+                baseline — then this report tracks how many move off vs. get added.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <div className="text-[11px] text-slate-400">Benchmark set {benchDate}</div>
+                <ProgressRow label="Company total" zone={null} p={data.progress.total} bold />
+                {data.progress.zones.map((z) => (
+                  <ProgressRow key={z.zone} label={teamLabel(z.zone) || z.zone} zone={z.zone} p={z} />
+                ))}
+                <div className="pt-1 text-[11px] text-slate-400">
+                  <span className="font-semibold">Started</span> = on the list at benchmark ·{' '}
+                  <span className="font-semibold text-emerald-600">Moved off</span> = re-booked since ·{' '}
+                  <span className="font-semibold text-[#b8324f]">Added</span> = new since ·{' '}
+                  <span className="font-semibold">Now</span> = on the list right now
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── The list (zone -> rep -> deal) ── */}
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              ✅ No no-sits to re-book right now — every team is clear.
+            </div>
+          ) : (
+            data.zones.map((z) => {
+              const zoneOpen = openZone === z.zone
+              return (
+                <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                    className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                    style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>
+                        {teamLabel(z.zone) || z.zone}
+                      </span>
+                      <span className="text-xs text-slate-500">{z.zone}</span>
+                    </span>
+                    <span className="text-sm text-slate-700">
+                      <span className="font-bold text-[#475569]">{z.count}</span> no-sit{z.count === 1 ? '' : 's'} {zoneOpen ? '▾' : '▸'}
+                    </span>
+                  </button>
+
+                  {zoneOpen && (
+                    <div className="space-y-2 border-t border-slate-100 p-3">
+                      {z.reps.map((r) => {
+                        const key = `${z.zone}|${r.rep}`
+                        const repOpen = openRep === key
+                        return (
+                          <div key={key} className="rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => setOpenRep(repOpen ? null : key)}
+                              className="flex w-full items-center justify-between p-3 text-left"
+                            >
+                              <span className="font-semibold text-slate-800">{r.rep}</span>
+                              <span className="text-sm text-slate-600">
+                                <span className="font-bold text-amber-600">{r.count}</span> no-sit{r.count === 1 ? '' : 's'} {repOpen ? '▾' : '▸'}
+                              </span>
+                            </button>
+                            {repOpen && (
+                              <div className="space-y-2 border-t border-slate-100 p-3">
+                                {r.deals.map((dl, i) => (
+                                  <div key={i} className="rounded bg-slate-50 p-2">
+                                    <div className="text-sm font-bold text-slate-900">{dl.customer}</div>
+                                    <div className="text-[11px] text-slate-500">{dl.address}</div>
+                                    <div className="text-xs text-slate-600">🗓 Appt was for: {dl.appt_label}</div>
+                                    {dl.status && <div className="text-[11px] text-slate-400">{dl.status}</div>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// One row of the progress report: Started / Moved off / Added / Now.
+function ProgressRow({ label, zone, p, bold }) {
+  const color = zone && ZONE_COLORS[zone] ? ZONE_COLORS[zone].deep : '#0f172a'
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 ${bold ? 'bg-slate-100' : 'bg-slate-50'}`}>
+      <span className={`min-w-0 truncate ${bold ? 'text-sm font-bold' : 'text-sm font-semibold'}`} style={{ color: bold ? '#0f172a' : color }}>
+        {label}
+      </span>
+      <span className="flex shrink-0 items-center gap-2 text-xs">
+        <Stat n={p.started} l="started" />
+        <Stat n={p.moved_off} l="off" tone="emerald" />
+        <Stat n={p.added} l="added" tone="rose" />
+        <Stat n={p.current} l="now" tone="slate-strong" />
+      </span>
+    </div>
+  )
+}
+
+function Stat({ n, l, tone }) {
+  const toneCls =
+    tone === 'emerald' ? 'text-emerald-600' :
+    tone === 'rose' ? 'text-[#b8324f]' :
+    tone === 'slate-strong' ? 'text-slate-900' : 'text-slate-700'
+  return (
+    <span className="inline-flex flex-col items-center leading-tight">
+      <span className={`font-bold ${toneCls}`}>{n}</span>
+      <span className="text-[9px] uppercase tracking-wide text-slate-400">{l}</span>
+    </span>
   )
 }
 
