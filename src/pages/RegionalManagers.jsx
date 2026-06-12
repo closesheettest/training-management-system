@@ -322,9 +322,10 @@ function AllNoSits() {
                   <ProgressRow key={z.zone} label={teamLabel(z.zone) || z.zone} zone={z.zone} p={z} />
                 ))}
                 <div className="pt-1 text-[11px] text-slate-400">
-                  <span className="font-semibold">Started</span> = on the list at benchmark ·{' '}
-                  <span className="font-semibold text-emerald-600">Moved off</span> = re-booked since ·{' '}
-                  <span className="font-semibold text-[#b8324f]">Added</span> = new since ·{' '}
+                  <span className="font-semibold">Started</span> = no-sits frozen at benchmark ·{' '}
+                  <span className="font-semibold text-emerald-600">Converted</span> = flipped back to an appointment ·{' '}
+                  <span className="font-semibold">Still</span> = still a no-sit ·{' '}
+                  <span className="font-semibold text-[#b8324f]">Added</span> = new no-sits since ·{' '}
                   <span className="font-semibold">Now</span> = on the list right now
                 </div>
               </div>
@@ -413,9 +414,10 @@ function ProgressRow({ label, zone, p, bold }) {
       </span>
       <span className="flex shrink-0 items-center gap-2 text-xs">
         <Stat n={p.started} l="started" />
-        <Stat n={p.moved_off} l="off" tone="emerald" />
+        <Stat n={p.converted} l="converted" tone="emerald" />
+        <Stat n={p.still} l="still" />
         <Stat n={p.added} l="added" tone="rose" />
-        <Stat n={p.current} l="now" tone="slate-strong" />
+        <Stat n={p.now} l="now" tone="slate-strong" />
       </span>
     </div>
   )
