@@ -406,6 +406,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                 <div className="text-sm font-bold">{dl.customer}</div>
                 <div className="text-[11px] text-slate-300/70">{dl.address}</div>
                 <div className="text-xs text-sky-200">🗓 {dateLabel}: {dl.appt_label}</div>
+                {dl.scheduled_label && <div className="text-xs text-sky-200/80">📅 Scheduled: {dl.scheduled_label}</div>}
                 {dl.status && (statusLabel
                   ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
                   : <div className="text-[11px] text-slate-400">{dl.status}</div>)}

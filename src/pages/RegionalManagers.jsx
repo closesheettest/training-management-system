@@ -382,6 +382,7 @@ function AllNoSits() {
                                     <div className="text-sm font-bold text-slate-900">{dl.customer}</div>
                                     <div className="text-[11px] text-slate-500">{dl.address}</div>
                                     <div className="text-xs text-slate-600">🗓 Appt was for: {dl.appt_label}</div>
+                                    {dl.scheduled_label && <div className="text-xs text-slate-600">📅 Scheduled: {dl.scheduled_label}</div>}
                                     {dl.status && <div className="text-[11px] text-slate-400">{dl.status}</div>}
                                   </div>
                                 ))}
