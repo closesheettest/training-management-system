@@ -44,6 +44,14 @@
 [functions."send-hotel-noshow-alert"]
   schedule = "0 14-23 * * *"
 
+# Scheduled function: Thursday-evening reminder texting each regional manager
+# to complete their Weekly Rep Report (due Friday morning), with a deep link to
+# their dashboard. Fires Thu 22:00 & 23:00 UTC; the function's ET-hour==18 guard
+# lets exactly one through (6 PM ET year-round, DST-safe). MUST stay in sync
+# with export config.schedule in the function file — Netlify reads THIS value.
+[functions."cron-weekly-report-reminder"]
+  schedule = "0 22,23 * * 4"
+
 # Clean URL for the manager "new rep handoff" page. The link texted to
 # managers reads /handoff?class_id=...&zone=... but is served by the
 # dynamic graduation-handoff function (queries Supabase for that team's

@@ -133,6 +133,8 @@ export default function RegionalManager() {
 
       <Leaderboard myZone={manager.region} />
 
+      <WeeklyReport token={token} />
+
       <DealsToFix zone={manager.region} />
 
       <NoSits zone={manager.region} />
@@ -302,6 +304,195 @@ function Leaderboard({ myZone }) {
       {board(insp, 'inspections', openInsp, setOpenInsp, inspDetail)}
       <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales — tap a team for the deals</div>
       {board(sales, 'sales', openSales, setOpenSales, salesDetail)}
+    </section>
+  )
+}
+
+// ── Weekly Rep Report ──────────────────────────────────────────────
+// The manager's Thursday-evening weekly write-up on each active rep. All
+// numbers are typed by hand (signed / back-to-retail appts / total appts /
+// sales), plus "did you ride with them?" + the manager's take, and a weekly
+// summation. Save keeps a draft; Submit also emails + texts a summary to
+// ownership. Past weeks are viewable below. Backed by weekly-report-api.
+function WeeklyReport({ token }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [weekStart, setWeekStart] = useState('')
+  const [rowsById, setRowsById] = useState({})   // rep_id → row
+  const [order, setOrder] = useState([])         // rep_id[] in display order
+  const [summary, setSummary] = useState('')
+  const [status, setStatus] = useState('')       // '' | 'draft' | 'submitted'
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState(null)
+
+  const api = async (action, extra = {}) => {
+    const res = await fetch('/.netlify/functions/weekly-report-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, token, ...extra }),
+    })
+    const d = await res.json()
+    if (!res.ok || !d.ok) throw new Error(d?.error || 'Request failed')
+    return d
+  }
+
+  const load = async () => {
+    setLoading(true); setErr(''); setMsg(null)
+    try {
+      const d = await api('init')
+      setWeekStart(d.week_start)
+      setStatus(d.report?.status || '')
+      setSummary(d.report?.summary || '')
+      // Merge active roster with any saved rows (saved values win; new reps
+      // get blank rows; reps who left since saving just drop off).
+      const saved = {}
+      for (const r of (d.report?.rows || [])) if (r.rep_id) saved[String(r.rep_id)] = r
+      const ord = [], map = {}
+      for (const rep of (d.reps || [])) {
+        const id = String(rep.id)
+        const s = saved[id] || {}
+        ord.push(id)
+        map[id] = {
+          rep_id: id, rep_name: rep.name,
+          insp_signed: s.insp_signed ?? '', back_to_retail: s.back_to_retail ?? '',
+          appts: s.appts ?? '', sales: s.sales ?? '',
+          rode: !!s.rode, take: s.take || '',
+        }
+      }
+      setOrder(ord); setRowsById(map)
+    } catch (e) { setErr(e.message || 'Could not load.') }
+    setLoading(false)
+  }
+
+  const openPanel = () => { setOpen(true); load() }
+  const setField = (id, field, val) => setRowsById((m) => ({ ...m, [id]: { ...m[id], [field]: val } }))
+
+  const submitOrSave = async (action) => {
+    if (action === 'submit' && !window.confirm('Submit this week’s report? It will be saved and a summary emailed + texted to the office.')) return
+    setSaving(true); setMsg(null)
+    try {
+      const rows = order.map((id) => rowsById[id])
+      const d = await api(action, { week_start: weekStart, rows, summary })
+      setStatus(d.status)
+      setMsg({ ok: true, text: action === 'submit' ? '✓ Submitted — summary sent to the office.' : '✓ Draft saved.' })
+    } catch (e) { setMsg({ ok: false, text: e.message || 'Failed to save.' }) }
+    setSaving(false)
+  }
+
+  const loadHistory = async () => {
+    setShowHistory(true)
+    if (history) return
+    try { const d = await api('history'); setHistory(d.reports || []) }
+    catch { setHistory([]) }
+  }
+
+  const numInput = 'w-14 rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15 text-center'
+
+  if (!open) {
+    return (
+      <section className="mt-6">
+        <button type="button" onClick={openPanel}
+          className="w-full rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-left transition active:scale-[.99]">
+          <div className="flex items-center justify-between">
+            <span className="text-lg font-semibold">📋 Weekly Rep Report</span>
+            <span className="text-xs font-bold text-amber-200">Open ▸</span>
+          </div>
+          <div className="mt-1 text-xs text-slate-200/70">Fill out each rep's week — due Friday morning. Saved + summary sent to the office.</div>
+        </button>
+      </section>
+    )
+  }
+
+  return (
+    <section className="mt-6 rounded-xl border border-amber-400/40 bg-amber-500/5 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">📋 Weekly Rep Report</h2>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs text-slate-200/70 underline">Close ▾</button>
+      </div>
+
+      {loading && <div className="text-sm text-slate-200/70">Loading…</div>}
+      {err && <div className="text-sm text-red-300">{err}</div>}
+
+      {!loading && !err && (
+        <>
+          <div className="mb-3 text-xs text-slate-200/80">
+            Week of <strong>{weekStart}</strong> (Mon–Thu){status === 'submitted' ? ' · ✅ submitted (you can update and re-submit)' : status === 'draft' ? ' · draft saved' : ''}
+          </div>
+
+          {order.length === 0 && <div className="text-sm text-slate-200/70">No active reps in your zone.</div>}
+
+          <div className="space-y-3">
+            {order.map((id) => {
+              const r = rowsById[id]
+              return (
+                <div key={id} className="rounded-lg border border-white/15 bg-black/20 p-3">
+                  <div className="mb-2 font-bold">{r.rep_name}</div>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="text-xs text-slate-200/80">Insp signed<br />
+                      <input type="number" min="0" inputMode="numeric" value={r.insp_signed} onChange={(e) => setField(id, 'insp_signed', e.target.value)} className={numInput} /></label>
+                    <label className="text-xs text-slate-200/80">Back-to-retail appts<br />
+                      <input type="number" min="0" inputMode="numeric" value={r.back_to_retail} onChange={(e) => setField(id, 'back_to_retail', e.target.value)} className={numInput} /></label>
+                    <label className="text-xs text-slate-200/80">Total appts<br />
+                      <input type="number" min="0" inputMode="numeric" value={r.appts} onChange={(e) => setField(id, 'appts', e.target.value)} className={numInput} /></label>
+                    <label className="text-xs text-slate-200/80">Sales<br />
+                      <input type="number" min="0" inputMode="numeric" value={r.sales} onChange={(e) => setField(id, 'sales', e.target.value)} className={numInput} /></label>
+                  </div>
+                  <div className="mt-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={r.rode} onChange={(e) => setField(id, 'rode', e.target.checked)} />
+                      Did you ride with them this week?
+                    </label>
+                    {r.rode && (
+                      <textarea value={r.take} onChange={(e) => setField(id, 'take', e.target.value)} rows={2}
+                        placeholder="Your take — how'd they do, what to work on…"
+                        className="mt-2 w-full rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15" />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-3">
+            <div className="mb-1 text-xs font-semibold text-slate-200/80">Weekly summation</div>
+            <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3}
+              placeholder="Overall: how was the week for the zone? Wins, concerns, plan for next week…"
+              className="w-full rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15" />
+          </div>
+
+          {msg && <div className={`mt-2 text-sm ${msg.ok ? 'text-emerald-300' : 'text-red-300'}`}>{msg.text}</div>}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => submitOrSave('save')} disabled={saving}
+              className="rounded border border-white/25 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save draft'}
+            </button>
+            <button type="button" onClick={() => submitOrSave('submit')} disabled={saving || order.length === 0}
+              className="rounded bg-amber-500 px-4 py-1.5 text-sm font-bold text-black disabled:opacity-50">
+              {saving ? 'Sending…' : 'Submit & send'}
+            </button>
+            <button type="button" onClick={loadHistory} className="ml-auto text-xs text-slate-200/70 underline">Past reports</button>
+          </div>
+
+          {showHistory && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="mb-2 text-xs font-bold text-amber-200">Past weekly reports</div>
+              {history === null ? <div className="text-xs text-slate-300/70">Loading…</div>
+                : history.length === 0 ? <div className="text-xs text-slate-300/70">None yet.</div>
+                  : <div className="space-y-1">
+                      {history.map((h) => (
+                        <div key={h.week_start} className="flex items-center justify-between text-xs">
+                          <span>Week of {h.week_start}</span>
+                          <span className="opacity-80">{(h.rows || []).length} reps · {h.status === 'submitted' ? '✅ submitted' : 'draft'}</span>
+                        </div>
+                      ))}
+                    </div>}
+            </div>
+          )}
+        </>
+      )}
     </section>
   )
 }
