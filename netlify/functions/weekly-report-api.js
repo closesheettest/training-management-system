@@ -40,7 +40,7 @@ const SB_KEY = process.env.SUPABASE_SECRET_KEY
 // rest read from env so they can be set without a code change.
 const FALLBACK_SUMMARY_RECIPIENTS = [
   { name: 'Neal', email: 'neals@shingleusa.com', phone: process.env.NEAL_PHONE || '' },
-  { name: 'Dewayne', email: process.env.DEWAYNE_EMAIL || '', phone: process.env.DEWAYNE_PHONE || '' },
+  { name: 'Dewayne', email: 'dewayne@shingleusa.com', phone: '8134266681' },
 ]
 
 export const handler = async (event) => {
