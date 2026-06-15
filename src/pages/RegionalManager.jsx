@@ -448,7 +448,7 @@ function WeeklyReport({ token }) {
                         className={'px-4 py-1 ' + (!r.rode ? 'bg-rose-500 text-black' : 'text-slate-200')}>No</button>
                     </div>
                     <textarea value={r.take} onChange={(e) => setField(id, 'take', e.target.value)} rows={2}
-                      placeholder={r.rode ? "What was your takeaway? How'd they do, what to work on…" : "Why not? What got in the way of riding with them?"}
+                      placeholder={r.rode ? "What was your takeaway? How'd they do, what to work on…" : "Notes on how you helped them or what they need to improve?"}
                       className="mt-2 w-full rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15" />
                   </div>
                 </div>
