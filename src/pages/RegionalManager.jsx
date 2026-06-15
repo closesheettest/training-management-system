@@ -368,6 +368,56 @@ function DealsToFix({ zone }) {
   )
 }
 
+// Inline reassigner shown on a departed rep's deal: pick an Assign Rep
+// (added to the JN "Assigned To" / owners — JN allows more than one) and a
+// Sales Rep (replaces the sales rep). Apply writes both to JobNimbus via
+// manager-reassign-deal.
+function DealReassign({ jnid, reps }) {
+  const [assignee, setAssignee] = useState('')
+  const [salesRep, setSalesRep] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  if (!jnid) return null
+  const apply = async () => {
+    if (!assignee && !salesRep) return
+    setSaving(true); setMsg(null)
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-reassign-deal', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jnid, assigneeId: assignee, salesRepId: salesRep }),
+      })
+      const d = await res.json()
+      if (res.ok && d.ok) {
+        const bits = []
+        if (d.owners) bits.push('assigned ' + d.owners.join(', '))
+        if (d.sales_rep) bits.push('sales rep → ' + d.sales_rep)
+        setMsg({ ok: true, text: '✓ Synced to JobNimbus' + (bits.length ? ' (' + bits.join('; ') + ')' : '') })
+      } else setMsg({ ok: false, text: d.error || 'Failed to sync' })
+    } catch { setMsg({ ok: false, text: 'Network error' }) }
+    setSaving(false)
+  }
+  const sel = 'rounded bg-slate-800 text-white text-xs px-2 py-1 border border-white/15'
+  return (
+    <div className="mt-2 rounded border border-amber-400/30 bg-black/30 p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className={sel}>
+          <option value="">Assign rep…</option>
+          {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+        </select>
+        <select value={salesRep} onChange={(e) => setSalesRep(e.target.value)} className={sel}>
+          <option value="">Sales rep…</option>
+          {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+        </select>
+        <button type="button" onClick={apply} disabled={saving || (!assignee && !salesRep)}
+          className="rounded bg-amber-500 px-3 py-1 text-xs font-bold text-black disabled:opacity-50">
+          {saving ? 'Syncing…' : 'Apply to JobNimbus'}
+        </button>
+      </div>
+      {msg && <div className={`mt-1 text-[11px] ${msg.ok ? 'text-emerald-300' : 'text-red-300'}`}>{msg.text}</div>}
+    </div>
+  )
+}
+
 // Generic JN-appt-status report for a regional manager: pulls jobs in
 // one status family for this zone, grouped by rep and showing when the
 // appointment was for. Any deal whose rep is NO LONGER ACTIVE is listed
@@ -378,6 +428,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
   const [data, setData] = useState(null)   // { reps, inactive_reps, total } | null
   const [openRep, setOpenRep] = useState(null)
   const [err, setErr] = useState('')
+  const [reps, setReps] = useState([])     // active roster for the reassign dropdowns
 
   const load = async () => {
     setLoading(true); setErr('')
@@ -387,6 +438,15 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
       if (d && d.ok) { setData(d); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
+    // Active reps (with their JN id) for the Assign Rep / Sales Rep pickers.
+    if (!reps.length) {
+      try {
+        const rr = await fetch('/.netlify/functions/rep-zones')
+        const rd = await rr.json()
+        setReps((rd.reps || []).filter((x) => x.jobnimbus_id && (x.name || '').trim())
+          .sort((a, b) => (a.name || '').localeCompare(b.name || '')))
+      } catch { /* dropdowns just stay empty */ }
+    }
     setLoading(false)
   }
 
@@ -410,6 +470,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                 {dl.status && (statusLabel
                   ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
                   : <div className="text-[11px] text-slate-400">{dl.status}</div>)}
+                {r.inactive && dl.jnid && <DealReassign jnid={dl.jnid} reps={reps} />}
               </div>
             ))}
           </div>
