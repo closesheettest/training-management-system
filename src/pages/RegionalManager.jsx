@@ -372,7 +372,7 @@ function DealsToFix({ zone }) {
 // (added to the JN "Assigned To" / owners — JN allows more than one) and a
 // Sales Rep (replaces the sales rep). Apply writes both to JobNimbus via
 // manager-reassign-deal.
-function DealReassign({ jnid, reps }) {
+function DealReassign({ jnid, reps, kind, zone, customer, address }) {
   const [assignee, setAssignee] = useState('')
   const [salesRep, setSalesRep] = useState('')
   const [saving, setSaving] = useState(false)
@@ -384,13 +384,14 @@ function DealReassign({ jnid, reps }) {
     try {
       const res = await fetch(LB_ORIGIN + 'manager-reassign-deal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jnid, assigneeId: assignee, salesRepId: salesRep }),
+        body: JSON.stringify({ jnid, assigneeId: assignee, salesRepId: salesRep, kind, zone, customer, address }),
       })
       const d = await res.json()
       if (res.ok && d.ok) {
         const bits = []
         if (d.owners) bits.push('assigned ' + d.owners.join(', '))
         if (d.sales_rep) bits.push('sales rep → ' + d.sales_rep)
+        if (d.texted) bits.push('texted ' + (d.textedRep || 'the rep'))
         setMsg({ ok: true, text: '✓ Synced to JobNimbus' + (bits.length ? ' (' + bits.join('; ') + ')' : '') })
       } else setMsg({ ok: false, text: d.error || 'Failed to sync' })
     } catch { setMsg({ ok: false, text: 'Network error' }) }
@@ -470,7 +471,8 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                 {dl.status && (statusLabel
                   ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
                   : <div className="text-[11px] text-slate-400">{dl.status}</div>)}
-                {r.inactive && dl.jnid && <DealReassign jnid={dl.jnid} reps={reps} />}
+                {r.inactive && dl.jnid && <DealReassign jnid={dl.jnid} reps={reps} zone={zone} customer={dl.customer} address={dl.address}
+                  kind={fn === 'zone-back-to-retail' ? 'back_to_retail' : fn === 'zone-no-damage' ? 'no_damage' : fn === 'zone-no-sits' ? 'no_sit' : ''} />}
               </div>
             ))}
           </div>
