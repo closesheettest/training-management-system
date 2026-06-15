@@ -217,7 +217,8 @@ function summaryText({ zone, managerName, week_start, rows, summary }) {
   for (const r of (rows || [])) {
     lines.push(`• ${r.rep_name || '(rep)'}`)
     lines.push(`    Signed ${toInt(r.insp_signed)} · Back-to-retail ${toInt(r.back_to_retail)} · Appts ${toInt(r.appts)} · Sales ${toInt(r.sales)}`)
-    lines.push(`    Rode with: ${r.rode ? 'Yes' : 'No'}${r.rode && r.take ? ` — ${r.take}` : ''}`)
+    if (r.rode) lines.push(`    Rode with: Yes${r.take ? ` — Takeaway: ${r.take}` : ''}`)
+    else lines.push(`    Rode with: No${r.take ? ` — Why not: ${r.take}` : ''}`)
     lines.push('')
   }
   lines.push(`TOTAL — Signed ${t.insp_signed} · Back-to-retail ${t.back_to_retail} · Appts ${t.appts} · Sales ${t.sales}`)

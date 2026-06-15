@@ -440,15 +440,16 @@ function WeeklyReport({ token }) {
                       <input type="number" min="0" inputMode="numeric" value={r.sales} onChange={(e) => setField(id, 'sales', e.target.value)} className={numInput} /></label>
                   </div>
                   <div className="mt-2">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={r.rode} onChange={(e) => setField(id, 'rode', e.target.checked)} />
-                      Did you ride with them this week?
-                    </label>
-                    {r.rode && (
-                      <textarea value={r.take} onChange={(e) => setField(id, 'take', e.target.value)} rows={2}
-                        placeholder="Your take — how'd they do, what to work on…"
-                        className="mt-2 w-full rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15" />
-                    )}
+                    <div className="text-sm">Did you ride with them this week?</div>
+                    <div className="mt-1 inline-flex overflow-hidden rounded-md border border-white/20 text-sm font-semibold">
+                      <button type="button" onClick={() => setField(id, 'rode', true)}
+                        className={'px-4 py-1 ' + (r.rode ? 'bg-emerald-500 text-black' : 'text-slate-200')}>Yes</button>
+                      <button type="button" onClick={() => setField(id, 'rode', false)}
+                        className={'px-4 py-1 ' + (!r.rode ? 'bg-rose-500 text-black' : 'text-slate-200')}>No</button>
+                    </div>
+                    <textarea value={r.take} onChange={(e) => setField(id, 'take', e.target.value)} rows={2}
+                      placeholder={r.rode ? "What was your takeaway? How'd they do, what to work on…" : "Why not? What got in the way of riding with them?"}
+                      className="mt-2 w-full rounded bg-slate-800 text-white text-sm px-2 py-1 border border-white/15" />
                   </div>
                 </div>
               )
