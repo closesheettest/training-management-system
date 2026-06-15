@@ -372,7 +372,7 @@ function DealsToFix({ zone }) {
 // (added to the JN "Assigned To" / owners — JN allows more than one) and a
 // Sales Rep (replaces the sales rep). Apply writes both to JobNimbus via
 // manager-reassign-deal.
-function DealReassign({ jnid, reps, kind, zone, customer, address }) {
+function DealReassign({ jnid, reps, kind, zone, customer, address, onReassigned }) {
   const [assignee, setAssignee] = useState('')
   const [salesRep, setSalesRep] = useState('')
   const [saving, setSaving] = useState(false)
@@ -392,7 +392,11 @@ function DealReassign({ jnid, reps, kind, zone, customer, address }) {
         if (d.owners) bits.push('assigned ' + d.owners.join(', '))
         if (d.sales_rep) bits.push('sales rep → ' + d.sales_rep)
         if (d.texted) bits.push('texted ' + (d.textedRep || 'the rep'))
-        setMsg({ ok: true, text: '✓ Synced to JobNimbus' + (bits.length ? ' (' + bits.join('; ') + ')' : '') })
+        setMsg({ ok: true, text: '✓ Synced to JobNimbus — moving to ' + (d.sales_rep || 'the rep') + '…' })
+        // Re-load the report so this deal drops out of the "Non-active rep"
+        // section and reappears under the now-active sales rep. Small delay so
+        // the JN write + our inspections-row sync are reflected on re-fetch.
+        if (onReassigned) setTimeout(() => onReassigned(), 1200)
       } else setMsg({ ok: false, text: d.error || 'Failed to sync' })
     } catch { setMsg({ ok: false, text: 'Network error' }) }
     setSaving(false)
@@ -472,7 +476,8 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                   ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
                   : <div className="text-[11px] text-slate-400">{dl.status}</div>)}
                 {r.inactive && dl.jnid && <DealReassign jnid={dl.jnid} reps={reps} zone={zone} customer={dl.customer} address={dl.address}
-                  kind={fn === 'zone-back-to-retail' ? 'back_to_retail' : fn === 'zone-no-damage' ? 'no_damage' : fn === 'zone-no-sits' ? 'no_sit' : ''} />}
+                  kind={fn === 'zone-back-to-retail' ? 'back_to_retail' : fn === 'zone-no-damage' ? 'no_damage' : fn === 'zone-no-sits' ? 'no_sit' : ''}
+                  onReassigned={load} />}
               </div>
             ))}
           </div>
