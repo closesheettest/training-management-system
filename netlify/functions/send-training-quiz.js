@@ -165,6 +165,15 @@ export const handler = async (event) => {
     })
   }
 
+  // Record the GHL message id so cron-check-sms-delivery can verify the quiz
+  // text actually DELIVERED (GHL accepting a send ≠ the carrier delivering it).
+  if (attemptId && smsRes.messageId) {
+    await supabase
+      .from('training_day_attempts')
+      .update({ quiz_message_id: smsRes.messageId, quiz_delivery_status: null, quiz_delivery_checked_at: null })
+      .eq('id', attemptId)
+  }
+
   return json(200, { ok: true, sent: true, quiz_token: quizToken, day_number: quizDayNumber })
 }
 

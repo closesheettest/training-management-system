@@ -46,47 +46,57 @@ export const handler = async (event) => {
   }
 
   const sinceIso = new Date(Date.now() - LOOKBACK_HOURS * 3600_000).toISOString()
-  // Homework sends with a GHL message id that we haven't resolved yet.
-  const { data: rows, error } = await supabase
-    .from('training_day_attempts')
-    .select('id, trainee_id, day_number, homework_sent_at, homework_message_id, trainees(first_name, last_name, phone)')
-    .not('homework_message_id', 'is', null)
-    .is('homework_delivery_status', null)
-    .gte('homework_sent_at', sinceIso)
-  if (error) return json(500, { ok: false, error: error.message })
+
+  // Both training texts that carry a GHL message id: homework (afternoon) and
+  // quiz (morning). Same delivery check for each.
+  const KINDS = [
+    { label: 'homework', idCol: 'homework_message_id', statusCol: 'homework_delivery_status', checkedCol: 'homework_delivery_checked_at', sentCol: 'homework_sent_at' },
+    { label: 'quiz', idCol: 'quiz_message_id', statusCol: 'quiz_delivery_status', checkedCol: 'quiz_delivery_checked_at', sentCol: 'quiz_sent_at' },
+  ]
 
   const checked = []
   const failures = []
-  for (const r of (rows || [])) {
-    const s = await getSmsStatus(r.homework_message_id)
-    if (!s.ok) { checked.push({ id: r.id, lookup_error: s.error }); continue } // try again next run
-    const status = s.status || ''
-    const ageMin = (Date.now() - new Date(r.homework_sent_at).getTime()) / 60000
+  let inspected = 0
+  for (const k of KINDS) {
+    const { data: rows, error } = await supabase
+      .from('training_day_attempts')
+      .select(`id, trainee_id, day_number, ${k.sentCol}, ${k.idCol}, trainees(first_name, last_name, phone)`)
+      .not(k.idCol, 'is', null)
+      .is(k.statusCol, null)
+      .gte(k.sentCol, sinceIso)
+    if (error) return json(500, { ok: false, error: `${k.label}: ${error.message}` })
+    inspected += (rows || []).length
+    for (const r of (rows || [])) {
+      const s = await getSmsStatus(r[k.idCol])
+      if (!s.ok) { checked.push({ kind: k.label, id: r.id, lookup_error: s.error }); continue } // retry next run
+      const status = s.status || ''
+      const ageMin = (Date.now() - new Date(r[k.sentCol]).getTime()) / 60000
 
-    let resolved = null   // final status to store, or null = leave pending
-    let failed = false
-    if (DELIVERED.includes(status)) resolved = status
-    else if (FAILED.includes(status)) { resolved = status; failed = true }
-    else if (ageMin >= STALE_MIN) { resolved = status ? `stale:${status}` : 'stale:no_status'; failed = true }
+      let resolved = null   // final status to store, or null = leave pending
+      let failed = false
+      if (DELIVERED.includes(status)) resolved = status
+      else if (FAILED.includes(status)) { resolved = status; failed = true }
+      else if (ageMin >= STALE_MIN) { resolved = status ? `stale:${status}` : 'stale:no_status'; failed = true }
 
-    if (resolved == null) { checked.push({ id: r.id, status, pending: true }); continue }
+      if (resolved == null) { checked.push({ kind: k.label, id: r.id, status, pending: true }); continue }
 
-    await supabase.from('training_day_attempts')
-      .update({ homework_delivery_status: resolved, homework_delivery_checked_at: new Date().toISOString() })
-      .eq('id', r.id)
+      await supabase.from('training_day_attempts')
+        .update({ [k.statusCol]: resolved, [k.checkedCol]: new Date().toISOString() })
+        .eq('id', r.id)
 
-    const t = r.trainees || {}
-    const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
-    checked.push({ id: r.id, who, status: resolved, failed })
-    if (failed) failures.push({ who, phone: t.phone || '(no phone)', day: r.day_number, status: resolved })
+      const t = r.trainees || {}
+      const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
+      checked.push({ kind: k.label, id: r.id, who, status: resolved, failed })
+      if (failed) failures.push({ kind: k.label, who, phone: t.phone || '(no phone)', day: r.day_number, status: resolved })
+    }
   }
 
   // Alert admins about any non-delivery.
   let alerted = []
   if (failures.length && willAlert) {
     const lines = ['⚠️ Training text NOT delivered:']
-    failures.forEach((f) => lines.push(`• Day ${f.day} homework → ${f.who} (${f.phone}) — ${f.status}`))
-    lines.push('', 'GHL accepted it but the carrier did not deliver. Check the number (landline / opt-out) and resend.')
+    failures.forEach((f) => lines.push(`• Day ${f.day} ${f.kind} → ${f.who} (${f.phone}) — ${f.status}`))
+    lines.push('', 'GHL accepted it but the carrier did not deliver — usually an SMS opt-out (DND) on their contact. Clear DND / have them text START, then resend.')
     const msg = lines.join('\n')
 
     let recipients = []
@@ -99,7 +109,7 @@ export const handler = async (event) => {
 
   return json(200, {
     ok: true,
-    inspected: (rows || []).length,
+    inspected,
     failures: failures.length,
     alerted: willAlert ? alerted : 'dry-run',
     detail: checked,
@@ -110,4 +120,6 @@ function json(status, body) {
   return { statusCode: status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
 
-export const config = { schedule: '*/15 18-23 * * *' }
+// Every 15 min, 13:00–23:59 UTC (≈9 AM–7 PM ET) — covers the morning QUIZ send
+// and the afternoon HOMEWORK send + their grace windows.
+export const config = { schedule: '*/15 13-23 * * *' }
