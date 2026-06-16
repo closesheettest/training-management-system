@@ -16,6 +16,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' })
@@ -48,25 +49,40 @@ export const handler = async (event) => {
   const homeworkBody = (lesson.homework_sms_body || '').trim()
   if (!homeworkBody) return json(200, { ok: false, skipped: `No homework authored for Day ${dayNumber}` })
 
-  // 3. Trainee phone + name.
+  // 3. Trainee phone + email + name.
   const { data: trainee } = await supabase
-    .from('trainees').select('first_name, phone').eq('id', trainee_id).maybeSingle()
+    .from('trainees').select('first_name, phone, email').eq('id', trainee_id).maybeSingle()
   if (!trainee) return json(404, { error: 'Trainee not found' })
-  if (!trainee.phone) return json(200, { ok: false, skipped: 'No phone on file for this trainee' })
+  if (!trainee.phone && !trainee.email) return json(200, { ok: false, skipped: 'No phone or email on file for this trainee' })
 
-  // 4. Compose + send.
+  // 4. Compose + send by BOTH email and SMS (email reaches trainees whose SMS
+  //    is blocked/opted-out in GHL — the Lisa case).
   const firstName = trainee.first_name || 'there'
   const personal = homeworkBody.replace(/\{firstName\}/g, firstName)
   const link = (lesson.homework_link_url || '').trim()
   const absLink = link ? (link.startsWith('http') ? link : siteUrl + (link.startsWith('/') ? link : '/' + link)) : ''
   const message = absLink ? `${personal}\n\n${absLink}` : personal
-  const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName: 'Homework' })
-  if (!smsRes.ok) return json(500, { ok: false, error: `SMS send failed: ${smsRes.error || 'unknown'}` })
+
+  const channels = []
+  const errors = []
+  let messageId = null
+  if (trainee.email) {
+    try {
+      const r = await sendEmail(trainee.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message)
+      if (r && r.ok !== false) channels.push('email'); else errors.push('email: ' + (r?.error || 'failed'))
+    } catch (e) { errors.push('email: ' + (e.message || 'error')) }
+  }
+  if (trainee.phone) {
+    const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName: 'Homework' })
+    if (smsRes.ok) { channels.push('sms'); messageId = smsRes.messageId || null }
+    else errors.push('sms: ' + (smsRes.error || 'failed'))
+  }
+  if (!channels.length) return json(500, { ok: false, error: `Send failed — ${errors.join('; ') || 'unknown'}` })
 
   // 5. Stamp the attempt row (create or update), with the GHL message id for
-  //    the delivery checker.
+  //    the delivery checker (only when SMS actually went out).
   const nowIso = new Date().toISOString()
-  const stamp = { homework_sent_at: nowIso, homework_message_id: smsRes.messageId || null, homework_delivery_status: null, homework_delivery_checked_at: null, updated_at: nowIso }
+  const stamp = { homework_sent_at: nowIso, homework_message_id: messageId, homework_delivery_status: null, homework_delivery_checked_at: null, updated_at: nowIso }
   const { data: existing } = await supabase
     .from('training_day_attempts').select('id').eq('trainee_id', trainee_id).eq('day_number', dayNumber).maybeSingle()
   if (existing) {
@@ -75,7 +91,7 @@ export const handler = async (event) => {
     await supabase.from('training_day_attempts').insert({ trainee_id, class_id, day_number: dayNumber, ...stamp })
   }
 
-  return json(200, { ok: true, sent: true, day_number: dayNumber, to: trainee.phone })
+  return json(200, { ok: true, sent: true, day_number: dayNumber, channels, errors: errors.length ? errors : undefined })
 }
 
 function ymd(d) {
