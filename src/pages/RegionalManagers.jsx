@@ -79,6 +79,8 @@ export default function RegionalManagers() {
 
       <AllDealsToFix />
 
+      <AllBackToRetailConversions />
+
       <AllNoSits />
 
       <ToolsetReference />
@@ -204,6 +206,121 @@ function AllDealsToFix() {
                                     {dl.errors.map((e, j) => (
                                       <div key={'e' + j} className="text-xs text-red-600">• Wrong: {e}</div>
                                     ))}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// Company-wide back-to-retail CONVERSIONS — the wins the live back-to-retail
+// list can't show (a deal drops off the moment it leaves "Sit Sold Insp").
+// cron-track-retail-status snapshots those moves; this reads them across every
+// zone (all-retail-conversions), grouped zone → rep → deal, appointments first.
+function AllBackToRetailConversions() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null) // { zones, total, appointments } | null
+  const [openZone, setOpenZone] = useState(null)
+  const [openRep, setOpenRep] = useState(null) // `${zone}|${rep}`
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-retail-conversions')
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+
+  return (
+    <section className="mb-6">
+      <button
+        type="button"
+        onClick={load}
+        disabled={loading}
+        className="w-full rounded-lg bg-emerald-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60"
+      >
+        ✅ Back-to-retail conversions{data ? ` (${data.total})` : ''}{data && data.appointments ? ` · 📅 ${data.appointments} appts` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading
+            ? 'Loading…'
+            : `Back-to-retail leads moved off "Sit Sold Insp" — 📅 = an appointment was booked. Last 90 days, by region. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3 space-y-3">
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+              No conversions tracked yet — they'll appear here as reps move back-to-retail leads off "Sit Sold Insp."
+            </div>
+          ) : (
+            data.zones.map((z) => {
+              const zoneOpen = openZone === z.zone
+              return (
+                <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                    className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                    style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>
+                        {teamLabel(z.zone) || z.zone}
+                      </span>
+                      <span className="text-xs text-slate-500">{z.zone}</span>
+                    </span>
+                    <span className="text-sm text-slate-700">
+                      {z.appt_count > 0 && <span className="font-bold text-emerald-600">{z.appt_count} appt{z.appt_count === 1 ? '' : 's'}</span>}
+                      <span className="ml-2 text-slate-500">{z.count} total</span> {zoneOpen ? '▾' : '▸'}
+                    </span>
+                  </button>
+
+                  {zoneOpen && (
+                    <div className="space-y-2 border-t border-slate-100 p-3">
+                      {z.reps.map((r) => {
+                        const key = `${z.zone}|${r.rep}`
+                        const repOpen = openRep === key
+                        return (
+                          <div key={key} className="rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => setOpenRep(repOpen ? null : key)}
+                              className="flex w-full items-center justify-between p-3 text-left"
+                            >
+                              <span className="font-semibold text-slate-800">{r.rep}</span>
+                              <span className="text-sm text-slate-600">
+                                {r.appt_count > 0 && <span className="font-bold text-emerald-600">{r.appt_count} appt{r.appt_count === 1 ? '' : 's'}</span>}
+                                <span className="ml-2 text-slate-500">{r.count} total</span> {repOpen ? '▾' : '▸'}
+                              </span>
+                            </button>
+                            {repOpen && (
+                              <div className="space-y-2 border-t border-slate-100 p-3">
+                                {r.deals.map((dl, i) => (
+                                  <div key={i} className="rounded bg-slate-50 p-2">
+                                    <div className="text-sm font-bold text-slate-900">
+                                      {dl.customer} {dl.appointment && <span className="text-emerald-600">📅</span>}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500">{dl.address}</div>
+                                    <div className="text-xs text-sky-700">→ {dl.converted_to} · {dl.converted_label}</div>
                                   </div>
                                 ))}
                               </div>
