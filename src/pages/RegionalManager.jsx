@@ -141,6 +141,8 @@ export default function RegionalManager() {
 
       <BackToRetail zone={manager.region} />
 
+      <BackToRetailWins zone={manager.region} />
+
       <NoDamage zone={manager.region} />
 
       <QuickActions manager={manager} />
@@ -728,6 +730,81 @@ function BackToRetail({ zone }) {
 function NoDamage({ zone }) {
   return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected"
     blurb="Inspections in your zone that came back no-damage. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ No no-damage inspections right now." />
+}
+
+// ── Back-to-retail conversions ─────────────────────────────────────
+// The wins the live "Back to retail" list can't show — a deal drops off
+// that list the moment its JN status leaves "Sit Sold Insp". The hourly
+// cron-track-retail-status snapshots those transitions; this reads them
+// (zone-retail-conversions) grouped by rep, appointments-booked first.
+// Load-on-demand to keep the dashboard light.
+function BackToRetailWins({ zone }) {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [openRep, setOpenRep] = useState(null)
+  const [err, setErr] = useState('')
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'zone-retail-conversions?zone=' + encodeURIComponent(zone))
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenRep(null) } else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+
+  return (
+    <section className="mt-6">
+      <button type="button" onClick={() => (data ? setData(null) : load())}
+        className="w-full rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4 text-left transition active:scale-[.99]">
+        <div className="flex items-center justify-between">
+          <span className="text-lg font-semibold">✅ Back-to-retail conversions{data ? ` (${data.total})` : ''}</span>
+          <span className="text-xs font-bold text-emerald-200">{loading ? 'Loading…' : data ? 'Hide ▾' : 'Load ▸'}</span>
+        </div>
+        <div className="mt-1 text-xs text-slate-200/70">Back-to-retail leads your reps moved off "Sit Sold Insp" — 📅 = an appointment was booked. Last 90 days. Tap to load.</div>
+      </button>
+
+      {err && <div className="mt-2 text-sm text-red-300">{err}</div>}
+
+      {data && (
+        <div className="mt-2 space-y-2">
+          {data.appointments > 0 && (
+            <div className="text-xs font-semibold text-emerald-200">📅 {data.appointments} got an appointment ({data.total} total status changes)</div>
+          )}
+          {data.reps.length === 0 && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-200/70">No conversions tracked yet — they'll appear here as reps move back-to-retail leads off "Sit Sold Insp."</div>
+          )}
+          {data.reps.map((r) => {
+            const k = r.rep
+            return (
+              <div key={k} className="rounded-lg border border-white/15 bg-white/5">
+                <button type="button" onClick={() => setOpenRep(openRep === k ? null : k)}
+                  className="flex w-full items-center justify-between p-3 text-left">
+                  <span className="font-semibold">{r.rep}</span>
+                  <span className="text-sm">
+                    {r.appt_count > 0 && <span className="font-bold text-emerald-300">{r.appt_count} appt{r.appt_count === 1 ? '' : 's'}</span>}
+                    <span className="ml-2 text-slate-300/80">{r.count} total</span> {openRep === k ? '▾' : '▸'}
+                  </span>
+                </button>
+                {openRep === k && (
+                  <div className="space-y-2 border-t border-white/10 p-3">
+                    {r.deals.map((d, i) => (
+                      <div key={i} className="rounded bg-black/20 p-2">
+                        <div className="text-sm font-bold">{d.customer} {d.appointment && <span className="text-emerald-300">📅</span>}</div>
+                        <div className="text-[11px] text-slate-300/70">{d.address}</div>
+                        <div className="text-xs text-sky-200">→ {d.converted_to} · {d.converted_label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
 }
 
 // ── Reps Table ─────────────────────────────────────────────────────
