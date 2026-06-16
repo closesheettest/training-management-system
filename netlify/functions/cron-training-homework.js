@@ -93,6 +93,13 @@ export const handler = async (event) => {
   // class. The per-trainee dedup still prevents double-sends.
   const force = params.force === '1' || params.force === 'true'
 
+  // Homework is now sent MANUALLY per trainee from the Class Detail page
+  // (send-homework.js). Scheduled runs no longer auto-blast. A manual GET with
+  // ?force=1 still works as an emergency "send the whole class" fallback.
+  if (!force) {
+    return json(200, { ok: true, skipped: 'Auto homework disabled — sent manually per trainee from Class Detail (use ?force=1 to send the whole class).' })
+  }
+
   const todayIso = ymd(new Date())
   // Current ET clock as a float hour (e.g. 14.5 = 2:30 PM). Used by the
   // class-end gate to skip classes whose dismissal hasn't happened yet.

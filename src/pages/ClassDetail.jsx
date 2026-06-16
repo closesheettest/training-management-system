@@ -716,6 +716,34 @@ export default function ClassDetail() {
     }
   }
 
+  // Manually send ONE trainee today's homework SMS (homework no longer
+  // auto-blasts; an admin sends it per person from here).
+  async function sendHomework(traineeId) {
+    setMessage(null)
+    setSending('hw:' + traineeId)
+    try {
+      const res = await fetch('/.netlify/functions/send-homework', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: id, trainee_id: traineeId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      const t = trainees.find((x) => x.id === traineeId)
+      const who = t ? `${t.first_name} ${t.last_name}`.trim() : 'trainee'
+      if (!res.ok) {
+        setMessage({ type: 'error', text: res.status === 404 ? "Homework SMS only works on the deployed site." : (body.error || `Failed: ${res.status}`) })
+      } else if (body.sent) {
+        setMessage({ type: 'success', text: `📚 Day ${body.day_number} homework sent to ${who}.` })
+      } else {
+        setMessage({ type: 'error', text: `Not sent to ${who}: ${body.skipped || body.error || 'unknown'}` })
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setSending(null)
+    }
+  }
+
   async function sendSms(traineeIds, label) {
     setMessage(null)
     setSending(label)
@@ -1140,6 +1168,7 @@ export default function ClassDetail() {
           sending={sending}
           hideSend
           onSend={() => {}}
+          onHomework={sendHomework}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1175,6 +1204,7 @@ export default function ClassDetail() {
           sending={sending}
           showResend={group.showResend}
           onSend={(tid) => sendSms([tid], tid)}
+          onHomework={sendHomework}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1380,6 +1410,7 @@ function TraineeGroup({
   onDelete,
   onUnenroll,
   onReschedule,
+  onHomework,
   onAdmit,
   isHolding = false,
   stayByTraineeId = {},
@@ -1535,6 +1566,16 @@ function TraineeGroup({
                       >
                         Edit
                       </button>
+                      {onHomework && (
+                        <button
+                          onClick={() => onHomework(t.id)}
+                          disabled={editingTraineeId !== null || sending === 'hw:' + t.id}
+                          className="rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                          title="Send this trainee today's homework SMS now"
+                        >
+                          {sending === 'hw:' + t.id ? 'Sending…' : '📚 Homework'}
+                        </button>
+                      )}
                       <button
                         onClick={() => onUnenroll(t)}
                         disabled={editingTraineeId !== null}
