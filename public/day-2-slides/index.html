@@ -2,643 +2,341 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Day 2 — U.S. Shingle & Metal Retail Training</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 2 — U.S. Shingle Retail Training</title>
 <!--
-  Day 2 Retail Training slide deck — projector / clicker mode.
-
-  Structure (per Neal 2026-05-31):
-    Morning  (10–12) — Roleplay marathon:
-      1. Free Inspection Script (Day 1 slide 30)
-      2. Retail Roof Go-Back Script (Day 1 slides 31c–31e)
-      3. In-Home Slide 1 (Tonight Intro / Warm Up)
-    Lunch
-    Afternoon — Products walkthrough (Asphalt + Metal families
-      + Energy Package), built from:
-        ~/Downloads/Products.pdf
-        ~/Downloads/Benefits per product.docx
-
-  Same visual system as /day-1-slides — navy/gold, Reveal.js 5.0.4,
-  1600x900 canvas. Open on the projector laptop, F for fullscreen,
-  clicker controls. Trainees can pull up /day-2-slides/ on their
-  phones for review.
+  DAY 2 — live deck. Role-play the 2 scripts → lunch → full in-home
+  presentation (every slide + verbatim script from sales-script.pdf).
+  Hidden URL, not linked anywhere; doesn't touch the live /day-2-slides/.
 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --uss-navy: #13294b;
-    --uss-red: #b8324f;
-    --uss-gold: #d4a142;
-    --uss-cream: #f8f5ed;
-  }
-  .reveal { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif; }
-  .reveal h1, .reveal h2, .reveal h3 {
-    font-family: 'Oswald', 'Bebas Neue', Impact, sans-serif;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
-  }
-  .reveal h1 { color: var(--uss-gold); font-size: 2.4em; line-height: 1.15; }
-  .reveal h2 { color: var(--uss-cream); font-size: 1.7em; line-height: 1.2; }
-  .reveal h3 { color: var(--uss-gold); font-size: 1.3em; line-height: 1.3; }
-  .reveal section { color: #fff; }
-  .reveal .highlight-red { color: var(--uss-red); }
-  .reveal .highlight-gold { color: var(--uss-gold); }
-  .reveal ul, .reveal ol { display: inline-block; text-align: left; margin: 0 auto; }
-  .reveal li { margin: 0.4em 0; }
-  .reveal strong { color: var(--uss-gold); }
-  .reveal em { color: var(--uss-cream); font-style: italic; }
-  /* Title slide */
-  .reveal .title-slide h1 { font-size: 3em; color: #fff; }
-  .reveal .title-slide .subtitle {
-    color: var(--uss-gold); font-size: 1em;
-    letter-spacing: 0.15em; text-transform: uppercase;
-    margin-top: 0.5em;
-  }
-  .reveal .label-pill {
-    display: inline-block;
-    background: var(--uss-red);
-    color: #fff;
-    padding: 0.15em 0.7em;
-    border-radius: 999px;
-    font-size: 0.7em;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 0.5em;
-  }
-  /* Script box reused from Day 1 — used in the roleplay-reminder
-     slides so trainees see the verbatim scripts they should be
-     practicing. */
-  .reveal .script {
-    background: rgba(15, 23, 42, 0.85);
-    border-left: 5px solid var(--uss-gold);
-    padding: 16px 22px;
-    text-align: left;
-    font-size: 0.5em;
-    line-height: 1.35;
-    border-radius: 6px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  .reveal .script p { margin: 0.4em 0; }
-  .reveal .script strong { color: var(--uss-gold); }
-  /* Product spec strip — wind rating + pitch + warranty as small
-     stat tiles on each product slide. Keeps everything skim-scannable
-     while still legible from the back of the room. */
-  .reveal .spec-row {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    justify-content: center; margin: 0.8em 0;
-  }
-  .reveal .spec-tile {
-    background: rgba(212, 161, 66, 0.15);
-    border: 2px solid var(--uss-gold);
-    border-radius: 12px;
-    padding: 0.6em 1em;
-    min-width: 170px;
-  }
-  .reveal .spec-tile .label {
-    font-size: 0.55em;
-    opacity: 0.85;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .reveal .spec-tile .value {
-    font-size: 1.6em;
-    font-weight: 800;
-    color: var(--uss-gold);
-    line-height: 1.1;
-  }
-  .reveal .slide-number {
-    background: rgba(184, 50, 79, 0.85);
-    color: #fff;
-    font-family: 'Oswald', sans-serif;
-  }
-  /* Insurance-leaves-you-alone vs Insurance-can-drop-you badges —
-     used on every product slide so trainees instantly see whether
-     this product is in the "shield from the letter" category or not. */
-  .reveal .ins-shield {
-    display: inline-block;
-    background: rgba(34, 197, 94, 0.22);
-    border: 2px solid #4ade80;
-    color: #bbf7d0;
-    padding: 0.3em 0.9em;
-    border-radius: 999px;
-    font-size: 0.7em;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-  .reveal .ins-risk {
-    display: inline-block;
-    background: rgba(184, 50, 79, 0.22);
-    border: 2px solid #fb7185;
-    color: #ffd1d8;
-    padding: 0.3em 0.9em;
-    border-radius: 999px;
-    font-size: 0.7em;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
+  :root{ --gold:#F5B400; --red:#E0203B; --green:#27c46b; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  html,body{background:var(--ink);}
+  .reveal{font-family:'Oswald',sans-serif;}
+  .reveal .slides{text-align:center;}
+  .reveal section{color:#fff;}
+  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.13), transparent 60%), var(--ink);}
+
+  .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.95;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
+  .reveal h1{font-size:4.4rem;color:#fff;}
+  .reveal h2{font-size:3.0rem;color:#fff;}
+  .reveal h3.kick{font-family:'Oswald';font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;}
+  .gold{color:var(--gold);} .red{color:var(--red);} .smoke{color:var(--smoke);}
+  .reveal .subhero{font-family:'Oswald';font-weight:500;font-size:1.5rem;color:#fff;margin-bottom:.4rem;}
+
+  .reveal .det{display:inline-block;text-align:left;max-width:62rem;margin:.8rem auto 0;}
+  .reveal .det .di{font-family:'Oswald';font-weight:500;font-size:2.15rem;color:#e8e8e8;line-height:1.28;margin:.5em 0;padding-left:1.15em;position:relative;}
+  .reveal .det .di.step{display:flex;align-items:baseline;gap:.35em;}
+  .reveal .det .di.step .lbl{flex:0 0 auto;white-space:nowrap;}
+  .reveal .det .di.step .tx{flex:1;}
+  .reveal .det .di::before{content:"▸";position:absolute;left:0;color:var(--gold);font-size:.9em;top:.05em;}
+  .reveal .det .di b{color:var(--gold);font-weight:700;}
+
+  /* verbatim script block — readable, left-aligned, scrolls if long */
+  .reveal .scriptbox{text-align:left;max-width:62rem;margin:.5rem auto 0;font-family:'Oswald';font-weight:400;font-size:1.32rem;line-height:1.5;color:#ececec;max-height:76vh;overflow-y:auto;padding:0 .8rem;}
+  .reveal .scriptbox.dense{font-size:1.12rem;line-height:1.42;}
+  .reveal .scriptbox p{margin:0 0 .65em;}
+  .reveal .scriptbox .sd{color:var(--gold);font-style:italic;}
+  .reveal .scriptbox b{color:#fff;font-weight:700;}
+  .reveal .scriptbox::-webkit-scrollbar{width:8px;} .reveal .scriptbox::-webkit-scrollbar-thumb{background:#333;border-radius:4px;}
+  .reveal .scriptbox ul{margin:0;padding-left:1.5rem;list-style:disc;}
+  .reveal .scriptbox li{margin:0 0 .7em;}
+  .reveal .scriptbox li::marker{color:var(--gold);}
+
+  .reveal .lunch{font-family:'Anton';font-size:7rem;color:var(--gold);text-transform:uppercase;}
+  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
+  .preview-banner{position:fixed;top:0;left:0;right:0;z-index:60;background:#5b3a8a;color:#fff;font-family:'Oswald';font-weight:700;letter-spacing:.13em;text-transform:uppercase;font-size:.66rem;text-align:center;padding:4px;}
 </style>
 </head>
-<body>
-<div class="reveal">
-  <div class="slides">
+<body><div class="reveal"><div class="slides">
 
-    <!-- ─────────────────────────── 1 — Title ─────────────────────────── -->
-    <section class="title-slide" data-background-color="#0a1730">
-      <h1>Day 2</h1>
-      <p class="subtitle">U.S. Shingle & Metal Retail Training</p>
-    </section>
+  <!-- 1 · TITLE -->
+  <section><h3 class="kick">U.S. Shingle &amp; Metal · Retail Training</h3><h1><span class="gold">DAY 2</span></h1>
+    <div class="subhero" style="margin-top:1rem;">Role-play the scripts, then the full in-home presentation.</div></section>
 
-    <!-- ─────────────────────────── 2 — Today's plan ─────────────────────────── -->
-    <section data-background-color="#13294b">
-      <h2>Today's plan</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em; text-align: left;">
-          <div style="font-size: 0.72em; opacity: 0.85; color: var(--uss-gold); text-transform: uppercase; letter-spacing: 0.05em;">Morning · 10–12</div>
-          <div style="font-size: 1.05em; font-weight: 700; margin-top: 0.4em;">Roleplay marathon</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">
-            • Free Inspection Script<br>
-            • Retail Go-Back Script<br>
-            • In-Home Slide 1 (Tonight Intro)
-          </div>
-        </div>
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em; text-align: left;">
-          <div style="font-size: 0.72em; opacity: 0.85; color: var(--uss-gold); text-transform: uppercase; letter-spacing: 0.05em;">Afternoon · after lunch</div>
-          <div style="font-size: 1.05em; font-weight: 700; margin-top: 0.4em;">Products walkthrough</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">
-            Asphalt + every Metal family + the Energy Package. Quiz on products tomorrow morning.
-          </div>
-        </div>
-      </div>
-    </section>
+  <!-- 2 · AGENDA -->
+  <section><h3 class="kick">Here's the plan</h3><h2>TODAY'S <span class="gold">AGENDA</span></h2>
+    <div class="det" style="margin-top:.6rem;">
+      <div class="di step"><span class="lbl"><b>Morning —</b></span><span class="tx">Role-play the 2 scripts</span></div>
+      <div class="di step"><span class="lbl"><b>Lunch</b></span><span class="tx"></span></div>
+      <div class="di step"><span class="lbl"><b>Afternoon —</b></span><span class="tx">The full in-home presentation, slide by slide</span></div>
+    </div></section>
 
-    <!-- ════════════════════ MORNING — ROLEPLAY ════════════════════ -->
+  <!-- ============================ MORNING: ROLE-PLAY ============================ -->
+  <section><h3 class="kick">Morning</h3><h1>ROLE-<span class="gold">PLAY</span></h1>
+    <div class="subhero" style="margin-top:1rem;">You memorized them last night. Now we say them out loud — over and over.</div></section>
 
-    <!-- ─────────────────────────── 3 — Why roleplay ─────────────────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Morning · Roleplay</span>
-      <h1 style="margin-top: 0.4em;">Why we do this.</h1>
-      <p class="script" style="margin-top: 0.8em; max-width: 1150px;">
-        The script doesn't live on a piece of paper — it lives in <strong>your mouth.</strong> The first time you say it out loud it sounds robotic. The fifth time it sounds like you. The fiftieth time it sounds like you've always said it that way.
-      </p>
-      <p style="margin-top: 0.7em; font-size: 0.95em; max-width: 1100px; margin-left: auto; margin-right: auto;">
-        Two hours from now you'll have said each of these scripts to another human at least <strong class="highlight-gold">six times.</strong> That's how this starts becoming muscle memory.
-      </p>
-    </section>
+  <section><h3 class="kick">Why we role-play</h3><h2>REPS BEAT <span class="gold">READING</span></h2>
+    <div class="det">
+      <div class="di">You don't rise to the occasion — you fall to your level of <b>practice.</b></div>
+      <div class="di">The words have to come out <b>without thinking</b> — eyes up, natural.</div>
+      <div class="di">Wrong on the couch is free. Wrong at the door costs a sale.</div>
+    </div></section>
 
-    <!-- ─────────────────────────── 4 — How to roleplay well ─────────────────────────── -->
-    <section data-background-color="#13294b">
-      <h2>How to roleplay well</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; max-width: 1350px; margin: 0.9em auto 0;">
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
-          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">1 · Be the homeowner</div>
-          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">React the way a real homeowner would. Bored, busy, suspicious, curious — pick a flavor and commit.</div>
-        </div>
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
-          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">2 · Don't read</div>
-          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">Look at the script once. Set it down. Try the lines from memory. Re-check only when you get stuck.</div>
-        </div>
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 12px; padding: 0.9em 1em; text-align: left;">
-          <div class="highlight-gold" style="font-size: 0.9em; font-weight: 700;">3 · Give real feedback</div>
-          <div style="font-size: 0.78em; opacity: 0.9; margin-top: 0.3em;">"That was great" doesn't help. "Slow down on the address-it line — you blew past the yes" does.</div>
-        </div>
-      </div>
-      <p style="margin-top: 1em; font-size: 0.95em;">Rotate partners every round. Different reactions stress-test different parts of the script.</p>
-    </section>
+  <section><h3 class="kick">How to role-play well</h3><h2>DO IT <span class="gold">RIGHT</span></h2>
+    <div class="det">
+      <div class="di step"><span class="lbl"><b>1 —</b></span><span class="tx">Pair up: one is the <b>rep</b>, one is the <b>homeowner.</b></span></div>
+      <div class="di step"><span class="lbl"><b>2 —</b></span><span class="tx">Rep runs the script start to finish — <b>verbatim.</b></span></div>
+      <div class="di step"><span class="lbl"><b>3 —</b></span><span class="tx">Homeowner throws a curveball. Rep stays in control.</span></div>
+      <div class="di step"><span class="lbl"><b>4 —</b></span><span class="tx"><b>Swap.</b> Then do it again. And again.</span></div>
+    </div></section>
 
-    <!-- ─────────────── 5 — Roleplay 1 setup: Free Inspection Script ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Roleplay 1 of 3</span>
-      <h1 style="margin-top: 0.4em;">Free Roof Inspection Script</h1>
-      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
-        <strong>What we're drilling:</strong> the open, the high-risk-of-being-dropped line, the "just the option of coming out of pocket / added option of an inspection report" ask, and the close — verbatim. By the end of the round, your partner should be able to repeat the ask back to you, word for word.
-      </p>
-      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
-        Reference: <em>Day 1 slide 30.</em>
-      </p>
-    </section>
+  <section><h3 class="kick">Script 1 · for reference</h3><h2>FREE ROOF <span class="gold">INSPECTION</span></h2>
+    <div class="scriptbox">
+      <p>"Hi, my name is <b>__________</b>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
+      <p>We sent this to you because according to county records you are at <b>high risk of the insurance company dropping you</b> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
+      <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
+      <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <b>no-cost roof inspection.</b> If there's no damage, we'll provide you an <b>official inspection certificate that says you have 5+ years of life left in your roof.</b> This will make them leave you alone."</p>
+    </div></section>
 
-    <!-- ─────────────── 6 — Roleplay 1 verbatim refresher ─────────────── -->
-    <section data-background-color="#13294b">
-      <h1 class="highlight-gold" style="font-size: 1.4em;">Free Roof Inspection Script · verbatim</h1>
-      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
-        <p>"Hi, my name is <strong>__________</strong>. I'm stopping by because we sent you something in the mail in regards to your roof.</p>
-        <p>We sent this to you because according to county records you are at <strong>high risk of the insurance company dropping you</strong> JUST BECAUSE OF THE AGE OF YOUR ROOF!</p>
-        <p>Let me ask you one question — if you were to get the letter tomorrow from the insurance, would you rather have just the option of coming out of pocket to replace your roof, or would you like the added option of showing them an inspection report where they would leave you alone?</p>
-        <p>Great — that's exactly why I'm here. We're here to get you scheduled for a <strong>no-cost roof inspection</strong>. If there's no damage, we'll provide you an <strong>official inspection certificate that says you have 5+ years of life left in your roof</strong>. This will make them leave you alone."</p>
-      </div>
-    </section>
+  <section><h3 class="kick">Memorize these too</h3><h2>THE 3 <span class="gold">OUTCOMES</span></h2>
+    <div class="det">
+      <div class="di step"><span class="lbl"><b>1 —</b></span><span class="tx"><b>No damage</b> — you're now protected against the letter.</span></div>
+      <div class="di step"><span class="lbl"><b>2 —</b></span><span class="tx"><b>Wear &amp; tear</b> — we can't give the certificate, but we have many options.</span></div>
+      <div class="di step"><span class="lbl"><b>3 —</b></span><span class="tx"><b>Storm damage</b> — a public adjuster fights to get insurance to pay, at no out-of-pocket cost.</span></div>
+    </div></section>
 
-    <!-- ─────────────── 7 — Roleplay 2 setup: Retail Go-Back ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Roleplay 2 of 3</span>
-      <h1 style="margin-top: 0.4em;">Retail Roof Go-Back Script</h1>
-      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
-        <strong>What we're drilling:</strong> the four-yes chain. Moving question → ethics question → ethics-trap reveal → "you'll have to address it" pivot. By the time you ask for the appointment, the homeowner should have said <em>yes four times</em> without realizing it.
-      </p>
-      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
-        Reference: <em>Day 1 slides 31c – 31e.</em>
-      </p>
-    </section>
+  <section><h3 class="kick">Script 2 · part 1 — setup</h3><h2>RETAIL <span class="gold">GO-BACK</span></h2>
+    <div class="scriptbox">
+      <p>"Hi <b>__________</b>, I have your report here for you. Before we go over it — a couple quick questions.</p>
+      <p>You don't have any plans of moving in the next year or two, <b>right</b>?</p>
+      <p>And when you do business with anyone, the company's <b>ethics and standing</b> is important to you, <b>right</b>?</p>
+      <p>Great — I was hoping you'd answer that way. I'd <b>love</b> to be able to give you a report that says your roof has 5 more years of life left in it. But if I did, that would be unethical — and we just don't operate that way. You understand, right?</p>
+      <p>Here, let me show you what you have going on up there…"</p>
+    </div></section>
 
-    <!-- ─────────────── 8 — Roleplay 2 verbatim refresher (part 1) ─────────────── -->
-    <section data-background-color="#13294b">
-      <h1 class="highlight-gold" style="font-size: 1.3em;">Retail Go-Back · open + ethics trap</h1>
-      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
-        <p>"Hi <strong>__________</strong>, I have your report here for you. Before we go over it — a couple quick questions.</p>
-        <p>You don't have any plans of moving in the next year or two, <strong>right</strong>?</p>
-        <p>And when you do business with anyone, the company's <strong>ethics and standing</strong> is important to you, <strong>right</strong>?</p>
-        <p>Great — I was hoping you'd answer that way. I'd <strong>love</strong> to be able to give you a report that says your roof has 5 more years of life left in it. But if I did, that would be unethical — and we just don't operate that way. You understand, right?</p>
-        <p>Here, let me show you what you have going on up there…"</p>
-      </div>
-    </section>
+  <section><h3 class="kick">Script 2 · part 2 — walk &amp; pivot</h3><h2>RETAIL <span class="gold">GO-BACK</span></h2>
+    <div class="scriptbox">
+      <p class="sd">(Go over the report.)</p>
+      <p>"As poor a shape as your roof is, this isn't a scare tactic. I'm not saying you absolutely must replace your roof right now, or terrible things are going to happen. Although — <i>the leak you don't see is actually the worst kind.</i></p>
+      <p>Since we know you're not moving anytime soon, you'd agree at some point soon, this is something you're going to have to <b>address</b>, right?</p>
+      <p>Here are the two main reasons to consider doing it <b>now</b> and not waiting —</p>
+      <p><b>1.</b> Today is the cheapest you'll ever pay for a new roof. Storm season is coming — that only adds to the cost. Since January, we've already had <b>two price increases</b> from our suppliers. Waiting a year could literally cost you <b>thousands more.</b></p>
+      <p><b>2.</b> Insurance. Once you replace your roof, you can shop your insurance and realize some pretty big savings — <b>up to 30% or more.</b> Thousands of dollars in savings."</p>
+    </div></section>
 
-    <!-- ─────────────── 9 — Roleplay 2 verbatim refresher (part 2) ─────────────── -->
-    <section data-background-color="#13294b">
-      <h1 class="highlight-gold" style="font-size: 1.3em;">Retail Go-Back · pivot + close</h1>
-      <div class="script" style="font-size: 0.48em; margin-top: 0.5em;">
-        <p><em>(Go over the report.)</em></p>
-        <p>"As poor a shape as your roof is, this isn't a scare tactic. Although — <em>the leak you don't see is actually the worst kind.</em></p>
-        <p>Since we know you're not moving, you'd agree at some point soon, this is something you're going to have to <strong>address</strong>, right?</p>
-        <p>Two main reasons to consider doing it <strong>now</strong>: <strong>1.</strong> Today is the cheapest you'll ever pay. Storm season is coming, two price increases since January. <strong>2.</strong> Insurance — a new roof can drop your premium 30%+.</p>
-        <p>Of course, you are <strong>free to accept or refuse</strong> the advice. Replace it now, save a lot of money. Replace it later, lose a lot of money. Really kind of that simple.</p>
-        <p>Okay — let me set a time to come back tomorrow, I still need to look in the <strong>attic</strong> as well. Is the <strong>afternoon</strong> or <strong>evening</strong> better, when you'll both be home?"</p>
-      </div>
-    </section>
+  <section><h3 class="kick">Script 2 · part 3 — close</h3><h2>RETAIL <span class="gold">GO-BACK</span></h2>
+    <div class="scriptbox">
+      <p>"Of course, you are <b>free to accept or refuse</b> the advice. I just wanted you to know and understand the options and what's in front of you.</p>
+      <p><b>Replace it now, save a lot of money. Replace it later, lose a lot of money.</b> Really kind of that simple."</p>
+      <p class="sd">If both decision-makers are home → do the pitch. If only one is home → schedule the second appointment.</p>
+      <p>"Okay, so I don't have time right now to go over the options — let me set a time to come back tomorrow, as I'm still going to need to look in the <b>attic</b> as well. Is the <b>afternoon</b> or <b>evening</b> better for you, when you'll both be home?"</p>
+    </div></section>
 
-    <!-- ─────────────── 10 — Roleplay 3 setup: In-Home Slide 1 ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Roleplay 3 of 3</span>
-      <h1 style="margin-top: 0.4em;">In-Home Slide 1 · The Warm Up</h1>
-      <p class="script" style="margin-top: 0.4em; max-width: 1180px;">
-        <strong>What we're drilling:</strong> the move from the door to the kitchen table. Setting the tone — "I'm not here to sell you a roof, you already know you need one." The handoff into Question-Based Selling.
-      </p>
-      <p style="margin-top: 0.7em; font-size: 0.85em; opacity: 0.85;">
-        Reference: <em>Day 1 slide 32f (Warm Up · verbatim).</em>
-      </p>
-    </section>
+  <section><h3 class="kick">Now run it</h3><h2>PAIR UP &amp; <span class="gold">REPEAT</span></h2>
+    <div class="subhero" style="margin-top:1rem;">Rep → homeowner → swap. Until the words are automatic.</div></section>
 
-    <!-- ─────────────── 11 — Roleplay 3 verbatim refresher ─────────────── -->
-    <section data-background-color="#13294b">
-      <h1 class="highlight-gold" style="font-size: 1.4em;">In-Home Warm Up · verbatim</h1>
-      <div class="script" style="font-size: 0.5em; margin-top: 0.5em;">
-        <p>"What we are going to do tonight is tell you a little bit about who we are as a company, take photos of everything, and show you all the options and types of materials that are available to you — while guaranteeing a <strong>30-day price</strong>.</p>
-        <p>However, first I need to ask you some questions to find out what your wants and needs are, so that I can customize the estimate for exactly what <em>you</em> want — and not just what my boss or our suppliers want you to buy. Fair enough?</p>
-        <p>Let's be clear: I am not here to sell you on buying a roof, you already know you need one of those right?" <em>(Then run the customer survey.)</em></p>
-      </div>
-    </section>
+  <!-- ============================ LUNCH ============================ -->
+  <section><h3 class="kick">Break</h3><div class="lunch">LUNCH</div></section>
 
-    <!-- ─────────────── 12 — Rotation logistics + before lunch reset ─────────────── -->
-    <section data-background-color="#0a1730">
-      <h1>Rotation</h1>
-      <p class="script" style="margin-top: 0.5em; max-width: 1100px;">
-        <strong>Every 15 min — switch partners.</strong> Every 30 min — switch the script you're working on. By 12:00 you should have hit all three scripts with at least two different partners.
-      </p>
-      <p style="margin-top: 0.7em; font-size: 0.95em;">
-        I'm walking the room. If you're stuck, flag me — don't sit in silence with a broken open.
-      </p>
-    </section>
+  <!-- ============================ AFTERNOON: PRESENTATION ============================ -->
+  <section><h3 class="kick">Afternoon</h3><h1>THE IN-HOME <span class="gold">PRESENTATION</span></h1>
+    <div class="subhero" style="margin-top:1rem;">Every slide — and exactly what you say on each one.</div></section>
 
-    <!-- ═══════════════════════ LUNCH ═══════════════════════ -->
-
-    <!-- ─────────────── 13 — Lunch ─────────────── -->
-    <section data-background-color="#b8324f">
-      <h1 style="color: #fff;">LUNCH.</h1>
-      <p style="margin-top: 0.6em; font-size: 1.4em; color: #ffe6a8; font-weight: 700;">Back at 1:00 sharp.</p>
-      <p style="margin-top: 0.7em; font-size: 0.95em; color: #fff; opacity: 0.95;">
-        Afternoon is products. Bring your full brain.
-      </p>
-    </section>
-
-    <!-- ════════════════════ AFTERNOON — PRODUCTS ════════════════════ -->
-
-    <!-- ─────────────── 14 — Products bridge ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Afternoon · Products</span>
-      <h1 style="margin-top: 0.4em;">Now — what we actually sell.</h1>
-      <p class="script" style="margin-top: 0.8em; max-width: 1150px;">
-        Up to now, your job has been to <em>get the appointment</em>. Once you're at the kitchen table, you need to know your products cold — what they cost, what they last, what they're rated for, and <strong>which ones get the insurance company to leave the homeowner alone.</strong>
-      </p>
-    </section>
-
-    <!-- ─────────────── 15 — The two-sided pitch frame ─────────────── -->
-    <section data-background-color="#13294b">
-      <span class="label-pill">The framework</span>
-      <h1 style="font-size: 1.6em; margin-top: 0.4em;">Every product gets pitched <span class="highlight-gold">both ways.</span></h1>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
-        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 14px; padding: 1em 1.2em;">
-          <div style="font-size: 0.72em; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em;">Without Energy Package</div>
-          <div style="font-size: 1.2em; font-weight: 700; margin-top: 0.4em;">The product</div>
-          <div style="font-size: 0.82em; opacity: 0.85; margin-top: 0.3em;">Just the roof. Wind rating, warranty, and base benefits.</div>
-        </div>
-        <div style="background: rgba(212,161,66,0.18); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
-          <div style="font-size: 0.72em; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em; color: var(--uss-gold);">With Energy Package</div>
-          <div style="font-size: 1.2em; font-weight: 700; margin-top: 0.4em; color: var(--uss-gold);">The roof + savings</div>
-          <div style="font-size: 0.82em; opacity: 0.85; margin-top: 0.3em;">Radiant barrier, R-38, duct sealing — the whole envelope upgrade.</div>
-        </div>
-      </div>
-      <p style="margin-top: 1em; font-size: 0.95em; color: var(--uss-gold); font-weight: 700;">
-        The main focus: both sides should look the <em>same size</em> in your pitch.
-      </p>
-    </section>
-
-    <!-- ─────────────── 16 — Shared benefits across all products ─────────────── -->
-    <section data-background-color="#0a1730">
-      <h2>Every product carries these — always.</h2>
-      <ul style="font-size: 1em; max-width: 1100px; line-height: 1.6;">
-        <li>High wind resistance</li>
-        <li>Premium secondary water barrier</li>
-        <li>Veteran-owned company in business <strong>over 15 years</strong></li>
-        <li><strong>10-year workmanship</strong> no-leak warranty</li>
-        <li>Transferable when they sell the home</li>
+  <section><h3 class="kick">Presentation · The warm-up</h3><h2>THE <span class="gold">WARM-UP</span></h2>
+    <div class="scriptbox dense">
+      <ul>
+        <li class="fragment"><b>80% of the roofing sale is won or lost in the warm-up.</b> Get it right and the close takes care of itself; rush it and nothing else you say matters.</li>
+        <li class="fragment">The warm-up is <b>Slides 1–5</b>, and they all do one job: <b>establish and reaffirm our Experience and Credibility.</b></li>
+        <li class="fragment">Why those two above everything else? Because experience + credibility are what give the homeowner <b>peace of mind</b> — and peace of mind is what they're really buying. Price always comes second to "can I trust these people with the thing protecting everyone I love?"</li>
+        <li class="fragment">And you build all of it the same way — through <b>control points.</b></li>
       </ul>
-      <p style="margin-top: 0.9em; font-size: 0.85em; opacity: 0.85;">
-        These 5 lines are the floor. If they're not in your pitch, you're under-selling the company before you even get to the material.
-      </p>
-    </section>
+    </div></section>
 
-    <!-- ─────────────── 17 — Energy Package benefits ─────────────── -->
-    <section data-background-color="#13294b">
-      <span class="label-pill">The Energy Package</span>
-      <h1 style="font-size: 1.7em; margin-top: 0.4em;">The upgrade — everything from standard, plus:</h1>
-      <ul style="font-size: 0.95em; max-width: 1100px; line-height: 1.55;">
-        <li><strong>Radiant Barrier 97%</strong> — bounces heat back outside</li>
-        <li><strong>Insulation R-38</strong></li>
-        <li><strong>Duct sealing</strong> or re-sealing</li>
-        <li><strong>Lifetime</strong> products</li>
-        <li><strong>Extends the life</strong> of their HVAC system</li>
-        <li><strong>Improves</strong> indoor air quality</li>
+  <section><h3 class="kick">Presentation · Control points</h3><h2>WHAT ARE <span class="gold">CONTROL POINTS</span></h2>
+    <div class="scriptbox dense">
+      <ul>
+        <li class="fragment">A <b>control point</b> is a small, deliberate question that earns a quick "yes" and hands the lead of the conversation back to you.</li>
+        <li class="fragment">They're the <i>"right?" · "wouldn't you agree?" · "fair enough?" · "make sense?" · "you understand that, right?"</i> built into every slide on purpose.</li>
+        <li class="fragment">Each "yes" is a <b>micro-commitment.</b> Stack enough of them and the final close is just one more yes at the end of a long line of them.</li>
+        <li class="fragment">They also keep <b>you</b> leading — you're the one asking and steering, instead of standing there being interrogated about price.</li>
+        <li class="fragment sd">Hear them in Slides 1–5: "…the likelihood of us being around is extremely high, wouldn't you agree?" · "You want a fully licensed contractor, right?" · "You aren't opposed to having more coverage, are you?" · "Experience matters, doesn't it?"</li>
       </ul>
-      <p style="margin-top: 0.9em; font-size: 0.9em;">This is what flips the conversation from "a roof" to "an envelope upgrade." Pitch it on every product.</p>
-    </section>
+    </div></section>
 
-    <!-- ════════════════ PRODUCT FAMILIES ════════════════ -->
+  <section><h3 class="kick">Presentation · Intro</h3><h2>SET THE <span class="gold">FRAME</span></h2>
+    <div class="scriptbox">
+      <p>"What we are going to do tonight is tell you a little bit about who we are as a company, take photos of everything and show you all the options and types of materials that are available to you, while guaranteeing a 30-day price.</p>
+      <p>However, first I need to ask you some questions to find out what your wants and needs are, so that I can customize the estimate for exactly what you want and not just what my boss or our suppliers want you to buy? Fair Enough? Let's be clear I am not here to sell you on buying a roof, you already know you need one of those right?"</p>
+      <p class="sd">(Warm up with customer survey)</p>
+    </div></section>
 
-    <!-- ─────────────── 18 — Asphalt shingle ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Family 1 · Asphalt Shingle</span>
-      <h1 style="margin-top: 0.4em;">Asphalt Shingle</h1>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.7em auto 0;">
-        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 12px; padding: 0.9em 1.1em;">
-          <div class="highlight-gold" style="font-size: 1em; font-weight: 700;">GAF</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.3em;">30-year mfg warranty · 130 mph wind resistant</div>
-        </div>
-        <div style="background: rgba(255,255,255,0.06); border: 2px solid #94a3b8; border-radius: 12px; padding: 0.9em 1.1em;">
-          <div class="highlight-gold" style="font-size: 1em; font-weight: 700;">Tamko Titan</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.3em;">30-year mfg warranty · 160 mph wind resistant</div>
-        </div>
-      </div>
-      <p style="margin-top: 0.9em; font-size: 0.9em;">
-        We'll install <em>any</em> shingle they want — these are our recommendations.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Customer Survey</h3><h2>WANTS &amp; <span class="gold">NEEDS</span></h2>
+    <div class="scriptbox dense">
+      <p>Tell me what was it about the mail piece or Facebook advertisement that you received from us that caught your eye?</p>
+      <p>I see you've owned the home since ____. Do you know how old the roof was when you bought it?</p>
+      <p>Why did you choose this home and this neighborhood?</p>
+      <p>So do you see this home as your forever home or do you see yourself moving anytime soon?</p>
+      <p>Have you done any upgrades or what upgrades if any do you plan to do?</p>
+      <p>Talk to me about how you feel about your homeowner's insurance?</p>
+      <p>Do you remember what you're paying for HO Insurance?</p>
+      <p>I know this next question is going to sound like it has nothing to do with your roof but I'll explain in a few minutes why it actually does. What is the highest electric bill and what's your lowest electric bill?</p>
+      <p>How long has your roof been concern? <span class="sd">(if 1 month or more)</span> Obviously, you're very busy otherwise I'm sure an important concern you'd like to address right away?</p>
+      <p>What made you decide to have us out today?</p>
+      <p>When you choose to have work done to your house what are the 2 most important qualities you'll be looking for? Google reviews? Speed? Quality? Warranty? Etc.</p>
+      <p>Which of these problems do you have? Leaks · mold · insurance cost · damage · maintenance · energy cost · quality.</p>
+      <p>If there was a way to save you money by starting the project sooner rather than later, would you want to know about the savings?</p>
+      <p>When you find what you are looking at a price or term that fits comfortably in your budget, would you be opposed to starting right away?</p>
+    </div></section>
 
-    <!-- ─────────────── 19 — Asphalt: the 10-15 year letter caveat ─────────────── -->
-    <section data-background-color="#b8324f">
-      <h2 style="color: #fff; font-size: 1em;">Important caveat for asphalt —</h2>
-      <h1 style="color: #fff; font-size: 1.6em; margin-top: 0.3em;">The insurance company can still send the <span style="color: #ffe6a8;">10-15 year letter</span> on an asphalt roof.</h1>
-      <p style="margin-top: 0.9em; font-size: 1em; color: #fff; max-width: 1150px; margin-left: auto; margin-right: auto;">
-        Doesn't matter what the manufacturer warranty says. With asphalt, the carrier still controls the timeline. Mention this honestly — it's the bridge into the metal options where insurance <em>does</em> leave the homeowner alone.
-      </p>
-      <div style="margin-top: 1em;">
-        <span class="ins-risk">⚠ Insurance can still drop them</span>
-      </div>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 1</h3><h2>WHY U.S. SHINGLE — <span class="gold">CREDIBILITY</span></h2>
+    <div class="scriptbox dense">
+      <p>When Dealing with a company for your roof how important is it too you that they are likely to be around in the future if you have a need or if something goes wrong? <span class="sd">(Most will answer with its important)</span></p>
+      <p>Absolutely, Studies show that over 50% of companies fail to make it to 5 years and 80% of companies fail to make it their 15th birthday. Since its important that the company you choose is around when you need them, I have great news. We are now over 15 years old which should demonstrate that the likelihood of us being around if you need us is extremely high wouldn't you agree?</p>
+      <p>We are also a Veteran owned company how important is that to you? <span class="sd">(If they say important, ask them why. It gets them to start selling themselves on us. Worst case if they said it's not you can follow up with: I figure if we can trust them to protect our freedom, we can certainly trust them to protect our home!)</span></p>
+      <p>What did you do to research us before today? Would you agree that people are more likely to complain about companies when they had a bad experience then say good things about them when they had a great experience? Well, the good news is we have tons of 5 Star reviews, so you will find that everything we talk about today will be back up by our rating on Google.</p>
+      <p>As consumers we've gone from checking the BBB to now just seeing what others say on Google. Truthfully, we are pretty limited on ways to check on the viability of a business. Let me ask you this, If you were a bank and you wanted to help homeowners finance a roof, you'd want to make sure you got paid back right? So, you'd definitely would like to make sure you only loan money to people who's roofing companies are solid and do good work otherwise you risk people not wanting to pay, make sense?</p>
+      <p>Well, another feather in our cap is we are also one of just a few companies licensed by the State of Florida to offer direct to consumer financing. In fact, some of these finance companies that have agreed to put their name next to ours took over two months to approve us. They have looked at our finances, our install record, our record with the State and so on. The good news is they did your homework for you in vetting us out.</p>
+      <p>Even if you didn't finance, you would agree that doing business with a company that can pass that kind of rigorous background check is better than a chuck in a truck right?</p>
+      <p>When protecting everything you own and everyone you love is the cheapest the most important thing or is getting the best value for your money important?</p>
+    </div></section>
 
-    <!-- ─────────────── 20 — Exposed Fastener Metal ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Family 2 · Exposed Fastener Metal</span>
-      <h1 style="margin-top: 0.4em;">Exposed Fastener Metal</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">Wind</div><div class="value">180 mph</div></div>
-        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
-        <div class="spec-tile"><div class="label">Fasteners</div><div class="value">Exposed</div></div>
-      </div>
-      <div style="margin: 0.4em 0 0.7em;">
-        <span class="ins-shield">✓ Insurance leaves them alone</span>
-      </div>
-      <p style="font-size: 0.95em;">
-        The cheapest way into the "insurance off your back forever" category. Fasteners visible — that's the cosmetic trade-off.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 2</h3><h2>LICENSED — <span class="gold">TRIPLE-C</span></h2>
+    <div class="scriptbox">
+      <p>This is our Roofing license, notice it's a triple C license, that means it's a statewide approved license, a lot of roofing contractors only have an RC license which is specific to JUST one county. Did you know that if you hire unlicensed contractors, not only can the county fine you up to 5k but they can also force you to do the job again? The liability falls on the homeowner to verify licensing. You want a fully licensed contractor, right?</p>
+    </div></section>
 
-    <!-- ─────────────── 21 — Exposed Fastener sub-products ─────────────── -->
-    <section data-background-color="#13294b">
-      <h2>Exposed Fastener · two panel options</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 1300px; margin: 0.9em auto 0;">
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
-          <div class="highlight-gold" style="font-size: 1.2em; font-weight: 800;">Ultra Rib Panel</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">Steeper roofs — anything <strong>2/12 pitch</strong> and above.</div>
-        </div>
-        <div style="background: rgba(212,161,66,0.15); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.2em;">
-          <div class="highlight-gold" style="font-size: 1.2em; font-weight: 800;">PBR</div>
-          <div style="font-size: 0.85em; opacity: 0.9; margin-top: 0.4em;">Low-slope — anything down to <strong>.5/12 pitch</strong>. Best option for flat-ish roofs.</div>
-        </div>
-      </div>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 3</h3><h2>FULLY INSURED — <span class="gold">1M / 2M</span></h2>
+    <div class="scriptbox">
+      <p>When choosing a roofing company would you rather deal with a company that just does the minimum when it comes to liability insurance, or would you rather deal with a company that wants to make sure that everything is covered from beginning to end?</p>
+      <p>The State of Florida requires a minimum of $100,000 injury and $25,000 property damage. Our policy is 1 million / 2 million to make sure while we are doing the work if anything happens you can feel comfortable to know you are not exposed at all. You aren't opposed to having more coverage are you?</p>
+    </div></section>
 
-    <!-- ─────────────── 22 — Standing Seam Metal ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Family 3 · Standing Seam Metal</span>
-      <h1 style="margin-top: 0.4em;">Standing Seam Metal</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">Wind</div><div class="value">150 mph</div></div>
-        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
-        <div class="spec-tile"><div class="label">Fasteners</div><div class="value">Concealed</div></div>
-      </div>
-      <div style="margin: 0.4em 0 0.7em;">
-        <span class="ins-shield">✓ Insurance leaves them alone</span>
-      </div>
-      <p style="font-size: 0.95em;">
-        Cleaner look than exposed fastener — no visible screws. The "modern home" choice.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 4</h3><h2>YOU ALREADY <span class="gold">NEED IT</span></h2>
+    <div class="scriptbox">
+      <p>One of the parts I like most about my job is that I don't really have to sell anything. I mean roofing is not like Solar or water softeners where you might have to be convinced you need it. You already know you need a roof, right? I mean nobody wakes up in the morning and goes "Oh I can't wait to buy a roof today". So, I'm not really here because you want me to be I'm really only here because you need me to be.</p>
+    </div></section>
 
-    <!-- ─────────────── 23 — Standing Seam sub-product ─────────────── -->
-    <section data-background-color="#13294b">
-      <h2>Standing Seam · TCM Lok</h2>
-      <div style="display: flex; justify-content: center; margin-top: 0.9em;">
-        <div style="background: rgba(212,161,66,0.18); border: 2px solid var(--uss-gold); border-radius: 14px; padding: 1em 1.5em; max-width: 700px;">
-          <div class="highlight-gold" style="font-size: 1.3em; font-weight: 800;">TCM Lok</div>
-          <div style="font-size: 0.9em; opacity: 0.9; margin-top: 0.4em;">
-            Goes all the way down to <strong>.25/12 pitch</strong>. The closest thing to "flat" we install.
-          </div>
-        </div>
-      </div>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 5</h3><h2>EXPERIENCE <span class="gold">MATTERS</span></h2>
+    <div class="scriptbox dense">
+      <p>Have you ever been skydiving? Well let's say we get a little crazy and decide we are going skydiving, when we got there they said we had our pick at who is going to pack our parachutes. One of them has 5 years of experience and the other has over 15 years of experience. Who are you going to pick? <span class="sd">(They are going to say 15 years. Then ask them why?)</span></p>
+      <p>Exactly because experience matters, doesn't it? Let's face it if there is just a 1% chance that the chute doesn't open that is 1% too much am I right? So, since the roof is protecting most of what you own but more importantly everyone you love, is that any less important?</p>
+      <p>Now let's add one more layer. The guy with 5 years of experience charges $200 but the guy with over 15 years charges 20% more at $240 to pack the chutes. You're still picking the guy with all the experience, aren't you? It's because experience is worth paying just a little more for the peace of mind to know the chute will open or the roof won't leak am I right?</p>
+      <p>One of the other advantages to using a company that does the volume we do, is that we attract the best crews because we keep them busy year-round and this way we get to make sure we have the best possible people at your home.</p>
+      <p>Suppliers also sell their materials to us for less because of the same reason, in fact they fight over us because we do volume and are consistent. This allows us the ability to pass some savings on to you but still be competitive in the market. Obviously, we need to be profitable to be around for you in the future, you understand that right?</p>
+      <p>Lastly, we are not just a roofer, but we are also a manufacturer. If you decide today to buy your last roof then you will be not only dealing with the roofing company but also the manufacturer as well. So, one stop shopping as we have a facility here in Florida and manufacture all our own metal roof panels and trim to go with it.</p>
+    </div></section>
 
-    <!-- ─────────────── 24 — Stone Coated Metal ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Family 4 · Stone Coated Metal</span>
-      <h1 style="margin-top: 0.4em;">Stone Coated Metal</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">Wind</div><div class="value">130 mph</div></div>
-        <div class="spec-tile"><div class="label">Pitch</div><div class="value">3/12</div></div>
-        <div class="spec-tile"><div class="label">Look</div><div class="value">Shingle or Tile</div></div>
-      </div>
-      <p style="font-size: 0.95em;">
-        Metal durability — with the appearance of asphalt shingle <em>or</em> traditional tile. Closes HOA homeowners who can't have plain metal.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 6</h3><h2>WHY REPLACE <span class="gold">TODAY</span></h2>
+    <div class="scriptbox dense">
+      <p>Saving money is important to just about everyone I talk to, I imagine you enjoy saving money as well. So, when it comes time to saving money when is the best time to start? Well it was actually before you met me but we can't change that. Look the truth is as long as there aren't any serious leaks you could probably wait a day, a week, a month or even 6 months to replace your roof. However, there are also some very strong reasons why you probably shouldn't wait another day.</p>
+      <p>I would love to say that you will only save money on your homeowners insurance if you let us do your roof, however that's just not the case. We might be however, the only company that brings it up, but please promise me that no matter who you go with you will most certainly shop your insurance once the roof is on.</p>
+      <p>The truth is homeowners are saving on average 30% on what they are paying now. How much is your homeowner's insurance right now? <span class="sd">(Calculate what they said and throw out the number)</span> By taking action today that's money every month you could be saving instead of throwing away to your insurance company.</p>
+      <p>Another area that you won't find any of our competitors talking about is helping you save money on your electric bill. We have a complete package to go with the roof that I'll discuss more in a minute, but I would imagine you wouldn't be opposed to the electric company helping to pay for your new roof, would you? Most of our customers save up to 40% or more on their electric bill. Again choose to reroof now and keep that savings in your pocket. Wait to reroof and it's paying 40% more than you need to, over and over again.</p>
+      <p>Another strong reason to move forward today is the material and labor savings. Multiple times a year shingle and metal manufacturers raise prices. The roofs we did just a short few years ago are almost half as much as the same roofs today. Choosing today simply means you pay less.</p>
+      <p>Another savings only happens due to supply and demand. Currently sales are slow because of the time of year so our suppliers have given us some incentives which we just pass on to you. However, I can't tell you if those end today or tomorrow or next week. So as the saying goes you snooze you lose!</p>
+      <p>Again, it's not a question of IF you'll need to replace, I think we've already established that, it's just a matter of when. Can you see how waiting based on just these three points only can cost you thousands more?</p>
+    </div></section>
 
-    <!-- ─────────────── 25 — Permalock ─────────────── -->
-    <section data-background-color="#13294b">
-      <span class="label-pill">Family 5 · Permalock</span>
-      <h1 style="margin-top: 0.4em;">Permalock</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">Wind</div><div class="value">185 mph</div></div>
-        <div class="spec-tile"><div class="label">Warranty</div><div class="value">Lifetime · non pro-rated</div></div>
-        <div class="spec-tile"><div class="label">Pitch</div><div class="value">3/12</div></div>
-      </div>
-      <p style="font-size: 1em; color: var(--uss-gold); font-weight: 700;">
-        The premium tier. "Last roof they'll ever buy."
-      </p>
-      <p style="margin-top: 0.5em; font-size: 0.85em; opacity: 0.9;">
-        Lifetime warranty, non pro-rated — meaning the coverage doesn't shrink over time.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 7</h3><h2>LOW-BID MATCH <span class="gold">GUARANTEE</span></h2>
+    <div class="scriptbox dense">
+      <p>We also offer something that we have not seen with any other roofing company. There are so many roofers to choose from today and well we just want to make sure you're comfortable making the choice to go with us, so we have a Low Bid Match Guarantee policy. Simply stated if you find it for less, we will not only match it but refund you 10% of the difference as well. What this gives you is peace of mind to know you paid the best price to get the best value.</p>
+      <p>Have you ever bought something on sale only to find when you got home it was cheaper somewhere else? Frustrating right? I have one that I think is worse. You find something on sale and say to yourself, "Self I am learning from my past mistakes and I'm not buying it today because I'm pretty sure I can find it for less elsewhere," so you don't buy it. So, you go searching for it at a better price only to learn that it isn't cheaper anywhere else. So, you go back to the place it was on sale and now the sale is over!! Exactly — both are equally frustrating, and we know this, that is why we put together the Guarantee. Go ahead and take advantage of our sale but afterwards shop us and if you can beat it, we will match it plus refund you 10% of the difference. Let me ask you this, we are the only company I know of that does this. Do you think the company would do this if it happened a lot?</p>
+    </div></section>
 
-    <!-- ─────────────── 26 — Tilcor ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Family 6 · Tilcor</span>
-      <h1 style="margin-top: 0.4em;">Tilcor</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">Warranty</div><div class="value">50 yr</div></div>
-        <div class="spec-tile"><div class="label">Resistance</div><div class="value">Hail</div></div>
-        <div class="spec-tile"><div class="label">HOA</div><div class="value">Friendly</div></div>
-      </div>
-      <p style="font-size: 0.95em;">
-        Stone-coated steel with a tile profile. <strong>Hail resistant</strong> is the differentiator — the only product on our roster we explicitly market that way.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 8</h3><h2>WE DO EVERY <span class="gold">ROOF</span></h2>
+    <div class="scriptbox">
+      <p>You had said earlier that it was important for you that the company have experience, that they know what they are doing? Let me ask you a question, if you hired an electrician to come in to work on some outlets for you and when they got there, they said "I'm sorry we only do switches," would you find that weird? Exactly — you're either a licensed electrician or you're not.</p>
+      <p>Unfortunately, you're going to find that most roofers only do shingle and nothing else or they do metal and nothing else. So, if someone comes to you that way, I want you to think of the electrician that only does switches. With us, if it is a roofing product, we are pros at installing it.</p>
+    </div></section>
 
-    <!-- ─────────────── 27 — Tile ─────────────── -->
-    <section data-background-color="#13294b">
-      <span class="label-pill">Family 7 · Tile</span>
-      <h1 style="margin-top: 0.4em;">Tile</h1>
-      <div class="spec-row">
-        <div class="spec-tile"><div class="label">HOA</div><div class="value">Friendly</div></div>
-        <div class="spec-tile"><div class="label">Base benefits</div><div class="value">All 5</div></div>
-      </div>
-      <p style="font-size: 0.95em;">
-        Classic Florida look. Used when the HOA mandates tile or the homeowner wants the architectural match. Carries all the company-wide guarantees.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 9</h3><h2>OUR INSTALL <span class="gold">PROCESS</span></h2>
+    <div class="scriptbox dense">
+      <p>Yes, we pull permits. Why? It's what reputable companies do. I can't tell you how many times we get a call because a homeowner paid chuck in a truck for an inexpensive roof. Then to find out their insurance company sends them a notice later asking them to replace the new roof they just paid for. You see Insurance companies go by permits. So now they must pay twice. Did they save any money, you tell me?</p>
+      <p>We take pictures, lots and lots of pictures. We document everything. It keeps everything professional. Homeowners will walk around after the job is done and point out damaged screens and ask us to replace them. To the photos we go, only to discover they were damaged prior to us being there. Simply put, when was the last time you walked all around your home doing a thorough inspection? Same thing happens with the drive — they never noticed the big crack before we put the dump trailer there. So naturally we damaged the driveway, until we break out the photos. It keeps everyone responsible which is just the best policy, don't you agree?</p>
+      <p>We will assign a Jobsite foreman to you and your home. He is there for EVERYTHING install related. You will get his cell phone, and you can't possibly call him too much. If you need anything at all, please call them 24/7, 7 days a week. Their single job responsibility is to make sure you have the best possible experience!</p>
+      <p>Unlike other companies we do not use dumpsters. They can seriously damage your driveway. We only use dump trailers which roll in on tires and roll away on tires leaving no chance of damaging your driveway.</p>
+      <p>We always strip the old shingles off. Yes, a roof-over is permitted once by the building department but it voids the manufacturer warranty, and it cuts the life of the shingle in half. We just will not do that kind of work for our customers. Do you want a warranty? Do you want the roof to last its entire designed life?</p>
+      <p>Instead of using felt paper or even synthetic underlayment we put peel and stick on all our roofs. It's self-sealing for one which prevents leaks but it's also much safer here in Florida as we could have a pop-up thunderstorm at any time. Felt can blow off before the main shingles are applied. With peel and stick you couldn't pull it off if you wanted to. So, you get a better-quality roof and some peace of mind during the install.</p>
+      <p>Here is the only thing we don't know for sure: rotted decking and/or fascia. Both must be replaced per building code and of course you don't want us putting new material over rotted wood. You are responsible for any rotted wood we find. We will take pictures of all of it so you can always see what was damaged and what we replaced. Normally if you don't have any stains in your ceilings you should not require much if any wood to be replaced, maybe a sheet or two. I'll show you that pricing when we get to that part.</p>
+      <p>We do our best to clean up everything, to leave your yard better than we found it. However, a reroof is the messiest project you could ever do at your home. We sweep, we use magnets, we sweep some more and go around your yard with rolling magnets. It's just impossible to get them all — there are over 10,000 nails in your average roof. So please, if we reroof your home, don't go barefoot in the yard for a couple weeks.</p>
+      <p>Lastly, once the job is finished that Job Site foreman you've become friends with is going to walk around the house with you to get your approval that you are happy with everything. If you see anything at all just let us know and we will address it right then. Once you are totally happy, he will ask you for the balance owed and for a Google review on the spot.</p>
+    </div></section>
 
-    <!-- ─────────────── 28 — Side-by-side product matrix ─────────────── -->
-    <section data-background-color="#0a1730">
-      <span class="label-pill">Cheat sheet</span>
-      <h1 style="font-size: 1.5em; margin-top: 0.3em;">Quick comparison</h1>
-      <div style="overflow-x: auto; max-width: 1400px; margin: 0.4em auto 0;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.7em; color: #fff;">
-          <thead>
-            <tr style="background: rgba(212,161,66,0.25);">
-              <th style="padding: 0.5em 0.7em; text-align: left;">Product</th>
-              <th style="padding: 0.5em 0.7em;">Wind</th>
-              <th style="padding: 0.5em 0.7em;">Warranty</th>
-              <th style="padding: 0.5em 0.7em;">Min pitch</th>
-              <th style="padding: 0.5em 0.7em;">Insurance</th>
-            </tr>
-          </thead>
-          <tbody style="text-align: center;">
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">GAF asphalt</td><td>130 mph</td><td>30 yr</td><td>—</td>
-              <td><span style="color: #ffb3c0;">⚠ can drop</span></td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Tamko Titan asphalt</td><td>160 mph</td><td>30 yr</td><td>—</td>
-              <td><span style="color: #ffb3c0;">⚠ can drop</span></td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Exposed Fastener · Ultra Rib</td><td>180 mph</td><td>50 yr</td><td>2/12</td>
-              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Exposed Fastener · PBR</td><td>180 mph</td><td>50 yr</td><td>.5/12</td>
-              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Standing Seam · TCM Lok</td><td>150 mph</td><td>50 yr</td><td>.25/12</td>
-              <td><span style="color: #bbf7d0;">✓ leaves alone</span></td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Stone Coated Metal</td><td>130 mph</td><td>—</td><td>3/12</td>
-              <td>—</td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Tilcor (hail-rated)</td><td>—</td><td>50 yr</td><td>—</td>
-              <td>—</td>
-            </tr>
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <td style="padding: 0.4em 0.7em; text-align: left;">Permalock</td><td>185 mph</td><td>Lifetime</td><td>3/12</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td style="padding: 0.4em 0.7em; text-align: left;">Tile</td><td>—</td><td>—</td><td>—</td><td>—</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p style="margin-top: 0.8em; font-size: 0.75em; opacity: 0.85;">
-        "—" = not the primary spec we lead with for that product. Dashes are gaps for Neal to confirm before quiz day.
-      </p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 10</h3><h2>SHINGLE <span class="gold">COLORS</span></h2>
+    <div class="scriptbox">
+      <p>These are the colors available regionally here for shingles if that's what you decide to do. We have GAF on the slide but also install Tamko as well, which has a slightly higher wind rating, but both have the best warranty and products on the market.</p>
+    </div></section>
 
-    <!-- ─────────────── 29 — Pitch order recap ─────────────── -->
-    <section data-background-color="#13294b">
-      <h1 style="font-size: 1.5em;">When you pitch a product —</h1>
-      <ol style="font-size: 1em; max-width: 1100px; line-height: 1.6; counter-reset: pitch;">
-        <li>Name the product</li>
-        <li>The <strong>specs</strong> (wind, warranty, pitch range)</li>
-        <li>The <strong>insurance angle</strong> if it applies (metal = leaves alone, asphalt = can still drop)</li>
-        <li>The <strong>5 shared benefits</strong></li>
-        <li><strong>Without Energy Package</strong> — what the price gets them</li>
-        <li><strong>With Energy Package</strong> — same product, plus the envelope upgrade</li>
-      </ol>
-      <p style="margin-top: 0.8em; font-size: 0.92em;">Both energy options should look the <em>same size</em> in your pitch. Equal weight.</p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 11</h3><h2>METAL — COLORS &amp; <span class="gold">EMISSIVITY</span></h2>
+    <div class="scriptbox dense">
+      <p>These are all the Metal colors that you can choose from. Have you ever heard the word emissivity? It's a fancy word that means <span class="sd">(point to your iPad)</span> if this was out in the sun it would get hot right? When I take it out of the sun how long is it going to stay hot? The lower the number the more it absorbs the heat. To give you an idea, the shingles you have on your home are only rated at 4% emissivity.</p>
+      <p>Basically, if I go on your roof tomorrow morning before the sun comes up it will still be warm from the day before. Now out of all the colors on this page which do you think would be the hottest? <span class="sd">(They always pick black)</span> Absolutely! But with the metal and the special paint what is the emissivity? <span class="sd">(point to the E)</span> Yeah, 84% compared to 4%. Now you can get the color you want without the fear it is going to make things hotter. Based on that which color do you think you would really want, knowing you don't have to worry about that?</p>
+      <p>One thing to point out about exposed fastener are the screws. This is our lifetime screw. Older screws used metal washers which due to thermal expansion would cause the screws to come loose, or they used rubber washers which would dry rot and have issues. We use the ZXL lifetime screw with color matching caps, so you can't see the screws from a distance and yet the neoprene washer will not dry rot or suffer from thermal expansion, creating a lasting roof that doesn't leak.</p>
+      <p>The difference between the Exposed Fastener and the Standing Seam is that the standing seam's screws are hidden under the metal, but the wind rating isn't as high as the exposed fastener system and the Standing Seam is about 25% more expensive. You really just need to decide what's most important to you when choosing between these two. You can't go wrong with either of them.</p>
+    </div></section>
 
-    <!-- ─────────────── 30 — Tomorrow morning quiz ─────────────── -->
-    <section data-background-color="#b8324f">
-      <h2 style="color: #fff;">Tomorrow morning —</h2>
-      <h1 style="color: #fff;">Quiz on products.</h1>
-      <p style="margin-top: 0.7em; color: #fff; font-size: 1em; max-width: 1100px; margin-left: auto; margin-right: auto;">
-        Tonight's homework: review the <strong style="color: #ffe6a8;">Products PDF</strong> in your messages. Know the specs, the insurance category, and which sub-product fits which roof pitch.
-      </p>
-      <p style="margin-top: 0.6em; font-size: 0.85em; color: #ffe6a8;">Quiz fires when you sign in at the kiosk tomorrow.</p>
-    </section>
+  <section><h3 class="kick">Presentation · Slide 12</h3><h2><span class="gold">PERMALOCK</span></h2>
+    <div class="scriptbox">
+      <p>Here we have Permalock, which by the way we are the semi-exclusive dealer for this product in Florida. There is only one other company, and they only do the Naples Florida area — they were grandfathered in before we came to town so to speak. This is an all-aluminum shingle with a Lifetime Guarantee on both Labor and Material. No, it's not cheap but it will be the only roof you'll ever have to buy for this home, which could save you untold tens of thousands of dollars in the future.</p>
+    </div></section>
 
-    <!-- ─────────────── 31 — End ─────────────── -->
-    <section class="title-slide" data-background-color="#0a1730">
-      <h1>See you tomorrow.</h1>
-      <p class="subtitle">Day 3 — JN, RepCard, Roofr · Tools & live setup</p>
-    </section>
+  <section><h3 class="kick">Presentation · Slides 13 &amp; 14</h3><h2>OUR <span class="gold">INSTALLS</span></h2>
+    <div class="scriptbox">
+      <p>These are just a couple pictures of some of our installs — I could show you hundreds if you had time. The black roof here is an exposed fastener and you can see from the street view you can't even really see the fasteners.</p>
+    </div></section>
 
-  </div>
-</div>
+  <section><h3 class="kick">Presentation · Slide 15</h3><h2>JOBSITE <span class="gold">PREP</span></h2>
+    <div class="scriptbox">
+      <p>Here is an example of our jobsite prep — we lay down a tarp where the dump trailer will go and also protect the garage doors with some plywood just in case. We take every precaution to make sure the install goes smooth without any issue. Sometimes we do encounter some snafus but we always go the extra mile to correct them and make sure you are 1000% happy.</p>
+    </div></section>
+
+  <section><h3 class="kick">Presentation · Slide 16</h3><h2>OUR <span class="gold">WARRANTY</span></h2>
+    <div class="scriptbox">
+      <p>Our Free 10 Year no-leak guarantee covers anything short of a catastrophic loss for the next decade, regardless of if it's material or labor or whatever. There is no trip fee, surcharge or any other hidden costs with our warranty. If there's a problem inside of the next decade we cover the cost and fix the problem. And if you sell the house, the warranty goes with it to the next customer.</p>
+    </div></section>
+
+  <section><h3 class="kick">Presentation · Slides 17–21</h3><h2>ENERGY SAVER <span class="gold">PACKAGE</span></h2>
+    <div class="scriptbox dense">
+      <p>Speaking of radiant heat, what would you say your average electric bill is in the summer? Now how about in the winter? Ok so then overall you'd say your average bill is about ________?</p>
+      <p>I'm asking because for most of our customers we do an energy package which helps them cover the cost of the roof. In other words, if I could on a cash-flow basis make your new roof nearly free, you might add me to the Christmas Card list?</p>
+      <p>Here in Florida about 70% of your electric bill is because of air conditioning. So, it would stand to reason if we can keep your AC from working hard or at all then we can cut your bill way down, right? See, up north they get to run ductwork in the basement where it's cool, down here we run all our duct work in the attic where it's crazy hot.</p>
+      <p>In the summer attic temperatures can reach 150 degrees or higher. Ever been up there in the summer? You have like 12 seconds and then you can't breathe. Well, what that means is that you are PAYING, with your hard-earned money, to cool the air to 50 degrees because you're about to pipe it up into the furnace so that when it finally comes out over here it's 74 degrees. Yes, I know that makes zero sense but that's the downside to how we build here.</p>
+      <p>Now there is a solution, and we've helped LOTS of homeowners fix their houses already. I know what you're thinking — "this is going to be expensive" or "money is tight right now." Well don't worry because the fix I'm going to show you isn't going to cost you any more than you are already paying right now! In fact, as I said earlier, I won't ask you for a single penny ever.</p>
+      <p>The solution is 3 parts. <b>First</b> is to add more insulation as most homes don't have anywhere near enough for our Florida heat. We install R-38 or about this much <span class="sd">(use your hands to show about 15")</span> compared to what most people have which is this much <span class="sd">(use your hands to show about 4")</span>. I'll pop my head up there in a minute to double check what you have.</p>
+      <p>The <b>second</b> is to seal the ducts you have in the attic. Neither the builder nor the guy who installed your AC were concerned about your electric bill — they were more interested in doing the job quickly to get paid and move on. That means your ducts were never sealed properly, so the air you are paying to cool isn't making it into the house but instead getting lost up there. So we will seal and reseal them using sealing mastic. The other issue with improperly sealed ducts is air quality — the return ducts are sucking in dust, pollen, mold and anything else floating around up there.</p>
+      <p>The <b>third</b> part, which is the most CRITICAL, is something called Radiant Barrier. It's high-tech stuff that literally reflects 97% of the sun's radiating heat from ever entering your attic. It was invented by NASA for the space shuttle. So now instead of having to pay to cool your air to 50 degrees <span class="sd">(scroll back)</span> you only need to cool it to about 70 degrees instead <span class="sd">(scroll forward)</span>, because we will have dramatically reduced the temperature in your attic.</p>
+      <p>This will not only save you up to 40% or more off your utility bill but it will also extend the life of your AC system. If the AC is running half as much it's going to last longer, isn't it?</p>
+      <p>Obviously if you have it already, you're good to go, but I've only seen one home so far that had a radiant barrier installed. Let me just check first and then I can give you the breakdown and the investment for just the roof and then what it looks like for the whole package.</p>
+    </div></section>
+
+  <section><h3 class="kick">Presentation · Slide 22</h3><h2>HOW YOU CAN <span class="gold">PAY</span></h2>
+    <div class="scriptbox dense">
+      <p>Obviously, we do like to get paid for what we do so we can always take cash or credit card. If you choose to go with a card and get the points, just know that a 3% processing fee is automatically added in as that's exactly what the bank charges us to run your card.</p>
+      <p>Most of our customers prefer to hold onto their cash and break the roof out over time. As I said earlier, we have many companies we partner with to do this for you, with a host of options as well. We have no-credit-based financing in certain areas through the PACE program, we have traditional credit financing based on your score and income, and of course we have some premium financing options as well like same-as-cash and no payments / no interest for up to 24 months. Those programs require excellent credit scores and quite frankly may not be a good fit for everyone.</p>
+    </div></section>
+
+  <section><h3 class="kick">Presentation · Slide 23</h3><h2>THE BIG REVEAL — <span class="gold">ASK</span></h2>
+    <div class="scriptbox dense">
+      <p class="sd">Ask for the business. Go to the Assessment Sheet.</p>
+      <p>"Alright so here is how this breaks down for your home. As you shared, you'd rather do <span class="sd">(shingle / metal etc.)</span>. So with everything included such as <span class="sd">(list off 6 to 10 items included in the roof product they chose)</span> the monthly investment would be ________.</p>
+      <p>Now when we combine just the roof with our energy saving program you get everything we just discussed PLUS you get the R-38 insulation, the radiant barrier to keep all the heat out — eliminating those hot and cold areas as well as dramatically extending the life of your A/C — plus you get the duct sealing or resealing which of course improves the air quality in your home for ________ who has the allergies. So after I deduct the 40% of your electric bill, your net effective payment for all of this is ________.</p>
+      <p>So which would you prefer — just the roof for ________, or would you prefer to have everything for just ________?"</p>
+      <p class="sd">(Stop speaking. Do NOT speak again for ANY reason until after they do.)</p>
+    </div></section>
+
+  <section><h3 class="kick">Before you go — homework</h3><h2>TONIGHT'S <span class="gold">HOMEWORK</span></h2>
+    <div class="subhero" style="margin-top:1rem;">Memorize Presentation <b>Slides 1–5</b> word-for-word — you'll be quizzed on them first thing tomorrow morning.</div>
+    <div class="scriptbox" style="margin-top:1rem;">
+      <p><b>1 · Credibility</b> — Why U.S. Shingle: 15+ years, veteran-owned, 5-star reviews, state-licensed for direct financing.</p>
+      <p><b>2 · Licensed</b> — Triple-C statewide license (vs. a county-only RC license).</p>
+      <p><b>3 · Fully Insured</b> — 1M / 2M liability coverage (vs. the state minimum).</p>
+      <p><b>4 · You Already Need It</b> — nobody wakes up wanting a roof; you need one.</p>
+      <p><b>5 · Experience Matters</b> — the skydiving / parachute close.</p>
+    </div>
+    <div class="subhero" style="margin-top:1rem;">Know them cold. Say them the way they're written. Class starts right at 10am.</div></section>
+
+</div></div>
+<div class="corner">Day 2</div>
+
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
 <script>
-  Reveal.initialize({
-    width: 1600,
-    height: 900,
-    margin: 0.05,
-    minScale: 0.2,
-    maxScale: 2.0,
-    hash: true,
-    slideNumber: 'c/t',
-    transition: 'fade',
-    backgroundTransition: 'fade',
-    controls: true,
-    progress: true,
-    keyboard: true,
-    overview: true,
-    touch: true,
-    showNotes: false,
-  });
+  Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0.04 });
 </script>
 </body>
 </html>
