@@ -52,6 +52,14 @@
 [functions."cron-weekly-report-reminder"]
   schedule = "0 22,23 * * 4"
 
+# Scheduled function: verify homework texts actually DELIVERED. We record GHL's
+# message id on each send; this asks GHL the delivery status and texts the
+# admins about any GHL accepted but the carrier dropped (the Lisa case). Every
+# 15 min 18:00–23:59 UTC (≈2–8 PM ET) — covers dismissal + grace. MUST stay in
+# sync with export config.schedule in the function file.
+[functions."cron-check-sms-delivery"]
+  schedule = "*/15 18-23 * * *"
+
 # Clean URL for the manager "new rep handoff" page. The link texted to
 # managers reads /handoff?class_id=...&zone=... but is served by the
 # dynamic graduation-handoff function (queries Supabase for that team's

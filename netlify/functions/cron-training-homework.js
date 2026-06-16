@@ -229,19 +229,26 @@ export const handler = async (event) => {
         continue
       }
 
-      // Stamp attempt row.
+      // Stamp attempt row. Record the GHL message id and clear any prior
+      // delivery status so the delivery-check cron picks this send up fresh.
       const nowIso = new Date().toISOString()
+      const stamp = {
+        homework_sent_at: nowIso,
+        homework_message_id: smsRes.messageId || null,
+        homework_delivery_status: null,
+        homework_delivery_checked_at: null,
+      }
       if (existing) {
         await supabase
           .from('training_day_attempts')
-          .update({ homework_sent_at: nowIso, updated_at: nowIso })
+          .update({ ...stamp, updated_at: nowIso })
           .eq('id', existing.id)
       } else {
         await supabase.from('training_day_attempts').insert({
           trainee_id: t.id,
           class_id: cls.id,
           day_number: dayNumber,
-          homework_sent_at: nowIso,
+          ...stamp,
         })
       }
       sent++

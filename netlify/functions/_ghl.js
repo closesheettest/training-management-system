@@ -70,12 +70,33 @@ export async function sendSmsViaGhl(phone, message, { firstName = 'Notify', last
       headers: ghlHeaders(),
       body: JSON.stringify({ type: 'SMS', contactId: cId, message }),
     })
+    const sJson = await sRes.json().catch(() => ({}))
     if (!sRes.ok) {
-      const sJson = await sRes.json().catch(() => ({}))
       return { ok: false, step: 'sms_send', error: `${sRes.status}: ${sJson.message || JSON.stringify(sJson)}` }
     }
-    return { ok: true }
+    // Return the GHL message id so callers can later verify DELIVERY — GHL
+    // accepting a send (200 here) is not the same as the carrier delivering it.
+    return { ok: true, messageId: sJson.messageId || sJson.id || sJson.msg?.id || null, conversationId: sJson.conversationId || null }
   } catch (err) {
     return { ok: false, step: 'exception', error: err.message || 'Unknown' }
+  }
+}
+
+// Look up the delivery status of a previously-sent SMS by its GHL message id.
+// GHL updates this asynchronously: queued → sent → delivered (or undelivered /
+// failed). Returns the normalized lowercase status string. Never throws.
+export async function getSmsStatus(messageId) {
+  if (!messageId) return { ok: false, error: 'no messageId' }
+  try {
+    const r = await fetchWithRetry(`${GHL_BASE}/conversations/messages/${encodeURIComponent(messageId)}`, {
+      headers: ghlHeaders(),
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) return { ok: false, error: `${r.status}: ${j.message || JSON.stringify(j)}` }
+    const m = j.message || j
+    const status = String(m.status || m.deliveryStatus || m.lastMessageStatus || '').toLowerCase()
+    return { ok: true, status, raw: m }
+  } catch (e) {
+    return { ok: false, error: e.message || 'Unknown' }
   }
 }
