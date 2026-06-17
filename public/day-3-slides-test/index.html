@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Day 3 — TEST</title>
 <!--
-  DAY 3 — TEST build. Morning: role-play Slides 1-5 (the warm-up) until lunch.
-  Afternoon: products & financing — TAUGHT FROM THE DEDICATED DECKS (what we
-  sell + the finance companies), not the in-home presentation. Hidden URL.
+  DAY 3 — TEST build. Morning: role-play Slides 1-5 until lunch. Afternoon:
+  PRODUCTS (with photos) then FINANCING — all in ONE deck, house style.
 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
@@ -24,21 +23,40 @@
 
   .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.95;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
   .reveal h1{font-size:4.4rem;color:#fff;}
-  .reveal h2{font-size:3.0rem;color:#fff;}
+  .reveal h2{font-size:2.7rem;color:#fff;}
   .reveal h3.kick{font-family:'Oswald';font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;}
-  .gold{color:var(--gold);} .red{color:var(--red);} .smoke{color:var(--smoke);}
+  .gold{color:var(--gold);} .smoke{color:var(--smoke);}
   .reveal .subhero{font-family:'Oswald';font-weight:500;font-size:1.5rem;color:#fff;margin-bottom:.4rem;}
 
   .reveal .scriptbox{text-align:left;max-width:62rem;margin:.5rem auto 0;font-family:'Oswald';font-weight:400;font-size:1.32rem;line-height:1.5;color:#ececec;max-height:76vh;overflow-y:auto;padding:0 .8rem;}
   .reveal .scriptbox.dense{font-size:1.12rem;line-height:1.42;}
   .reveal .scriptbox p{margin:0 0 .65em;}
-  .reveal .scriptbox .sd{color:var(--gold);font-style:italic;}
   .reveal .scriptbox b{color:#fff;font-weight:700;}
-  .reveal .scriptbox::-webkit-scrollbar{width:8px;} .reveal .scriptbox::-webkit-scrollbar-thumb{background:#333;border-radius:4px;}
   .reveal .scriptbox ul{margin:0;padding-left:1.5rem;list-style:disc;}
   .reveal .scriptbox li{margin:0 0 .7em;}
   .reveal .scriptbox li::marker{color:var(--gold);}
   .reveal .scriptbox a{color:var(--gold);text-decoration:underline;}
+
+  /* product / finance slide layout: bullets left, photo(s) right */
+  .reveal .prod{display:flex;gap:2rem;align-items:center;justify-content:center;max-width:64rem;margin:1.4rem auto 0;text-align:left;}
+  .reveal .prod .specs{flex:1;min-width:0;}
+  .reveal .prod .specs ul{list-style:none;margin:0;padding:0;}
+  .reveal .prod .specs li{font-family:'Oswald';font-weight:600;font-size:1.6rem;color:#ececec;line-height:1.35;margin:0 0 .7em;padding-left:1.3em;position:relative;}
+  .reveal .prod .specs li::before{content:"▸";position:absolute;left:0;color:var(--gold);}
+  .reveal .prod .specs li b{color:var(--gold);font-weight:700;}
+  .reveal .prod .pics{flex:0 0 auto;display:flex;flex-direction:column;gap:.7rem;}
+  .reveal .prod .pics.two{flex-direction:row;}
+  .reveal .prod img{max-height:46vh;max-width:34vw;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);background:#fff;}
+  .reveal .prod .pics.two img{max-height:40vh;max-width:24vw;}
+  .reveal .chart img{max-height:74vh;max-width:90vw;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-top:1rem;}
+  .reveal .tagrow{font-family:'Oswald';font-weight:600;color:var(--smoke);font-size:1.05rem;letter-spacing:.04em;margin-top:.6rem;}
+
+  /* finance waterfall tiles */
+  .reveal .flow{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-top:1.6rem;}
+  .reveal .flow .tile{background:rgba(255,255,255,.06);border:1px solid rgba(245,180,0,.4);border-radius:12px;padding:1rem 1.2rem;min-width:12rem;}
+  .reveal .flow .tile .num{font-family:'Anton';font-size:2rem;color:var(--gold);}
+  .reveal .flow .tile .name{font-family:'Oswald';font-weight:700;font-size:1.3rem;color:#fff;margin-top:.2rem;}
+  .reveal .flow .tile .sub{font-size:.95rem;color:var(--smoke);margin-top:.2rem;}
 
   .reveal .lunch{font-family:'Anton';font-size:7rem;color:var(--gold);text-transform:uppercase;}
   .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
@@ -54,70 +72,176 @@
     <div class="subhero" style="margin-top:1rem;">Role-play Slides 1–5 until lunch · then products &amp; financing.</div></section>
 
   <section><h3 class="kick">Here's the plan</h3><h2>TODAY'S <span class="gold">FLOW</span></h2>
-    <div class="scriptbox">
-      <ul>
-        <li class="fragment"><b>Morning</b> — role-play <b>Slides 1–5</b> (the warm-up), over and over, until lunch.</li>
-        <li class="fragment"><b>Lunch.</b></li>
-        <li class="fragment"><b>Afternoon</b> — products &amp; financing: what we sell and the finance companies we use.</li>
-      </ul>
-    </div></section>
+    <div class="scriptbox"><ul>
+      <li class="fragment"><b>Morning</b> — role-play <b>Slides 1–5</b> (the warm-up), over and over, until lunch.</li>
+      <li class="fragment"><b>Lunch.</b></li>
+      <li class="fragment"><b>Afternoon</b> — <b>Products</b> (what we sell) then <b>Financing</b> (how they pay).</li>
+    </ul></div></section>
 
   <!-- MORNING · ROLE-PLAY SLIDES 1-5 -->
   <section><h3 class="kick">Morning</h3><h1>ROLE-<span class="gold">PLAY</span></h1>
     <div class="subhero" style="margin-top:1rem;">Slides 1–5 — the warm-up — out loud, in pairs, switch roles.</div></section>
 
   <section><h3 class="kick">What you're running</h3><h2>SLIDES <span class="gold">1–5</span></h2>
-    <div class="scriptbox dense">
-      <ul>
-        <li class="fragment"><b>1 · Credibility</b> — 15+ years, veteran-owned, 5-star reviews, state-licensed financing.</li>
-        <li class="fragment"><b>2 · Licensed</b> — Triple-C statewide license.</li>
-        <li class="fragment"><b>3 · Fully Insured</b> — 1M / 2M coverage.</li>
-        <li class="fragment"><b>4 · You Already Need It</b> — nobody wants a roof; they need one.</li>
-        <li class="fragment"><b>5 · Experience Matters</b> — the parachute close.</li>
-        <li class="fragment">These were last night's homework — deliver them <b>off-book.</b></li>
-      </ul>
-    </div></section>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment"><b>1 · Credibility</b> — 15+ years, veteran-owned, 5-star reviews, state-licensed financing.</li>
+      <li class="fragment"><b>2 · Licensed</b> — Triple-C statewide license.</li>
+      <li class="fragment"><b>3 · Fully Insured</b> — 1M / 2M coverage.</li>
+      <li class="fragment"><b>4 · You Already Need It</b> — nobody wants a roof; they need one.</li>
+      <li class="fragment"><b>5 · Experience Matters</b> — the parachute close.</li>
+      <li class="fragment">Last night's homework — deliver them <b>off-book.</b></li>
+    </ul></div></section>
 
   <section><h3 class="kick">What to nail</h3><h2>WARM-UP + <span class="gold">CONTROL POINTS</span></h2>
-    <div class="scriptbox dense">
-      <ul>
-        <li class="fragment"><b>80% of the sale is the warm-up.</b> Slides 1–5 establish &amp; reaffirm <b>experience + credibility</b> = peace of mind.</li>
-        <li class="fragment">Hit every <b>control point</b> — "right?", "wouldn't you agree?", "fair enough?" — collect the small yeses.</li>
-        <li class="fragment">Keep <b>leading</b>: you ask, you steer. Don't get pulled into price.</li>
-        <li class="fragment">Word-for-word. The script does the selling.</li>
-      </ul>
-    </div></section>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment"><b>80% of the sale is the warm-up.</b> Slides 1–5 establish &amp; reaffirm <b>experience + credibility</b> = peace of mind.</li>
+      <li class="fragment">Hit every <b>control point</b> — "right?", "wouldn't you agree?", "fair enough?" — collect the small yeses.</li>
+      <li class="fragment">Keep <b>leading</b>: you ask, you steer. Don't get pulled into price.</li>
+      <li class="fragment">Word-for-word. The script does the selling.</li>
+    </ul></div></section>
 
   <section><h3 class="kick">How to role-play well</h3><h2>DO IT <span class="gold">FOR REAL</span></h2>
-    <div class="scriptbox dense">
-      <ul>
-        <li class="fragment">Partner plays a <b>real homeowner</b> — push back, ask the awkward questions.</li>
-        <li class="fragment">First run you can glance; <b>after that, off-book.</b></li>
-        <li class="fragment">Switch roles each run so everyone reps both sides.</li>
-        <li class="fragment">After each run: <b>one thing that was great + one to fix.</b></li>
-        <li class="fragment">Reps beat readers — more reps now, more closes in the field.</li>
-      </ul>
-    </div></section>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">Partner plays a <b>real homeowner</b> — push back, ask the awkward questions.</li>
+      <li class="fragment">First run you can glance; <b>after that, off-book.</b></li>
+      <li class="fragment">Switch roles each run so everyone reps both sides.</li>
+      <li class="fragment">After each run: <b>one thing that was great + one to fix.</b></li>
+    </ul></div></section>
 
   <section><h3 class="kick">Now run it</h3><h2>PAIR UP &amp; <span class="gold">GO</span></h2>
     <div class="subhero" style="margin-top:1rem;">Slides 1–5, start to finish, switch, repeat — right up until lunch.</div></section>
 
-  <section><h3 class="kick">Break</h3><div class="lunch">Lunch</div></section>
+  <section><h3 class="kick">Break</h3><div class="lunch">LUNCH</div></section>
 
-  <!-- AFTERNOON · PRODUCTS & FINANCING (taught from the dedicated decks) -->
-  <section><h3 class="kick">Afternoon</h3><h1>PRODUCTS &amp; <span class="gold">FINANCING</span></h1>
-    <div class="subhero" style="margin-top:1rem;">Now we teach what we sell and the finance companies we use.</div></section>
+  <!-- ===================== AFTERNOON · PRODUCTS ===================== -->
+  <section><h3 class="kick">Afternoon · Part 1</h3><h1><span class="gold">PRODUCTS</span></h1>
+    <div class="subhero" style="margin-top:1rem;">What we sell — and how to talk about each one.</div></section>
 
-  <section><h3 class="kick">Taught from the program decks</h3><h2>WHAT WE SELL · <span class="gold">HOW THEY PAY</span></h2>
-    <div class="scriptbox">
-      <ul>
-        <li class="fragment"><b>Products — what we sell.</b> <a href="/products-slides/">Open the Products deck →</a></li>
-        <li class="fragment"><b>Financing — the finance companies + the waterfall.</b> <a href="/finance-slides/">Open the Financing deck →</a></li>
-      </ul>
-    </div></section>
+  <section><h3 class="kick">First, the basics</h3><h2>ROOFING <span class="gold">PITCH</span></h2>
+    <div class="chart"><img src="/products-slides/img/pitch.jpg" alt="Roofing pitch chart"></div>
+    <div class="tagrow">Pitch = rise ÷ span. Every product has a <span style="color:#fff">minimum pitch</span> it can go on.</div></section>
+
+  <section><h3 class="kick">Product · Shingle</h3><h2>ASPHALT <span class="gold">SHINGLE</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">We'll install any — we <b>recommend GAF or Tamko Titan.</b></li>
+      <li class="fragment"><b>GAF:</b> 30-yr mfg warranty · <b>130 mph</b> wind</li>
+      <li class="fragment"><b>Tamko Titan:</b> 30-yr mfg warranty · <b>160 mph</b> wind</li>
+      <li class="fragment">Catch: insurance can demand it be <b>replaced every 10–15 yrs</b> — no matter the warranty.</li>
+    </ul></div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>EXPOSED FASTENER <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Fasteners are <b>exposed</b> (visible screws)</li>
+      <li class="fragment"><b>50-year</b> roof</li>
+      <li class="fragment"><b>Insurance leaves you alone</b> — no replacement letters</li>
+      <li class="fragment"><b>180 mph</b> wind resistant</li>
+    </ul></div><div class="pics"><img class="fragment" src="/products-slides/img/ef-roof.jpg" alt="Exposed fastener metal roof"></div></div></section>
+
+  <section><h3 class="kick">Exposed Fastener · panel profiles</h3><h2>THE <span class="gold">PANELS</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment"><b>Ultra Rib Panel</b> — min pitch <b>2/12</b></li>
+      <li class="fragment"><b>PBR</b> — min pitch <b>0.5/12</b> (great for low slopes)</li>
+    </ul></div><div class="pics two">
+      <img class="fragment" src="/products-slides/img/ultrarib.jpg" alt="Ultra Rib panel">
+      <img class="fragment" src="/products-slides/img/pbr.jpg" alt="PBR panel">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>STANDING SEAM <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Fasteners are <b>concealed</b> (hidden — clean look)</li>
+      <li class="fragment"><b>50-year</b> roof</li>
+      <li class="fragment"><b>Insurance leaves you alone</b></li>
+      <li class="fragment"><b>150 mph</b> wind resistant</li>
+      <li class="fragment">Profile: <b>TCM Lok</b> — min pitch <b>0.25/12</b></li>
+    </ul></div><div class="pics">
+      <img class="fragment" src="/products-slides/img/ss-roof.jpg" alt="Standing seam metal roof">
+      <img class="fragment" src="/products-slides/img/tcmlok.jpg" alt="TCM Lok profile">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>STONE COATED <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Can look like <b>shingle OR tile</b></li>
+      <li class="fragment">Min pitch <b>3/12</b></li>
+      <li class="fragment"><b>130 mph</b> wind</li>
+    </ul></div><div class="pics two">
+      <img class="fragment" src="/products-slides/img/stone-cfshake.jpg" alt="Stone coated CF Shake">
+      <img class="fragment" src="/products-slides/img/stone-antica.jpg" alt="Stone coated Antica">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Premium</h3><h2><span class="gold">PERMALOCK</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment"><b>Lifetime, non pro-rated</b> warranty — the last roof they'll buy</li>
+      <li class="fragment">Min pitch <b>3/12</b></li>
+      <li class="fragment"><b>185 mph</b> wind — highest we offer</li>
+    </ul></div><div class="pics"><img class="fragment" src="/products-slides/img/permalock.jpg" alt="Permalock roof"></div></div></section>
+
+  <!-- ===================== AFTERNOON · FINANCING ===================== -->
+  <section><h3 class="kick">Afternoon · Part 2</h3><h1><span class="gold">FINANCING</span></h1>
+    <div class="subhero" style="margin-top:1rem;">Most homeowners can't write a check — the right financing closes the deal.</div></section>
+
+  <section><h3 class="kick">The order — top to bottom</h3><h2>THE <span class="gold">WATERFALL</span></h2>
+    <div class="flow">
+      <div class="fragment tile"><div class="num">1</div><div class="name">Upgrade Financial</div><div class="sub">Always first · soft pull</div></div>
+      <div class="fragment tile"><div class="num">2</div><div class="name">Service Finance</div><div class="sub">Manual override · cosigners</div></div>
+      <div class="fragment tile"><div class="num">3</div><div class="name">PACE</div><div class="sub">Equity-based · FL statute</div></div>
+      <div class="fragment tile"><div class="num">↻</div><div class="name">Credit Repair</div><div class="sub">If declined everywhere</div></div>
+    </div>
+    <div class="tagrow">Work it <span style="color:var(--gold)">left to right.</span> Don't jump ahead.</div></section>
+
+  <section><h3 class="kick">The #1 rule</h3><h2>PROTECT THEIR <span class="gold">CREDIT FIRST</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">Start with the lender that does a <b>soft pull</b> — a decline there <b>does NOT hurt their credit.</b></li>
+      <li class="fragment">No reason to take a hard hit on someone who's just going to get denied anyway.</li>
+      <li class="fragment">That's why <b>Upgrade Financial is always first.</b></li>
+    </ul></div></section>
+
+  <section><h3 class="kick">Stop 1 · Always first</h3><h2>UPGRADE <span class="gold">FINANCIAL</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment"><b>Soft pull</b> — a decline doesn't hurt their credit. Run everyone here first.</li>
+      <li class="fragment"><b>650+</b> for the standard approval.</li>
+      <li class="fragment"><b>Second-look</b> program drops to a <b>600</b> score.</li>
+      <li class="fragment">Declined even on the second look? → <b>Stop 2, Service Finance.</b></li>
+    </ul></div></section>
+
+  <section><h3 class="kick">Stop 2 · The human override</h3><h2>SERVICE <span class="gold">FINANCE</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">Same as Upgrade — <b>650+.</b></li>
+      <li class="fragment"><b>Manual override:</b> if the automatic system denies it, <b>call customer service</b> and ask for a second look — they'll sometimes manually approve. Worth the call every time.</li>
+      <li class="fragment">They <b>accept cosigners</b> to get a deal approved.</li>
+    </ul></div></section>
+
+  <section><h3 class="kick">True of every program</h3><h2>NO PREPAYMENT <span class="gold">PENALTIES</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">Every program we offer — the homeowner can <b>pay it off early, partial or full, with zero extra fees.</b></li>
+      <li class="fragment">Lots of homeowners finance now and pay it off later — insurance check, tax return, refinance. <b>Paying early is always free.</b></li>
+    </ul></div></section>
+
+  <section><h3 class="kick">Stop 3 · A different lane</h3><h2><span class="gold">PACE</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">A <b>Florida statute</b> — it's <b>government-APPROVED, not a government program.</b> Say it that way.</li>
+      <li class="fragment">Approval is based on the <b>home's equity</b>, not just credit score — approves a lot of people the score-based lenders can't.</li>
+      <li class="fragment">Repaid through the property — assessed with the <b>property taxes.</b></li>
+    </ul></div></section>
+
+  <section><h3 class="kick">PACE · the checklist</h3><h2>PACE <span class="gold">CRITERIA</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">At least <b>10% equity</b> in the home</li>
+      <li class="fragment"><b>Mortgage current</b> — not behind</li>
+      <li class="fragment"><b>Property taxes paid on time</b> the last 3 years (or however long they've owned it)</li>
+      <li class="fragment"><b>Not currently filing bankruptcy</b></li>
+      <li class="fragment">Income entered is <b>household income</b> — they may need to prove it</li>
+    </ul></div></section>
+
+  <section><h3 class="kick">If declined everywhere</h3><h2>WE DON'T <span class="gold">WALK AWAY</span></h2>
+    <div class="scriptbox dense"><ul>
+      <li class="fragment">Denied across the board? Let them know <b>we have a credit-repair company.</b></li>
+      <li class="fragment"><b>We sign them up and pay for it.</b></li>
+      <li class="fragment">Once their credit's where it needs to be, <b>we come back and get them their roof.</b></li>
+      <li class="fragment">A "no" today is just a <b>"not yet."</b></li>
+    </ul></div></section>
 
   <section><h3 class="kick">That's Day 3</h3><h2>NOW GO <span class="gold">CLOSE</span></h2>
-    <div class="subhero" style="margin-top:1rem;">Warm-up cold, products down, financing clear. Run the script and ask for the business.</div></section>
+    <div class="subhero" style="margin-top:1rem;">Warm-up cold · products down · financing waterfall memorized. Ask for the business.</div></section>
 
 </div></div>
 <div class="corner">Day 3 · test</div>
