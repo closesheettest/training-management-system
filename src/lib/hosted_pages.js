@@ -107,18 +107,16 @@ export const HOSTED_PAGES = [
   // ─────────────────────── Day 3 ───────────────────────
   {
     slug: 'day-3-slides',
-    title: 'Day 3 slides — Make-it-yours morning + Tech afternoon',
+    title: 'Day 3 slides — Role-play 1–5 → Products & Financing',
     url: '/day-3-slides/',
     description:
-      'Reveal.js slide deck for Day 3 Retail Training. Morning (10-12) is the ' +
-      '"verbatim out, your voice in" shift — drills of the Free Inspection, Retail Go-Back, ' +
-      'and the full in-home pitch Slides 1-16, but the scripts on screen become a CHECKLIST ' +
-      '(beats to hit), not a teleprompter. Trainees keep the information + structure ' +
-      '(importance question → why → summary using control point) and bring their own phrasing. ' +
-      'Afternoon is the tech introduction: the 3 tools (JobNimbus / RepCard / Roofr), ' +
-      'JobNimbus Sections 1-5 walkthrough (Contact / Job / Appt / Estimate / Edit Job), ' +
-      'common gotchas, and a pointer to /tools-training/ for the full reference. End-of-day ' +
-      'wrap previews tonight\'s apps-setup + practice-deal homework (sent via SMS).',
+      'One combined Reveal.js deck for Day 3, house style, click-to-reveal throughout. ' +
+      'MORNING: role-play Slides 1–5 (the warm-up) until lunch — warm-up is 80% of the sale, ' +
+      'hit the control points, deliver off-book. AFTERNOON Part 1 — PRODUCTS (with photos): ' +
+      'roofing pitch chart, asphalt shingle (GAF 130 / Tamko Titan 160), exposed-fastener metal ' +
+      '(Ultra Rib / PBR), standing seam (TCM Lok), stone-coated, Permalock. AFTERNOON Part 2 — ' +
+      'FINANCING: the waterfall (Upgrade Financial → Service Finance → PACE → credit repair), ' +
+      'protect-credit-first, PACE criteria, no prepayment penalties. (Tech/apps moved to Day 4.)',
     created: '2026-06-02',
     category: 'Day 3',
   },
@@ -142,10 +140,10 @@ export const HOSTED_PAGES = [
       'Mobile-friendly deep-dive on the 3 tools every rep uses daily: JobNimbus (CRM), ' +
       'RepCard (digital business card + follow-up automation), Roofr (measurements + ' +
       'proposals). Each tool gets feature breakdowns, U.S. Shingle workflow notes, ' +
-      'common pitfalls, setup steps. Introduced in Day 3 afternoon; reps return to ' +
-      'this page while running the Day 3 practice deal homework.',
+      'common pitfalls, setup steps. Introduced on Day 4 (tech day); reps return to ' +
+      'this page while running the practice-deal homework.',
     created: '2026-05-28',
-    category: 'Day 3',
+    category: 'Day 4',
   },
 
   // ─────────────────────── Day 4 (last teaching day) ───────────────────────
