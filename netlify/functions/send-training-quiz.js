@@ -158,8 +158,9 @@ export const handler = async (event) => {
   const channels = []
   const errs = []
   let smsMessageId = null
+  let emailId = null
   if (trainee.email) {
-    try { const er = await sendEmail(trainee.email, 'Your morning training quiz — U.S. Shingle & Metal', message); if (er && er.ok !== false) channels.push('email'); else errs.push('email: ' + (er?.error || 'failed')) } catch (e) { errs.push('email: ' + (e.message || 'error')) }
+    try { const er = await sendEmail(trainee.email, 'Your morning training quiz — U.S. Shingle & Metal', message); if (er && er.ok !== false) { channels.push('email'); emailId = er.id || null } else errs.push('email: ' + (er?.error || 'failed')) } catch (e) { errs.push('email: ' + (e.message || 'error')) }
   }
   if (trainee.phone) {
     const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName: 'Trainee Quiz' })
@@ -170,12 +171,19 @@ export const handler = async (event) => {
     return json(500, { ok: false, error: `Send failed: ${errs.join('; ') || 'unknown'}`, attempt_id: attemptId })
   }
 
-  // Record the GHL message id so cron-check-sms-delivery can verify the quiz
-  // text actually DELIVERED (only when SMS went out).
-  if (attemptId && smsMessageId) {
+  // Record the GHL message id + Resend email id so cron-check-sms-delivery can
+  // verify the quiz actually DELIVERED on each channel that went out.
+  if (attemptId && (smsMessageId || emailId)) {
     await supabase
       .from('training_day_attempts')
-      .update({ quiz_message_id: smsMessageId, quiz_delivery_status: null, quiz_delivery_checked_at: null })
+      .update({
+        quiz_message_id: smsMessageId,
+        quiz_delivery_status: null,
+        quiz_delivery_checked_at: null,
+        quiz_email_id: emailId,
+        quiz_email_status: null,
+        quiz_email_checked_at: null,
+      })
       .eq('id', attemptId)
   }
 

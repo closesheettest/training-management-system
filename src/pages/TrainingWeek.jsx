@@ -65,7 +65,7 @@ export default function TrainingWeek() {
       supabase
         .from('training_day_attempts')
         .select(
-          'id, trainee_id, class_id, day_number, homework_sent_at, homework_delivery_status, quiz_sent_at, quiz_delivery_status, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
+          'id, trainee_id, class_id, day_number, homework_sent_at, homework_delivery_status, homework_email_status, quiz_sent_at, quiz_delivery_status, quiz_email_status, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
         )
         .order('quiz_completed_at', { ascending: false, nullsFirst: false })
         .limit(3000),
@@ -515,7 +515,7 @@ function ResultsPanel({ dayNumber, stats }) {
       {open && (
         <div className="mt-3 overflow-x-auto">
           <p className="mb-2 text-[11px] text-emerald-800">
-            Delivery: ✅ delivered · ❌ not delivered (DND/bad number — admins get an alert) · ⏳ checking (every 15 min)
+            Each send shows both channels — 📱 text and ✉️ email: ✅ delivered · ❌ not delivered (DND / bad or bounced address — admins get an alert) · ⏳ checking (every 15 min)
           </p>
           <table className="w-full text-xs">
             <thead>
@@ -542,10 +542,10 @@ function ResultsPanel({ dayNumber, stats }) {
                     <td className="py-1.5 pr-3 font-semibold text-slate-900">{name}</td>
                     <td className="py-1.5 pr-3 text-slate-600">{classLabel}</td>
                     <td className="py-1.5 pr-3 text-slate-600">
-                      {a.homework_sent_at ? <>{fmtTime(a.homework_sent_at)} {deliveryMark(a.homework_delivery_status)}</> : '—'}
+                      {a.homework_sent_at ? <>{fmtTime(a.homework_sent_at)} 📱{deliveryMark(a.homework_delivery_status)} ✉️{deliveryMark(a.homework_email_status, true)}</> : '—'}
                     </td>
                     <td className="py-1.5 pr-3 text-slate-600">
-                      {a.quiz_sent_at ? <>{fmtTime(a.quiz_sent_at)} {deliveryMark(a.quiz_delivery_status)}</> : '—'}
+                      {a.quiz_sent_at ? <>{fmtTime(a.quiz_sent_at)} 📱{deliveryMark(a.quiz_delivery_status)} ✉️{deliveryMark(a.quiz_email_status, true)}</> : '—'}
                     </td>
                     <td className="py-1.5 pr-3 text-slate-600">
                       {a.quiz_completed_at ? fmtTime(a.quiz_completed_at) : '—'}
@@ -569,15 +569,17 @@ function fmtTime(iso) {
   return d.toLocaleString()
 }
 
-// Delivery badge for a sent homework/quiz text. The cron-check-sms-delivery
-// job stores GHL's real outcome in *_delivery_status:
-//   delivered/read → ✅   |   failed/undelivered/stale → ❌   |   null → ⏳ checking
-function deliveryMark(status) {
+// Delivery badge for a sent homework/quiz text or email. cron-check-sms-delivery
+// stores the real outcome (GHL for SMS, Resend for email):
+//   delivered/read/opened/clicked → ✅  |  failed/bounced/stale → ❌  |  null → ⏳
+// Pass isEmail=true to count opened/clicked as delivered.
+function deliveryMark(status, isEmail = false) {
   if (status == null) return <span title="Sent — delivery not confirmed yet (checks run every 15 min)">⏳</span>
   const s = String(status).toLowerCase()
-  if (s === 'delivered' || s === 'read') {
-    return <span title={`Delivered (${status})`} className="text-emerald-600">✅</span>
-  }
+  const good = isEmail
+    ? ['delivered', 'opened', 'clicked'].includes(s)
+    : ['delivered', 'read'].includes(s)
+  if (good) return <span title={`Delivered (${status})`} className="text-emerald-600">✅</span>
   return <span title={`NOT delivered (${status})`} className="text-red-600 font-bold">❌</span>
 }
 

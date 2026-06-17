@@ -66,10 +66,11 @@ export const handler = async (event) => {
   const channels = []
   const errors = []
   let messageId = null
+  let emailId = null
   if (trainee.email) {
     try {
       const r = await sendEmail(trainee.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message)
-      if (r && r.ok !== false) channels.push('email'); else errors.push('email: ' + (r?.error || 'failed'))
+      if (r && r.ok !== false) { channels.push('email'); emailId = r.id || null } else errors.push('email: ' + (r?.error || 'failed'))
     } catch (e) { errors.push('email: ' + (e.message || 'error')) }
   }
   if (trainee.phone) {
@@ -79,10 +80,10 @@ export const handler = async (event) => {
   }
   if (!channels.length) return json(500, { ok: false, error: `Send failed — ${errors.join('; ') || 'unknown'}` })
 
-  // 5. Stamp the attempt row (create or update), with the GHL message id for
-  //    the delivery checker (only when SMS actually went out).
+  // 5. Stamp the attempt row (create or update), with the GHL message id +
+  //    Resend email id for the delivery checker (only when each channel went out).
   const nowIso = new Date().toISOString()
-  const stamp = { homework_sent_at: nowIso, homework_message_id: messageId, homework_delivery_status: null, homework_delivery_checked_at: null, updated_at: nowIso }
+  const stamp = { homework_sent_at: nowIso, homework_message_id: messageId, homework_delivery_status: null, homework_delivery_checked_at: null, homework_email_id: emailId, homework_email_status: null, homework_email_checked_at: null, updated_at: nowIso }
   const { data: existing } = await supabase
     .from('training_day_attempts').select('id').eq('trainee_id', trainee_id).eq('day_number', dayNumber).maybeSingle()
   if (existing) {

@@ -229,8 +229,9 @@ export const handler = async (event) => {
       // still get it by email.
       const channels = []
       let smsMessageId = null
+      let emailId = null
       if (t.email) {
-        try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message); if (er && er.ok !== false) channels.push('email') } catch { /* best-effort */ }
+        try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message); if (er && er.ok !== false) { channels.push('email'); emailId = er.id || null } } catch { /* best-effort */ }
       }
       if (t.phone) {
         const smsRes = await sendSmsViaGhl(t.phone, message, { firstName, lastName: 'Homework' })
@@ -239,14 +240,17 @@ export const handler = async (event) => {
       }
       if (!channels.length) continue
 
-      // Stamp attempt row. Record the GHL message id and clear any prior
-      // delivery status so the delivery-check cron picks this send up fresh.
+      // Stamp attempt row. Record the GHL message id + Resend email id and clear
+      // any prior delivery status so the delivery-check cron picks this up fresh.
       const nowIso = new Date().toISOString()
       const stamp = {
         homework_sent_at: nowIso,
         homework_message_id: smsMessageId,
         homework_delivery_status: null,
         homework_delivery_checked_at: null,
+        homework_email_id: emailId,
+        homework_email_status: null,
+        homework_email_checked_at: null,
       }
       if (existing) {
         await supabase

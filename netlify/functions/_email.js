@@ -66,6 +66,25 @@ export async function sendEmail(toAddress, subject, body, options = {}) {
   }
 }
 
+// Look up the delivery outcome of a previously-sent email by its Resend id.
+// Returns { ok, status } where status is Resend's `last_event`
+// (e.g. 'delivered', 'opened', 'clicked', 'bounced', 'complained',
+// 'delivery_delayed'). Never throws — mirrors getSmsStatus in _ghl.js.
+export async function getEmailStatus(emailId) {
+  if (!emailId) return { ok: false, error: 'No email id' }
+  if (!process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY not configured' }
+  try {
+    const r = await fetch(`https://api.resend.com/emails/${encodeURIComponent(emailId)}`, {
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) return { ok: false, error: `${r.status}: ${j.message || ''}` }
+    return { ok: true, status: j.last_event || j.status || '' }
+  } catch (err) {
+    return { ok: false, error: err.message || 'Unknown' }
+  }
+}
+
 // Wrap a plain-text body in a minimal HTML shell. Newlines become <br>;
 // http(s) URLs become clickable links.
 function wrapHtml(body) {

@@ -23,12 +23,16 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { getSmsStatus, sendSmsViaGhl } from './_ghl.js'
+import { getEmailStatus } from './_email.js'
 import { recipientsForEvent } from './_recipients.js'
 
 const STALE_MIN = 25            // minutes after which a still-pending send is treated as failed
 const LOOKBACK_HOURS = 6        // only inspect sends from the last few hours
 const DELIVERED = ['delivered', 'read']
 const FAILED = ['undelivered', 'failed', 'rejected', 'error', 'bounced']
+// Resend email events: delivered/opened/clicked = good; bounced/complained = bad.
+const EMAIL_DELIVERED = ['delivered', 'opened', 'clicked']
+const EMAIL_FAILED = ['bounced', 'complained', 'failed']
 
 export const handler = async (event) => {
   for (const k of ['SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'GHL_PIT_TOKEN', 'GHL_LOCATION_ID']) {
@@ -86,17 +90,56 @@ export const handler = async (event) => {
 
       const t = r.trainees || {}
       const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
-      checked.push({ kind: k.label, id: r.id, who, status: resolved, failed })
-      if (failed) failures.push({ kind: k.label, who, phone: t.phone || '(no phone)', day: r.day_number, status: resolved })
+      checked.push({ kind: k.label, channel: 'text', id: r.id, who, status: resolved, failed })
+      if (failed) failures.push({ kind: k.label, channel: 'text', who, contact: t.phone || '(no phone)', day: r.day_number, status: resolved })
+    }
+  }
+
+  // Email side — same idea, but poll Resend for the email's last_event.
+  const EMAIL_KINDS = [
+    { label: 'homework', idCol: 'homework_email_id', statusCol: 'homework_email_status', checkedCol: 'homework_email_checked_at', sentCol: 'homework_sent_at' },
+    { label: 'quiz', idCol: 'quiz_email_id', statusCol: 'quiz_email_status', checkedCol: 'quiz_email_checked_at', sentCol: 'quiz_sent_at' },
+  ]
+  for (const k of EMAIL_KINDS) {
+    const { data: rows, error } = await supabase
+      .from('training_day_attempts')
+      .select(`id, trainee_id, day_number, ${k.sentCol}, ${k.idCol}, trainees(first_name, last_name, email)`)
+      .not(k.idCol, 'is', null)
+      .is(k.statusCol, null)
+      .gte(k.sentCol, sinceIso)
+    if (error) return json(500, { ok: false, error: `${k.label} email: ${error.message}` })
+    inspected += (rows || []).length
+    for (const r of (rows || [])) {
+      const s = await getEmailStatus(r[k.idCol])
+      if (!s.ok) { checked.push({ kind: k.label, channel: 'email', id: r.id, lookup_error: s.error }); continue }
+      const status = s.status || ''
+      const ageMin = (Date.now() - new Date(r[k.sentCol]).getTime()) / 60000
+
+      let resolved = null
+      let failed = false
+      if (EMAIL_DELIVERED.includes(status)) resolved = status
+      else if (EMAIL_FAILED.includes(status)) { resolved = status; failed = true }
+      else if (ageMin >= STALE_MIN) { resolved = status ? `stale:${status}` : 'stale:no_status'; failed = true }
+
+      if (resolved == null) { checked.push({ kind: k.label, channel: 'email', id: r.id, status, pending: true }); continue }
+
+      await supabase.from('training_day_attempts')
+        .update({ [k.statusCol]: resolved, [k.checkedCol]: new Date().toISOString() })
+        .eq('id', r.id)
+
+      const t = r.trainees || {}
+      const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
+      checked.push({ kind: k.label, channel: 'email', id: r.id, who, status: resolved, failed })
+      if (failed) failures.push({ kind: k.label, channel: 'email', who, contact: t.email || '(no email)', day: r.day_number, status: resolved })
     }
   }
 
   // Alert admins about any non-delivery.
   let alerted = []
   if (failures.length && willAlert) {
-    const lines = ['⚠️ Training text NOT delivered:']
-    failures.forEach((f) => lines.push(`• Day ${f.day} ${f.kind} → ${f.who} (${f.phone}) — ${f.status}`))
-    lines.push('', 'GHL accepted it but the carrier did not deliver — usually an SMS opt-out (DND) on their contact. Clear DND / have them text START, then resend.')
+    const lines = ['⚠️ Training message NOT delivered:']
+    failures.forEach((f) => lines.push(`• Day ${f.day} ${f.kind} ${f.channel} → ${f.who} (${f.contact}) — ${f.status}`))
+    lines.push('', 'Text failures are usually an SMS opt-out (DND) — clear DND / have them text START. Email failures (bounced/complained) usually mean a bad or spam-filtered address. Then resend.')
     const msg = lines.join('\n')
 
     let recipients = []
