@@ -25,6 +25,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
@@ -137,44 +138,48 @@ export const handler = async (event) => {
     attemptId = inserted.id
   }
 
-  // 7. Trainee phone + first name for the SMS.
+  // 7. Trainee phone + email + first name.
   const { data: trainee } = await supabase
     .from('trainees')
-    .select('first_name, phone')
+    .select('first_name, phone, email')
     .eq('id', trainee_id)
     .maybeSingle()
-  if (!trainee?.phone) {
-    return json(200, { ok: true, skipped: 'Trainee has no phone on file', quiz_token: quizToken })
+  if (!trainee?.phone && !trainee?.email) {
+    return json(200, { ok: true, skipped: 'Trainee has no phone or email on file', quiz_token: quizToken })
   }
 
-  // 8. Compose + send. Keeps the body short — 2 SMS segments max.
+  // 8. Compose + send by BOTH email and SMS (email reaches trainees whose SMS
+  //    is opted-out/DND in GHL).
   const firstName = trainee.first_name || 'there'
   const message =
     `Good morning ${firstName}! Quick quiz on yesterday's training (${questions.length} questions, ~2 min): ` +
     `${siteUrl}/quiz/${quizToken}`
 
-  const smsRes = await sendSmsViaGhl(trainee.phone, message, {
-    firstName,
-    lastName: 'Trainee Quiz',
-  })
-  if (!smsRes.ok) {
-    return json(500, {
-      ok: false,
-      error: `SMS send failed: ${smsRes.error || 'unknown'}`,
-      attempt_id: attemptId,
-    })
+  const channels = []
+  const errs = []
+  let smsMessageId = null
+  if (trainee.email) {
+    try { const er = await sendEmail(trainee.email, 'Your morning training quiz — U.S. Shingle & Metal', message); if (er && er.ok !== false) channels.push('email'); else errs.push('email: ' + (er?.error || 'failed')) } catch (e) { errs.push('email: ' + (e.message || 'error')) }
+  }
+  if (trainee.phone) {
+    const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName: 'Trainee Quiz' })
+    if (smsRes.ok) { channels.push('sms'); smsMessageId = smsRes.messageId || null }
+    else errs.push('sms: ' + (smsRes.error || 'failed'))
+  }
+  if (!channels.length) {
+    return json(500, { ok: false, error: `Send failed: ${errs.join('; ') || 'unknown'}`, attempt_id: attemptId })
   }
 
   // Record the GHL message id so cron-check-sms-delivery can verify the quiz
-  // text actually DELIVERED (GHL accepting a send ≠ the carrier delivering it).
-  if (attemptId && smsRes.messageId) {
+  // text actually DELIVERED (only when SMS went out).
+  if (attemptId && smsMessageId) {
     await supabase
       .from('training_day_attempts')
-      .update({ quiz_message_id: smsRes.messageId, quiz_delivery_status: null, quiz_delivery_checked_at: null })
+      .update({ quiz_message_id: smsMessageId, quiz_delivery_status: null, quiz_delivery_checked_at: null })
       .eq('id', attemptId)
   }
 
-  return json(200, { ok: true, sent: true, quiz_token: quizToken, day_number: quizDayNumber })
+  return json(200, { ok: true, sent: true, channels, quiz_token: quizToken, day_number: quizDayNumber })
 }
 
 // ────────────────────────────────────────────────────────────────────

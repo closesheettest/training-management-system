@@ -744,6 +744,28 @@ export default function ClassDetail() {
     }
   }
 
+  // Clear a trainee's SMS opt-out (DND) on their GHL contact so texts deliver
+  // again (the "they never get our texts" fix).
+  async function clearDnd(traineeId) {
+    setMessage(null)
+    setSending('dnd:' + traineeId)
+    try {
+      const res = await fetch('/.netlify/functions/clear-dnd', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: traineeId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      const t = trainees.find((x) => x.id === traineeId)
+      const who = t ? `${t.first_name} ${t.last_name}`.trim() : 'trainee'
+      if (res.ok && body.ok) setMessage({ type: 'success', text: `📲 Texts re-enabled for ${who}. Their next send should deliver.` })
+      else setMessage({ type: 'error', text: `Couldn't clear DND for ${who}: ${body.error || res.status}` })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setSending(null)
+    }
+  }
+
   async function sendSms(traineeIds, label) {
     setMessage(null)
     setSending(label)
@@ -1169,6 +1191,7 @@ export default function ClassDetail() {
           hideSend
           onSend={() => {}}
           onHomework={sendHomework}
+          onClearDnd={clearDnd}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1205,6 +1228,7 @@ export default function ClassDetail() {
           showResend={group.showResend}
           onSend={(tid) => sendSms([tid], tid)}
           onHomework={sendHomework}
+          onClearDnd={clearDnd}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1411,6 +1435,7 @@ function TraineeGroup({
   onUnenroll,
   onReschedule,
   onHomework,
+  onClearDnd,
   onAdmit,
   isHolding = false,
   stayByTraineeId = {},
@@ -1571,9 +1596,19 @@ function TraineeGroup({
                           onClick={() => onHomework(t.id)}
                           disabled={editingTraineeId !== null || sending === 'hw:' + t.id}
                           className="rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-                          title="Send this trainee today's homework SMS now"
+                          title="Send this trainee today's homework by email + SMS now"
                         >
                           {sending === 'hw:' + t.id ? 'Sending…' : '📚 Homework'}
+                        </button>
+                      )}
+                      {onClearDnd && (
+                        <button
+                          onClick={() => onClearDnd(t.id)}
+                          disabled={editingTraineeId !== null || sending === 'dnd:' + t.id}
+                          className="rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          title="Not getting our texts? Clear their SMS opt-out (DND) in GoHighLevel so texts deliver again"
+                        >
+                          {sending === 'dnd:' + t.id ? 'Fixing…' : '📲 Fix texts'}
                         </button>
                       )}
                       <button

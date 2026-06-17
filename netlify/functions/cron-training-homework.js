@@ -46,6 +46,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 // Class end times in ET (24h) keyed by [start_day_of_week][day_number].
 // Day-of-week: 1=Mon, 2=Tue, etc. Day_number: 1=first day, 2=second, …
@@ -179,7 +180,7 @@ export const handler = async (event) => {
     //    rule means no-shows don't get homework — they're not continuing.
     const { data: attendance, error: aErr } = await supabase
       .from('attendance')
-      .select('trainee_id, trainees(id, first_name, phone)')
+      .select('trainee_id, trainees(id, first_name, phone, email)')
       .eq('class_id', cls.id)
       .eq('attendance_date', todayIso)
       .eq('confirmed', true)
@@ -197,8 +198,8 @@ export const handler = async (event) => {
     for (const row of attendance) {
       const t = row.trainees
       if (!t) continue
-      if (!t.phone) {
-        skipped.push({ trainee_id: t.id, reason: 'No phone' })
+      if (!t.phone && !t.email) {
+        skipped.push({ trainee_id: t.id, reason: 'No phone or email' })
         continue
       }
 
@@ -224,21 +225,26 @@ export const handler = async (event) => {
         : ''
       const message = absoluteLink ? `${personalBody}\n\n${absoluteLink}` : personalBody
 
-      const smsRes = await sendSmsViaGhl(t.phone, message, {
-        firstName,
-        lastName: 'Homework',
-      })
-      if (!smsRes.ok) {
-        errors.push({ trainee_id: t.id, error: smsRes.error })
-        continue
+      // Send by BOTH email and SMS so trainees whose SMS is opted-out (DND)
+      // still get it by email.
+      const channels = []
+      let smsMessageId = null
+      if (t.email) {
+        try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message); if (er && er.ok !== false) channels.push('email') } catch { /* best-effort */ }
       }
+      if (t.phone) {
+        const smsRes = await sendSmsViaGhl(t.phone, message, { firstName, lastName: 'Homework' })
+        if (smsRes.ok) { channels.push('sms'); smsMessageId = smsRes.messageId || null }
+        else errors.push({ trainee_id: t.id, error: smsRes.error })
+      }
+      if (!channels.length) continue
 
       // Stamp attempt row. Record the GHL message id and clear any prior
       // delivery status so the delivery-check cron picks this send up fresh.
       const nowIso = new Date().toISOString()
       const stamp = {
         homework_sent_at: nowIso,
-        homework_message_id: smsRes.messageId || null,
+        homework_message_id: smsMessageId,
         homework_delivery_status: null,
         homework_delivery_checked_at: null,
       }
