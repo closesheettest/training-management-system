@@ -2,22 +2,23 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
-// /training-week — admin authoring page for the daily-homework + morning-
-// quiz feature. Phase 1 ONLY: content management. No SMS fires from here.
+// /training-week — admin page for the daily-homework + morning-quiz
+// feature. It both AUTHORS the content and shows live RESULTS.
 //
 // Each day card lets admin edit:
 //   • Label (display name in the card header)
-//   • Enabled flag (controls whether the Phase-2 cron will pick this day
-//     up. Default false so half-authored days don't text trainees.)
+//   • Enabled flag (the nightly homework cron + kiosk morning-quiz only
+//     fire for days where enabled=true AND body is non-empty AND at least
+//     one question exists. Default false so half-authored days stay quiet.)
 //   • Homework SMS body (supports {firstName} substitution)
 //   • Homework link URL (where the SMS link points)
 //   • Admin-only notes
 //   • Quiz questions (multiple-choice, 0+ per day)
 //
-// The Phase-2 cron + kiosk hook (not yet built) will read these rows
-// and only act on days where enabled=true AND body is non-empty AND at
-// least one question exists. Until those triggers ship, this page is
-// the entire feature — it's safe to deploy and start populating.
+// LIVE: the homework SMS (cron-training-homework) and the morning quiz
+// (kiosk sign-in → send-training-quiz) both fire from these rows. Each
+// day card's green Results panel shows quiz scores, scoped to the class
+// picked in the header dropdown (defaults to the current/most-recent week).
 
 export default function TrainingWeek() {
   const [days, setDays] = useState(null)
