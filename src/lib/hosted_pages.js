@@ -122,13 +122,12 @@ export const HOSTED_PAGES = [
   },
   {
     slug: 'day-3-homework',
-    title: 'Day 3 homework — Study products + financing',
+    title: 'Day 3 homework — Keep memorizing script + review products',
     url: '/day-3-homework/',
     description:
-      'Tonight\'s directive: re-watch the Products and Financing decks, then memorize the product ' +
-      'cheat-sheet (wind rating · warranty · min pitch · insurance angle for Shingle / Exposed Fastener / ' +
-      'Standing Seam / Stone Coated / Permalock) and practice presenting financing on a $39,450 job. ' +
-      'Preps for the Day 4 morning test. Linked from the nightly Day 3 homework SMS.',
+      'Tonight\'s directive (priority first): KEEP memorizing the in-home script (Slides 1-16), then review ' +
+      'the products now available on the rep dashboard (Products → Products Review — wind rating, warranty, ' +
+      'min pitch, insurance angle). SMS links the dashboard (us-shingle-rep-dashboard.netlify.app) plus this page.',
     created: '2026-06-17',
     category: 'Day 3',
   },
