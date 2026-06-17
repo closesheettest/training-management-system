@@ -32,6 +32,13 @@ export default function TrainingWeek() {
   // Per-day attempt stats. Shape: { [dayNumber]: {sent, completed, avgScore, total, attempts: [...]} }
   // Phase 2 — drives the Results panel under each day card.
   const [statsByDay, setStatsByDay] = useState({})
+  // Raw attempt rows + the class/week filter that scopes the Results
+  // panels. selectedClassId defaults to the most recent class so the page
+  // opens on the CURRENT week instead of a pile of older classes. 'all'
+  // restores the old mixed-together aggregate.
+  const [allAttempts, setAllAttempts] = useState([])
+  const [classes, setClasses] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState('')
 
   useEffect(() => {
     load()
@@ -60,7 +67,7 @@ export default function TrainingWeek() {
           'id, trainee_id, class_id, day_number, homework_sent_at, quiz_sent_at, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
         )
         .order('quiz_completed_at', { ascending: false, nullsFirst: false })
-        .limit(500),
+        .limit(3000),
     ])
     if (dayErr || qErr || aErr) {
       setFlash({ kind: 'error', text: (dayErr || qErr || aErr).message })
@@ -86,9 +93,38 @@ export default function TrainingWeek() {
       byDay[q.day_number].push(q)
     }
     setQuestionsByDay(byDay)
-    // Compute per-day stats from attempts.
-    const statsAcc = {}
+    // Keep the raw attempts; the Results stats are derived per selected
+    // class in a separate effect so the filter can re-scope them.
+    setAllAttempts(attempts || [])
+    // Build the class/week list for the filter (newest week first).
+    const seen = new Map()
     for (const a of attempts || []) {
+      if (a.class_id && !seen.has(a.class_id)) {
+        seen.set(a.class_id, {
+          id: a.class_id,
+          region: a.classes?.region || '—',
+          week_start_date: a.classes?.week_start_date || '',
+        })
+      }
+    }
+    const classList = [...seen.values()].sort(
+      (x, y) => (y.week_start_date || '').localeCompare(x.week_start_date || ''),
+    )
+    setClasses(classList)
+    // Open on the most recent class (the current/active week) unless the
+    // admin already picked one this session.
+    setSelectedClassId((prev) => prev || classList[0]?.id || 'all')
+  }
+
+  // Re-derive the per-day Results stats whenever the attempts load or the
+  // class filter changes. 'all' = every class mixed together (old behavior).
+  useEffect(() => {
+    const scoped =
+      selectedClassId === 'all' || !selectedClassId
+        ? allAttempts
+        : allAttempts.filter((a) => a.class_id === selectedClassId)
+    const statsAcc = {}
+    for (const a of scoped) {
       const k = a.day_number
       if (!statsAcc[k]) statsAcc[k] = { sent: 0, completed: 0, scoreSum: 0, totalSum: 0, attempts: [] }
       const s = statsAcc[k]
@@ -101,7 +137,7 @@ export default function TrainingWeek() {
       s.attempts.push(a)
     }
     setStatsByDay(statsAcc)
-  }
+  }, [allAttempts, selectedClassId])
 
   // Update the draft state for one day without saving.
   function patchDraft(dayNumber, patch) {
@@ -198,12 +234,27 @@ export default function TrainingWeek() {
           One shared template — Day 1's content applies to every class's first day, Day 2's content
           to every second day, and so on.
         </p>
-        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <strong>⚠ Phase 1 — content authoring only.</strong> Nothing here texts anyone yet. The
-          nightly homework cron and the kiosk-sign-in morning-quiz trigger ship in Phase 2. Until
-          then, you can safely populate this page in any order — flip the <strong>Enabled</strong>{' '}
-          toggle on each day once you're happy with its content, but it has no effect yet.
-        </div>
+        {classes.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <label className="text-sm font-semibold text-slate-700">📊 Results for class:</label>
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.region} · week of {c.week_start_date}
+                </option>
+              ))}
+              <option value="all">All classes (mixed)</option>
+            </select>
+            <span className="text-xs text-slate-500">
+              Each day's Results panel below shows only the selected class. Newest week is selected by
+              default.
+            </span>
+          </div>
+        )}
       </header>
 
       {flash && (
