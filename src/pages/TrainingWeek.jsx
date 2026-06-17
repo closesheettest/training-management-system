@@ -65,7 +65,7 @@ export default function TrainingWeek() {
       supabase
         .from('training_day_attempts')
         .select(
-          'id, trainee_id, class_id, day_number, homework_sent_at, homework_delivery_status, homework_email_status, quiz_sent_at, quiz_delivery_status, quiz_email_status, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
+          'id, trainee_id, class_id, day_number, homework_sent_at, homework_message_id, homework_delivery_status, homework_email_id, homework_email_status, quiz_sent_at, quiz_message_id, quiz_delivery_status, quiz_email_id, quiz_email_status, quiz_completed_at, quiz_score, quiz_total, trainees(first_name, last_name), classes(region, week_start_date)',
         )
         .order('quiz_completed_at', { ascending: false, nullsFirst: false })
         .limit(3000),
@@ -515,7 +515,7 @@ function ResultsPanel({ dayNumber, stats }) {
       {open && (
         <div className="mt-3 overflow-x-auto">
           <p className="mb-2 text-[11px] text-emerald-800">
-            Each send shows both channels — 📱 text and ✉️ email: ✅ delivered · ❌ not delivered (DND / bad or bounced address — admins get an alert) · ⏳ checking (every 15 min)
+            Each send shows both channels — 📱 text and ✉️ email: ✅ delivered · ❌ not delivered (DND / bad or bounced address — admins get an alert) · ⏳ checking (every 15 min) · — not sent on that channel
           </p>
           <table className="w-full text-xs">
             <thead>
@@ -542,10 +542,10 @@ function ResultsPanel({ dayNumber, stats }) {
                     <td className="py-1.5 pr-3 font-semibold text-slate-900">{name}</td>
                     <td className="py-1.5 pr-3 text-slate-600">{classLabel}</td>
                     <td className="py-1.5 pr-3 text-slate-600">
-                      {a.homework_sent_at ? <>{fmtTime(a.homework_sent_at)} 📱{deliveryMark(a.homework_delivery_status)} ✉️{deliveryMark(a.homework_email_status, true)}</> : '—'}
+                      {a.homework_sent_at ? <>{fmtTime(a.homework_sent_at)} 📱{a.homework_message_id ? deliveryMark(a.homework_delivery_status) : '—'} ✉️{a.homework_email_id ? deliveryMark(a.homework_email_status, true) : '—'}</> : '—'}
                     </td>
                     <td className="py-1.5 pr-3 text-slate-600">
-                      {a.quiz_sent_at ? <>{fmtTime(a.quiz_sent_at)} 📱{deliveryMark(a.quiz_delivery_status)} ✉️{deliveryMark(a.quiz_email_status, true)}</> : '—'}
+                      {a.quiz_sent_at ? <>{fmtTime(a.quiz_sent_at)} 📱{a.quiz_message_id ? deliveryMark(a.quiz_delivery_status) : '—'} ✉️{a.quiz_email_id ? deliveryMark(a.quiz_email_status, true) : '—'}</> : '—'}
                     </td>
                     <td className="py-1.5 pr-3 text-slate-600">
                       {a.quiz_completed_at ? fmtTime(a.quiz_completed_at) : '—'}
