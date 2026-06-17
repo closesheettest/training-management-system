@@ -122,15 +122,27 @@ export const HOSTED_PAGES = [
   },
   {
     slug: 'day-3-homework',
-    title: 'Day 3 homework — Apps setup + practice deal',
+    title: 'Day 3 homework — Study products + financing',
     url: '/day-3-homework/',
     description:
-      'Tonight\'s directive: get email/Job Nimbus/RepCard set up, then run a full practice deal in Job Nimbus. ' +
-      'Contact (location=test) → Job → Appt tomorrow 5:30 PM → estimate ($39,450 across Exposed Fastener / ' +
-      'Insulation / Radiant Barrier) → Edit Job fields (1 story, Black, Upgrade financing). ' +
-      'Linked from the nightly Day 3 homework SMS.',
-    created: '2026-05-28',
+      'Tonight\'s directive: re-watch the Products and Financing decks, then memorize the product ' +
+      'cheat-sheet (wind rating · warranty · min pitch · insurance angle for Shingle / Exposed Fastener / ' +
+      'Standing Seam / Stone Coated / Permalock) and practice presenting financing on a $39,450 job. ' +
+      'Preps for the Day 4 morning test. Linked from the nightly Day 3 homework SMS.',
+    created: '2026-06-17',
     category: 'Day 3',
+  },
+  {
+    slug: 'day-4-homework',
+    title: 'Day 4 homework — Apps setup + practice deal',
+    url: '/day-4-homework/',
+    description:
+      'The old Day 3 homework, moved to Day 4 now that tech is taught on Day 4. Get email/Job Nimbus/RepCard ' +
+      'set up, then run a full practice deal in Job Nimbus: Contact (location=test) → Job → Appt 5:30 PM → ' +
+      'estimate ($39,450 across Exposed Fastener / Insulation / Radiant Barrier) → Edit Job fields ' +
+      '(1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
+    created: '2026-06-17',
+    category: 'Day 4',
   },
   {
     slug: 'tools-training',
