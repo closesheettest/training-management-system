@@ -5,45 +5,120 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Products — U.S. Shingle &amp; Metal Retail Training</title>
 <!--
-  PRODUCTS deck. What we sell — asphalt shingle (GAF / Tamko Titan), exposed-
-  fastener metal (Ultra Rib, PBR), standing seam (TCM Lok), stone-coated, and
-  Permalock. Slides are the rendered pages of the original Products Google
-  Slides (with the product photos), shown full-bleed.
+  PRODUCTS deck — house style (same theme + click-to-reveal as the day decks),
+  with the product photos placed in. Content + images from the Products Google
+  Slides. Asphalt Shingle · Exposed Fastener Metal · Standing Seam · Stone
+  Coated · Permalock, plus the roofing-pitch chart.
 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --navy:#0a1730; }
-  html,body{background:var(--navy);}
-  .reveal .backgrounds{background:var(--navy);}
+  :root{ --gold:#F5B400; --red:#E0203B; --green:#27c46b; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  html,body{background:var(--ink);}
+  .reveal{font-family:'Oswald',sans-serif;}
   .reveal .slides{text-align:center;}
-  .reveal section{height:100%;display:flex;align-items:center;justify-content:center;}
-  .reveal .slides img.slide-img{
-    margin:0;border:0;box-shadow:0 8px 40px rgba(0,0,0,.5);border-radius:6px;
-    max-height:94vh;max-width:96vw;width:auto;height:auto;background:var(--navy);
-  }
-  .corner{position:fixed;bottom:12px;right:16px;font-family:system-ui,sans-serif;font-size:.62rem;letter-spacing:.2em;color:#3a4a66;text-transform:uppercase;z-index:30;}
+  .reveal section{color:#fff;}
+  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.13), transparent 60%), var(--ink);}
+
+  .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.95;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
+  .reveal h1{font-size:4.4rem;color:#fff;}
+  .reveal h2{font-size:2.7rem;color:#fff;}
+  .reveal h3.kick{font-family:'Oswald';font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);font-size:1.05rem;margin-bottom:.6rem;}
+  .gold{color:var(--gold);} .smoke{color:var(--smoke);}
+  .reveal .subhero{font-family:'Oswald';font-weight:500;font-size:1.5rem;color:#fff;margin-bottom:.4rem;}
+
+  /* product slide layout: bullets left, photo(s) right */
+  .reveal .prod{display:flex;gap:2rem;align-items:center;justify-content:center;max-width:64rem;margin:1.4rem auto 0;text-align:left;}
+  .reveal .prod .specs{flex:1;min-width:0;}
+  .reveal .prod .specs ul{list-style:none;margin:0;padding:0;}
+  .reveal .prod .specs li{font-family:'Oswald';font-weight:600;font-size:1.7rem;color:#ececec;line-height:1.35;margin:0 0 .7em;padding-left:1.3em;position:relative;}
+  .reveal .prod .specs li::before{content:"▸";position:absolute;left:0;color:var(--gold);}
+  .reveal .prod .specs li b{color:var(--gold);font-weight:700;}
+  .reveal .prod .pics{flex:0 0 auto;display:flex;flex-direction:column;gap:.7rem;}
+  .reveal .prod .pics.two{flex-direction:row;}
+  .reveal .prod img{max-height:46vh;max-width:34vw;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);background:#fff;}
+  .reveal .prod .pics.two img{max-height:40vh;max-width:24vw;}
+  .reveal .chart img{max-height:74vh;max-width:90vw;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-top:1rem;}
+  .reveal .tagrow{font-family:'Oswald';font-weight:600;color:var(--smoke);font-size:1.05rem;letter-spacing:.04em;margin-top:.6rem;}
+  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
 </style>
 </head>
 <body>
 <div class="reveal"><div class="slides">
-  <section><img class="slide-img" src="img/slide-01.png" alt="Products — title"></section>
-  <section><img class="slide-img" src="img/slide-02.png" alt="Roofing pitch"></section>
-  <section><img class="slide-img" src="img/slide-03.png" alt="Asphalt Shingle — GAF / Tamko Titan"></section>
-  <section><img class="slide-img" src="img/slide-04.png" alt="Exposed Fastener Metal — overview"></section>
-  <section><img class="slide-img" src="img/slide-05.png" alt="Exposed Fastener Metal — Ultra Rib Panel (2/12)"></section>
-  <section><img class="slide-img" src="img/slide-06.png" alt="Exposed Fastener Metal — PBR (.5/12)"></section>
-  <section><img class="slide-img" src="img/slide-07.png" alt="Exposed Fastener Metal — panels"></section>
-  <section><img class="slide-img" src="img/slide-08.png" alt="Standing Seam Metal — overview"></section>
-  <section><img class="slide-img" src="img/slide-09.png" alt="Standing Seam — TCM Lok (.25/12)"></section>
-  <section><img class="slide-img" src="img/slide-10.png" alt="Stone Coated Metal — CF Shake / Antica"></section>
-  <section><img class="slide-img" src="img/slide-11.png" alt="Permalock — lifetime, 185mph"></section>
+
+  <section><h3 class="kick">U.S. Shingle &amp; Metal · Retail Training</h3><h1><span class="gold">PRODUCTS</span></h1>
+    <div class="subhero" style="margin-top:1rem;">What we sell — and how to talk about each one.</div></section>
+
+  <section><h3 class="kick">First, the basics</h3><h2>ROOFING <span class="gold">PITCH</span></h2>
+    <div class="chart"><img src="img/pitch.jpg" alt="Roofing pitch chart — rise over span"></div>
+    <div class="tagrow">Pitch = rise ÷ span. Every product below has a <span style="color:#fff">minimum pitch</span> it can go on.</div></section>
+
+  <section><h3 class="kick">Product · Shingle</h3><h2>ASPHALT <span class="gold">SHINGLE</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">We'll install any — we <b>recommend GAF or Tamko Titan.</b></li>
+      <li class="fragment"><b>GAF:</b> 30-yr mfg warranty · <b>130 mph</b> wind</li>
+      <li class="fragment"><b>Tamko Titan:</b> 30-yr mfg warranty · <b>160 mph</b> wind</li>
+      <li class="fragment">Catch: insurance can demand it be <b>replaced every 10–15 yrs</b> — no matter the warranty.</li>
+    </ul></div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>EXPOSED FASTENER <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Fasteners are <b>exposed</b> (visible screws)</li>
+      <li class="fragment"><b>50-year</b> roof</li>
+      <li class="fragment"><b>Insurance leaves you alone</b> — no replacement letters</li>
+      <li class="fragment"><b>180 mph</b> wind resistant</li>
+    </ul></div><div class="pics"><img class="fragment" src="img/ef-roof.jpg" alt="Exposed fastener metal roof"></div></div></section>
+
+  <section><h3 class="kick">Exposed Fastener · panel profiles</h3><h2>THE <span class="gold">PANELS</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment"><b>Ultra Rib Panel</b> — min pitch <b>2/12</b></li>
+      <li class="fragment"><b>PBR</b> — min pitch <b>0.5/12</b> (great for low slopes)</li>
+    </ul></div><div class="pics two">
+      <img class="fragment" src="img/ultrarib.jpg" alt="Ultra Rib panel">
+      <img class="fragment" src="img/pbr.jpg" alt="PBR panel">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>STANDING SEAM <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Fasteners are <b>concealed</b> (hidden — clean look)</li>
+      <li class="fragment"><b>50-year</b> roof</li>
+      <li class="fragment"><b>Insurance leaves you alone</b></li>
+      <li class="fragment"><b>150 mph</b> wind resistant</li>
+      <li class="fragment">Profile: <b>TCM Lok</b> — min pitch <b>0.25/12</b></li>
+    </ul></div><div class="pics">
+      <img class="fragment" src="img/ss-roof.jpg" alt="Standing seam metal roof">
+      <img class="fragment" src="img/tcmlok.jpg" alt="TCM Lok standing seam profile">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Metal</h3><h2>STONE COATED <span class="gold">METAL</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment">Can look like <b>shingle OR tile</b></li>
+      <li class="fragment">Min pitch <b>3/12</b></li>
+      <li class="fragment"><b>130 mph</b> wind</li>
+    </ul></div><div class="pics two">
+      <img class="fragment" src="img/stone-cfshake.jpg" alt="Stone coated — CF Shake">
+      <img class="fragment" src="img/stone-antica.jpg" alt="Stone coated — Antica tile">
+    </div></div></section>
+
+  <section><h3 class="kick">Product · Premium</h3><h2><span class="gold">PERMALOCK</span></h2>
+    <div class="prod"><div class="specs"><ul>
+      <li class="fragment"><b>Lifetime, non pro-rated</b> warranty — the last roof they'll buy</li>
+      <li class="fragment">Min pitch <b>3/12</b></li>
+      <li class="fragment"><b>185 mph</b> wind — highest we offer</li>
+    </ul></div><div class="pics"><img class="fragment" src="img/permalock.jpg" alt="Permalock metal shingle roof"></div></div></section>
+
+  <section><h3 class="kick">That's the lineup</h3><h2>KNOW EVERY <span class="gold">PRODUCT</span></h2>
+    <div class="subhero" style="margin-top:1rem;">Pitch, wind rating, warranty, and the insurance angle for each. Then → Financing.</div></section>
+
 </div></div>
 <div class="corner">Products</div>
 
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
 <script>
-  Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0 });
+  Reveal.initialize({ hash:true, transition:'slide', backgroundTransition:'fade', controls:true, progress:true, slideNumber:'c/t', width:1280, height:720, margin:0.04 });
 </script>
 </body>
 </html>
