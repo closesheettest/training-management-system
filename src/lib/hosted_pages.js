@@ -125,7 +125,7 @@ export const HOSTED_PAGES = [
     title: 'Day 3 homework — Keep memorizing script + review products',
     url: '/day-3-homework/',
     description:
-      'Tonight\'s directive (priority first): KEEP memorizing the in-home script (Slides 1-16), then review ' +
+      'Tonight\'s directive (priority first): KEEP drilling Slides 1-5 (the warm-up) — ready to run cold for the Day 4 morning role-play — then review ' +
       'the products now available on the rep dashboard (Products → Products Review — wind rating, warranty, ' +
       'min pitch, insurance angle). SMS links the dashboard (us-shingle-rep-dashboard.netlify.app) plus this page.',
     created: '2026-06-17',
