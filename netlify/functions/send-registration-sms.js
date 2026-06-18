@@ -13,6 +13,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { renderTemplate } from './_templates.js'
+import { sendEmail } from './_email.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -48,7 +49,7 @@ export const handler = async (event) => {
   const { data: trainees, error: dbError } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, registration_token, classes!class_id(week_start_date, locations(name))',
+      'id, first_name, last_name, phone, email, registration_token, classes!class_id(week_start_date, locations(name))',
     )
     .in('id', trainee_ids)
 
@@ -64,12 +65,6 @@ export const handler = async (event) => {
 
   for (const t of trainees) {
     try {
-      const phone = normalizePhone(t.phone)
-      if (!phone) {
-        results.push({ trainee_id: t.id, success: false, error: `Invalid phone: ${t.phone}` })
-        continue
-      }
-
       const link = `${siteUrl}/register/${t.registration_token}`
       const locationName = t.classes?.locations?.name || 'your training location'
       const weekDate = formatDate(t.classes?.week_start_date)
@@ -80,60 +75,53 @@ export const handler = async (event) => {
         link,
       })
 
-      // 1. Upsert contact in GHL (so the conversation/message can reference contactId)
-      const contactRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
-        method: 'POST',
-        headers: ghlHeaders(),
-        body: JSON.stringify({
-          locationId: process.env.GHL_LOCATION_ID,
-          phone,
-          firstName: t.first_name,
-          lastName: t.last_name,
-        }),
-      })
-      const contactJson = await contactRes.json().catch(() => ({}))
-      if (!contactRes.ok) {
-        results.push({
-          trainee_id: t.id,
-          success: false,
-          error: `Contact upsert ${contactRes.status}: ${contactJson.message || JSON.stringify(contactJson)}`,
-        })
-        continue
-      }
-      const contactId = contactJson.contact?.id || contactJson.id
-      if (!contactId) {
-        results.push({ trainee_id: t.id, success: false, error: 'Contact upsert returned no id' })
-        continue
-      }
+      const channels = []
+      const errs = []
 
-      // 2. Send the SMS
-      const smsRes = await fetch(`${GHL_BASE}/conversations/messages`, {
-        method: 'POST',
-        headers: ghlHeaders(),
-        body: JSON.stringify({
-          type: 'SMS',
-          contactId,
-          message,
-        }),
-      })
-      const smsJson = await smsRes.json().catch(() => ({}))
-      if (!smsRes.ok) {
-        results.push({
-          trainee_id: t.id,
-          success: false,
-          error: `SMS send ${smsRes.status}: ${smsJson.message || JSON.stringify(smsJson)}`,
-        })
-        continue
+      // 1. SMS via GoHighLevel (if there's a usable phone)
+      const phone = normalizePhone(t.phone)
+      if (phone) {
+        try {
+          const contactRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
+            method: 'POST',
+            headers: ghlHeaders(),
+            body: JSON.stringify({ locationId: process.env.GHL_LOCATION_ID, phone, firstName: t.first_name, lastName: t.last_name }),
+          })
+          const contactJson = await contactRes.json().catch(() => ({}))
+          const contactId = contactJson.contact?.id || contactJson.id
+          if (!contactRes.ok || !contactId) {
+            errs.push(`sms: contact ${contactRes.status}: ${contactJson.message || 'no id'}`)
+          } else {
+            const smsRes = await fetch(`${GHL_BASE}/conversations/messages`, {
+              method: 'POST',
+              headers: ghlHeaders(),
+              body: JSON.stringify({ type: 'SMS', contactId, message }),
+            })
+            if (smsRes.ok) channels.push('sms')
+            else { const sj = await smsRes.json().catch(() => ({})); errs.push(`sms: ${smsRes.status}: ${sj.message || ''}`) }
+          }
+        } catch (e) { errs.push('sms: ' + (e.message || 'error')) }
+      } else {
+        errs.push(`sms: no valid phone (${t.phone || 'blank'})`)
       }
 
-      // Stamp the trainee row so the UI can show "Sent, no response" state across refreshes.
-      // Best-effort: failure here doesn't fail the overall send.
-      await supabase
-        .from('trainees')
-        .update({ last_sms_sent_at: new Date().toISOString() })
-        .eq('id', t.id)
+      // 2. Email via Resend — so people whose SMS is blocked/opted-out still get it.
+      if (t.email) {
+        try {
+          const r = await sendEmail(t.email, 'Register for your U.S. Shingle & Metal training', message)
+          if (r && r.ok !== false) channels.push('email'); else errs.push('email: ' + (r?.error || 'failed'))
+        } catch (e) { errs.push('email: ' + (e.message || 'error')) }
+      } else {
+        errs.push('email: none on file')
+      }
 
-      results.push({ trainee_id: t.id, success: true })
+      if (channels.length) {
+        // Stamp the trainee row so the UI can show "Sent, no response" across refreshes.
+        await supabase.from('trainees').update({ last_sms_sent_at: new Date().toISOString() }).eq('id', t.id)
+        results.push({ trainee_id: t.id, success: true, channels })
+      } else {
+        results.push({ trainee_id: t.id, success: false, error: errs.join('; ') })
+      }
     } catch (err) {
       results.push({ trainee_id: t.id, success: false, error: err.message || 'Unknown error' })
     }
