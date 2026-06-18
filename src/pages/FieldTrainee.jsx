@@ -16,6 +16,8 @@ export default function FieldTrainee() {
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', region: '', manager_id: '' })
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
+  const [regions, setRegions] = useState([])
+  const [regionFilter, setRegionFilter] = useState('')
   const [searchMgr, setSearchMgr] = useState('')
 
   async function api(action, extra) {
@@ -34,13 +36,11 @@ export default function FieldTrainee() {
   }
   useEffect(() => { load() }, [])
 
-  // Debounced search for existing trainees to flag.
+  // Browse existing trainees (loads on mount, refines as you type a name).
   useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) { setResults([]); return }
     const id = setTimeout(async () => {
-      const o = await api('search', { q })
-      if (o.ok) setResults(o.results || [])
+      const o = await api('search', { q: query.trim() })
+      if (o.ok) { setResults(o.results || []); setRegions(o.regions || []) }
     }, 300)
     return () => clearTimeout(id)
   }, [query])
@@ -101,30 +101,43 @@ export default function FieldTrainee() {
         <div className={`rounded-md border p-3 text-sm ${flash.k === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{flash.t}</div>
       )}
 
-      {/* Flag an existing trainee */}
+      {/* Flag an existing trainee — browse by region/class */}
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-600">Already in the system?</h2>
-        <p className="mb-3 text-xs text-slate-500">Search for someone who's already a trainee (e.g. from a cancelled class) and flag them as a field trainee — no duplicate created.</p>
+        <p className="mb-3 text-xs text-slate-500">Browse trainees by region (and their class) to find the person — no need to remember the name. Pick their manager, then flag them. No duplicate created.</p>
         <div className="flex flex-wrap gap-2">
-          <input className="min-w-[200px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Type a first or last name…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)}>
+            <option value="">All regions</option>
+            {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <input className="min-w-[160px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="(optional) filter by name…" value={query} onChange={(e) => setQuery(e.target.value)} />
           <select className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" value={searchMgr} onChange={(e) => setSearchMgr(e.target.value)}>
-            <option value="">— Regional manager —</option>
+            <option value="">— Assign manager —</option>
             {managers.map((m) => <option key={m.id} value={m.id}>{m.name}{m.region ? ` · ${m.region}` : ''}</option>)}
           </select>
         </div>
-        {results.length > 0 && (
-          <ul className="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">
-            {results.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <span><span className="font-semibold text-slate-900">{r.name}</span> <span className="text-slate-500">{r.phone || 'no phone'} · {r.email || 'no email'}{r.region ? ` · ${r.region}` : ''}</span></span>
-                <button type="button" disabled={busy === `mark:${r.id}`} onClick={() => markExisting(r.id)}
-                  className="shrink-0 rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50">
-                  {busy === `mark:${r.id}` ? 'Adding…' : 'Make field trainee'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        {(() => {
+          const shown = results.filter((r) => !regionFilter || r.region === regionFilter)
+          if (!shown.length) return <p className="mt-3 text-xs text-slate-400">No matching trainees.</p>
+          return (
+            <ul className="mt-3 max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-md border border-slate-200">
+              {shown.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <span>
+                    <span className="font-semibold text-slate-900">{r.name}</span>
+                    <span className="ml-2 text-slate-500">{r.region || 'no region'}{r.week ? ` · ${r.week}` : ''}</span>
+                    {r.cancelled && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">cancelled class</span>}
+                    <span className="ml-2 text-slate-400">{r.phone || ''}</span>
+                  </span>
+                  <button type="button" disabled={busy === `mark:${r.id}`} onClick={() => markExisting(r.id)}
+                    className="shrink-0 rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50">
+                    {busy === `mark:${r.id}` ? 'Adding…' : 'Make field trainee'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        })()}
       </div>
 
       {/* Add brand-new */}

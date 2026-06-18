@@ -60,17 +60,28 @@ export const handler = async (event) => {
     }
 
     if (action === 'search') {
-      // Find EXISTING trainees (not already field trainees) to flag.
+      // Browse EXISTING trainees (not already field trainees) to flag — with
+      // their class context (region · week · cancelled) so you can recognize
+      // someone whose name you don't remember. Optional name filter.
       const q = String(body.q || '').trim()
-      if (q.length < 2) return json(200, { ok: true, results: [] })
-      const { data } = await supabase
+      let query = supabase
         .from('trainees')
-        .select('id, first_name, last_name, phone, email, region')
-        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+        .select('id, first_name, last_name, phone, email, region, created_at, classes!class_id(region, week_start_date, cancelled_at)')
         .neq('is_field_trainee', true)
-        .order('last_name', { ascending: true })
-        .limit(25)
-      return json(200, { ok: true, results: (data || []).map((t) => ({ ...t, name: `${t.first_name || ''} ${t.last_name || ''}`.trim() })) })
+        .order('created_at', { ascending: false })
+        .limit(120)
+      if (q.length >= 2) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+      const { data } = await query
+      const rows = (data || []).map((t) => ({
+        id: t.id,
+        name: `${t.first_name || ''} ${t.last_name || ''}`.trim() || '(no name)',
+        phone: t.phone, email: t.email,
+        region: t.region || t.classes?.region || null,
+        week: t.classes?.week_start_date || null,
+        cancelled: !!t.classes?.cancelled_at,
+      }))
+      const regions = [...new Set(rows.map((r) => r.region).filter(Boolean))].sort()
+      return json(200, { ok: true, results: rows, regions })
     }
 
     if (action === 'mark_existing') {
