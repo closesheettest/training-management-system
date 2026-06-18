@@ -14,6 +14,9 @@ export default function FieldTrainee() {
   const [busy, setBusy] = useState(null)       // `${id}:${action}` | 'add'
   const [flash, setFlash] = useState(null)
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', region: '', manager_id: '' })
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [searchMgr, setSearchMgr] = useState('')
 
   async function api(action, extra) {
     const res = await fetch('/.netlify/functions/field-trainee-api', {
@@ -30,6 +33,27 @@ export default function FieldTrainee() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  // Debounced search for existing trainees to flag.
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) { setResults([]); return }
+    const id = setTimeout(async () => {
+      const o = await api('search', { q })
+      if (o.ok) setResults(o.results || [])
+    }, 300)
+    return () => clearTimeout(id)
+  }, [query])
+
+  async function markExisting(trainee_id) {
+    setBusy(`mark:${trainee_id}`); setFlash(null)
+    const o = await api('mark_existing', { trainee_id, manager_id: searchMgr || null })
+    setBusy(null)
+    if (!o.ok) { setFlash({ k: 'error', t: o.error }); return }
+    setQuery(''); setResults([])
+    setFlash({ k: 'success', t: 'Added to field trainees.' })
+    load()
+  }
 
   async function addTrainee(e) {
     e.preventDefault()
@@ -77,9 +101,35 @@ export default function FieldTrainee() {
         <div className={`rounded-md border p-3 text-sm ${flash.k === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{flash.t}</div>
       )}
 
-      {/* Add */}
+      {/* Flag an existing trainee */}
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-600">Already in the system?</h2>
+        <p className="mb-3 text-xs text-slate-500">Search for someone who's already a trainee (e.g. from a cancelled class) and flag them as a field trainee — no duplicate created.</p>
+        <div className="flex flex-wrap gap-2">
+          <input className="min-w-[200px] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Type a first or last name…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" value={searchMgr} onChange={(e) => setSearchMgr(e.target.value)}>
+            <option value="">— Regional manager —</option>
+            {managers.map((m) => <option key={m.id} value={m.id}>{m.name}{m.region ? ` · ${m.region}` : ''}</option>)}
+          </select>
+        </div>
+        {results.length > 0 && (
+          <ul className="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">
+            {results.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span><span className="font-semibold text-slate-900">{r.name}</span> <span className="text-slate-500">{r.phone || 'no phone'} · {r.email || 'no email'}{r.region ? ` · ${r.region}` : ''}</span></span>
+                <button type="button" disabled={busy === `mark:${r.id}`} onClick={() => markExisting(r.id)}
+                  className="shrink-0 rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50">
+                  {busy === `mark:${r.id}` ? 'Adding…' : 'Make field trainee'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Add brand-new */}
       <form onSubmit={addTrainee} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Add a field trainee</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Or add a brand-new field trainee</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
           <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />

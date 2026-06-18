@@ -59,6 +59,30 @@ export const handler = async (event) => {
       return json(200, { ok: true, trainee: data })
     }
 
+    if (action === 'search') {
+      // Find EXISTING trainees (not already field trainees) to flag.
+      const q = String(body.q || '').trim()
+      if (q.length < 2) return json(200, { ok: true, results: [] })
+      const { data } = await supabase
+        .from('trainees')
+        .select('id, first_name, last_name, phone, email, region')
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+        .neq('is_field_trainee', true)
+        .order('last_name', { ascending: true })
+        .limit(25)
+      return json(200, { ok: true, results: (data || []).map((t) => ({ ...t, name: `${t.first_name || ''} ${t.last_name || ''}`.trim() })) })
+    }
+
+    if (action === 'mark_existing') {
+      const tid = String(body.trainee_id || '').trim()
+      if (!tid) return json(400, { ok: false, error: 'trainee_id required' })
+      const patch = { is_field_trainee: true }
+      if (body.manager_id) patch.field_manager_id = body.manager_id
+      const { error } = await supabase.from('trainees').update(patch).eq('id', tid)
+      if (error) throw error
+      return json(200, { ok: true })
+    }
+
     // The remaining actions operate on one field trainee.
     const id = String(body.id || '').trim()
     if (!id) return json(400, { ok: false, error: 'id required' })
