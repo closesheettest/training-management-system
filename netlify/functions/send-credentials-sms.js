@@ -17,6 +17,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
+import { sendEmail } from './_email.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -54,7 +55,7 @@ export const handler = async (event) => {
 
   const { data: trainees, error: trErr } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, registration_token, company_email')
+    .select('id, first_name, last_name, phone, email, registration_token, company_email, company_email_password')
     .in('id', trainee_ids)
   if (trErr) return json(500, { error: trErr.message })
 
@@ -65,13 +66,30 @@ export const handler = async (event) => {
         results.push({ trainee_id: t.id, success: false, error: 'No company_email assigned yet' })
         continue
       }
-      const phone = normalizePhone(t.phone)
-      if (!phone) {
-        results.push({ trainee_id: t.id, success: false, error: `Invalid phone: ${t.phone}` })
-        continue
-      }
 
       const link = `${siteUrl}/credentials/${t.registration_token}`
+
+      // Email the actual login (email + password) in addition to the SMS link,
+      // so trainees have their credentials in writing. Best-effort, runs even
+      // if the phone is invalid, and never blocks the SMS path below.
+      if (t.email) {
+        try {
+          const emailBody =
+            `Hi ${t.first_name || 'there'},\n\n` +
+            `Your U.S. Shingle & Metal company email is set up. Here's your login:\n\n` +
+            `Email: ${t.company_email}\n` +
+            (t.company_email_password ? `Password: ${t.company_email_password}\n` : '') +
+            `You'll be asked to change this password the first time you sign in.\n\n` +
+            `Setup guide (how to add it to your phone): ${link}`
+          await sendEmail(t.email, 'Your U.S. Shingle & Metal company email login', emailBody)
+        } catch { /* best-effort — SMS is the primary path */ }
+      }
+
+      const phone = normalizePhone(t.phone)
+      if (!phone) {
+        results.push({ trainee_id: t.id, success: false, error: `Invalid phone: ${t.phone}`, email_sent: !!t.email })
+        continue
+      }
       const message = `Hi ${t.first_name || 'there'}, your U.S. Shingle & Metal company email is set up. Tap to see your login and how to add it to your phone: ${link}`
 
       // Upsert contact then send SMS via GHL

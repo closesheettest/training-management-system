@@ -49,9 +49,9 @@ export const handler = async (event) => {
   const homeworkBody = (lesson.homework_sms_body || '').trim()
   if (!homeworkBody) return json(200, { ok: false, skipped: `No homework authored for Day ${dayNumber}` })
 
-  // 3. Trainee phone + email + name.
+  // 3. Trainee phone + email + name (+ company login for the email footer).
   const { data: trainee } = await supabase
-    .from('trainees').select('first_name, phone, email').eq('id', trainee_id).maybeSingle()
+    .from('trainees').select('first_name, phone, email, company_email, company_email_password').eq('id', trainee_id).maybeSingle()
   if (!trainee) return json(404, { error: 'Trainee not found' })
   if (!trainee.phone && !trainee.email) return json(200, { ok: false, skipped: 'No phone or email on file for this trainee' })
 
@@ -69,7 +69,7 @@ export const handler = async (event) => {
   let emailId = null
   if (trainee.email) {
     try {
-      const r = await sendEmail(trainee.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message)
+      const r = await sendEmail(trainee.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message + loginBlock(trainee))
       if (r && r.ok !== false) { channels.push('email'); emailId = r.id || null } else errors.push('email: ' + (r?.error || 'failed'))
     } catch (e) { errors.push('email: ' + (e.message || 'error')) }
   }
@@ -93,6 +93,13 @@ export const handler = async (event) => {
   }
 
   return json(200, { ok: true, sent: true, day_number: dayNumber, channels, errors: errors.length ? errors : undefined })
+}
+
+// Company-email login appended to the homework EMAIL (not the SMS) so trainees
+// always have their credentials handy. Only rendered when both are on file.
+function loginBlock(t) {
+  if (!t || !t.company_email || !t.company_email_password) return ''
+  return `\n\n— Your company email login —\nEmail: ${t.company_email}\nPassword: ${t.company_email_password}\nYou'll be asked to change this password the first time you sign in.`
 }
 
 function ymd(d) {

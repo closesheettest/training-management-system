@@ -180,7 +180,7 @@ export const handler = async (event) => {
     //    rule means no-shows don't get homework — they're not continuing.
     const { data: attendance, error: aErr } = await supabase
       .from('attendance')
-      .select('trainee_id, trainees(id, first_name, phone, email)')
+      .select('trainee_id, trainees(id, first_name, phone, email, company_email, company_email_password)')
       .eq('class_id', cls.id)
       .eq('attendance_date', todayIso)
       .eq('confirmed', true)
@@ -231,7 +231,7 @@ export const handler = async (event) => {
       let smsMessageId = null
       let emailId = null
       if (t.email) {
-        try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message); if (er && er.ok !== false) { channels.push('email'); emailId = er.id || null } } catch { /* best-effort */ }
+        try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message + loginBlock(t)); if (er && er.ok !== false) { channels.push('email'); emailId = er.id || null } } catch { /* best-effort */ }
       }
       if (t.phone) {
         const smsRes = await sendSmsViaGhl(t.phone, message, { firstName, lastName: 'Homework' })
@@ -320,6 +320,13 @@ function dayOfWeekEt(isoDate) {
 }
 
 // Pretty-print a float hour as "H:MM AM/PM" for debug skip-reasons.
+// Company-email login appended to the homework EMAIL (not the SMS). Only
+// rendered when both the email and password are on file for the trainee.
+function loginBlock(t) {
+  if (!t || !t.company_email || !t.company_email_password) return ''
+  return `\n\n— Your company email login —\nEmail: ${t.company_email}\nPassword: ${t.company_email_password}\nYou'll be asked to change this password the first time you sign in.`
+}
+
 function formatHour(h) {
   const hh = Math.floor(h)
   const mm = Math.round((h - hh) * 60)
