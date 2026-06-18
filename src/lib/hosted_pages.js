@@ -131,15 +131,16 @@ export const HOSTED_PAGES = [
     created: '2026-06-17',
     category: 'Day 3',
   },
+  // ─────────────────────── Day 4 (role-play AM → tech PM) ───────────────────────
   {
     slug: 'day-4-homework',
     title: 'Day 4 homework — Apps setup + practice deal',
     url: '/day-4-homework/',
     description:
-      'The old Day 3 homework, moved to Day 4 now that tech is taught on Day 4. Get email/Job Nimbus/RepCard ' +
-      'set up, then run a full practice deal in Job Nimbus: Contact (location=test) → Job → Appt 5:30 PM → ' +
-      'estimate ($39,450 across Exposed Fastener / Insulation / Radiant Barrier) → Edit Job fields ' +
-      '(1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
+      'Day 4 = morning role-play (Slides 1–5) then an afternoon TECH block (the 3 apps + Job Nimbus). ' +
+      'Tonight\'s homework: get email/Job Nimbus/RepCard set up, then run a full practice deal in Job Nimbus: ' +
+      'Contact (location=test) → Job → Appt 5:30 PM → estimate ($39,450 across Exposed Fastener / Insulation / ' +
+      'Radiant Barrier) → Edit Job fields (1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
     created: '2026-06-17',
     category: 'Day 4',
   },
@@ -151,29 +152,25 @@ export const HOSTED_PAGES = [
       'Mobile-friendly deep-dive on the 3 tools every rep uses daily: JobNimbus (CRM), ' +
       'RepCard (digital business card + follow-up automation), Roofr (measurements + ' +
       'proposals). Each tool gets feature breakdowns, U.S. Shingle workflow notes, ' +
-      'common pitfalls, setup steps. Introduced on Day 4 (tech day); reps return to ' +
-      'this page while running the practice-deal homework.',
+      'common pitfalls, setup steps. Used in the Day 4 AFTERNOON tech block (after the ' +
+      'morning role-play); reps return to this page while running the practice-deal homework.',
     created: '2026-05-28',
     category: 'Day 4',
   },
 
-  // ─────────────────────── Day 4 (last teaching day) ───────────────────────
   {
     slug: 'finance-slides',
     title: 'Financing slides — finance waterfall + whole-week recap',
     url: '/finance-slides/',
     description:
-      'Reveal.js slide deck for the last teaching day (Day 5 on a full week, Day 4 on a ' +
-      'short week — always the Friday before the final exam). Covers the financing waterfall: ' +
-      'WHO we use, each lender\'s criteria, and the ORDER we submit in — Upgrade Financial ' +
-      '(soft pull, always first) → Service Finance (manual override + cosigners) → PACE ' +
-      '(equity-based FL statute) → credit-repair fallback, plus a no-prepayment-penalty ' +
-      'explainer. Then a whole-week recap section (Day 1 psychology, Day 2 products, Day 3 ' +
-      'tools/JN, Day 4 objections, financing) that runs right before the test — gold ' +
-      'highlights = the exact testable facts. Open on the projector, F for fullscreen, ' +
-      'advance with a clicker.',
+      'Reveal.js financing deck taught Day 3 afternoon (also embedded in the Day 3 combined deck). ' +
+      'Covers the financing waterfall: WHO we use, each lender\'s criteria, and the ORDER we submit in — ' +
+      'Upgrade Financial (soft pull, always first) → Service Finance (manual override + cosigners) → ' +
+      'PACE (equity-based FL statute) → credit-repair fallback, plus a no-prepayment-penalty explainer. ' +
+      'Ends with a whole-week recap section that runs right before the final test — gold highlights = ' +
+      'the exact testable facts. Projector deck, F for fullscreen, advance with a clicker.',
     created: '2026-06-05',
-    category: 'Day 4',
+    category: 'Day 3',
   },
 
   // ─────────────────────── Training overview & resources ───────────────────────
