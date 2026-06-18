@@ -744,6 +744,27 @@ export default function ClassDetail() {
     }
   }
 
+  // Flag a trainee as a field trainee (e.g. when cancelling a class). They then
+  // appear on the Field Trainee page to assign a manager + run provisioning.
+  async function makeFieldTrainee(t) {
+    if (!confirm(`Make ${t.first_name} ${t.last_name} a field trainee? You'll assign their manager and run provisioning on the Field Trainee page.`)) return
+    setMessage(null)
+    setSending('ft:' + t.id)
+    try {
+      const res = await fetch('/.netlify/functions/field-trainee-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_existing', trainee_id: t.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body.ok) setMessage({ type: 'error', text: body.error || `Failed: ${res.status}` })
+      else setMessage({ type: 'success', text: `🎓 ${t.first_name} ${t.last_name} flagged as a field trainee — finish setup on the Field Trainee page.` })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setSending(null)
+    }
+  }
+
   // Clear a trainee's SMS opt-out (DND) on their GHL contact so texts deliver
   // again (the "they never get our texts" fix).
   async function clearDnd(traineeId) {
@@ -1192,6 +1213,7 @@ export default function ClassDetail() {
           onSend={() => {}}
           onHomework={sendHomework}
           onClearDnd={clearDnd}
+          onMakeFieldTrainee={makeFieldTrainee}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1229,6 +1251,7 @@ export default function ClassDetail() {
           onSend={(tid) => sendSms([tid], tid)}
           onHomework={sendHomework}
           onClearDnd={clearDnd}
+          onMakeFieldTrainee={makeFieldTrainee}
           editingTraineeId={editingTraineeId}
           traineeDraft={traineeDraft}
           onStartEdit={startEditTrainee}
@@ -1436,6 +1459,7 @@ function TraineeGroup({
   onReschedule,
   onHomework,
   onClearDnd,
+  onMakeFieldTrainee,
   onAdmit,
   isHolding = false,
   stayByTraineeId = {},
@@ -1609,6 +1633,16 @@ function TraineeGroup({
                           title="Not getting our texts? Clear their SMS opt-out (DND) in GoHighLevel so texts deliver again"
                         >
                           {sending === 'dnd:' + t.id ? 'Fixing…' : '📲 Fix texts'}
+                        </button>
+                      )}
+                      {onMakeFieldTrainee && (
+                        <button
+                          onClick={() => onMakeFieldTrainee(t)}
+                          disabled={editingTraineeId !== null || sending === 'ft:' + t.id}
+                          className="rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                          title="Flag this person as a field trainee (e.g. when cancelling the class) — then run their provisioning on the Field Trainee page"
+                        >
+                          {sending === 'ft:' + t.id ? 'Flagging…' : '🎓 Make field trainee'}
                         </button>
                       )}
                       <button
