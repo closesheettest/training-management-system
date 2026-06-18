@@ -1,156 +1,145 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase.js'
 
-// /field-trainee — one-off sends for a field-trained hire (someone the
-// regional manager is training in the field instead of in a class).
-//
-//   1. Search for / pick the person.
-//   2. "Send full-week homework" → one link to /full-week-homework/ (all days).
-//   3. "Send final test" → the multiple-choice-only test (no essays), sent
-//      once the manager says they're ready.
-//
-// Reads trainees directly via the supabase client (this page is behind the
-// app's persona-gated nav); the two sends hit /field-send.
+// /field-trainee — field trainees (someone a regional manager is training in
+// the field, not in a class). Add them here, then run the provisioning chain:
+//   Send homework (→ trainee + manager, fires IT email provisioning)
+//   → Email provisioned (fires app setup) → Apps set up (sends trainee
+//   instructions) → Send final test (multiple-choice only).
+// All backed by /field-trainee-api.
 
 export default function FieldTrainee() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [selected, setSelected] = useState(null)
-  const [busy, setBusy] = useState(null)        // 'homework' | 'test' | null
-  const [flash, setFlash] = useState(null)      // { kind, text }
+  const [list, setList] = useState([])
+  const [managers, setManagers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(null)       // `${id}:${action}` | 'add'
+  const [flash, setFlash] = useState(null)
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', region: '', manager_id: '' })
 
-  // Debounced name search across trainees.
-  useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) { setResults([]); return }
-    let cancelled = false
-    setSearching(true)
-    const id = setTimeout(async () => {
-      const { data } = await supabase
-        .from('trainees')
-        .select('id, first_name, last_name, phone, email, registration_token, is_active_sales_rep, classes!class_id(region, week_start_date, cancelled_at)')
-        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
-        .order('last_name', { ascending: true })
-        .limit(25)
-      if (!cancelled) { setResults(data || []); setSearching(false) }
-    }, 300)
-    return () => { cancelled = true; clearTimeout(id) }
-  }, [query])
+  async function api(action, extra) {
+    const res = await fetch('/.netlify/functions/field-trainee-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...(extra || {}) }),
+    })
+    return res.json()
+  }
+  async function load() {
+    setLoading(true)
+    const [l, m] = await Promise.all([api('list'), api('managers')])
+    if (l.ok) setList(l.trainees || [])
+    if (m.ok) setManagers(m.managers || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
 
-  async function send(what) {
-    if (!selected) return
-    if (what === 'test' && !confirm(`Send the FINAL TEST (no essays) to ${selected.first_name} ${selected.last_name}? Only do this once their manager says they're ready.`)) return
-    setBusy(what); setFlash(null)
-    try {
-      const res = await fetch('/.netlify/functions/field-send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trainee_id: selected.id, what }),
-      })
-      const o = await res.json()
-      if (!o.ok) throw new Error(o.error || 'Send failed')
-      const label = what === 'homework' ? 'Full-week homework' : 'Final test'
-      setFlash({ kind: 'success', text: `${label} sent to ${selected.first_name} via ${(o.channels || []).join(' + ') || 'no channel'}.` })
-    } catch (e) {
-      setFlash({ kind: 'error', text: e.message || 'Send failed' })
-    }
+  async function addTrainee(e) {
+    e.preventDefault()
+    if (!form.first_name.trim()) { setFlash({ k: 'error', t: 'First name required' }); return }
+    if (!form.phone.trim() && !form.email.trim()) { setFlash({ k: 'error', t: 'Add a phone or email' }); return }
+    setBusy('add'); setFlash(null)
+    const o = await api('add', form)
     setBusy(null)
+    if (!o.ok) { setFlash({ k: 'error', t: o.error }); return }
+    setForm({ first_name: '', last_name: '', phone: '', email: '', region: '', manager_id: '' })
+    setFlash({ k: 'success', t: 'Field trainee added.' })
+    load()
+  }
+  async function step(id, action, confirmMsg) {
+    if (confirmMsg && !confirm(confirmMsg)) return
+    setBusy(`${id}:${action}`); setFlash(null)
+    const o = await api(action, { id })
+    setBusy(null)
+    if (!o.ok) { setFlash({ k: 'error', t: o.error }); return }
+    const done = {
+      send_homework: `Homework sent (${(o.channels || []).join(', ') || 'no channel'}); IT notified to provision email.`,
+      email_done: 'Marked email provisioned; app-setup team notified.',
+      apps_done: `Trainee sent their setup instructions (${(o.channels || []).join(', ') || 'no channel'}).`,
+      send_test: `Final test sent (${(o.channels || []).join(', ') || 'no channel'}).`,
+    }[action] || 'Done.'
+    setFlash({ k: 'success', t: done })
+    load()
   }
 
-  const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
+  const full = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
+  const dot = (on) => (on ? 'text-emerald-600' : 'text-slate-300')
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Field Trainee</h1>
         <p className="mt-2 max-w-2xl text-slate-600">
-          One-off sends for someone being trained in the field by a regional manager (not in a class).
-          Send them the whole week of homework in one link, then send the final test once their
-          manager says they're ready.
+          For someone trained in the field by a regional manager (not in a class). Add them, send the
+          week of homework (looping in their manager), run them through provisioning, then send the
+          final test once their manager says they're ready.
         </p>
       </header>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <label className="block text-sm font-medium text-slate-700">
-          Find the person
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a first or last name…"
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            autoFocus
-          />
-        </label>
+      {flash && (
+        <div className={`rounded-md border p-3 text-sm ${flash.k === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{flash.t}</div>
+      )}
 
-        {searching && <p className="mt-3 text-sm text-slate-400">Searching…</p>}
+      {/* Add */}
+      <form onSubmit={addTrainee} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Add a field trainee</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+          <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+          <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Cell phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Personal email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Region (e.g. St Pete)" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} />
+          <select className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
+            <option value="">— Regional manager —</option>
+            {managers.map((m) => <option key={m.id} value={m.id}>{m.name}{m.region ? ` · ${m.region}` : ''}</option>)}
+          </select>
+        </div>
+        <div className="mt-4">
+          <button type="submit" disabled={busy === 'add'} className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50">
+            {busy === 'add' ? 'Adding…' : '+ Add field trainee'}
+          </button>
+        </div>
+      </form>
 
-        {results.length > 0 && (
-          <ul className="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">
-            {results.map((t) => {
-              const cls = t.classes
-              const tag = cls ? `${cls.region} · ${cls.week_start_date}${cls.cancelled_at ? ' (cancelled)' : ''}` : 'No class'
-              const isSel = selected?.id === t.id
-              return (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    onClick={() => { setSelected(t); setFlash(null) }}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-slate-50 ${isSel ? 'bg-sky-50' : ''}`}
-                  >
-                    <span>
-                      <span className="font-semibold text-slate-900">{fullName(t)}</span>
-                      <span className="ml-2 text-slate-500">{t.phone || 'no phone'} · {t.email || 'no email'}</span>
-                    </span>
-                    <span className="shrink-0 text-xs text-slate-400">{tag}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
+      {/* List */}
+      {loading ? (
+        <p className="text-sm text-slate-400">Loading…</p>
+      ) : list.length === 0 ? (
+        <p className="rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">No field trainees yet — add one above.</p>
+      ) : (
+        <div className="space-y-4">
+          {list.map((t) => {
+            const hw = !!t.field_homework_sent_at, em = !!t.field_email_provisioned_at, ap = !!t.field_apps_done_at
+            const B = (action, label, enabled, confirmMsg) => (
+              <button type="button" disabled={!enabled || busy === `${t.id}:${action}`}
+                onClick={() => step(t.id, action, confirmMsg)}
+                className={`rounded-md px-3.5 py-2 text-sm font-semibold shadow-sm disabled:opacity-40 ${enabled ? 'bg-brand-navy text-white hover:bg-brand-navy-dark' : 'bg-slate-200 text-slate-500'}`}>
+                {busy === `${t.id}:${action}` ? 'Working…' : label}
+              </button>
+            )
+            return (
+              <div key={t.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-slate-900">{full(t)}</h3>
+                  <span className="text-xs text-slate-500">{t.phone || 'no phone'} · {t.email || 'no email'}{t.manager_name ? ` · mgr: ${t.manager_name}` : ''}</span>
+                </div>
 
-      {selected && (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">{fullName(selected)}</h2>
-          <p className="mt-0.5 text-sm text-slate-500">{selected.phone || 'no phone'} · {selected.email || 'no email'}</p>
-          {!selected.phone && !selected.email && (
-            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              No phone or email on file — add one on their record before sending.
-            </p>
-          )}
+                {/* Status line */}
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <span className={dot(hw)}>{hw ? '✓' : '○'} Homework</span>
+                  <span className={dot(em)}>{em ? '✓' : '○'} Email provisioned</span>
+                  <span className={dot(ap)}>{ap ? '✓' : '○'} Apps + instructions</span>
+                  <span className={dot(!!t.field_instructions_sent_at)}>{t.field_instructions_sent_at ? '✓' : '○'} Trainee notified</span>
+                </div>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => send('homework')}
-              disabled={busy !== null}
-              className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
-            >
-              {busy === 'homework' ? 'Sending…' : '📚 Send full-week homework'}
-            </button>
-            <button
-              type="button"
-              onClick={() => send('test')}
-              disabled={busy !== null}
-              className="rounded-md bg-red-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-800 disabled:opacity-50"
-            >
-              {busy === 'test' ? 'Sending…' : '📝 Send final test (no essays)'}
-            </button>
-          </div>
-
-          <p className="mt-3 text-xs text-slate-500">
-            Homework links to the full-week page (all days in one). The final test is multiple-choice
-            only — no essay questions — and skips the usual registration/zone gates.
-          </p>
-
-          {flash && (
-            <div className={`mt-4 rounded-md border p-3 text-sm ${flash.kind === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
-              {flash.text}
-            </div>
-          )}
+                {/* Step buttons */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {B('send_homework', hw ? '↻ Resend homework' : '① Send week homework', true)}
+                  {B('email_done', em ? '✓ Email provisioned' : '② Email provisioned', hw && !em)}
+                  {B('apps_done', ap ? '✓ Apps + instructions sent' : '③ Apps set up → send instructions', em && !ap)}
+                  <span className="mx-1 self-center text-slate-300">|</span>
+                  {B('send_test', '📝 Send final test (no essays)', true, `Send the FINAL TEST (no essays) to ${full(t)}? Only when their manager says they're ready.`)}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
