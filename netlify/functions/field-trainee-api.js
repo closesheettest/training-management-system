@@ -68,8 +68,8 @@ export const handler = async (event) => {
         .from('trainees')
         .select('id, first_name, last_name, phone, email, region, created_at, classes!class_id(region, week_start_date, cancelled_at)')
         .neq('is_field_trainee', true)
-        .order('created_at', { ascending: false })
-        .limit(120)
+        .order('last_name', { ascending: true })
+        .limit(1000)
       if (q.length >= 2) query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
       const { data } = await query
       const rows = (data || []).map((t) => ({
