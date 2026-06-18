@@ -179,6 +179,7 @@ function AdminLayout() {
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
     { key: 'setup.training_week', to: '/training-week', label: 'Training Week' },
+    { key: 'setup.field_trainee', to: '/field-trainee', label: 'Field Trainee' },
   ].filter((it) => show(it.key))
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
