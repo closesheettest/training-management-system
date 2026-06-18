@@ -133,6 +133,20 @@ export const HOSTED_PAGES = [
   },
   // ─────────────────────── Day 4 (role-play AM → tech PM) ───────────────────────
   {
+    slug: 'day-4-slides',
+    title: 'Day 4 slides — Role-play 1–5 → Apps (JN · RepCard · Roofr)',
+    url: '/day-4-slides/',
+    description:
+      'One combined Reveal.js deck for Day 4, house style. MORNING: role-play Slides 1–5 (the warm-up) ' +
+      'until lunch — same drill as Day 3, off-book, hit the control points. AFTERNOON: the APPS — the 3 ' +
+      'tools (Job Nimbus = CRM/system of record, RepCard = digital card + follow-up, Roofr = measurements/' +
+      'proposals), how Job Nimbus is organized (Contact → Job → tasks), and the deal flow every time: ' +
+      'Contact → Job → Appointment → Estimate → Edit Job (Roof Price ONLY, email non-negotiable). Ends on ' +
+      'tonight\'s setup + practice-deal homework. Projector deck, advance with a clicker.',
+    created: '2026-06-18',
+    category: 'Day 4',
+  },
+  {
     slug: 'day-4-homework',
     title: 'Day 4 homework — Apps setup + practice deal',
     url: '/day-4-homework/',
