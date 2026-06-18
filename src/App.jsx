@@ -39,6 +39,7 @@ import RegionalManager from './pages/RegionalManager.jsx'
 import RegionalManagers from './pages/RegionalManagers.jsx'
 import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
+import FieldTrainee from './pages/FieldTrainee.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
@@ -141,6 +142,7 @@ export default function App() {
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
           <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
           <Route path="/training-week" element={<RouteGate pageKey="setup.training_week"><TrainingWeek /></RouteGate>} />
+          <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
         </Route>
       </Routes>
       </RegionsProvider>

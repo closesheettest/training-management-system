@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
 export default function TakeTest() {
   const { token } = useParams()
+  // Field-trainee mode (?mc=1): multiple-choice only (no essays) and skip the
+  // registration / zone gates — used for one-off field-trained hires who are
+  // sent the test directly once their manager says they're ready.
+  const [searchParams] = useSearchParams()
+  const mcOnly = ['1', 'true', 'yes'].includes(String(searchParams.get('mc') || '').toLowerCase())
   const [status, setStatus] = useState('loading') // loading | not_found | not_registered | needs_zone | ready | submitting | already_done
   const [trainee, setTrainee] = useState(null)
   const [classId, setClassId] = useState(null)
@@ -32,7 +37,7 @@ export default function TakeTest() {
       setStatus('not_found')
       return
     }
-    if (!t.registered) {
+    if (!t.registered && !mcOnly) {
       setStatus('not_registered')
       setTrainee(t)
       return
@@ -45,7 +50,7 @@ export default function TakeTest() {
     // the value (Zone 1/2/3/4 or — during the transition — St Pete).
     // If it's blank, send them to the needs_zone screen with a
     // friendly "go grab your trainer" message instead of the test.
-    if (!t.region || !String(t.region).trim()) {
+    if (!mcOnly && (!t.region || !String(t.region).trim())) {
       setStatus('needs_zone')
       return
     }
@@ -63,13 +68,15 @@ export default function TakeTest() {
       return
     }
 
-    // Load active questions in order
+    // Load active questions in order. In field-trainee (mc) mode, drop the
+    // essay questions so they only get the multiple-choice retention test.
     const { data: qs } = await supabase
       .from('questions')
       .select('*')
       .eq('active', true)
       .order('order_index', { ascending: true })
-    setQuestions(qs || [])
+    const list = mcOnly ? (qs || []).filter((q) => q.question_type !== 'essay') : (qs || [])
+    setQuestions(list)
     setStatus('ready')
   }
 

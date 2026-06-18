@@ -22,6 +22,7 @@ export const PAGES = [
   { key: 'setup.questions', label: 'Questions', path: '/questions', menu: 'setup' },
   { key: 'setup.testimonials', label: 'Testimonials', path: '/testimonials', menu: 'setup' },
   { key: 'setup.training_week', label: 'Training Week', path: '/training-week', menu: 'setup' },
+  { key: 'setup.field_trainee', label: 'Field Trainee', path: '/field-trainee', menu: 'setup' },
   { key: 'settings.messages', label: 'Messages', path: '/messages', menu: 'settings' },
   { key: 'settings.notifications', label: 'Notifications', path: '/notifications', menu: 'settings' },
   { key: 'settings.templates', label: 'Message templates', path: '/message-templates', menu: 'settings' },
