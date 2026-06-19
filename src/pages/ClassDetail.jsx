@@ -677,7 +677,7 @@ export default function ClassDetail() {
   }
 
   async function startFinalTest() {
-    if (!confirm('Send the final-test link via SMS to every enrolled, registered trainee in this class?')) return
+    if (!confirm('Send the final-test link by email and SMS to every enrolled, registered trainee in this class?')) return
     setMessage(null)
     setStartingTest(true)
     try {
@@ -700,7 +700,7 @@ export default function ClassDetail() {
       if (failures.length === 0) {
         setMessage({
           type: 'success',
-          text: `Sent ${successes} final-test text${successes === 1 ? '' : 's'}.`,
+          text: `Sent the final test to ${successes} trainee${successes === 1 ? '' : 's'} (email + SMS).`,
         })
       } else {
         setMessage({
@@ -873,7 +873,7 @@ export default function ClassDetail() {
             onClick={startFinalTest}
             disabled={startingTest}
             className="rounded-md border border-brand-red bg-white px-3 py-1.5 text-xs font-semibold text-brand-red hover:bg-brand-red hover:text-white disabled:opacity-50"
-            title="Send the final assessment SMS to every enrolled, registered trainee"
+            title="Send the final assessment by email and SMS to every enrolled, registered trainee"
           >
             {startingTest ? 'Sending…' : 'Start final test →'}
           </button>
