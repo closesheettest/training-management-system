@@ -681,7 +681,8 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
   }
 
   const inactive = data?.inactive_reps || []
-  const nothing = data && data.reps.length === 0 && inactive.length === 0
+  const notInterested = data?.not_interested || []  // BTR - NI (worked, homeowner declined) — back-to-retail only
+  const nothing = data && data.reps.length === 0 && inactive.length === 0 && notInterested.length === 0
 
   return (
     <section className="mt-6">
@@ -708,6 +709,16 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                   </div>
                   <div className="space-y-2">
                     {inactive.map((r) => <RepGroup key={'i' + r.rep} r={r} keyPrefix="i" />)}
+                  </div>
+                </div>
+              )}
+              {notInterested.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 rounded-md bg-slate-700/50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-200">
+                    🚫 Not interested — worked, homeowner declined an appointment
+                  </div>
+                  <div className="space-y-2">
+                    {notInterested.map((r) => <RepGroup key={'n' + r.rep} r={r} keyPrefix="n" />)}
                   </div>
                 </div>
               )}
