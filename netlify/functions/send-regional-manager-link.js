@@ -26,6 +26,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -52,7 +53,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data: m } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, managed_region, manager_access_token, is_active_sales_rep')
+    .select('id, first_name, last_name, phone, email, managed_region, manager_access_token, is_active_sales_rep')
     .eq('id', traineeId)
     .maybeSingle()
   if (!m) return json(404, { ok: false, error: 'Trainee not found.' })
@@ -61,7 +62,7 @@ export const handler = async (event) => {
   if (!m.manager_access_token) {
     return json(400, { ok: false, error: 'No access token set. Revoke + reassign to generate one.' })
   }
-  if (!m.phone) return json(400, { ok: false, error: 'No phone number on file for this manager.' })
+  if (!m.phone && !m.email) return json(400, { ok: false, error: 'No phone or email on file for this manager.' })
 
   const url = `${SITE_URL}/regional-manager/${m.manager_access_token}`
   const firstName = m.first_name || 'there'
@@ -75,23 +76,32 @@ export const handler = async (event) => {
     `${url}\n\n` +
     `Tap to open. Save it — it's how you'll reach your team going forward.`
 
-  try {
-    const res = await sendSmsViaGhl(m.phone, message, {
-      label: 'regional-manager-link',
-      trainee_id: m.id,
-    })
-    if (!res?.ok) {
-      return json(502, {
-        ok: false,
-        error: res?.error || 'GHL SMS failed.',
-        details: res,
+  // Send by BOTH email and SMS — email is the reliable backstop for managers
+  // whose SMS is DND/opted-out in GHL. Success = at least ONE channel went out.
+  const channels = []
+  const errors = []
+  if (m.email) {
+    try {
+      const r = await sendEmail(m.email, 'Your U.S. Shingle regional manager dashboard', message)
+      if (r && r.ok !== false) channels.push('email')
+      else errors.push('email: ' + (r?.error || 'failed'))
+    } catch (e) { errors.push('email: ' + (e?.message || 'error')) }
+  }
+  if (m.phone) {
+    try {
+      const res = await sendSmsViaGhl(m.phone, message, {
+        label: 'regional-manager-link',
+        trainee_id: m.id,
       })
-    }
-  } catch (e) {
-    return json(502, { ok: false, error: e?.message || 'Network error sending SMS.' })
+      if (res?.ok) channels.push('sms')
+      else errors.push('sms: ' + (res?.error || 'GHL SMS failed.'))
+    } catch (e) { errors.push('sms: ' + (e?.message || 'Network error sending SMS.')) }
+  }
+  if (!channels.length) {
+    return json(502, { ok: false, error: `Send failed — ${errors.join('; ') || 'unknown'}` })
   }
 
-  // Stamp the send so we have a record. Skips the stamp on failure
+  // Stamp the send so we have a record. Skips the stamp on total failure
   // above so retries aren't silently swallowed.
   await supabase
     .from('trainees')
@@ -101,7 +111,9 @@ export const handler = async (event) => {
   return json(200, {
     ok: true,
     sent_to: `${m.first_name} ${m.last_name}`.trim(),
-    phone_last4: (m.phone.match(/\d/g) || []).slice(-4).join(''),
+    phone_last4: m.phone ? (m.phone.match(/\d/g) || []).slice(-4).join('') : null,
+    channels,
+    errors: errors.length ? errors : undefined,
   })
 }
 

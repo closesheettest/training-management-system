@@ -16,6 +16,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -39,7 +40,7 @@ export const handler = async (event) => {
   // Every manager: a trainee with a managed_region, an access token, and a phone.
   const { data: managers, error } = await supabase
     .from('trainees')
-    .select('first_name, last_name, phone, managed_region, manager_access_token')
+    .select('first_name, last_name, phone, email, managed_region, manager_access_token')
     .not('managed_region', 'is', null)
     .not('manager_access_token', 'is', null)
   if (error) return json(500, { ok: false, error: error.message })
@@ -47,18 +48,35 @@ export const handler = async (event) => {
   const results = []
   for (const m of (managers || [])) {
     const phone = (m.phone || '').trim()
+    const email = (m.email || '').trim()
     const name = `${m.first_name || ''} ${m.last_name || ''}`.trim()
-    if (!phone) { results.push({ name, zone: m.managed_region, skipped: 'no phone' }); continue }
+    if (!phone && !email) { results.push({ name, zone: m.managed_region, skipped: 'no phone or email' }); continue }
     const link = `${SITE_URL}/regional-manager/${encodeURIComponent(m.manager_access_token)}`
     const message =
       `📋 ${m.first_name || 'Hey'} — your Weekly Rep Report for ${m.managed_region} is due FRIDAY MORNING. ` +
       `Fill it out for each of your reps here: ${link}`
-    if (!willSend) { results.push({ name, zone: m.managed_region, would_text: phone }); continue }
-    try {
-      await sendSmsViaGhl(phone, message, { firstName: m.first_name || 'Manager', lastName: m.last_name || '' })
-      results.push({ name, zone: m.managed_region, texted: phone })
-    } catch (e) {
-      results.push({ name, zone: m.managed_region, error: e.message || 'sms failed' })
+    if (!willSend) { results.push({ name, zone: m.managed_region, would_text: phone || null, would_email: email || null }); continue }
+    // Send by BOTH email and SMS — email is the reliable backstop for managers
+    // whose SMS is DND/opted-out in GHL. Success = at least ONE channel went out.
+    const channels = []
+    const errors = []
+    if (email) {
+      try {
+        const r = await sendEmail(email, `Weekly Rep Report due Friday — ${m.managed_region}`, message)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errors.push('email: ' + (e.message || 'error')) }
+    }
+    if (phone) {
+      try {
+        await sendSmsViaGhl(phone, message, { firstName: m.first_name || 'Manager', lastName: m.last_name || '' })
+        channels.push('sms')
+      } catch (e) { errors.push('sms: ' + (e.message || 'failed')) }
+    }
+    if (channels.length) {
+      results.push({ name, zone: m.managed_region, channels, texted: phone || null, emailed: email || null })
+    } else {
+      results.push({ name, zone: m.managed_region, error: errors.join('; ') || 'send failed' })
     }
   }
 

@@ -20,6 +20,7 @@
 // Response: { sent: number, skipped: number, errors: [...], details: [...] }
 
 import { createClient } from '@supabase/supabase-js'
+import { sendEmail } from './_email.js'
 
 const GHL_BASE = 'https://services.leadconnectorhq.com'
 const GHL_VERSION = '2021-07-28'
@@ -56,7 +57,7 @@ export const handler = async (event) => {
   const { data: classes, error: clsErr } = await supabase
     .from('classes')
     .select(
-      'id, week_start_date, locations(name, street_address, city, state, zip), trainees!class_id(id, first_name, last_name, phone, registered, registration_token, last_reminder_sent_at)',
+      'id, week_start_date, locations(name, street_address, city, state, zip), trainees!class_id(id, first_name, last_name, phone, email, registered, registration_token, last_reminder_sent_at)',
     )
     .eq('week_start_date', targetDate)
     .eq('attendance_only', false)
@@ -76,15 +77,16 @@ export const handler = async (event) => {
       : 'Location TBD — your manager will share details before tomorrow.'
 
     for (const t of cls.trainees || []) {
-      // Only message registered trainees with a phone we can dial
-      if (!t.registered || !t.phone) {
+      // Only message registered trainees; need at least one reachable channel.
+      if (!t.registered || (!t.phone && !t.email)) {
         skipped++
-        details.push({ trainee_id: t.id, action: 'skip', reason: !t.registered ? 'not registered' : 'no phone' })
+        details.push({ trainee_id: t.id, action: 'skip', reason: !t.registered ? 'not registered' : 'no phone or email' })
         continue
       }
 
+      // A bad phone is not fatal as long as we still have an email backstop.
       const phone = normalizePhone(t.phone)
-      if (!phone) {
+      if (t.phone && !phone && !t.email) {
         skipped++
         details.push({ trainee_id: t.id, action: 'skip', reason: `bad phone: ${t.phone}` })
         continue
@@ -94,52 +96,75 @@ export const handler = async (event) => {
       const message = `Hi ${t.first_name || 'there'}, U.S. Shingle & Metal training starts tomorrow at ${locationName} (${address}). Please tap to confirm your attendance: ${confirmLink}`
 
       if (dryRun) {
-        details.push({ trainee_id: t.id, action: 'dry-run', phone, message })
+        details.push({ trainee_id: t.id, action: 'dry-run', phone: phone || null, email: t.email || null, message })
         continue
       }
 
-      try {
-        const contactRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
-          method: 'POST',
-          headers: ghlHeaders(),
-          body: JSON.stringify({
-            locationId: process.env.GHL_LOCATION_ID,
-            phone,
-            firstName: t.first_name,
-            lastName: t.last_name,
-          }),
-        })
-        const contactJson = await contactRes.json().catch(() => ({}))
-        if (!contactRes.ok) {
-          errors.push({ trainee_id: t.id, step: 'contact', error: contactJson.message || JSON.stringify(contactJson) })
-          continue
-        }
-        const contactId = contactJson.contact?.id || contactJson.id
-        if (!contactId) {
-          errors.push({ trainee_id: t.id, step: 'contact', error: 'no contact id returned' })
-          continue
-        }
+      // Send by BOTH email and SMS — email reaches trainees whose SMS is
+      // blocked/opted-out (DND) in GHL. Success = at least one channel goes out.
+      const channels = []
 
-        const smsRes = await fetch(`${GHL_BASE}/conversations/messages`, {
-          method: 'POST',
-          headers: ghlHeaders(),
-          body: JSON.stringify({ type: 'SMS', contactId, message }),
-        })
-        const smsJson = await smsRes.json().catch(() => ({}))
-        if (!smsRes.ok) {
-          errors.push({ trainee_id: t.id, step: 'sms', error: smsJson.message || JSON.stringify(smsJson) })
-          continue
+      // Email channel.
+      if (t.email) {
+        try {
+          const r = await sendEmail(t.email, 'U.S. Shingle & Metal training starts tomorrow — confirm your attendance', message)
+          if (r && r.ok !== false) channels.push('email')
+          else errors.push({ trainee_id: t.id, step: 'email', error: r?.error || 'failed' })
+        } catch (err) {
+          errors.push({ trainee_id: t.id, step: 'email', error: err.message || 'unknown' })
         }
+      }
 
+      // SMS channel (inline GHL — preserves existing contact-upsert behavior).
+      if (phone) {
+        try {
+          const contactRes = await fetch(`${GHL_BASE}/contacts/upsert`, {
+            method: 'POST',
+            headers: ghlHeaders(),
+            body: JSON.stringify({
+              locationId: process.env.GHL_LOCATION_ID,
+              phone,
+              firstName: t.first_name,
+              lastName: t.last_name,
+            }),
+          })
+          const contactJson = await contactRes.json().catch(() => ({}))
+          if (!contactRes.ok) {
+            errors.push({ trainee_id: t.id, step: 'contact', error: contactJson.message || JSON.stringify(contactJson) })
+          } else {
+            const contactId = contactJson.contact?.id || contactJson.id
+            if (!contactId) {
+              errors.push({ trainee_id: t.id, step: 'contact', error: 'no contact id returned' })
+            } else {
+              const smsRes = await fetch(`${GHL_BASE}/conversations/messages`, {
+                method: 'POST',
+                headers: ghlHeaders(),
+                body: JSON.stringify({ type: 'SMS', contactId, message }),
+              })
+              const smsJson = await smsRes.json().catch(() => ({}))
+              if (!smsRes.ok) {
+                errors.push({ trainee_id: t.id, step: 'sms', error: smsJson.message || JSON.stringify(smsJson) })
+              } else {
+                channels.push('sms')
+              }
+            }
+          }
+        } catch (err) {
+          errors.push({ trainee_id: t.id, step: 'fetch', error: err.message || 'unknown' })
+        }
+      }
+
+      // Stamp the reminder only when at least one channel actually went out.
+      if (channels.length) {
         await supabase
           .from('trainees')
           .update({ last_reminder_sent_at: new Date().toISOString() })
           .eq('id', t.id)
 
         sent++
-        details.push({ trainee_id: t.id, action: 'sent', phone })
-      } catch (err) {
-        errors.push({ trainee_id: t.id, step: 'fetch', error: err.message || 'unknown' })
+        details.push({ trainee_id: t.id, action: 'sent', phone: phone || null, email: t.email || null, channels })
+      } else {
+        details.push({ trainee_id: t.id, action: 'failed', phone: phone || null, email: t.email || null })
       }
     }
   }

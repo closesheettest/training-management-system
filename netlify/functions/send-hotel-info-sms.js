@@ -22,6 +22,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 import { renderTemplate } from './_templates.js'
 
 export const handler = async (event) => {
@@ -46,7 +47,7 @@ export const handler = async (event) => {
   let stayQuery = supabase
     .from('trainee_hotel_stays')
     .select(
-      'id, hotel_name, hotel_street_address, hotel_city, hotel_state, hotel_zip, hotel_phone, check_in_date, check_out_date, confirmation_number, guest_name, room_number, notes, info_sent_at, trainees(id, first_name, phone), classes(id, week_start_date)',
+      'id, hotel_name, hotel_street_address, hotel_city, hotel_state, hotel_zip, hotel_phone, check_in_date, check_out_date, confirmation_number, guest_name, room_number, notes, info_sent_at, trainees(id, first_name, last_name, phone, email), classes(id, week_start_date)',
     )
 
   if (Array.isArray(body.stay_ids) && body.stay_ids.length > 0) {
@@ -69,8 +70,8 @@ export const handler = async (event) => {
   const results = []
   for (const s of stays) {
     const t = s.trainees
-    if (!t?.phone) {
-      results.push({ stay_id: s.id, ok: false, error: 'No trainee phone on file' })
+    if (!t?.phone && !t?.email) {
+      results.push({ stay_id: s.id, ok: false, error: 'No trainee phone or email on file' })
       continue
     }
     if (!s.hotel_name) {
@@ -86,12 +87,29 @@ export const handler = async (event) => {
       hotelDetails,
     })
 
-    const sms = await sendSmsViaGhl(t.phone, message, {
-      firstName: t.first_name || 'Trainee',
-      lastName: 'Hotel',
-    })
-    if (!sms.ok) {
-      results.push({ stay_id: s.id, ok: false, error: sms.error, step: sms.step })
+    // Send by BOTH email and SMS — email reaches trainees whose SMS is
+    // blocked/opted-out (DND) in GHL. Success = at least one channel goes out.
+    const channels = []
+    const errors = []
+    if (t.email) {
+      try {
+        const r = await sendEmail(t.email, 'Your hotel information — U.S. Shingle & Metal training', message)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) {
+        errors.push('email: ' + (e?.message || 'error'))
+      }
+    }
+    if (t.phone) {
+      const sms = await sendSmsViaGhl(t.phone, message, {
+        firstName: t.first_name || 'Trainee',
+        lastName: t.last_name || 'Hotel',
+      })
+      if (sms.ok) channels.push('sms')
+      else errors.push('sms: ' + (sms.error || 'failed'))
+    }
+    if (!channels.length) {
+      results.push({ stay_id: s.id, ok: false, error: errors.join('; ') || 'Send failed' })
       continue
     }
 
@@ -100,7 +118,7 @@ export const handler = async (event) => {
       .update({ info_sent_at: new Date().toISOString() })
       .eq('id', s.id)
 
-    results.push({ stay_id: s.id, ok: true })
+    results.push({ stay_id: s.id, ok: true, channels, errors: errors.length ? errors : undefined })
   }
 
   return json(200, {

@@ -29,6 +29,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 import { renderTemplate } from './_templates.js'
 
 const MAX_DAYS = 7
@@ -104,12 +105,13 @@ export const handler = async (event) => {
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, region, welcome_texts_sent, last_welcome_text_at',
+      'id, first_name, phone, email, region, welcome_texts_sent, last_welcome_text_at',
     )
     .in('id', recentGradIds)
     .eq('enrolled', true)
     .is('declined_at', null)
-    .not('phone', 'is', null)
+    // Reachable by SMS OR email (email is the backstop for DND/opted-out reps).
+    .or('phone.not.is.null,email.not.is.null')
     .lt('welcome_texts_sent', MAX_DAYS)
     // Fairness: never-texted (null) first, then longest-waiting.
     .order('last_welcome_text_at', { ascending: true, nullsFirst: true })
@@ -133,17 +135,32 @@ export const handler = async (event) => {
     })
     if (dryRun) return { trainee_id: t.id, dry_run: true, day_number: dayNumber, preview: message }
 
-    const sms = await sendSmsViaGhl(t.phone, message, {
-      firstName: t.first_name || 'Trainee',
-      lastName: 'Welcome',
-    })
-    if (!sms.ok) return { trainee_id: t.id, ok: false, error: sms.error, step: sms.step }
+    // Send by BOTH email and SMS. Email is the reliable backstop for reps whose
+    // SMS is DND/opted-out in GHL. Success = at least ONE channel went out.
+    const channels = []
+    const errors = []
+    if (t.email) {
+      try {
+        const r = await sendEmail(t.email, `Welcome to U.S. Shingle — Day ${dayNumber}`, message)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errors.push('email: ' + (e?.message || 'error')) }
+    }
+    if (t.phone) {
+      const sms = await sendSmsViaGhl(t.phone, message, {
+        firstName: t.first_name || 'Trainee',
+        lastName: 'Welcome',
+      })
+      if (sms.ok) channels.push('sms')
+      else errors.push('sms: ' + (sms.error || 'failed'))
+    }
+    if (!channels.length) return { trainee_id: t.id, ok: false, error: errors.join('; ') || 'no channel' }
 
     await supabase
       .from('trainees')
       .update({ welcome_texts_sent: dayNumber, last_welcome_text_at: new Date().toISOString() })
       .eq('id', t.id)
-    return { trainee_id: t.id, ok: true, day_number: dayNumber }
+    return { trainee_id: t.id, ok: true, day_number: dayNumber, channels }
   }
 
   // Send in PARALLEL batches so a full class clears well within the function

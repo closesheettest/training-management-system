@@ -28,6 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -51,7 +52,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data: t, error } = await supabase
     .from('trainees')
-    .select('id, first_name, phone, onboarding_sms_sent_at')
+    .select('id, first_name, last_name, phone, email, onboarding_sms_sent_at')
     .eq('id', traineeId)
     .maybeSingle()
   if (error) return json(500, { ok: false, error: error.message })
@@ -63,7 +64,7 @@ export const handler = async (event) => {
   if (t.onboarding_sms_sent_at) {
     return json(200, { ok: true, sent: false, reason: 'already_sent' })
   }
-  if (!t.phone) {
+  if (!t.phone && !t.email) {
     return json(200, { ok: true, sent: false, reason: 'no_phone' })
   }
 
@@ -73,16 +74,33 @@ export const handler = async (event) => {
     `Tap to complete your onboarding:\n\n${ONBOARDING_LINK}\n\n` +
     `Get this done before we start.`
 
-  try {
-    const res = await sendSmsViaGhl(t.phone, message, {
-      label: 'onboarding-sms',
-      trainee_id: t.id,
-    })
-    if (!res?.ok) {
-      return json(502, { ok: false, error: res?.error || 'GHL SMS failed.', details: res })
+  // Send by BOTH email and SMS — email reaches trainees whose SMS is
+  // blocked/opted-out (DND) in GHL. Success = at least one channel goes out.
+  const channels = []
+  const errors = []
+  if (t.email) {
+    try {
+      const r = await sendEmail(t.email, 'Welcome to U.S. Shingle — complete your onboarding', message)
+      if (r && r.ok !== false) channels.push('email')
+      else errors.push('email: ' + (r?.error || 'failed'))
+    } catch (e) {
+      errors.push('email: ' + (e?.message || 'error'))
     }
-  } catch (e) {
-    return json(502, { ok: false, error: e?.message || 'Network error sending SMS.' })
+  }
+  if (t.phone) {
+    try {
+      const res = await sendSmsViaGhl(t.phone, message, {
+        firstName,
+        lastName: t.last_name || 'Onboarding',
+      })
+      if (res?.ok) channels.push('sms')
+      else errors.push('sms: ' + (res?.error || 'failed'))
+    } catch (e) {
+      errors.push('sms: ' + (e?.message || 'Network error sending SMS.'))
+    }
+  }
+  if (!channels.length) {
+    return json(502, { ok: false, error: `Send failed — ${errors.join('; ') || 'unknown'}` })
   }
 
   await supabase
@@ -94,7 +112,9 @@ export const handler = async (event) => {
     ok: true,
     sent: true,
     trainee_id: t.id,
-    phone_last4: (t.phone.match(/\d/g) || []).slice(-4).join(''),
+    channels,
+    errors: errors.length ? errors : undefined,
+    phone_last4: t.phone ? (t.phone.match(/\d/g) || []).slice(-4).join('') : null,
   })
 }
 

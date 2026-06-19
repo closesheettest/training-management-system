@@ -28,6 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 import { renderTemplate } from './_templates.js'
 
 const FOLLOWUP_1_DELAY_HOURS = 24
@@ -70,7 +71,7 @@ export const handler = async (event) => {
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, last_name, phone, registration_token, last_sms_sent_at, registration_followup_1_sent_at, registration_followup_2_sent_at, classes!class_id(id, week_start_date, locations(name))',
+      'id, first_name, last_name, phone, email, registration_token, last_sms_sent_at, registration_followup_1_sent_at, registration_followup_2_sent_at, classes!class_id(id, week_start_date, locations(name))',
     )
     .eq('registered', false)
     .eq('enrolled', true)
@@ -127,18 +128,33 @@ export const handler = async (event) => {
       continue
     }
 
-    const phone = normalizePhone(t.phone)
-    if (!phone) {
-      results.push({ trainee_id: t.id, stage, ok: false, error: `Invalid phone: ${t.phone}` })
-      continue
+    // Send by BOTH email and SMS — email reaches trainees whose SMS is
+    // blocked/opted-out in GHL. Success = at least one channel went out.
+    const channels = []
+    const errors = []
+
+    if (t.email) {
+      try {
+        const r = await sendEmail(t.email, 'Finish your U.S. Shingle & Metal training registration', message)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errors.push('email: ' + (e.message || 'error')) }
     }
 
-    const sms = await sendSmsViaGhl(phone, message, {
-      firstName: t.first_name || 'Trainee',
-      lastName: t.last_name || 'Followup',
-    })
-    if (!sms.ok) {
-      results.push({ trainee_id: t.id, stage, ok: false, error: sms.error, step: sms.step })
+    const phone = normalizePhone(t.phone)
+    if (phone) {
+      const sms = await sendSmsViaGhl(phone, message, {
+        firstName: t.first_name || 'Trainee',
+        lastName: t.last_name || 'Followup',
+      })
+      if (sms.ok) channels.push('sms')
+      else errors.push('sms: ' + (sms.error || 'failed'))
+    } else {
+      errors.push(`sms: Invalid phone: ${t.phone}`)
+    }
+
+    if (!channels.length) {
+      results.push({ trainee_id: t.id, stage, ok: false, error: errors.join('; ') })
       continue
     }
 
@@ -147,7 +163,7 @@ export const handler = async (event) => {
       : { registration_followup_2_sent_at: new Date().toISOString() }
     await supabase.from('trainees').update(stamp).eq('id', t.id)
 
-    results.push({ trainee_id: t.id, stage, ok: true })
+    results.push({ trainee_id: t.id, stage, ok: true, channels, errors: errors.length ? errors : undefined })
   }
 
   return json(200, {

@@ -29,6 +29,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
+import { sendSmsViaGhl } from './_ghl.js'
 
 // ── Review URLs ─────────────────────────────────────────────────────────
 //
@@ -70,13 +71,13 @@ export const handler = async (event) => {
 
   const { data: t, error: tErr } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, email, review_email_sent_at, classes!class_id(region, week_start_date)')
+    .select('id, first_name, last_name, email, phone, review_email_sent_at, classes!class_id(region, week_start_date)')
     .eq('id', trainee_id)
     .maybeSingle()
   if (tErr || !t) return json(404, { error: 'Trainee not found' })
 
-  if (!t.email) {
-    return json(200, { ok: false, skipped_reason: 'Trainee has no email on file' })
+  if (!t.email && !t.phone) {
+    return json(200, { ok: false, skipped_reason: 'Trainee has no email or phone on file' })
   }
   if (t.review_email_sent_at) {
     return json(200, { ok: true, skipped_reason: 'Already sent', sent_at: t.review_email_sent_at })
@@ -205,24 +206,35 @@ export const handler = async (event) => {
     }),
   }
 
-  // Fire both in parallel so the trainee sees them at roughly the same
-  // time in their inbox.
-  const [usResult, nealResult] = await Promise.all([
-    sendEmail(t.email, usShingleEmail.subject, usShingleEmail.body),
-    sendEmail(t.email, nealEmail.subject, nealEmail.body),
+  // SMS version: the email carries all four links, but an SMS with four
+  // links is unreadable. Send one short friendly line + the single most
+  // important ask — the U.S. Shingle Google review (client first, the
+  // surface that matters most). The full set still arrives by email.
+  const smsBody =
+    `Congrats on graduating training, ${firstName}! ` +
+    `If you have 2 min, a quick Google review for U.S. Shingle & Metal would mean a lot: ${US_SHINGLE_GOOGLE_URL} ` +
+    `Check your email for a couple more quick review links too. — U.S. Shingle Training Team`
+
+  // Fire email + SMS in parallel so the trainee sees them at roughly the
+  // same time. Email sends as two messages (one per business).
+  const [usResult, nealResult, smsResult] = await Promise.all([
+    t.email ? sendEmail(t.email, usShingleEmail.subject, usShingleEmail.body) : Promise.resolve({ ok: false, skipped: 'no email' }),
+    t.email ? sendEmail(t.email, nealEmail.subject, nealEmail.body) : Promise.resolve({ ok: false, skipped: 'no email' }),
+    t.phone ? sendSmsViaGhl(t.phone, smsBody, { firstName, lastName: 'Reviews' }) : Promise.resolve({ ok: false, skipped: 'no phone' }),
   ])
 
-  const anyOk = usResult.ok || nealResult.ok
+  const anyOk = usResult.ok || nealResult.ok || smsResult.ok
   if (!anyOk) {
     return json(200, {
       ok: false,
       us_shingle: usResult,
       neal: nealResult,
+      sms: smsResult,
     })
   }
 
-  // Stamp if at least one delivered. Same dedup pattern as elsewhere —
-  // partial success is success, the cron / retry won't re-spam.
+  // Stamp if at least one channel delivered. Same dedup pattern as
+  // elsewhere — partial success is success, the retry won't re-spam.
   await supabase
     .from('trainees')
     .update({ review_email_sent_at: new Date().toISOString() })
@@ -230,9 +242,11 @@ export const handler = async (event) => {
 
   return json(200, {
     ok: true,
-    sent_to: t.email,
+    sent_to: t.email || undefined,
+    sent_sms: t.phone ? smsResult.ok : undefined,
     us_shingle: usResult,
     neal: nealResult,
+    sms: smsResult,
   })
 }
 

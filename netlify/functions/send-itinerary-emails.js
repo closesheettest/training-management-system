@@ -28,6 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
+import { sendSmsViaGhl } from './_ghl.js'
 import { renderEmailTemplate } from './_templates.js'
 
 // Native Netlify scheduled function (daily 14:00 UTC = 10 AM EDT) — no longer
@@ -64,13 +65,12 @@ export const handler = async (event) => {
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, email, classes!inner(id, week_start_date, location_id, schedule_details, locations(name, street_address, city, state, zip, schedule_template))',
+      'id, first_name, email, phone, classes!inner(id, week_start_date, location_id, schedule_details, locations(name, street_address, city, state, zip, schedule_template))',
     )
     .eq('registered', true)
     .eq('enrolled', true)
     .is('declined_at', null)
     .is('itinerary_email_sent_at', null)
-    .not('email', 'is', null)
     .not('classes.location_id', 'is', null)
   if (error) return json(500, { error: `Supabase: ${error.message}` })
 
@@ -104,33 +104,67 @@ export const handler = async (event) => {
       hiringManagerPhone: hm.phone,
     })
 
+    // Concise plain-text SMS version of the itinerary email — the
+    // essentials a rep needs on their phone (where, when), pointing them
+    // to the email for the full schedule + details.
+    const smsBody =
+      `Hi ${t.first_name || 'there'}, your U.S. Shingle training is set! ` +
+      `${weekDayWord ? weekDayWord + ', ' : ''}${weekDate} at ${locationName}` +
+      `${locationAddress ? ' — ' + locationAddress.replace(/\n/g, ', ') : ''}. ` +
+      `Check your email for the full schedule & details. — U.S. Shingle`
+
     if (dryRun) {
       results.push({
         trainee_id: t.id,
         dry_run: true,
         preview_subject: subject,
         preview_body: body,
+        preview_sms: smsBody,
       })
       continue
     }
 
-    if (!t.email) {
-      results.push({ trainee_id: t.id, ok: false, error: 'No email on file' })
+    if (!t.email && !t.phone) {
+      results.push({ trainee_id: t.id, ok: false, error: 'No email or phone on file' })
       continue
     }
 
-    const sent = await sendEmail(t.email, subject, body)
-    if (!sent.ok) {
-      results.push({ trainee_id: t.id, ok: false, error: sent.error, step: sent.step })
+    // Send by BOTH email and SMS. Success = at least one channel went out.
+    const channels = []
+    const errors = []
+    if (t.email) {
+      const sent = await sendEmail(t.email, subject, body)
+      if (sent.ok) channels.push('email')
+      else errors.push('email: ' + (sent.error || 'failed'))
+    }
+    if (t.phone) {
+      const smsRes = await sendSmsViaGhl(t.phone, smsBody, {
+        firstName: t.first_name || 'Trainee',
+        lastName: 'Itinerary',
+      })
+      if (smsRes.ok) channels.push('sms')
+      else errors.push('sms: ' + (smsRes.error || 'failed'))
+    }
+
+    if (!channels.length) {
+      results.push({ trainee_id: t.id, ok: false, error: errors.join('; ') || 'Send failed' })
       continue
     }
 
+    // Stamp only when at least one channel delivered, so a retry can still
+    // reach the trainee if both failed this run.
     await supabase
       .from('trainees')
       .update({ itinerary_email_sent_at: new Date().toISOString() })
       .eq('id', t.id)
 
-    results.push({ trainee_id: t.id, ok: true, sent_to: t.email })
+    results.push({
+      trainee_id: t.id,
+      ok: true,
+      channels,
+      sent_to: t.email || undefined,
+      errors: errors.length ? errors : undefined,
+    })
   }
 
   return json(200, {

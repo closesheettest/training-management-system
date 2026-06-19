@@ -34,6 +34,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 
 export const handler = async (event) => {
   const isPost = event.httpMethod === 'POST'
@@ -84,7 +85,7 @@ export const handler = async (event) => {
   const { data: candidates, error } = await supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, registration_token, info_updated_at, last_update_reminder_sent_at, update_reminder_count, is_active_sales_rep, rep_level',
+      'id, first_name, phone, email, registration_token, info_updated_at, last_update_reminder_sent_at, update_reminder_count, is_active_sales_rep, rep_level',
     )
     .eq('is_active_sales_rep', true)
     // Skip non-field staff — they're not a field sales rep and the
@@ -117,13 +118,31 @@ export const handler = async (event) => {
     if (dryRun) {
       return { trainee_id: t.id, phone: t.phone, body, ok: true, dryRun: true }
     }
-    const s = await sendSmsViaGhl(t.phone, body, {
-      firstName: t.first_name || 'Trainee',
-      lastName: 'Update Reminder',
-    })
-    if (s.ok) {
+    // Send by BOTH email and SMS — email reaches reps whose SMS is
+    // blocked/opted-out in GHL. Success = at least one channel went out.
+    const channels = []
+    const errors = []
+
+    if (t.email) {
+      try {
+        const r = await sendEmail(t.email, 'Please update your U.S. Shingle & Metal rep info', body)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errors.push('email: ' + (e.message || 'error')) }
+    }
+
+    if (t.phone) {
+      const s = await sendSmsViaGhl(t.phone, body, {
+        firstName: t.first_name || 'Trainee',
+        lastName: 'Update Reminder',
+      })
+      if (s.ok) channels.push('sms')
+      else errors.push('sms: ' + (s.error || 'failed'))
+    }
+
+    if (channels.length) {
       // Stamp + increment the counter so the next cron iteration
-      // doesn't re-text this person before INTERVAL_HOURS has passed.
+      // doesn't re-contact this person before INTERVAL_HOURS has passed.
       await supabase
         .from('trainees')
         .update({
@@ -132,7 +151,7 @@ export const handler = async (event) => {
         })
         .eq('id', t.id)
     }
-    return { trainee_id: t.id, phone: t.phone, ok: s.ok, error: s.error }
+    return { trainee_id: t.id, phone: t.phone, ok: channels.length > 0, channels, error: errors.length ? errors.join('; ') : undefined }
   })
 
   const results = await runWithConcurrency(factories, CONCURRENCY)

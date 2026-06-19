@@ -24,6 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 import { renderTemplate } from './_templates.js'
 
 export const handler = async (event) => {
@@ -49,7 +50,7 @@ export const handler = async (event) => {
   let q = supabase
     .from('trainees')
     .select(
-      'id, first_name, phone, registration_token, test_results_link_sent_at, test_attempts(submitted_at)',
+      'id, first_name, phone, email, registration_token, test_results_link_sent_at, test_attempts(submitted_at)',
     )
     .not('phone', 'is', null)
     .not('registration_token', 'is', null)
@@ -87,12 +88,30 @@ export const handler = async (event) => {
       link,
     })
 
-    const sms = await sendSmsViaGhl(t.phone, message, {
-      firstName: t.first_name || 'Trainee',
-      lastName: 'Results',
-    })
-    if (!sms.ok) {
-      results.push({ trainee_id: t.id, ok: false, error: sms.error, step: sms.step })
+    // Send by BOTH email and SMS — email reaches trainees whose SMS is
+    // blocked/opted-out in GHL. Success = at least one channel went out.
+    const channels = []
+    const errors = []
+
+    if (t.email) {
+      try {
+        const r = await sendEmail(t.email, 'Your U.S. Shingle & Metal final-test results', message)
+        if (r && r.ok !== false) channels.push('email')
+        else errors.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errors.push('email: ' + (e.message || 'error')) }
+    }
+
+    if (t.phone) {
+      const sms = await sendSmsViaGhl(t.phone, message, {
+        firstName: t.first_name || 'Trainee',
+        lastName: 'Results',
+      })
+      if (sms.ok) channels.push('sms')
+      else errors.push('sms: ' + (sms.error || 'failed'))
+    }
+
+    if (!channels.length) {
+      results.push({ trainee_id: t.id, ok: false, error: errors.join('; ') })
       continue
     }
 
@@ -101,7 +120,7 @@ export const handler = async (event) => {
       .update({ test_results_link_sent_at: new Date().toISOString() })
       .eq('id', t.id)
 
-    results.push({ trainee_id: t.id, ok: true })
+    results.push({ trainee_id: t.id, ok: true, channels, errors: errors.length ? errors : undefined })
   }
 
   return json(200, {
