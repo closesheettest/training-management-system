@@ -70,13 +70,13 @@ export const handler = async (event) => {
   try {
     if (action === 'init') {
       const reps = await activeReps(supabase, zone)
-      const week_start = etMondayISO()
+      const week_start = etWeekStartISO()
       const report = await getReport(supabase, zone, week_start)
       return json(200, { ok: true, manager: { name: managerName, zone }, reps, week_start, report })
     }
 
     if (action === 'save' || action === 'submit') {
-      const week_start = normDate(body.week_start) || etMondayISO()
+      const week_start = normDate(body.week_start) || etWeekStartISO()
       const rows = sanitizeRows(body.rows)
       const summary = String(body.summary || '').slice(0, 4000)
       const submitting = action === 'submit'
@@ -199,7 +199,7 @@ function summarySms({ zone, managerName, week_start, rows }) {
   const t = totals(rows)
   const lines = [
     `📋 Weekly Rep Report — ${zone} (${managerName})`,
-    `Week of ${week_start} (Mon–Thu)`,
+    `Week of ${week_start} (Fri–Thu)`,
     `Reps: ${rows.length} | Signed ${t.insp_signed} • B2R ${t.back_to_retail} • Appts ${t.appts} • Sales ${t.sales}`,
   ]
   return lines.join('\n')
@@ -211,7 +211,7 @@ function summaryText({ zone, managerName, week_start, rows, summary }) {
   const lines = [
     `WEEKLY REP REPORT — ${zone}`,
     `Manager: ${managerName}`,
-    `Week of ${week_start} (Mon–Thu)`,
+    `Week of ${week_start} (Fri–Thu)`,
     '',
   ]
   for (const r of (rows || [])) {
@@ -230,12 +230,13 @@ function summaryText({ zone, managerName, week_start, rows, summary }) {
 function toInt(v) { const n = parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : 0 }
 function normDate(s) { const m = String(s || '').match(/^\d{4}-\d{2}-\d{2}$/); return m ? s : null }
 
-// Monday (ET) of the current week as YYYY-MM-DD. "This week so far" anchors
-// on this Monday; the manager fills it Thursday for Friday-morning review.
-function etMondayISO(now = new Date()) {
+// Start Friday (ET) of the current Fri–Thu work week as YYYY-MM-DD. The week
+// runs Friday → Thursday; the manager fills it Thursday for Friday-morning
+// review. Anchors on the most recent Friday on or before today.
+function etWeekStartISO(now = new Date()) {
   const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }))
-  const day = et.getDay()                 // 0 Sun … 6 Sat
-  et.setDate(et.getDate() + (day === 0 ? -6 : 1 - day))
+  const day = et.getDay()                 // 0 Sun … 6 Sat (Fri = 5)
+  et.setDate(et.getDate() - ((day - 5 + 7) % 7))
   const y = et.getFullYear(), m = String(et.getMonth() + 1).padStart(2, '0'), d = String(et.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }

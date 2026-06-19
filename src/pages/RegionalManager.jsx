@@ -420,7 +420,7 @@ function WeeklyReport({ token }) {
       {!loading && !err && (
         <>
           <div className="mb-3 text-xs text-slate-200/80">
-            Week of <strong>{weekStart}</strong> (Mon–Thu){status === 'submitted' ? ' · ✅ submitted (you can update and re-submit)' : status === 'draft' ? ' · draft saved' : ''}
+            Week of <strong>{weekStart}</strong> (Fri–Thu){status === 'submitted' ? ' · ✅ submitted (you can update and re-submit)' : status === 'draft' ? ' · draft saved' : ''}
           </div>
 
           {order.length === 0 && <div className="text-sm text-slate-200/70">No active reps in your zone.</div>}
