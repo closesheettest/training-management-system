@@ -202,6 +202,15 @@ export default function TakeTest() {
         .eq('id', trainee.id)
         .eq('is_active_sales_rep', false)
 
+      // Fire-and-forget: text + email the trainee a review of the questions
+      // they missed, each with the correct answer. Best effort — never blocks
+      // them from reaching their results page.
+      fetch('/.netlify/functions/send-test-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trainee_id: trainee.id }),
+      }).catch(() => {})
+
       // Fire-and-forget review-request email. Best effort — never blocks
       // the trainee from seeing their results page. If the email fails
       // (no email on file, Resend down, etc.) the in-page CTAs on /test/:token/done
