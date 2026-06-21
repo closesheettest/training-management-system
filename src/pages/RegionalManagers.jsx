@@ -81,6 +81,8 @@ export default function RegionalManagers() {
 
       <AllBackToRetailConversions />
 
+      <AllApptConversion />
+
       <AllNoSits />
 
       <ToolsetReference />
@@ -346,6 +348,115 @@ function AllBackToRetailConversions() {
 // one tap, then sees per team + company-wide how many they started with,
 // how many moved off the list (re-booked), and how many were added since.
 // Backed by the CCG all-no-sits function.
+// Company-wide Appointments → Sales conversion, grouped zone → rep, with
+// Radiant Barrier / Insulation attach rates. Period toggle (week/last/month).
+function AllApptConversion() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [openZone, setOpenZone] = useState(null)
+  const [period, setPeriod] = useState('month')
+  const [err, setErr] = useState('')
+
+  const load = async (p = period) => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-appt-conversion?period=' + p)
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZone(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const setP = (p) => { setPeriod(p); if (data) load(p) }
+  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
+
+  return (
+    <section className="mb-6">
+      <button type="button" onClick={() => load()} disabled={loading}
+        className="w-full rounded-lg bg-indigo-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
+        📈 Appointments → Sales{data ? ` (${data.totals.pct}% · ${data.totals.sales}/${data.totals.appts})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Loading…' : `Per-rep conversion + Radiant Barrier / Insulation attach rate, by region. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {data && (
+        <div className="mt-2 flex gap-1">
+          {periods.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setP(k)}
+              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
+          ))}
+        </div>
+      )}
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3 space-y-3">
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No appointments in this period.</div>
+          ) : data.zones.map((z) => {
+            const zoneOpen = openZone === z.zone
+            const zt = z.totals
+            return (
+              <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <button type="button" onClick={() => setOpenZone(zoneOpen ? null : z.zone)}
+                  className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                  style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}>
+                  <span className="flex items-center gap-2">
+                    <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>{teamLabel(z.zone) || z.zone}</span>
+                    <span className="text-xs text-slate-500">{z.zone}</span>
+                  </span>
+                  <span className="text-sm text-slate-700">
+                    <span className="font-bold text-indigo-700">{zt.pct}%</span>
+                    <span className="ml-2 text-slate-500">{zt.sales}/{zt.appts}</span> {zoneOpen ? '▾' : '▸'}
+                  </span>
+                </button>
+                {zoneOpen && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                          <th className="px-3 py-1.5 text-left">Rep</th>
+                          <th className="px-2 py-1.5 text-right">Appts</th>
+                          <th className="px-2 py-1.5 text-right">Sold</th>
+                          <th className="px-2 py-1.5 text-right">Sales %</th>
+                          <th className="px-2 py-1.5 text-right">RB</th>
+                          <th className="px-2 py-1.5 text-right">Insul</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {z.reps.map((r) => (
+                          <tr key={r.rep} className="border-t border-slate-100">
+                            <td className="px-3 py-1.5">{r.rep}</td>
+                            <td className="px-2 py-1.5 text-right">{r.appts}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
+                            <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.pct}%</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                          <td className="px-3 py-1.5">Zone total</td>
+                          <td className="px-2 py-1.5 text-right">{zt.appts}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.sales}</td>
+                          <td className="px-2 py-1.5 text-right text-indigo-700">{zt.pct}%</td>
+                          <td className="px-2 py-1.5 text-right">{zt.rb}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.ins}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div className="text-[11px] text-slate-500">Appointments counted by appointment date · Sales % = sold ÷ appointments · RB = Radiant Barrier, Insul = Insulation (count of the rep's sales that included it + attach %).</div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function AllNoSits() {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false) // benchmark set/reset in flight
