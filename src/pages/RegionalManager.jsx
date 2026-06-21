@@ -193,11 +193,22 @@ function ApptConversion({ zone }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true); setErr(''); setData(null)
-    fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + period)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (cancelled) return; if (d && d.ok) setData(d); else setErr((d && d.error) || 'Could not load.') })
-      .catch(() => { if (!cancelled) setErr('Network error.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    ;(async () => {
+      // Heavy JobNimbus pull (~5-6s) — auto-retry a couple times so a transient
+      // timeout doesn't flash "Network error."
+      let lastErr = ''
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        try {
+          const res = await fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + period)
+          const d = await res.json()
+          if (cancelled) return
+          if (d && d.ok) { setData(d); setLoading(false); return }
+          lastErr = (d && d.error) || 'Could not load.'
+        } catch { lastErr = 'Network error.' }
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1500))
+      }
+      if (!cancelled) { setErr(lastErr); setLoading(false) }
+    })()
     return () => { cancelled = true }
   }, [zone, period])
 

@@ -359,13 +359,19 @@ function AllApptConversion() {
 
   const load = async (p = period) => {
     setLoading(true); setErr('')
-    try {
-      const res = await fetch(LB_ORIGIN + 'all-appt-conversion?period=' + p)
-      const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenZone(null) }
-      else setErr(d?.error || 'Could not load.')
-    } catch { setErr('Network error.') }
-    setLoading(false)
+    // This report pulls a lot from JobNimbus (~5-6s) so the first hit can time
+    // out — auto-retry a couple times before showing an error.
+    let lastErr = ''
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(LB_ORIGIN + 'all-appt-conversion?period=' + p)
+        const d = await res.json()
+        if (d && d.ok) { setData(d); setOpenZone(null); setLoading(false); return }
+        lastErr = d?.error || 'Could not load.'
+      } catch { lastErr = 'Network error.' }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500))
+    }
+    setErr(lastErr); setLoading(false)
   }
   const setP = (p) => { setPeriod(p); if (data) load(p) }
   const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
