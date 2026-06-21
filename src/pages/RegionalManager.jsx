@@ -203,9 +203,6 @@ function ApptConversion({ zone }) {
 
   const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
   const t = data?.totals
-  const cell = (n, p) => (
-    <div className="col-span-1 text-right leading-tight">{n}<div className="text-[9px] text-slate-500">{p}%</div></div>
-  )
   return (
     <section className="mt-6">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -220,39 +217,69 @@ function ApptConversion({ zone }) {
       {loading && <div className="text-xs text-slate-400">Checking JobNimbus…</div>}
       {err && <div className="text-xs text-red-300">{err}</div>}
       {data && (
-        <div className="overflow-hidden rounded-lg border border-white/15">
-          <div className="grid grid-cols-12 gap-1 bg-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
-            <div className="col-span-4">Rep</div>
-            <div className="col-span-2 text-right">Appts</div>
-            <div className="col-span-2 text-right">Sales %</div>
-            <div className="col-span-1 text-right">Sold</div>
-            <div className="col-span-1 text-right">RB</div>
-            <div className="col-span-2 text-right">Insul</div>
-          </div>
-          {data.reps.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</div>
-          ) : data.reps.map((r) => (
-            <div key={r.rep} className="grid grid-cols-12 items-center gap-1 border-t border-white/10 px-3 py-2 text-sm">
-              <div className="col-span-4 truncate">{r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}</div>
-              <div className="col-span-2 text-right">{r.appts}</div>
-              <div className="col-span-2 text-right font-bold text-amber-200">{r.pct}%<span className="text-[10px] font-normal text-slate-400"> ({r.sales}/{r.appts})</span></div>
-              <div className="col-span-1 text-right font-bold">{r.sales}</div>
-              {cell(r.rb, r.rb_pct)}
-              <div className="col-span-2 text-right leading-tight">{r.ins}<span className="text-[10px] text-slate-500"> ({r.ins_pct}%)</span></div>
-            </div>
-          ))}
-          {t && (
-            <div className="grid grid-cols-12 items-center gap-1 border-t-2 border-white/20 bg-white/5 px-3 py-2 text-sm font-bold">
-              <div className="col-span-4">Zone total</div>
-              <div className="col-span-2 text-right">{t.appts}</div>
-              <div className="col-span-2 text-right text-amber-200">{t.pct}%</div>
-              <div className="col-span-1 text-right">{t.sales}</div>
-              <div className="col-span-1 text-right">{t.rb}</div>
-              <div className="col-span-2 text-right">{t.ins}</div>
-            </div>
-          )}
+        <div className="overflow-x-auto rounded-lg border border-white/15">
+          <table className="w-full whitespace-nowrap text-sm">
+            <thead>
+              <tr className="bg-white/10 text-[10px] uppercase tracking-wide text-slate-300">
+                <th className="px-3 py-2 text-left">Rep</th>
+                <th className="px-2 py-2 text-right">Harv Ap</th>
+                <th className="px-2 py-2 text-right">Comp Ap</th>
+                <th className="px-2 py-2 text-right">BTR Ap</th>
+                <th className="px-2 py-2 text-right">Total Ap</th>
+                <th className="px-2 py-2 text-right">Harv Sl</th>
+                <th className="px-2 py-2 text-right">Comp Sl</th>
+                <th className="px-2 py-2 text-right">BTR Sl</th>
+                <th className="px-2 py-2 text-right">Total Sl</th>
+                <th className="px-2 py-2 text-right">Harv %</th>
+                <th className="px-2 py-2 text-right">Comp %</th>
+                <th className="px-2 py-2 text-right">BTR %</th>
+                <th className="px-2 py-2 text-right">Tot %</th>
+                <th className="px-2 py-2 text-right">Avg $/Sale</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.reps.length === 0 ? (
+                <tr><td colSpan={14} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
+              ) : data.reps.map((r) => (
+                <tr key={r.rep} className="border-t border-white/10">
+                  <td className="px-3 py-1.5">{r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.harvAp}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.compAp}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.btrAp}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.harvSl}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.compSl}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.btrSl}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.harvPct}%</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.compPct}%</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.btrPct}%</td>
+                  <td className="px-2 py-1.5 text-right font-bold text-amber-200">{r.pct}%</td>
+                  <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
+                </tr>
+              ))}
+              {t && (
+                <tr className="border-t-2 border-white/20 bg-white/5 font-bold">
+                  <td className="px-3 py-1.5">Zone total</td>
+                  <td className="px-2 py-1.5 text-right">{t.harvAp}</td>
+                  <td className="px-2 py-1.5 text-right">{t.compAp}</td>
+                  <td className="px-2 py-1.5 text-right">{t.btrAp}</td>
+                  <td className="px-2 py-1.5 text-right">{t.appts}</td>
+                  <td className="px-2 py-1.5 text-right">{t.harvSl}</td>
+                  <td className="px-2 py-1.5 text-right">{t.compSl}</td>
+                  <td className="px-2 py-1.5 text-right">{t.btrSl}</td>
+                  <td className="px-2 py-1.5 text-right">{t.sales}</td>
+                  <td className="px-2 py-1.5 text-right">{t.harvPct}%</td>
+                  <td className="px-2 py-1.5 text-right">{t.compPct}%</td>
+                  <td className="px-2 py-1.5 text-right">{t.btrPct}%</td>
+                  <td className="px-2 py-1.5 text-right text-amber-200">{t.pct}%</td>
+                  <td className="px-2 py-1.5 text-right">${(t.avg || 0).toLocaleString()}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
           <div className="px-3 py-2 text-[10px] text-slate-400">
-            Appointments counted by appointment date. Sales % = sold ÷ appointments. RB = Radiant Barrier, Insul = Insulation — count of this rep's sales that included it (and attach %).
+            Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Harv = harvested · Comp = company lead (IQ/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. Avg $/Sale = approved estimate ÷ sales.
           </div>
         </div>
       )}
