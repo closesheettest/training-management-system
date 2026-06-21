@@ -233,7 +233,7 @@ function ApptConversion({ zone }) {
             <div className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</div>
           ) : data.reps.map((r) => (
             <div key={r.rep} className="grid grid-cols-12 items-center gap-1 border-t border-white/10 px-3 py-2 text-sm">
-              <div className="col-span-4 truncate">{r.rep}</div>
+              <div className="col-span-4 truncate">{r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}</div>
               <div className="col-span-2 text-right">{r.appts}</div>
               <div className="col-span-2 text-right font-bold text-amber-200">{r.pct}%<span className="text-[10px] font-normal text-slate-400"> ({r.sales}/{r.appts})</span></div>
               <div className="col-span-1 text-right font-bold">{r.sales}</div>
