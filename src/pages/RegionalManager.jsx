@@ -222,10 +222,10 @@ function ApptConversion({ zone }) {
             <thead>
               <tr className="bg-white/10 text-[10px] uppercase tracking-wide text-slate-300">
                 <th className="px-3 py-2 text-left">Rep</th>
-                <th className="px-2 py-2 text-right">Harv Ap</th>
-                <th className="px-2 py-2 text-right">Comp Ap</th>
-                <th className="px-2 py-2 text-right">BTR Ap</th>
-                <th className="px-2 py-2 text-right">Total Ap</th>
+                <th className="px-2 py-2 text-right">Harv Apt</th>
+                <th className="px-2 py-2 text-right">Comp Apt</th>
+                <th className="px-2 py-2 text-right">BTR Apt</th>
+                <th className="px-2 py-2 text-right">Total Apt</th>
                 <th className="px-2 py-2 text-right">Harv $</th>
                 <th className="px-2 py-2 text-right">Comp $</th>
                 <th className="px-2 py-2 text-right">BTR $</th>

@@ -420,10 +420,10 @@ function AllApptConversion() {
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left">Rep</th>
-                          <th className="px-2 py-1.5 text-right">Harv Ap</th>
-                          <th className="px-2 py-1.5 text-right">Comp Ap</th>
-                          <th className="px-2 py-1.5 text-right">BTR Ap</th>
-                          <th className="px-2 py-1.5 text-right">Total Ap</th>
+                          <th className="px-2 py-1.5 text-right">Harv Apt</th>
+                          <th className="px-2 py-1.5 text-right">Comp Apt</th>
+                          <th className="px-2 py-1.5 text-right">BTR Apt</th>
+                          <th className="px-2 py-1.5 text-right">Total Apt</th>
                           <th className="px-2 py-1.5 text-right">Harv $</th>
                           <th className="px-2 py-1.5 text-right">Comp $</th>
                           <th className="px-2 py-1.5 text-right">BTR $</th>
