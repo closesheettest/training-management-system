@@ -438,7 +438,7 @@ function AllApptConversion() {
                       <tbody>
                         {z.reps.map((r) => (
                           <tr key={r.rep} className="border-t border-slate-100">
-                            <td className="px-3 py-1.5">{r.rep}</td>
+                            <td className="px-3 py-1.5">{r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
