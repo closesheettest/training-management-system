@@ -408,56 +408,67 @@ function AllApptConversion() {
                   </span>
                   <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-slate-700">
                     <span><span className="text-[10px] uppercase text-slate-400">Appts</span> <b>{zt.appts}</b></span>
-                    <span><span className="text-[10px] uppercase text-slate-400">Harv</span> <b>{zt.harv}</b></span>
-                    <span><span className="text-[10px] uppercase text-slate-400">IQ</span> <b>{zt.iq}</b></span>
-                    <span><span className="text-[10px] uppercase text-slate-400">BTR</span> <b>{zt.btr}</b></span>
                     <span><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sales}</b></span>
                     <span className="font-bold text-indigo-700">{zt.pct}%</span>
-                    <span><span className="text-[10px] uppercase text-slate-400">RB</span> <b>{zt.rb}</b><span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></span>
-                    <span><span className="text-[10px] uppercase text-slate-400">Ins</span> <b>{zt.ins}</b><span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">Avg/Sale</span> <b>${(zt.avg || 0).toLocaleString()}</b></span>
                     <span>{zoneOpen ? '▾' : '▸'}</span>
                   </span>
                 </button>
                 {zoneOpen && (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full whitespace-nowrap text-sm">
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left">Rep</th>
-                          <th className="px-2 py-1.5 text-right">Appts</th>
-                          <th className="px-2 py-1.5 text-right">Harv</th>
-                          <th className="px-2 py-1.5 text-right">IQ</th>
-                          <th className="px-2 py-1.5 text-right">BTR</th>
-                          <th className="px-2 py-1.5 text-right">Sold</th>
-                          <th className="px-2 py-1.5 text-right">Sales %</th>
-                          <th className="px-2 py-1.5 text-right">RB</th>
-                          <th className="px-2 py-1.5 text-right">Insul</th>
+                          <th className="px-2 py-1.5 text-right">Harv Ap</th>
+                          <th className="px-2 py-1.5 text-right">Comp Ap</th>
+                          <th className="px-2 py-1.5 text-right">BTR Ap</th>
+                          <th className="px-2 py-1.5 text-right">Total Ap</th>
+                          <th className="px-2 py-1.5 text-right">Harv Sl</th>
+                          <th className="px-2 py-1.5 text-right">Comp Sl</th>
+                          <th className="px-2 py-1.5 text-right">BTR Sl</th>
+                          <th className="px-2 py-1.5 text-right">Total Sl</th>
+                          <th className="px-2 py-1.5 text-right">Harv %</th>
+                          <th className="px-2 py-1.5 text-right">Comp %</th>
+                          <th className="px-2 py-1.5 text-right">BTR %</th>
+                          <th className="px-2 py-1.5 text-right">Tot %</th>
+                          <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
                         </tr>
                       </thead>
                       <tbody>
                         {z.reps.map((r) => (
                           <tr key={r.rep} className="border-t border-slate-100">
                             <td className="px-3 py-1.5">{r.rep}</td>
-                            <td className="px-2 py-1.5 text-right">{r.appts}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.harv}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.iq}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.btr}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.harvSl}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.compSl}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.btrSl}</td>
                             <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-500">{r.harvPct}%</td>
+                            <td className="px-2 py-1.5 text-right text-slate-500">{r.compPct}%</td>
+                            <td className="px-2 py-1.5 text-right text-slate-500">{r.btrPct}%</td>
                             <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.pct}%</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
+                            <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
                           </tr>
                         ))}
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                           <td className="px-3 py-1.5">Zone total</td>
+                          <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>
                           <td className="px-2 py-1.5 text-right">{zt.appts}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.harv}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.iq}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.btr}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.harvSl}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.compSl}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.btrSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.sales}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.harvPct}%</td>
+                          <td className="px-2 py-1.5 text-right">{zt.compPct}%</td>
+                          <td className="px-2 py-1.5 text-right">{zt.btrPct}%</td>
                           <td className="px-2 py-1.5 text-right text-indigo-700">{zt.pct}%</td>
-                          <td className="px-2 py-1.5 text-right">{zt.rb}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.ins}</td>
+                          <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -470,20 +481,16 @@ function AllApptConversion() {
             <div className="rounded-lg px-4 py-3 text-white shadow" style={{ background: '#1e1b4b' }}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm font-extrabold uppercase tracking-wide">🏢 Company total</span>
-                <span className="flex flex-wrap items-center gap-3 text-sm">
-                  <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b></span>
-                  <span><span className="text-[10px] uppercase opacity-70">Harv</span> <b>{data.totals.harv}</b></span>
-                  <span><span className="text-[10px] uppercase opacity-70">IQ</span> <b>{data.totals.iq}</b></span>
-                  <span><span className="text-[10px] uppercase opacity-70">BTR</span> <b>{data.totals.btr}</b></span>
-                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
+                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvAp}·C{data.totals.compAp}·B{data.totals.btrAp})</span></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvSl}·C{data.totals.compSl}·B{data.totals.btrSl})</span></span>
                   <span className="text-base font-extrabold">{data.totals.pct}%</span>
-                  <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b><span className="text-[10px] opacity-70"> ({data.totals.rb_pct}%)</span></span>
-                  <span><span className="text-[10px] uppercase opacity-70">Ins</span> <b>{data.totals.ins}</b><span className="text-[10px] opacity-70"> ({data.totals.ins_pct}%)</span></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Avg/Sale</span> <b>${(data.totals.avg || 0).toLocaleString()}</b></span>
                 </span>
               </div>
             </div>
           )}
-          <div className="text-[11px] text-slate-500">Appointment = a job with a real appointment task in the period (free-inspection signings excluded). Harv = harvested (Sales Rep Harvested = Yes) · IQ = Instant Quote · BTR = back-to-retail (came from an inspection). Sales % = sold ÷ appointments · RB / Insul = count of the rep's sales that included it (+ attach %).</div>
+          <div className="text-[11px] text-slate-500">Appts counted in the week they happen (free-inspection signings excluded); Sales in the week they close. Buckets: Harv = harvested (Sales Rep Harvested = Yes) · Comp = company lead (IQ / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ appts (can top 100% when a prior-week appt closes this week). Avg $/Sale = approved estimate ÷ sales.</div>
         </div>
       )}
     </section>
