@@ -427,7 +427,7 @@ function AllApptConversion() {
                           <th className="px-2 py-1.5 text-right">Harv Sl</th>
                           <th className="px-2 py-1.5 text-right">Comp Sl</th>
                           <th className="px-2 py-1.5 text-right">BTR Sl</th>
-                          <th className="px-2 py-1.5 text-right">Total Sl</th>
+                          <th className="px-2 py-1.5 text-right">$ Sold</th>
                           <th className="px-2 py-1.5 text-right">Harv %</th>
                           <th className="px-2 py-1.5 text-right">Comp %</th>
                           <th className="px-2 py-1.5 text-right">BTR %</th>
@@ -446,7 +446,7 @@ function AllApptConversion() {
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.harvSl}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compSl}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.btrSl}</td>
-                            <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-500">{r.harvPct}%</td>
                             <td className="px-2 py-1.5 text-right text-slate-500">{r.compPct}%</td>
                             <td className="px-2 py-1.5 text-right text-slate-500">{r.btrPct}%</td>
@@ -463,7 +463,7 @@ function AllApptConversion() {
                           <td className="px-2 py-1.5 text-right">{zt.harvSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.compSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.btrSl}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.sales}</td>
+                          <td className="px-2 py-1.5 text-right">${(zt.amt || 0).toLocaleString()}</td>
                           <td className="px-2 py-1.5 text-right">{zt.harvPct}%</td>
                           <td className="px-2 py-1.5 text-right">{zt.compPct}%</td>
                           <td className="px-2 py-1.5 text-right">{zt.btrPct}%</td>

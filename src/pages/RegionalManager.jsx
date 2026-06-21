@@ -229,7 +229,7 @@ function ApptConversion({ zone }) {
                 <th className="px-2 py-2 text-right">Harv Sl</th>
                 <th className="px-2 py-2 text-right">Comp Sl</th>
                 <th className="px-2 py-2 text-right">BTR Sl</th>
-                <th className="px-2 py-2 text-right">Total Sl</th>
+                <th className="px-2 py-2 text-right">$ Sold</th>
                 <th className="px-2 py-2 text-right">Harv %</th>
                 <th className="px-2 py-2 text-right">Comp %</th>
                 <th className="px-2 py-2 text-right">BTR %</th>
@@ -250,7 +250,7 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.harvSl}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.compSl}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.btrSl}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right text-slate-400">{r.harvPct}%</td>
                   <td className="px-2 py-1.5 text-right text-slate-400">{r.compPct}%</td>
                   <td className="px-2 py-1.5 text-right text-slate-400">{r.btrPct}%</td>
@@ -268,7 +268,7 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right">{t.harvSl}</td>
                   <td className="px-2 py-1.5 text-right">{t.compSl}</td>
                   <td className="px-2 py-1.5 text-right">{t.btrSl}</td>
-                  <td className="px-2 py-1.5 text-right">{t.sales}</td>
+                  <td className="px-2 py-1.5 text-right">${(t.amt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right">{t.harvPct}%</td>
                   <td className="px-2 py-1.5 text-right">{t.compPct}%</td>
                   <td className="px-2 py-1.5 text-right">{t.btrPct}%</td>
