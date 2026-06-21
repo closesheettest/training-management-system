@@ -406,8 +406,11 @@ function AllApptConversion() {
                     <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>{teamLabel(z.zone) || z.zone}</span>
                     <span className="text-xs text-slate-500">{z.zone}</span>
                   </span>
-                  <span className="flex items-center gap-3 text-sm text-slate-700">
+                  <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-slate-700">
                     <span><span className="text-[10px] uppercase text-slate-400">Appts</span> <b>{zt.appts}</b></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">Harv</span> <b>{zt.harv}</b></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">IQ</span> <b>{zt.iq}</b></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">BTR</span> <b>{zt.btr}</b></span>
                     <span><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sales}</b></span>
                     <span className="font-bold text-indigo-700">{zt.pct}%</span>
                     <span><span className="text-[10px] uppercase text-slate-400">RB</span> <b>{zt.rb}</b><span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></span>
@@ -422,6 +425,9 @@ function AllApptConversion() {
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left">Rep</th>
                           <th className="px-2 py-1.5 text-right">Appts</th>
+                          <th className="px-2 py-1.5 text-right">Harv</th>
+                          <th className="px-2 py-1.5 text-right">IQ</th>
+                          <th className="px-2 py-1.5 text-right">BTR</th>
                           <th className="px-2 py-1.5 text-right">Sold</th>
                           <th className="px-2 py-1.5 text-right">Sales %</th>
                           <th className="px-2 py-1.5 text-right">RB</th>
@@ -433,6 +439,9 @@ function AllApptConversion() {
                           <tr key={r.rep} className="border-t border-slate-100">
                             <td className="px-3 py-1.5">{r.rep}</td>
                             <td className="px-2 py-1.5 text-right">{r.appts}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.harv}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.iq}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.btr}</td>
                             <td className="px-2 py-1.5 text-right font-semibold">{r.sales}</td>
                             <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.pct}%</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
@@ -442,6 +451,9 @@ function AllApptConversion() {
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                           <td className="px-3 py-1.5">Zone total</td>
                           <td className="px-2 py-1.5 text-right">{zt.appts}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.harv}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.iq}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.btr}</td>
                           <td className="px-2 py-1.5 text-right">{zt.sales}</td>
                           <td className="px-2 py-1.5 text-right text-indigo-700">{zt.pct}%</td>
                           <td className="px-2 py-1.5 text-right">{zt.rb}</td>
@@ -460,6 +472,9 @@ function AllApptConversion() {
                 <span className="text-sm font-extrabold uppercase tracking-wide">🏢 Company total</span>
                 <span className="flex flex-wrap items-center gap-3 text-sm">
                   <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Harv</span> <b>{data.totals.harv}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">IQ</span> <b>{data.totals.iq}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">BTR</span> <b>{data.totals.btr}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
                   <span className="text-base font-extrabold">{data.totals.pct}%</span>
                   <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b><span className="text-[10px] opacity-70"> ({data.totals.rb_pct}%)</span></span>
@@ -468,7 +483,7 @@ function AllApptConversion() {
               </div>
             </div>
           )}
-          <div className="text-[11px] text-slate-500">Appointments counted by appointment date · Sales % = sold ÷ appointments · RB = Radiant Barrier, Insul = Insulation (count of the rep's sales that included it + attach %). Free-inspection signings are excluded — not counted as an appointment or a sale.</div>
+          <div className="text-[11px] text-slate-500">Appointment = a job with a real appointment task in the period (free-inspection signings excluded). Harv = harvested (Sales Rep Harvested = Yes) · IQ = Instant Quote · BTR = back-to-retail (came from an inspection). Sales % = sold ÷ appointments · RB / Insul = count of the rep's sales that included it (+ attach %).</div>
         </div>
       )}
     </section>
