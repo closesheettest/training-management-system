@@ -81,7 +81,7 @@ export default function RegionalManagers() {
 
       <AllBackToRetailConversions />
 
-      <AllApptConversion />
+      {/* Hidden until the Appointments → Sales report is verified correct. Re-enable: <AllApptConversion /> */}
 
       <AllNoSits />
 

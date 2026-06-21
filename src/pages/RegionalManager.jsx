@@ -133,7 +133,7 @@ export default function RegionalManager() {
 
       <Leaderboard myZone={manager.region} />
 
-      <ApptConversion zone={manager.region} />
+      {/* Hidden until the Appointments → Sales report is verified correct. Re-enable: <ApptConversion zone={manager.region} /> */}
 
       <WeeklyReport token={token} />
 
