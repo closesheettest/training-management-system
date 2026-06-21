@@ -406,9 +406,13 @@ function AllApptConversion() {
                     <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>{teamLabel(z.zone) || z.zone}</span>
                     <span className="text-xs text-slate-500">{z.zone}</span>
                   </span>
-                  <span className="text-sm text-slate-700">
+                  <span className="flex items-center gap-3 text-sm text-slate-700">
+                    <span><span className="text-[10px] uppercase text-slate-400">Appts</span> <b>{zt.appts}</b></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sales}</b></span>
                     <span className="font-bold text-indigo-700">{zt.pct}%</span>
-                    <span className="ml-2 text-slate-500">{zt.sales}/{zt.appts}</span> {zoneOpen ? '▾' : '▸'}
+                    <span><span className="text-[10px] uppercase text-slate-400">RB</span> <b>{zt.rb}</b><span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></span>
+                    <span><span className="text-[10px] uppercase text-slate-400">Ins</span> <b>{zt.ins}</b><span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></span>
+                    <span>{zoneOpen ? '▾' : '▸'}</span>
                   </span>
                 </button>
                 {zoneOpen && (
@@ -450,7 +454,21 @@ function AllApptConversion() {
               </div>
             )
           })}
-          <div className="text-[11px] text-slate-500">Appointments counted by appointment date · Sales % = sold ÷ appointments · RB = Radiant Barrier, Insul = Insulation (count of the rep's sales that included it + attach %).</div>
+          {data.totals && (
+            <div className="rounded-lg px-4 py-3 text-white shadow" style={{ background: '#1e1b4b' }}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-sm font-extrabold uppercase tracking-wide">🏢 Company total</span>
+                <span className="flex flex-wrap items-center gap-3 text-sm">
+                  <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
+                  <span className="text-base font-extrabold">{data.totals.pct}%</span>
+                  <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b><span className="text-[10px] opacity-70"> ({data.totals.rb_pct}%)</span></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Ins</span> <b>{data.totals.ins}</b><span className="text-[10px] opacity-70"> ({data.totals.ins_pct}%)</span></span>
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="text-[11px] text-slate-500">Appointments counted by appointment date · Sales % = sold ÷ appointments · RB = Radiant Barrier, Insul = Insulation (count of the rep's sales that included it + attach %). Free-inspection signings are excluded — not counted as an appointment or a sale.</div>
         </div>
       )}
     </section>
