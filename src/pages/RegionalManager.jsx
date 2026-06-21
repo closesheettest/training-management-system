@@ -133,6 +133,8 @@ export default function RegionalManager() {
 
       <Leaderboard myZone={manager.region} />
 
+      <ApptConversion zone={manager.region} />
+
       <WeeklyReport token={token} />
 
       <DealsToFix zone={manager.region} />
@@ -179,6 +181,84 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 const LB_ZONE_COLOR = { 'Zone 1': '#dc2626', 'Zone 2': '#2563eb', 'Zone 3': '#16a34a', 'Zone 4': '#ea580c' }
 const LB_MEDALS = ['🥇', '🥈', '🥉', '']
 function lbOrdinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]) }
+
+// Appointments → Sales conversion per rep (this zone), with Radiant Barrier /
+// Insulation attach rates. Appointments = JN jobs by appointment date; sales =
+// those now in a sold status. Period toggle: this week / last week / month.
+function ApptConversion({ zone }) {
+  const [period, setPeriod] = useState('week')
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setErr(''); setData(null)
+    fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + period)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (cancelled) return; if (d && d.ok) setData(d); else setErr((d && d.error) || 'Could not load.') })
+      .catch(() => { if (!cancelled) setErr('Network error.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [zone, period])
+
+  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
+  const t = data?.totals
+  const cell = (n, p) => (
+    <div className="col-span-1 text-right leading-tight">{n}<div className="text-[9px] text-slate-500">{p}%</div></div>
+  )
+  return (
+    <section className="mt-6">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-amber-300">📈 Appointments → Sales</h2>
+        <div className="flex gap-1">
+          {periods.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setPeriod(k)}
+              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-amber-400 text-black' : 'bg-white/10 text-slate-200')}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {loading && <div className="text-xs text-slate-400">Checking JobNimbus…</div>}
+      {err && <div className="text-xs text-red-300">{err}</div>}
+      {data && (
+        <div className="overflow-hidden rounded-lg border border-white/15">
+          <div className="grid grid-cols-12 gap-1 bg-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+            <div className="col-span-4">Rep</div>
+            <div className="col-span-2 text-right">Appts</div>
+            <div className="col-span-2 text-right">Sales %</div>
+            <div className="col-span-1 text-right">Sold</div>
+            <div className="col-span-1 text-right">RB</div>
+            <div className="col-span-2 text-right">Insul</div>
+          </div>
+          {data.reps.length === 0 ? (
+            <div className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</div>
+          ) : data.reps.map((r) => (
+            <div key={r.rep} className="grid grid-cols-12 items-center gap-1 border-t border-white/10 px-3 py-2 text-sm">
+              <div className="col-span-4 truncate">{r.rep}</div>
+              <div className="col-span-2 text-right">{r.appts}</div>
+              <div className="col-span-2 text-right font-bold text-amber-200">{r.pct}%<span className="text-[10px] font-normal text-slate-400"> ({r.sales}/{r.appts})</span></div>
+              <div className="col-span-1 text-right font-bold">{r.sales}</div>
+              {cell(r.rb, r.rb_pct)}
+              <div className="col-span-2 text-right leading-tight">{r.ins}<span className="text-[10px] text-slate-500"> ({r.ins_pct}%)</span></div>
+            </div>
+          ))}
+          {t && (
+            <div className="grid grid-cols-12 items-center gap-1 border-t-2 border-white/20 bg-white/5 px-3 py-2 text-sm font-bold">
+              <div className="col-span-4">Zone total</div>
+              <div className="col-span-2 text-right">{t.appts}</div>
+              <div className="col-span-2 text-right text-amber-200">{t.pct}%</div>
+              <div className="col-span-1 text-right">{t.sales}</div>
+              <div className="col-span-1 text-right">{t.rb}</div>
+              <div className="col-span-2 text-right">{t.ins}</div>
+            </div>
+          )}
+          <div className="px-3 py-2 text-[10px] text-slate-400">
+            Appointments counted by appointment date. Sales % = sold ÷ appointments. RB = Radiant Barrier, Insul = Insulation — count of this rep's sales that included it (and attach %).
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
 
 function Leaderboard({ myZone }) {
   const [period, setPeriod] = useState('week')
