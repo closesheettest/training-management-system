@@ -586,6 +586,7 @@ function AllApptConversion() {
                   <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvAp}·C{data.totals.compAp}·B{data.totals.btrAp})</span></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvSl}·C{data.totals.compSl}·B{data.totals.btrSl})</span></span>
                   <span className="text-base font-extrabold">{data.totals.pct}%</span>
+                  <span><span className="text-[10px] uppercase opacity-70">$ Sold</span> <b>${(data.totals.amt || 0).toLocaleString()}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Avg/Sale</span> <b>${(data.totals.avg || 0).toLocaleString()}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b> <span className="text-[11px] opacity-70">({data.totals.rb_pct}%)</span></span>
                   <span><span className="text-[10px] uppercase opacity-70">Insul</span> <b>{data.totals.ins}</b> <span className="text-[11px] opacity-70">({data.totals.ins_pct}%)</span></span>
