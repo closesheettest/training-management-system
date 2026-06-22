@@ -356,8 +356,8 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, sold: d.sold, start: d.start, appt: false, sale: false, amt: 0 }
-    e.sold = d.sold || e.sold; e.start = d.start || e.start
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, appt: false, sale: false, amt: 0 }
+    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -382,7 +382,7 @@ function ApptDetail({ details }) {
             {e.sale && <span className="mr-1 rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
           </span>
-          <span className="whitespace-nowrap text-slate-500">{e.status}{(e.sold || e.start) ? ` · sold ${e.sold || '—'} · start ${e.start || '—'}` : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-500">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? ` · start ${e.start}` : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
       ))}
     </div>
