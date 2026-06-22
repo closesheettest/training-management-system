@@ -211,34 +211,50 @@ function ApptDetail({ details }) {
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
   const nFix = list.filter((e) => fixReasonsFor(e).length).length
+  const TH = 'px-2 py-1 text-left font-semibold text-[9px] uppercase tracking-wide text-slate-400'
+  const TD = 'px-2 py-1 align-top whitespace-nowrap'
   return (
-    <div className="space-y-0.5">
-      <div className="mb-1 text-[10px] text-slate-400">
+    <div className="space-y-1">
+      <div className="text-[10px] text-slate-400">
         <b>Appts</b> H{c('appt', 'harv')} · C{c('appt', 'comp')} · B{c('appt', 'btr')} = {list.filter((e) => e.appt).length}
         &nbsp;&nbsp;|&nbsp;&nbsp;<b>Sales</b> H{c('sale', 'harv')} · C{c('sale', 'comp')} · B{c('sale', 'btr')} = {list.filter((e) => e.sale).length}
-        <span className="ml-1 italic">— a row tagged both APPT + SALE counts in each.</span>
         {nFix > 0 && <span className="ml-1 font-semibold text-amber-300">· ⚠ {nFix} need fixing in JN</span>}
       </div>
-      {list.map((e, i) => {
-        const reasons = fixReasonsFor(e)
-        const bad = reasons.length > 0
-        return (
-        <div key={i} className={'flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]' + (bad ? ' bg-amber-400/10' : '')}>
-          <span className="truncate">
-            {bad && <span title={'Manager needs to fix in JN: ' + reasons.join('; ')} className="mr-1 font-bold text-amber-300">⚠</span>}
-            {e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}
-            {e.sale && <span className="mr-1 rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}
-            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> / {e.customer}{e.address ? <span className="text-slate-400"> / {e.address}</span> : ''}{e.source ? <span className="text-slate-400"> / src {e.source}</span> : ''}
-            {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
-            {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">not statused</span>}
-            {e.sale && e.rb && <span className="ml-1 rounded bg-sky-400/20 px-1 font-semibold text-sky-200">RB</span>}
-            {e.sale && e.ins && <span className="ml-1 rounded bg-violet-400/20 px-1 font-semibold text-violet-200">Insul</span>}
-            {e.sale && e.roofrStatus === 'no_pdf' && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">need Roofr</span>}
-          </span>
-          <span className="whitespace-nowrap text-slate-300">{e.status}{` / appt ${e.apptDate || '—'}`}{e.sale ? ` / sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-300' : ''}>{` / start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> / start —</span>}{e.sale ? ' / $' + (e.amt || 0).toLocaleString() : ''}{e.sale && e.pitch ? <span className="font-semibold text-slate-100">{` / pitch ${e.pitch}`}</span> : ''}</span>
-        </div>
-        )
-      })}
+      <div className="overflow-x-auto rounded border border-white/10">
+        <table className="w-full border-collapse text-[11px]">
+          <thead>
+            <tr className="bg-white/10">
+              <th className={TH}>Type</th><th className={TH}>Bkt</th><th className={TH}>Customer</th><th className={TH}>Address</th>
+              <th className={TH}>Source</th><th className={TH}>Status</th><th className={TH}>Appt</th><th className={TH}>Sold</th>
+              <th className={TH}>Start</th><th className={TH + ' text-right'}>$</th><th className={TH}>Pitch</th>
+              <th className={TH}>RB</th><th className={TH}>Insul</th><th className={TH}>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((e, i) => {
+              const reasons = fixReasonsFor(e)
+              return (
+                <tr key={i} className={'border-t border-white/10 ' + (reasons.length ? 'bg-amber-400/10' : '')}>
+                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}{e.sale && <span className="rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}</td>
+                  <td className={TD + ' text-slate-400'}>{(e.cat || '').toUpperCase()}</td>
+                  <td className={TD + ' font-medium text-slate-100'}>{e.customer}</td>
+                  <td className="px-2 py-1 align-top text-slate-400">{e.address || '—'}</td>
+                  <td className={TD + ' text-slate-400'}>{e.source || '—'}</td>
+                  <td className={TD + ' text-slate-300'}>{e.status || '—'}</td>
+                  <td className={TD + ' text-slate-300'}>{e.apptDate || '—'}</td>
+                  <td className={TD + ' text-slate-300'}>{e.sale ? (e.sold || '—') : ''}</td>
+                  <td className={TD + (fixStartBad(e) ? ' font-semibold text-amber-300' : ' text-slate-300')}>{e.start || '—'}</td>
+                  <td className={TD + ' text-right font-medium text-slate-100'}>{e.sale ? '$' + (e.amt || 0).toLocaleString() : ''}</td>
+                  <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-100">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-300">need Roofr</span> : '—')) : ''}</td>
+                  <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-300">✓</span> : ''}</td>
+                  <td className={TD + ' text-center'}>{e.sale && e.ins ? <span className="font-bold text-violet-300">✓</span> : ''}</td>
+                  <td className={TD} title={reasons.join('; ')}>{reasons.length ? <span className="font-bold text-amber-300">⚠</span> : ''}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
