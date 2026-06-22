@@ -201,9 +201,7 @@ function ApptDetail({ details }) {
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
   const startBad = (e) => !!e.apptDate && e.start !== e.apptDate   // start blank or ≠ appt date
-  const apptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
-  const notStatused = (e) => apptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
-  const fixReasons = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', startBad(e) && (e.start ? 'Start date ≠ appt date' : 'no Start date'), notStatused(e) && 'appointment past but never statused'].filter(Boolean)
+  const fixReasons = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', startBad(e) && (e.start ? 'Start date ≠ appt date' : 'no Start date')].filter(Boolean)
   const nFix = list.filter((e) => fixReasons(e).length).length
   return (
     <div className="space-y-0.5">
@@ -224,7 +222,6 @@ function ApptDetail({ details }) {
             {e.sale && <span className="mr-1 rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
-            {notStatused(e) && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">not statused</span>}
           </span>
           <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={startBad(e) ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
