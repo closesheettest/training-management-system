@@ -437,9 +437,9 @@ function AllApptConversion() {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Sold', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const z of data.zones) {
       for (const r of z.reps) rows.push(repRow(z.zone, r))
@@ -509,6 +509,7 @@ function AllApptConversion() {
                           <th className="px-2 py-1.5 text-right">Comp Apt</th>
                           <th className="px-2 py-1.5 text-right">BTR Apt</th>
                           <th className="px-2 py-1.5 text-right">Total Apt</th>
+                          <th className="px-2 py-1.5 text-right">Sold</th>
                           <th className="px-2 py-1.5 text-right">Harv $</th>
                           <th className="px-2 py-1.5 text-right">Comp $</th>
                           <th className="px-2 py-1.5 text-right">BTR $</th>
@@ -534,6 +535,7 @@ function AllApptConversion() {
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
                             <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{r.sales}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">${(r.harvAmt || 0).toLocaleString()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">${(r.compAmt || 0).toLocaleString()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">${(r.btrAmt || 0).toLocaleString()}</td>
@@ -547,7 +549,7 @@ function AllApptConversion() {
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                           </tr>
                           {open && (
-                            <tr><td colSpan={16} className="bg-slate-50 px-4 py-2">
+                            <tr><td colSpan={17} className="bg-slate-50 px-4 py-2">
                               <ApptDetail details={r.details} />
                             </td></tr>
                           )}
@@ -560,6 +562,7 @@ function AllApptConversion() {
                           <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
                           <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>
                           <td className="px-2 py-1.5 text-right">{zt.appts}</td>
+                          <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{zt.sales}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.harvAmt || 0).toLocaleString()}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.compAmt || 0).toLocaleString()}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.btrAmt || 0).toLocaleString()}</td>

@@ -293,6 +293,7 @@ function ApptConversion({ zone }) {
                 <th className="px-2 py-2 text-right">Comp Apt</th>
                 <th className="px-2 py-2 text-right">BTR Apt</th>
                 <th className="px-2 py-2 text-right">Total Apt</th>
+                <th className="px-2 py-2 text-right">Sold</th>
                 <th className="px-2 py-2 text-right">Harv $</th>
                 <th className="px-2 py-2 text-right">Comp $</th>
                 <th className="px-2 py-2 text-right">BTR $</th>
@@ -308,7 +309,7 @@ function ApptConversion({ zone }) {
             </thead>
             <tbody>
               {data.reps.length === 0 ? (
-                <tr><td colSpan={16} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
+                <tr><td colSpan={17} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
               ) : data.reps.map((r) => {
                 const open = openRep === r.rep
                 return (
@@ -319,6 +320,7 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.compAp}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.btrAp}</td>
                   <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold text-emerald-300">{r.sales}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">${(r.harvAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">${(r.compAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">${(r.btrAmt || 0).toLocaleString()}</td>
@@ -332,7 +334,7 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                 </tr>
                 {open && (
-                  <tr><td colSpan={16} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                  <tr><td colSpan={17} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
                 )}
                 </Fragment>
                 )
@@ -344,6 +346,7 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right">{t.compAp}</td>
                   <td className="px-2 py-1.5 text-right">{t.btrAp}</td>
                   <td className="px-2 py-1.5 text-right">{t.appts}</td>
+                  <td className="px-2 py-1.5 text-right font-semibold text-emerald-300">{t.sales}</td>
                   <td className="px-2 py-1.5 text-right">${(t.harvAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right">${(t.compAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right">${(t.btrAmt || 0).toLocaleString()}</td>
