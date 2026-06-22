@@ -191,8 +191,8 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
-    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.fromAssigned = e.fromAssigned || d.fromAssigned
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
+    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.fromAssigned = e.fromAssigned || d.fromAssigned
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -232,7 +232,7 @@ function ApptDetail({ details }) {
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
             {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">not statused</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}{e.sale && e.pitch ? <span className="font-semibold text-slate-100">{` · pitch ${e.pitch}`}</span> : ''}</span>
         </div>
         )
       })}
