@@ -200,23 +200,30 @@ function ApptDetail({ details }) {
   const list = [...byDeal.values()].sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
+  const isStale = (e) => !!e.apptDate && !!e.start && e.start !== e.apptDate   // JN Start date never updated to the appt date
+  const nStale = list.filter(isStale).length
   return (
     <div className="space-y-0.5">
       <div className="mb-1 text-[10px] text-slate-400">
         <b>Appts</b> H{c('appt', 'harv')} · C{c('appt', 'comp')} · B{c('appt', 'btr')} = {list.filter((e) => e.appt).length}
         &nbsp;&nbsp;|&nbsp;&nbsp;<b>Sales</b> H{c('sale', 'harv')} · C{c('sale', 'comp')} · B{c('sale', 'btr')} = {list.filter((e) => e.sale).length}
         <span className="ml-1 italic">— a row tagged both APPT + SALE counts in each.</span>
+        {nStale > 0 && <span className="ml-1 font-semibold text-amber-300">· ⚠ {nStale} start≠appt (JN needs updating)</span>}
       </div>
-      {list.map((e, i) => (
-        <div key={i} className="flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]">
+      {list.map((e, i) => {
+        const stale = isStale(e)
+        return (
+        <div key={i} className={'flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]' + (stale ? ' bg-amber-400/10' : '')}>
           <span className="truncate">
+            {stale && <span title="JN Start date doesn't match the appointment date — the manager never updated it" className="mr-1 font-bold text-amber-300">⚠</span>}
             {e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}
             {e.sale && <span className="mr-1 rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
           </span>
-          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? ` · start ${e.start}` : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={stale ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
