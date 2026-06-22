@@ -191,8 +191,8 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
-    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.fromAssigned = e.fromAssigned || d.fromAssigned
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
+    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.source = d.source || e.source; e.fromAssigned = e.fromAssigned || d.fromAssigned
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -228,7 +228,7 @@ function ApptDetail({ details }) {
             {bad && <span title={'Manager needs to fix in JN: ' + reasons.join('; ')} className="mr-1 font-bold text-amber-300">⚠</span>}
             {e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}
             {e.sale && <span className="mr-1 rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}
-            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
+            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}{e.source ? <span className="text-slate-400"> · src {e.source}</span> : ''}
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
             {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">not statused</span>}
             {e.sale && e.rb && <span className="ml-1 rounded bg-sky-400/20 px-1 font-semibold text-sky-200">RB</span>}
