@@ -210,7 +210,7 @@ function AdminLayout() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <BrandStripe />
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-screen-2xl flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/" className="flex items-center gap-3">
             <BrandMark />
             <div className="flex flex-col leading-tight">
@@ -235,7 +235,7 @@ function AdminLayout() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-screen-2xl px-6 py-10">
         <Outlet />
       </main>
     </div>
