@@ -191,20 +191,23 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, jnids: new Set(), appt: false, sale: false, amt: 0 }
     e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.source = d.source || e.source; e.fromAssigned = e.fromAssigned || d.fromAssigned
+    if (d.jnid) e.jnids.add(d.jnid)
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
   }
-  return [...byDeal.values()].sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
+  const arr = [...byDeal.values()]
+  arr.forEach((e) => { e.dupCount = e.jnids.size })
+  return arr.sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
 }
 // JN data-hygiene checks behind the ⚠ flag (per merged deal).
 const fixWeekStart = (s) => { const x = new Date(s); if (isNaN(x)) return null; x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime() }  // Monday of that week
 const fixStartBad = (e) => { if (!e.apptDate) return false; if (!e.start) return true; const a = fixWeekStart(e.apptDate), s = fixWeekStart(e.start); return a == null || s == null ? false : a !== s }  // start blank, or in a DIFFERENT week than the appt
 const fixApptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
 const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
-const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.sale && e.roofrStatus === 'no_pdf' && 'no Roofr report attached'].filter(Boolean)
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.sale && e.roofrStatus === 'no_pdf' && 'no Roofr report attached', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
@@ -237,7 +240,7 @@ function ApptDetail({ details }) {
                 <tr key={i} className={'border-t border-white/10 ' + (reasons.length ? 'bg-amber-400/10' : '')}>
                   <td className={TD}>{e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}{e.sale && <span className="rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}</td>
                   <td className={TD + ' text-slate-400'}>{(e.cat || '').toUpperCase()}</td>
-                  <td className={TD + ' font-medium text-slate-100'}>{e.customer}</td>
+                  <td className={TD + ' font-medium text-slate-100'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-amber-400/20 px-1 text-[9px] font-bold text-amber-200">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-400">{e.address || '—'}</td>
                   <td className={TD + ' text-slate-400'}>{e.source || '—'}</td>
                   <td className={TD + ' text-slate-300'}>{e.status || '—'}</td>
