@@ -191,8 +191,8 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
-    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.fromAssigned = e.fromAssigned || d.fromAssigned
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
+    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.fromAssigned = e.fromAssigned || d.fromAssigned
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -204,7 +204,7 @@ const fixWeekStart = (s) => { const x = new Date(s); if (isNaN(x)) return null; 
 const fixStartBad = (e) => { if (!e.apptDate) return false; if (!e.start) return true; const a = fixWeekStart(e.apptDate), s = fixWeekStart(e.start); return a == null || s == null ? false : a !== s }  // start blank, or in a DIFFERENT week than the appt
 const fixApptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
 const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
-const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused'].filter(Boolean)
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.sale && e.roofrStatus === 'no_pdf' && 'no Roofr report attached'].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
@@ -231,6 +231,9 @@ function ApptDetail({ details }) {
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
             {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">not statused</span>}
+            {e.sale && e.rb && <span className="ml-1 rounded bg-sky-400/20 px-1 font-semibold text-sky-200">RB</span>}
+            {e.sale && e.ins && <span className="ml-1 rounded bg-violet-400/20 px-1 font-semibold text-violet-200">Insul</span>}
+            {e.sale && e.roofrStatus === 'no_pdf' && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">need Roofr</span>}
           </span>
           <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}{e.sale && e.pitch ? <span className="font-semibold text-slate-100">{` · pitch ${e.pitch}`}</span> : ''}</span>
         </div>
