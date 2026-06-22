@@ -367,17 +367,22 @@ function mergeDeals(details) {
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
+  const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
   return (
     <div className="space-y-0.5">
+      <div className="mb-1 text-[10px] text-slate-500">
+        <b>Appts</b> H{c('appt', 'harv')} · C{c('appt', 'comp')} · B{c('appt', 'btr')} = {list.filter((e) => e.appt).length}
+        &nbsp;&nbsp;|&nbsp;&nbsp;<b>Sales</b> H{c('sale', 'harv')} · C{c('sale', 'comp')} · B{c('sale', 'btr')} = {list.filter((e) => e.sale).length}
+        <span className="ml-1 italic text-slate-400">— a row tagged both APPT + SALE counts in each.</span>
+      </div>
       {list.map((e, i) => (
         <div key={i} className="flex items-center justify-between gap-3 border-b border-slate-100 py-0.5 text-[11px]">
           <span className="truncate">
-            <span className={'mr-1 rounded px-1 font-bold ' + (e.sale ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600')}>{e.sale ? 'SALE' : 'APPT'}</span>
+            {e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}
+            {e.sale && <span className="mr-1 rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
-            {e.sale && e.appt && <span className="ml-1 text-slate-400">· appt this wk</span>}
-            {(e.sold || e.start) && <span className="ml-1 text-slate-400">· sold {e.sold || '—'} · start {e.start || '—'}</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-500">{e.status}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-500">{e.status}{(e.sold || e.start) ? ` · sold ${e.sold || '—'} · start ${e.start || '—'}` : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
       ))}
     </div>
