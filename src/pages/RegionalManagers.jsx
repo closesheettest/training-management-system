@@ -364,13 +364,17 @@ function mergeDeals(details) {
   }
   return [...byDeal.values()].sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
 }
+// JN data-hygiene checks behind the ⚠ flag (per merged deal).
+const fixStartBad = (e) => !!e.apptDate && e.start !== e.apptDate   // start blank or ≠ appt date
+const fixApptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
+const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date ≠ appt date' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused'].filter(Boolean)
+function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
-  const startBad = (e) => !!e.apptDate && e.start !== e.apptDate   // start blank or ≠ appt date
-  const fixReasons = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', startBad(e) && (e.start ? 'Start date ≠ appt date' : 'no Start date')].filter(Boolean)
-  const nFix = list.filter((e) => fixReasons(e).length).length
+  const nFix = list.filter((e) => fixReasonsFor(e).length).length
   return (
     <div className="space-y-0.5">
       <div className="mb-1 text-[10px] text-slate-500">
@@ -380,7 +384,7 @@ function ApptDetail({ details }) {
         {nFix > 0 && <span className="ml-1 font-semibold text-amber-600">· ⚠ {nFix} need fixing in JN</span>}
       </div>
       {list.map((e, i) => {
-        const reasons = fixReasons(e)
+        const reasons = fixReasonsFor(e)
         const bad = reasons.length > 0
         return (
         <div key={i} className={'flex items-center justify-between gap-3 border-b border-slate-100 py-0.5 text-[11px]' + (bad ? ' bg-amber-50' : '')}>
@@ -390,8 +394,9 @@ function ApptDetail({ details }) {
             {e.sale && <span className="mr-1 rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-100 px-1 font-semibold text-amber-700">no Sales Rep</span>}
+            {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-100 px-1 font-semibold text-amber-700">not statused</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-500">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={startBad(e) ? 'font-semibold text-amber-600' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-600"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-500">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-600' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-600"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
         )
       })}
@@ -523,7 +528,7 @@ function AllApptConversion() {
                           return (
                           <Fragment key={rk}>
                           <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenRep(open ? null : rk)}>
-                            <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}</td>
+                            <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
