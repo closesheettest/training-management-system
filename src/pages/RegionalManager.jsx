@@ -191,8 +191,8 @@ function ApptDetail({ details }) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, appt: false, sale: false, amt: 0 }
-    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, apptDate: d.apptDate, sold: d.sold, start: d.start, fromAssigned: d.fromAssigned, appt: false, sale: false, amt: 0 }
+    e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.fromAssigned = e.fromAssigned || d.fromAssigned
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -200,27 +200,30 @@ function ApptDetail({ details }) {
   const list = [...byDeal.values()].sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
-  const isStale = (e) => !!e.apptDate && !!e.start && e.start !== e.apptDate   // JN Start date never updated to the appt date
-  const nStale = list.filter(isStale).length
+  const startBad = (e) => !!e.apptDate && e.start !== e.apptDate   // start blank or ≠ appt date
+  const fixReasons = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', startBad(e) && (e.start ? 'Start date ≠ appt date' : 'no Start date')].filter(Boolean)
+  const nFix = list.filter((e) => fixReasons(e).length).length
   return (
     <div className="space-y-0.5">
       <div className="mb-1 text-[10px] text-slate-400">
         <b>Appts</b> H{c('appt', 'harv')} · C{c('appt', 'comp')} · B{c('appt', 'btr')} = {list.filter((e) => e.appt).length}
         &nbsp;&nbsp;|&nbsp;&nbsp;<b>Sales</b> H{c('sale', 'harv')} · C{c('sale', 'comp')} · B{c('sale', 'btr')} = {list.filter((e) => e.sale).length}
         <span className="ml-1 italic">— a row tagged both APPT + SALE counts in each.</span>
-        {nStale > 0 && <span className="ml-1 font-semibold text-amber-300">· ⚠ {nStale} start≠appt (JN needs updating)</span>}
+        {nFix > 0 && <span className="ml-1 font-semibold text-amber-300">· ⚠ {nFix} need fixing in JN</span>}
       </div>
       {list.map((e, i) => {
-        const stale = isStale(e)
+        const reasons = fixReasons(e)
+        const bad = reasons.length > 0
         return (
-        <div key={i} className={'flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]' + (stale ? ' bg-amber-400/10' : '')}>
+        <div key={i} className={'flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]' + (bad ? ' bg-amber-400/10' : '')}>
           <span className="truncate">
-            {stale && <span title="JN Start date doesn't match the appointment date — the manager never updated it" className="mr-1 font-bold text-amber-300">⚠</span>}
+            {bad && <span title={'Manager needs to fix in JN: ' + reasons.join('; ')} className="mr-1 font-bold text-amber-300">⚠</span>}
             {e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}
             {e.sale && <span className="mr-1 rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
+            {e.fromAssigned && <span className="ml-1 rounded bg-amber-400/20 px-1 font-semibold text-amber-200">no Sales Rep</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={stale ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : ''}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-300">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={startBad(e) ? 'font-semibold text-amber-300' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-300"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
         )
       })}
