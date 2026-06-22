@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -185,11 +185,31 @@ function lbOrdinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return 
 // Appointments → Sales conversion per rep (this zone), with Radiant Barrier /
 // Insulation attach rates. Appointments = JN jobs by appointment date; sales =
 // those now in a sold status. Period toggle: this week / last week / month.
+// Drill-down detail (dark theme) — the appointments + sales behind a rep's row.
+function ApptDetail({ details }) {
+  const list = (details || []).slice().sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'sale' ? -1 : 1))
+  if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
+  return (
+    <div className="space-y-0.5">
+      {list.map((d, i) => (
+        <div key={i} className="flex items-center justify-between gap-3 border-b border-white/10 py-0.5 text-[11px]">
+          <span className="truncate">
+            <span className={'mr-1 rounded px-1 font-bold ' + (d.kind === 'sale' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-white/15 text-slate-200')}>{d.kind === 'sale' ? 'SALE' : 'APPT'}</span>
+            <span className="text-slate-400">{(d.cat || '').toUpperCase()}</span> · {d.customer}{d.address ? <span className="text-slate-400"> · {d.address}</span> : ''}
+          </span>
+          <span className="whitespace-nowrap text-slate-300">{d.status}{d.kind === 'sale' ? ' · $' + (d.amt || 0).toLocaleString() : ''}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ApptConversion({ zone }) {
   const [period, setPeriod] = useState('week')
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const [openRep, setOpenRep] = useState(null)   // rep name — drill-down detail
   useEffect(() => {
     let cancelled = false
     setLoading(true); setErr(''); setData(null)
@@ -251,9 +271,12 @@ function ApptConversion({ zone }) {
             <tbody>
               {data.reps.length === 0 ? (
                 <tr><td colSpan={14} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
-              ) : data.reps.map((r) => (
-                <tr key={r.rep} className="border-t border-white/10">
-                  <td className="px-3 py-1.5">{r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}</td>
+              ) : data.reps.map((r) => {
+                const open = openRep === r.rep
+                return (
+                <Fragment key={r.rep}>
+                <tr className="cursor-pointer border-t border-white/10 hover:bg-white/5" onClick={() => setOpenRep(open ? null : r.rep)}>
+                  <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.harvAp}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.compAp}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">{r.btrAp}</td>
@@ -262,13 +285,18 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right text-slate-300">${(r.compAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right text-slate-300">${(r.btrAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.harvPct}%</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.compPct}%</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.btrPct}%</td>
-                  <td className="px-2 py-1.5 text-right font-bold text-amber-200">{r.pct}%</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.harvAp ? r.harvPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.compAp ? r.compPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-400">{r.btrAp ? r.btrPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right font-bold text-amber-200">{r.appts ? r.pct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
                 </tr>
-              ))}
+                {open && (
+                  <tr><td colSpan={14} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                )}
+                </Fragment>
+                )
+              })}
               {t && (
                 <tr className="border-t-2 border-white/20 bg-white/5 font-bold">
                   <td className="px-3 py-1.5">Zone total</td>
@@ -280,10 +308,10 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right">${(t.compAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right">${(t.btrAmt || 0).toLocaleString()}</td>
                   <td className="px-2 py-1.5 text-right">${(t.amt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">{t.harvPct}%</td>
-                  <td className="px-2 py-1.5 text-right">{t.compPct}%</td>
-                  <td className="px-2 py-1.5 text-right">{t.btrPct}%</td>
-                  <td className="px-2 py-1.5 text-right text-amber-200">{t.pct}%</td>
+                  <td className="px-2 py-1.5 text-right">{t.harvAp ? t.harvPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right">{t.compAp ? t.compPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right">{t.btrAp ? t.btrPct + '%' : '—'}</td>
+                  <td className="px-2 py-1.5 text-right text-amber-200">{t.appts ? t.pct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right">${(t.avg || 0).toLocaleString()}</td>
                 </tr>
               )}
