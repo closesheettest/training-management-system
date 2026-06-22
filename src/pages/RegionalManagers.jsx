@@ -376,6 +376,27 @@ function AllApptConversion() {
   const setP = (p) => { setPeriod(p); if (data) load(p) }
   const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
 
+  // Spreadsheet-friendly CSV of the whole report: every rep across all zones,
+  // each zone total, then the company total. Amounts/percents as plain numbers.
+  const downloadCsv = () => {
+    if (!data) return
+    const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg]
+    const rows = [cols]
+    for (const z of data.zones) {
+      for (const r of z.reps) rows.push(repRow(z.zone, r))
+      rows.push(totRow(z.zone + ' TOTAL', z.totals))
+    }
+    rows.push(totRow('COMPANY TOTAL', data.totals))
+    const csv = rows.map((row) => row.map(esc).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `appt-to-sales-${data.period}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <section className="mb-6">
       <button type="button" onClick={() => load()} disabled={loading}
@@ -387,11 +408,13 @@ function AllApptConversion() {
       </button>
 
       {data && (
-        <div className="mt-2 flex gap-1">
+        <div className="mt-2 flex items-center gap-1">
           {periods.map(([k, label]) => (
             <button key={k} type="button" onClick={() => setP(k)}
               className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
           ))}
+          <button type="button" onClick={downloadCsv}
+            className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⬇ CSV</button>
         </div>
       )}
       {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
