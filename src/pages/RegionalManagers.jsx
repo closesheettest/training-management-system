@@ -350,19 +350,32 @@ function AllBackToRetailConversions() {
 // Backed by the CCG all-no-sits function.
 // Company-wide Appointments → Sales conversion, grouped zone → rep, with
 // Radiant Barrier / Insulation attach rates. Period toggle (week/last/month).
-// Drill-down: the individual appointments + sales behind a rep's row.
+// Drill-down: one row per DEAL (merging a deal that both had its appointment
+// AND closed this period, so it doesn't look double-counted).
+function mergeDeals(details) {
+  const byDeal = new Map()
+  for (const d of (details || [])) {
+    const k = (d.customer || '') + '|' + (d.address || '')
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, appt: false, sale: false, amt: 0 }
+    if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
+    else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
+    byDeal.set(k, e)
+  }
+  return [...byDeal.values()].sort((a, b) => (a.sale === b.sale ? 0 : a.sale ? -1 : 1))
+}
 function ApptDetail({ details }) {
-  const list = (details || []).slice().sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'sale' ? -1 : 1))
+  const list = mergeDeals(details)
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   return (
     <div className="space-y-0.5">
-      {list.map((d, i) => (
+      {list.map((e, i) => (
         <div key={i} className="flex items-center justify-between gap-3 border-b border-slate-100 py-0.5 text-[11px]">
           <span className="truncate">
-            <span className={'mr-1 rounded px-1 font-bold ' + (d.kind === 'sale' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600')}>{d.kind === 'sale' ? 'SALE' : 'APPT'}</span>
-            <span className="text-slate-400">{(d.cat || '').toUpperCase()}</span> · {d.customer}{d.address ? <span className="text-slate-400"> · {d.address}</span> : ''}
+            <span className={'mr-1 rounded px-1 font-bold ' + (e.sale ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600')}>{e.sale ? 'SALE' : 'APPT'}</span>
+            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
+            {e.sale && e.appt && <span className="ml-1 text-slate-400">· appt this wk</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-500">{d.status}{d.kind === 'sale' ? ' · $' + (d.amt || 0).toLocaleString() : ''}</span>
+          <span className="whitespace-nowrap text-slate-500">{e.status}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
       ))}
     </div>
