@@ -105,12 +105,16 @@ export const handler = async (event) => {
 
   // 1. Active training classes today. Exclude attendance-only meetings
   //    (those aren't training weeks and don't have homework).
-  const { data: classes, error: cErr } = await supabase
+  // ?class_id=… narrows the run to one class (the "Send now" button on the
+  // Homework status page). Without it, all active classes are processed.
+  let classQuery = supabase
     .from('classes')
     .select('id, region, week_start_date, week_end_date')
     .lte('week_start_date', todayIso)
     .gte('week_end_date', todayIso)
     .eq('attendance_only', false)
+  if (params.class_id) classQuery = classQuery.eq('id', params.class_id)
+  const { data: classes, error: cErr } = await classQuery
   if (cErr) return json(500, { ok: false, error: cErr.message })
   if (!classes || classes.length === 0) {
     return json(200, { ok: true, message: 'No active classes today', processed_classes: 0 })

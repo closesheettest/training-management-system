@@ -13,6 +13,7 @@ export const PAGES = [
   { key: 'home', label: 'Home', path: '/', menu: 'top' },
   { key: 'schedule', label: 'Schedule', path: '/calendar', menu: 'top' },
   { key: 'attendance', label: 'Attendance', path: '/attendance', menu: 'top' },
+  { key: 'homework', label: 'Homework', path: '/homework', menu: 'top' },
   { key: 'progress', label: 'Progress', path: '/progress', menu: 'top' },
   { key: 'provisioning', label: 'Provisioning', path: '/provisioning', menu: 'top' },
   { key: 'setup.manager', label: 'Hiring Manager', path: '/manager', menu: 'setup' },
@@ -61,7 +62,7 @@ export const ROLE_DEFAULTS = {
   // HR co-owns the persona config alongside admin — they shape who sees what.
   hr: ['home', 'schedule', 'setup.hotels', 'setup.welcome_links', 'settings.notifications', 'settings.personas', 'settings.group_messages', 'settings.active_reps', 'settings.offboarding', 'team.map', 'team.regions', 'settings.overview'],
   va: ['home', 'settings.overview'],
-  trainer: ['home', 'schedule', 'attendance', 'setup.questions', 'settings.messages', 'settings.overview'],
+  trainer: ['home', 'schedule', 'attendance', 'homework', 'setup.questions', 'settings.messages', 'settings.overview'],
   test: ['*'],
   custom: ['home', 'settings.overview'],
 }

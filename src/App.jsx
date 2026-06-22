@@ -8,6 +8,7 @@ import Calendar from './pages/Calendar.jsx'
 import ClassDetail from './pages/ClassDetail.jsx'
 import Kiosk from './pages/Kiosk.jsx'
 import Attendance from './pages/Attendance.jsx'
+import HomeworkStatus from './pages/HomeworkStatus.jsx'
 import Confirm from './pages/Confirm.jsx'
 import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
@@ -118,6 +119,7 @@ export default function App() {
           <Route path="/calendar" element={<RouteGate pageKey="schedule"><Calendar /></RouteGate>} />
           <Route path="/class/:id" element={<ClassDetail />} />
           <Route path="/attendance" element={<RouteGate pageKey="attendance"><Attendance /></RouteGate>} />
+          <Route path="/homework" element={<RouteGate pageKey="homework"><HomeworkStatus /></RouteGate>} />
           <Route path="/progress" element={<RouteGate pageKey="progress"><Progress /></RouteGate>} />
           <Route path="/provisioning" element={<RouteGate pageKey="provisioning"><ProvisioningHub /></RouteGate>} />
           <Route path="/provision/:class_id" element={<Provision />} />
