@@ -191,7 +191,8 @@ function ApptDetail({ details }) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, appt: false, sale: false, amt: 0 }
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, sold: d.sold, start: d.start, appt: false, sale: false, amt: 0 }
+    e.sold = d.sold || e.sold; e.start = d.start || e.start
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
@@ -206,6 +207,7 @@ function ApptDetail({ details }) {
             <span className={'mr-1 rounded px-1 font-bold ' + (e.sale ? 'bg-emerald-500/30 text-emerald-200' : 'bg-white/15 text-slate-200')}>{e.sale ? 'SALE' : 'APPT'}</span>
             <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}
             {e.sale && e.appt && <span className="ml-1 text-slate-400">· appt this wk</span>}
+            {(e.sold || e.start) && <span className="ml-1 text-slate-400">· sold {e.sold || '—'} · start {e.start || '—'}</span>}
           </span>
           <span className="whitespace-nowrap text-slate-300">{e.status}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}</span>
         </div>
