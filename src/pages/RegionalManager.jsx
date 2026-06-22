@@ -276,11 +276,13 @@ function ApptConversion({ zone }) {
                 <th className="px-2 py-2 text-right">BTR %</th>
                 <th className="px-2 py-2 text-right">Tot %</th>
                 <th className="px-2 py-2 text-right">Avg $/Sale</th>
+                <th className="px-2 py-2 text-right">RB</th>
+                <th className="px-2 py-2 text-right">Insul</th>
               </tr>
             </thead>
             <tbody>
               {data.reps.length === 0 ? (
-                <tr><td colSpan={14} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
+                <tr><td colSpan={16} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
               ) : data.reps.map((r) => {
                 const open = openRep === r.rep
                 return (
@@ -300,9 +302,11 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right text-slate-400">{r.btrAp ? r.btrPct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right font-bold text-amber-200">{r.appts ? r.pct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
+                  <td className="px-2 py-1.5 text-right text-slate-300">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                 </tr>
                 {open && (
-                  <tr><td colSpan={14} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                  <tr><td colSpan={16} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
                 )}
                 </Fragment>
                 )
@@ -323,6 +327,8 @@ function ApptConversion({ zone }) {
                   <td className="px-2 py-1.5 text-right">{t.btrAp ? t.btrPct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right text-amber-200">{t.appts ? t.pct + '%' : '—'}</td>
                   <td className="px-2 py-1.5 text-right">${(t.avg || 0).toLocaleString()}</td>
+                  <td className="px-2 py-1.5 text-right">{t.rb}<span className="text-[10px] text-slate-400"> ({t.rb_pct}%)</span></td>
+                  <td className="px-2 py-1.5 text-right">{t.ins}<span className="text-[10px] text-slate-400"> ({t.ins_pct}%)</span></td>
                 </tr>
               )}
             </tbody>

@@ -414,9 +414,9 @@ function AllApptConversion() {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale']
-    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg]
+    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const z of data.zones) {
       for (const r of z.reps) rows.push(repRow(z.zone, r))
@@ -495,6 +495,8 @@ function AllApptConversion() {
                           <th className="px-2 py-1.5 text-right">BTR %</th>
                           <th className="px-2 py-1.5 text-right">Tot %</th>
                           <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
+                          <th className="px-2 py-1.5 text-right">RB</th>
+                          <th className="px-2 py-1.5 text-right">Insul</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -518,9 +520,11 @@ function AllApptConversion() {
                             <td className="px-2 py-1.5 text-right text-slate-500">{r.btrAp ? r.btrPct + '%' : '—'}</td>
                             <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.appts ? r.pct + '%' : '—'}</td>
                             <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
+                            <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                           </tr>
                           {open && (
-                            <tr><td colSpan={14} className="bg-slate-50 px-4 py-2">
+                            <tr><td colSpan={16} className="bg-slate-50 px-4 py-2">
                               <ApptDetail details={r.details} />
                             </td></tr>
                           )}
@@ -542,6 +546,8 @@ function AllApptConversion() {
                           <td className="px-2 py-1.5 text-right">{zt.btrAp ? zt.btrPct + '%' : '—'}</td>
                           <td className="px-2 py-1.5 text-right text-indigo-700">{zt.appts ? zt.pct + '%' : '—'}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-right">{zt.rb}<span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></td>
+                          <td className="px-2 py-1.5 text-right">{zt.ins}<span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></td>
                         </tr>
                       </tbody>
                     </table>
@@ -559,6 +565,8 @@ function AllApptConversion() {
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvSl}·C{data.totals.compSl}·B{data.totals.btrSl})</span></span>
                   <span className="text-base font-extrabold">{data.totals.pct}%</span>
                   <span><span className="text-[10px] uppercase opacity-70">Avg/Sale</span> <b>${(data.totals.avg || 0).toLocaleString()}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b> <span className="text-[11px] opacity-70">({data.totals.rb_pct}%)</span></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Insul</span> <b>{data.totals.ins}</b> <span className="text-[11px] opacity-70">({data.totals.ins_pct}%)</span></span>
                 </span>
               </div>
             </div>
