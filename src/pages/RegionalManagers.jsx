@@ -393,14 +393,14 @@ function ApptDetail({ details }) {
             {bad && <span title={'Manager needs to fix in JN: ' + reasons.join('; ')} className="mr-1 font-bold text-amber-600">⚠</span>}
             {e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}
             {e.sale && <span className="mr-1 rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}
-            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> · {e.customer}{e.address ? <span className="text-slate-400"> · {e.address}</span> : ''}{e.source ? <span className="text-slate-400"> · src {e.source}</span> : ''}
+            <span className="text-slate-400">{(e.cat || '').toUpperCase()}</span> / {e.customer}{e.address ? <span className="text-slate-400"> / {e.address}</span> : ''}{e.source ? <span className="text-slate-400"> / src {e.source}</span> : ''}
             {e.fromAssigned && <span className="ml-1 rounded bg-amber-100 px-1 font-semibold text-amber-700">no Sales Rep</span>}
             {fixNotStatused(e) && <span className="ml-1 rounded bg-amber-100 px-1 font-semibold text-amber-700">not statused</span>}
             {e.sale && e.rb && <span className="ml-1 rounded bg-sky-100 px-1 font-semibold text-sky-700">RB</span>}
             {e.sale && e.ins && <span className="ml-1 rounded bg-violet-100 px-1 font-semibold text-violet-700">Insul</span>}
             {e.sale && e.roofrStatus === 'no_pdf' && <span className="ml-1 rounded bg-amber-100 px-1 font-semibold text-amber-700">need Roofr</span>}
           </span>
-          <span className="whitespace-nowrap text-slate-500">{e.status}{` · appt ${e.apptDate || '—'}`}{e.sale ? ` · sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-600' : ''}>{` · start ${e.start}`}</span> : <span className="font-semibold text-amber-600"> · start —</span>}{e.sale ? ' · $' + (e.amt || 0).toLocaleString() : ''}{e.sale && e.pitch ? <span className="font-semibold text-slate-700">{` · pitch ${e.pitch}`}</span> : ''}</span>
+          <span className="whitespace-nowrap text-slate-500">{e.status}{` / appt ${e.apptDate || '—'}`}{e.sale ? ` / sold ${e.sold || '—'}` : ''}{e.start ? <span className={fixStartBad(e) ? 'font-semibold text-amber-600' : ''}>{` / start ${e.start}`}</span> : <span className="font-semibold text-amber-600"> / start —</span>}{e.sale ? ' / $' + (e.amt || 0).toLocaleString() : ''}{e.sale && e.pitch ? <span className="font-semibold text-slate-700">{` / pitch ${e.pitch}`}</span> : ''}</span>
         </div>
         )
       })}
