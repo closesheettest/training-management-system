@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { teamLabel } from '../lib/zones.js'
+import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -133,7 +133,7 @@ export default function RegionalManager() {
 
       <Leaderboard myZone={manager.region} />
 
-      {/* Hidden until the Appointments → Sales report is verified correct. Re-enable: <ApptConversion zone={manager.region} /> */}
+      <ApptConversion zone={manager.region} />
 
       <WeeklyReport token={token} />
 
@@ -218,15 +218,15 @@ function ApptDetail({ details }) {
   const TD = 'px-2 py-1 align-top whitespace-nowrap'
   return (
     <div className="space-y-1">
-      <div className="text-[10px] text-slate-400">
+      <div className="text-[10px] text-slate-500">
         <b>Appts</b> H{c('appt', 'harv')} · C{c('appt', 'comp')} · B{c('appt', 'btr')} = {list.filter((e) => e.appt).length}
         &nbsp;&nbsp;|&nbsp;&nbsp;<b>Sales</b> H{c('sale', 'harv')} · C{c('sale', 'comp')} · B{c('sale', 'btr')} = {list.filter((e) => e.sale).length}
-        {nFix > 0 && <span className="ml-1 font-semibold text-amber-300">· ⚠ {nFix} need fixing in JN</span>}
+        {nFix > 0 && <span className="ml-1 font-semibold text-amber-600">· ⚠ {nFix} need fixing in JN</span>}
       </div>
-      <div className="overflow-x-auto rounded border border-white/10">
+      <div className="overflow-x-auto rounded border border-slate-200">
         <table className="w-full border-collapse text-[11px]">
           <thead>
-            <tr className="bg-white/10">
+            <tr className="bg-slate-100">
               <th className={TH}>Type</th><th className={TH}>Bkt</th><th className={TH}>Customer</th><th className={TH}>Address</th>
               <th className={TH}>Source</th><th className={TH}>Status</th><th className={TH}>Appt</th><th className={TH}>Sold</th>
               <th className={TH}>Start</th><th className={TH + ' text-right'}>$</th><th className={TH}>Pitch</th>
@@ -237,21 +237,21 @@ function ApptDetail({ details }) {
             {list.map((e, i) => {
               const reasons = fixReasonsFor(e)
               return (
-                <tr key={i} className={'border-t border-white/10 ' + (reasons.length ? 'bg-amber-400/10' : '')}>
-                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-white/15 px-1 font-bold text-slate-200">APPT</span>}{e.sale && <span className="rounded bg-emerald-500/30 px-1 font-bold text-emerald-200">SALE</span>}</td>
-                  <td className={TD + ' text-slate-400'}>{(e.cat || '').toUpperCase()}</td>
-                  <td className={TD + ' font-medium text-slate-100'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-amber-400/20 px-1 text-[9px] font-bold text-amber-200">{e.dupCount} jobs</span>}</td>
-                  <td className="px-2 py-1 align-top text-slate-400">{e.address || '—'}</td>
-                  <td className={TD + ' text-slate-400'}>{e.source || '—'}</td>
-                  <td className={TD + ' text-slate-300'}>{e.status || '—'}</td>
-                  <td className={TD + ' text-slate-300'}>{e.apptDate || '—'}</td>
-                  <td className={TD + ' text-slate-300'}>{e.sale ? (e.sold || '—') : ''}</td>
-                  <td className={TD + (fixStartBad(e) ? ' font-semibold text-amber-300' : ' text-slate-300')}>{e.start || '—'}</td>
-                  <td className={TD + ' text-right font-medium text-slate-100'}>{e.sale ? '$' + (e.amt || 0).toLocaleString() : ''}</td>
-                  <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-100">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-300">need Roofr</span> : '—')) : ''}</td>
-                  <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-300">✓</span> : ''}</td>
-                  <td className={TD + ' text-center'}>{e.sale && e.ins ? <span className="font-bold text-violet-300">✓</span> : ''}</td>
-                  <td className={TD} title={reasons.join('; ')}>{reasons.length ? <span className="font-bold text-amber-300">⚠</span> : ''}</td>
+                <tr key={i} className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-50' : '')}>
+                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
+                  <td className={TD + ' text-slate-500'}>{(e.cat || '').toUpperCase()}</td>
+                  <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">{e.dupCount} jobs</span>}</td>
+                  <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
+                  <td className={TD + ' text-slate-500'}>{e.source || '—'}</td>
+                  <td className={TD + ' text-slate-500'}>{e.status || '—'}</td>
+                  <td className={TD + ' text-slate-500'}>{e.apptDate || '—'}</td>
+                  <td className={TD + ' text-slate-500'}>{e.sale ? (e.sold || '—') : ''}</td>
+                  <td className={TD + (fixStartBad(e) ? ' font-semibold text-amber-600' : ' text-slate-500')}>{e.start || '—'}</td>
+                  <td className={TD + ' text-right font-medium text-slate-700'}>{e.sale ? '$' + (e.amt || 0).toLocaleString() : ''}</td>
+                  <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-700">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-600">need Roofr</span> : '—')) : ''}</td>
+                  <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-600">✓</span> : ''}</td>
+                  <td className={TD + ' text-center'}>{e.sale && e.ins ? <span className="font-bold text-violet-600">✓</span> : ''}</td>
+                  <td className={TD} title={reasons.join('; ')}>{reasons.length ? <span className="font-bold text-amber-600">⚠</span> : ''}</td>
                 </tr>
               )
             })}
@@ -262,131 +262,175 @@ function ApptDetail({ details }) {
   )
 }
 
+// Single-zone Appointments → Sales — renders with the EXACT same look as the
+// company-wide admin report (AllApptConversion in RegionalManagers.jsx), just
+// scoped to this manager's one zone via zone-appt-conversion (same data shape
+// as one of the admin's zones[] entries).
 function ApptConversion({ zone }) {
-  const [period, setPeriod] = useState('week')
-  const [data, setData] = useState(null)
-  const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
   const [openRep, setOpenRep] = useState(null)   // rep name — drill-down detail
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true); setErr(''); setData(null)
-    ;(async () => {
-      // Heavy JobNimbus pull (~5-6s) — auto-retry a couple times so a transient
-      // timeout doesn't flash "Network error."
-      let lastErr = ''
-      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
-        try {
-          const res = await fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + period)
-          const d = await res.json()
-          if (cancelled) return
-          if (d && d.ok) { setData(d); setLoading(false); return }
-          lastErr = (d && d.error) || 'Could not load.'
-        } catch { lastErr = 'Network error.' }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1500))
-      }
-      if (!cancelled) { setErr(lastErr); setLoading(false) }
-    })()
-    return () => { cancelled = true }
-  }, [zone, period])
+  const [period, setPeriod] = useState('month')
+  const [err, setErr] = useState('')
 
+  const load = async (p = period) => {
+    setLoading(true); setErr('')
+    // Heavy JobNimbus pull (~5-6s) — auto-retry a couple times before erroring.
+    let lastErr = ''
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + p)
+        const d = await res.json()
+        if (d && d.ok) { setData(d); setLoading(false); return }
+        lastErr = d?.error || 'Could not load.'
+      } catch { lastErr = 'Network error.' }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500))
+    }
+    setErr(lastErr); setLoading(false)
+  }
+  const setP = (p) => { setPeriod(p); if (data) load(p) }
   const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
-  const t = data?.totals
+
+  const downloadCsv = () => {
+    if (!data) return
+    const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Sold', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (z, r) => [z, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const rows = [cols]
+    for (const r of data.reps) rows.push(repRow(data.zone, r))
+    rows.push(totRow(data.zone + ' TOTAL', data.totals))
+    const csv = rows.map((row) => row.map(esc).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = `appt-to-sales-${data.period}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const zt = data?.totals
   return (
-    <section className="mt-6">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-amber-300">📈 Appointments → Sales</h2>
-        <div className="flex gap-1">
-          {periods.map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setPeriod(k)}
-              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-amber-400 text-black' : 'bg-white/10 text-slate-200')}>{label}</button>
-          ))}
+    <section className="mb-6">
+      <button type="button" onClick={() => load()} disabled={loading}
+        className="w-full rounded-lg bg-indigo-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
+        📈 Appointments → Sales{data ? ` (${data.totals.pct}% · ${data.totals.sales}/${data.totals.appts})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Loading…' : `Per-rep conversion + Radiant Barrier / Insulation attach rate. Tap to ${data ? 'refresh' : 'load'}.`}
         </div>
-      </div>
-      {loading && <div className="text-xs text-slate-400">Checking JobNimbus…</div>}
-      {err && <div className="text-xs text-red-300">{err}</div>}
+      </button>
+
       {data && (
-        <div className="overflow-x-auto rounded-lg border border-white/15">
-          <table className="w-full whitespace-nowrap text-sm">
-            <thead>
-              <tr className="bg-white/10 text-[10px] uppercase tracking-wide text-slate-300">
-                <th className="px-3 py-2 text-left">Rep</th>
-                <th className="px-2 py-2 text-right">Harv Apt</th>
-                <th className="px-2 py-2 text-right">Comp Apt</th>
-                <th className="px-2 py-2 text-right">BTR Apt</th>
-                <th className="px-2 py-2 text-right">Total Apt</th>
-                <th className="px-2 py-2 text-right">Sold</th>
-                <th className="px-2 py-2 text-right">Harv $</th>
-                <th className="px-2 py-2 text-right">Comp $</th>
-                <th className="px-2 py-2 text-right">BTR $</th>
-                <th className="px-2 py-2 text-right">$ Sold</th>
-                <th className="px-2 py-2 text-right">Harv %</th>
-                <th className="px-2 py-2 text-right">Comp %</th>
-                <th className="px-2 py-2 text-right">BTR %</th>
-                <th className="px-2 py-2 text-right">Tot %</th>
-                <th className="px-2 py-2 text-right">Avg $/Sale</th>
-                <th className="px-2 py-2 text-right">RB</th>
-                <th className="px-2 py-2 text-right">Insul</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.reps.length === 0 ? (
-                <tr><td colSpan={17} className="px-3 py-3 text-xs text-slate-400">No appointments in this period.</td></tr>
-              ) : data.reps.map((r) => {
-                const open = openRep === r.rep
-                return (
-                <Fragment key={r.rep}>
-                <tr className="cursor-pointer border-t border-white/10 hover:bg-white/5" onClick={() => setOpenRep(open ? null : r.rep)}>
-                  <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold text-slate-200">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-300">⚠ {n}</span> : null })()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">{r.harvAp}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">{r.compAp}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">{r.btrAp}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-emerald-300">{r.sales}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">${(r.harvAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">${(r.compAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">${(r.btrAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.harvAp ? r.harvPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.compAp ? r.compPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-400">{r.btrAp ? r.btrPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right font-bold text-amber-200">{r.appts ? r.pct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
-                  <td className="px-2 py-1.5 text-right text-slate-300">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
-                </tr>
-                {open && (
-                  <tr><td colSpan={17} className="bg-white/5 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
-                )}
-                </Fragment>
-                )
-              })}
-              {t && (
-                <tr className="border-t-2 border-white/20 bg-white/5 font-bold">
-                  <td className="px-3 py-1.5">Zone total</td>
-                  <td className="px-2 py-1.5 text-right">{t.harvAp}</td>
-                  <td className="px-2 py-1.5 text-right">{t.compAp}</td>
-                  <td className="px-2 py-1.5 text-right">{t.btrAp}</td>
-                  <td className="px-2 py-1.5 text-right">{t.appts}</td>
-                  <td className="px-2 py-1.5 text-right font-semibold text-emerald-300">{t.sales}</td>
-                  <td className="px-2 py-1.5 text-right">${(t.harvAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">${(t.compAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">${(t.btrAmt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">${(t.amt || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">{t.harvAp ? t.harvPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right">{t.compAp ? t.compPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right">{t.btrAp ? t.btrPct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right text-amber-200">{t.appts ? t.pct + '%' : '—'}</td>
-                  <td className="px-2 py-1.5 text-right">${(t.avg || 0).toLocaleString()}</td>
-                  <td className="px-2 py-1.5 text-right">{t.rb}<span className="text-[10px] text-slate-400"> ({t.rb_pct}%)</span></td>
-                  <td className="px-2 py-1.5 text-right">{t.ins}<span className="text-[10px] text-slate-400"> ({t.ins_pct}%)</span></td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <div className="px-3 py-2 text-[10px] text-slate-400">
-            Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Harv = harvested · Comp = company lead (IQ/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. Avg $/Sale = approved estimate ÷ sales.
-          </div>
+        <div className="mt-2 flex items-center gap-1">
+          {periods.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setP(k)}
+              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
+          ))}
+          <button type="button" onClick={downloadCsv}
+            className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⬇ CSV</button>
+        </div>
+      )}
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3">
+          {data.reps.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No appointments in this period.</div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                style={{ background: (ZONE_COLORS[data.zone]?.light) || '#f8fafc' }}>
+                <span className="flex items-center gap-2">
+                  <span className="font-bold" style={{ color: (ZONE_COLORS[data.zone]?.deep) || '#0f172a' }}>{teamLabel(data.zone) || data.zone}</span>
+                  <span className="text-xs text-slate-500">{data.zone}</span>
+                </span>
+                <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-slate-700">
+                  <span><span className="text-[10px] uppercase text-slate-400">Appts</span> <b>{zt.appts}</b></span>
+                  <span><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sales}</b></span>
+                  <span className="font-bold text-indigo-700">{zt.pct}%</span>
+                  <span><span className="text-[10px] uppercase text-slate-400">Avg/Sale</span> <b>${(zt.avg || 0).toLocaleString()}</b></span>
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full whitespace-nowrap text-sm">
+                  <thead>
+                    <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                      <th className="px-3 py-1.5 text-left">Rep</th>
+                      <th className="px-2 py-1.5 text-right">Harv Apt</th>
+                      <th className="px-2 py-1.5 text-right">Comp Apt</th>
+                      <th className="px-2 py-1.5 text-right">BTR Apt</th>
+                      <th className="px-2 py-1.5 text-right">Total Apt</th>
+                      <th className="px-2 py-1.5 text-right">Sold</th>
+                      <th className="px-2 py-1.5 text-right">Harv $</th>
+                      <th className="px-2 py-1.5 text-right">Comp $</th>
+                      <th className="px-2 py-1.5 text-right">BTR $</th>
+                      <th className="px-2 py-1.5 text-right">$ Sold</th>
+                      <th className="px-2 py-1.5 text-right">Harv %</th>
+                      <th className="px-2 py-1.5 text-right">Comp %</th>
+                      <th className="px-2 py-1.5 text-right">BTR %</th>
+                      <th className="px-2 py-1.5 text-right">Tot %</th>
+                      <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
+                      <th className="px-2 py-1.5 text-right">RB</th>
+                      <th className="px-2 py-1.5 text-right">Insul</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.reps.map((r) => {
+                      const open = openRep === r.rep
+                      return (
+                      <Fragment key={r.rep}>
+                      <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenRep(open ? null : r.rep)}>
+                        <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{r.sales}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">${(r.harvAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">${(r.compAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">${(r.btrAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-500">{r.harvAp ? r.harvPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-500">{r.compAp ? r.compPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-500">{r.btrAp ? r.btrPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.appts ? r.pct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
+                        <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
+                      </tr>
+                      {open && (
+                        <tr><td colSpan={17} className="bg-slate-50 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                      )}
+                      </Fragment>
+                      )
+                    })}
+                    {zt && (
+                      <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                        <td className="px-3 py-1.5">Zone total</td>
+                        <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.appts}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{zt.sales}</td>
+                        <td className="px-2 py-1.5 text-right">${(zt.harvAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">${(zt.compAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">${(zt.btrAmt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">${(zt.amt || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.harvAp ? zt.harvPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.compAp ? zt.compPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.btrAp ? zt.btrPct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-indigo-700">{zt.appts ? zt.pct + '%' : '—'}</td>
+                        <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right">{zt.rb}<span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></td>
+                        <td className="px-2 py-1.5 text-right">{zt.ins}<span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 text-[10px] text-slate-400">
+                Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Harv = harvested · Comp = company lead (IQ/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. Avg $/Sale = approved estimate ÷ sales.
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
