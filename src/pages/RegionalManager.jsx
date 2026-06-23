@@ -349,7 +349,7 @@ function ApptConversion({ zone }) {
                   <span><span className="text-[10px] uppercase text-slate-400">Avg/Sale</span> <b>${(zt.avg || 0).toLocaleString()}</b></span>
                 </span>
               </div>
-              <div className="overflow-x-auto">
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full whitespace-nowrap text-sm">
                   <thead>
                     <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
@@ -425,6 +425,47 @@ function ApptConversion({ zone }) {
                     )}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile: stacked per-rep cards (the 17-col table is unusable on a phone). */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {data.reps.map((r) => {
+                  const open = openRep === r.rep
+                  return (
+                    <div key={r.rep} className="p-3">
+                      <button type="button" onClick={() => setOpenRep(open ? null : r.rep)} className="flex w-full items-center justify-between gap-2 text-left">
+                        <span className="font-semibold text-slate-800">{r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</span>
+                        <span className="text-slate-400">{open ? '▾' : '▸'}</span>
+                      </button>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded bg-slate-50 py-1.5"><div className="text-[10px] uppercase text-slate-400">Appts</div><div className="font-bold">{r.appts}</div></div>
+                        <div className="rounded bg-slate-50 py-1.5"><div className="text-[10px] uppercase text-slate-400">Sold</div><div className="font-bold text-emerald-700">{r.sales}</div></div>
+                        <div className="rounded bg-slate-50 py-1.5"><div className="text-[10px] uppercase text-slate-400">Conv</div><div className="font-bold text-indigo-700">{r.appts ? r.pct + '%' : '—'}</div></div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                        <span><b className="text-slate-800">${(r.amt || 0).toLocaleString()}</b> sold</span>
+                        <span>Avg <b className="text-slate-800">${(r.avg || 0).toLocaleString()}</b></span>
+                        <span>RB {r.rb} <span className="text-slate-400">({r.rb_pct}%)</span></span>
+                        <span>Insul {r.ins} <span className="text-slate-400">({r.ins_pct}%)</span></span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-500">
+                        <span>Harv {r.harvAp}{r.harvAp ? ` · ${r.harvPct}%` : ''}</span>
+                        <span>Comp {r.compAp}{r.compAp ? ` · ${r.compPct}%` : ''}</span>
+                        <span>BTR {r.btrAp}{r.btrAp ? ` · ${r.btrPct}%` : ''}</span>
+                      </div>
+                      {open && <div className="mt-2"><ApptDetail details={r.details} /></div>}
+                    </div>
+                  )
+                })}
+                {zt && (
+                  <div className="bg-slate-50 p-3">
+                    <div className="flex items-center justify-between"><span className="font-bold text-slate-800">Zone total</span><span className="font-bold text-indigo-700">{zt.appts ? zt.pct + '%' : '—'}</span></div>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                      <span>Appts <b>{zt.appts}</b></span><span>Sold <b className="text-emerald-700">{zt.sales}</b></span>
+                      <span><b>${(zt.amt || 0).toLocaleString()}</b> sold</span><span>Avg <b>${(zt.avg || 0).toLocaleString()}</b></span>
+                      <span>RB {zt.rb} ({zt.rb_pct}%)</span><span>Insul {zt.ins} ({zt.ins_pct}%)</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="px-3 py-2 text-[10px] text-slate-400">
                 Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Harv = harvested · Comp = company lead (IQ/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. Avg $/Sale = approved estimate ÷ sales.
