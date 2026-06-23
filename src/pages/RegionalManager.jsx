@@ -335,7 +335,7 @@ function ApptConversion({ zone }) {
           {data.reps.length === 0 ? (
             <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No appointments in this period.</div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white text-slate-800">
               <div className="flex w-full items-center justify-between gap-3 p-3 text-left"
                 style={{ background: (ZONE_COLORS[data.zone]?.light) || '#f8fafc' }}>
                 <span className="flex items-center gap-2">
