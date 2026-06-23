@@ -168,7 +168,7 @@ function ShellFrame({ children }) {
   return (
     <div className="min-h-screen bg-[#0a1730] text-white">
       <div className="h-1 bg-[#b8324f]" />
-      <div className="mx-auto max-w-3xl px-4 py-8">{children}</div>
+      <div className="mx-auto max-w-3xl px-4 py-8 lg:max-w-7xl">{children}</div>
     </div>
   )
 }
@@ -349,7 +349,7 @@ function ApptConversion({ zone }) {
                   <span><span className="text-[10px] uppercase text-slate-400">Avg/Sale</span> <b>${(zt.avg || 0).toLocaleString()}</b></span>
                 </span>
               </div>
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full whitespace-nowrap text-sm">
                   <thead>
                     <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
@@ -426,8 +426,8 @@ function ApptConversion({ zone }) {
                   </tbody>
                 </table>
               </div>
-              {/* Mobile: stacked per-rep cards (the 17-col table is unusable on a phone). */}
-              <div className="divide-y divide-slate-100 md:hidden">
+              {/* Mobile/tablet: stacked per-rep cards (the 17-col table only fits on a wide desktop). */}
+              <div className="divide-y divide-slate-100 lg:hidden">
                 {data.reps.map((r) => {
                   const open = openRep === r.rep
                   return (
