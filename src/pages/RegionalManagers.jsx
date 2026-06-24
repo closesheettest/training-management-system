@@ -506,8 +506,35 @@ function AllApptConversion() {
       `<div class="zone"><div class="zhdr${co ? ' co' : ''}"><span>${esc(label)}</span><span>${summary}</span></div>` +
       `<table>${colgroup}<thead>${headRow}</thead><tbody>${bodyRows}</tbody></table></div>`
     const sumLine = (t) => `Appts ${t.appts} · Sold ${t.sales} · ${t.pct}% · $ Sold ${money(t.amt)} · Avg ${money(t.avg)}`
+    // Per-rep DETAIL — collapsible <details> with every appt & sale, mirroring the
+    // on-screen drill-down (same merge + flag logic, red problem cells, ⚠ reasons).
+    const DHEAD = ['Type', 'Bkt', 'Customer', 'Address', 'Source', 'Status', 'Appt', 'Sold', 'Start', '$', 'Pitch', 'RB', 'Insul', 'Fix']
+    const dHead = '<tr>' + DHEAD.map((h) => `<th>${h}</th>`).join('') + '</tr>'
+    const RED = 'background:#fee2e2;color:#b91c1c;font-weight:700'
+    const detailRow = (e) => {
+      const rs = fixReasonsFor(e)
+      return `<tr${rs.length ? ' style="background:#fef9c3"' : ''}>`
+        + `<td>${e.appt ? '<b>APPT</b>' : ''}${e.sale ? ' <b style="color:#047857">SALE</b>' : ''}</td>`
+        + `<td>${e.cat === 'comp' ? 'CO' : esc((e.cat || '').toUpperCase())}</td>`
+        + `<td>${esc(e.customer || '')}${e.dupCount > 1 ? ` <b style="color:#b91c1c">(${e.dupCount} jobs)</b>` : ''}</td>`
+        + `<td>${esc(e.address || '')}</td><td>${esc(e.source || '')}</td>`
+        + `<td${fixNotStatused(e) ? ` style="${RED}"` : ''}>${esc(e.status || '')}</td>`
+        + `<td>${esc(e.apptDate || '')}</td><td>${e.sale ? esc(e.sold || '') : ''}</td>`
+        + `<td${fixStartBad(e) ? ` style="${RED}"` : ''}>${esc(e.start || '—')}</td>`
+        + `<td class="r">${e.sale ? money(e.amt) : ''}</td>`
+        + `<td>${e.sale ? esc(e.pitch || '') : ''}</td><td>${e.sale && e.rb ? '✓' : ''}</td><td>${e.sale && e.ins ? '✓' : ''}</td>`
+        + `<td class="fix" title="${esc(rs.join('; '))}">${rs.length ? '⚠ ' + esc(rs.join('; ')) : ''}</td></tr>`
+    }
+    const repDetail = (rep) => {
+      const ld = mergeDeals(rep.details || [])
+      if (!ld.length) return ''
+      const nf = ld.filter((e) => fixReasonsFor(e).length).length
+      return `<details class="det"><summary>${esc(rep.rep)} — ${rep.appts} appt · ${rep.sales} sold${nf ? ` · <span class="warn">⚠ ${nf} to fix</span>` : ''}</summary>`
+        + `<div class="dwrap"><table class="dtl"><thead>${dHead}</thead><tbody>${ld.map(detailRow).join('')}</tbody></table></div></details>`
+    }
     const zonesHtml = data.zones.map((z) =>
       zoneBlock(z.zone, sumLine(z.totals), z.reps.map((r) => rowHtml(r)).join('') + rowHtml({ ...z.totals, rep: 'Zone total', level: '' }, 'tot'))
+      + `<div class="dets">${z.reps.map(repDetail).join('')}</div>`
     ).join('')
     const companyHtml = zoneBlock('🏢 Company total', sumLine(data.totals), rowHtml({ ...data.totals, rep: 'Company total', level: '' }, 'tot'), true)
     const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Appointments → Sales (${esc(data.period)})</title>
@@ -527,9 +554,23 @@ th.l,td.l{text-align:left}
 col.g{background:#ecfdf5}col.g2{background:#d1fae5}
 tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
 .s{color:#047857}.lvl{font-size:8px;background:#e2e8f0;color:#475569;border-radius:3px;padding:0 3px;font-weight:700}
-@media print{.zone{break-inside:avoid}}
+.dets{margin:6px 0 0}
+.det{margin:0 0 5px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden}
+.det>summary{cursor:pointer;list-style:none;padding:5px 8px;font-size:11px;font-weight:700;background:#f8fafc}
+.det>summary::-webkit-details-marker{display:none}
+.det>summary::before{content:'▸ ';color:#94a3b8}
+.det[open]>summary::before{content:'▾ '}
+.warn{color:#b45309}
+.dwrap{overflow-x:auto}
+.dtl{font-size:10px}
+.dtl th{background:#fff;color:#94a3b8}
+.dtl th,.dtl td{text-align:left;white-space:nowrap;padding:2px 5px;border-bottom:1px solid #f4f4f5}
+.dtl td.r{text-align:right}
+.dtl td.fix{white-space:normal;min-width:150px;color:#b45309}
+.dtl tbody tr:hover{background:#f8fafc}
+@media print{.zone{break-inside:avoid}.det{break-inside:avoid}}
 </style></head>
-<body><h1>📈 Appointments → Sales — ${esc(data.period)}</h1>${zonesHtml}${companyHtml}</body></html>`
+<body><h1>📈 Appointments → Sales — ${esc(data.period)} <span style="font-weight:400;font-size:11px;color:#64748b">— click a rep below each zone for deal detail</span></h1>${zonesHtml}${companyHtml}</body></html>`
     const w = window.open('', '_blank')
     if (!w) { alert('Pop-up blocked — allow pop-ups for this site to open the expanded report.'); return }
     w.document.open(); w.document.write(html); w.document.close()
