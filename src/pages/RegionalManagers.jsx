@@ -369,7 +369,7 @@ function mergeDeals(details) {
 }
 // JN data-hygiene checks behind the ⚠ flag (per merged deal).
 const fixWeekStart = (s) => { const x = new Date(s); if (isNaN(x)) return null; x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime() }  // Monday of that week
-const fixStartBad = (e) => { if (!e.apptDate) return false; if (!e.start) return true; const a = fixWeekStart(e.apptDate), s = fixWeekStart(e.start); return a == null || s == null ? false : a !== s }  // start blank, or in a DIFFERENT week than the appt
+const fixStartBad = (e) => { if (!e.apptDate) return false; if (!e.start) return true; if (e.isReset) return false; const a = fixWeekStart(e.apptDate), s = fixWeekStart(e.start); return a == null || s == null ? false : a !== s }  // start blank, or in a DIFFERENT week than the appt — but a RESET legitimately sits in a later week than its original start, so don't flag those
 const fixApptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
 const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
 const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.sale && e.roofrStatus === 'no_pdf' && 'no Roofr report attached', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
