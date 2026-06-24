@@ -536,10 +536,10 @@ function AllApptConversion() {
                         <col className="bg-emerald-50" />{/* BTR Sold */}
                         <col />{/* Total Apt */}
                         <col className="bg-emerald-50" />{/* Sold */}
-                        <col className="bg-sky-50" />{/* Harv $ */}
-                        <col className="bg-sky-50" />{/* Co $ */}
-                        <col className="bg-sky-50" />{/* BTR $ */}
-                        <col className="bg-sky-50" />{/* $ Sold */}
+                        <col className="bg-emerald-100" />{/* Harv $ */}
+                        <col className="bg-emerald-100" />{/* Co $ */}
+                        <col className="bg-emerald-100" />{/* BTR $ */}
+                        <col className="bg-emerald-100" />{/* $ Sold */}
                         <col />{/* Harv % */}
                         <col />{/* Co % */}
                         <col />{/* BTR % */}
