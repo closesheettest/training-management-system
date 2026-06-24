@@ -459,9 +459,9 @@ function AllApptConversion() {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Comp Apt', 'BTR Apt', 'Total Apt', 'Sold', 'Harv $', 'Comp $', 'BTR $', '$ Sold', 'Harv %', 'Comp %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.compAp, r.btrAp, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.compAp, t.btrAp, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Harv Apt', 'Harv Sold', 'Co Apt', 'Co Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harv $', 'Co $', 'BTR $', '$ Sold', 'Harv %', 'Co %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const z of data.zones) {
       for (const r of z.reps) rows.push(repRow(z.zone, r))
@@ -528,16 +528,19 @@ function AllApptConversion() {
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left">Rep</th>
                           <th className="px-2 py-1.5 text-right">Harv Apt</th>
-                          <th className="px-2 py-1.5 text-right">Comp Apt</th>
+                          <th className="px-2 py-1.5 text-right">Harv Sold</th>
+                          <th className="px-2 py-1.5 text-right">Co Apt</th>
+                          <th className="px-2 py-1.5 text-right">Co Sold</th>
                           <th className="px-2 py-1.5 text-right">BTR Apt</th>
+                          <th className="px-2 py-1.5 text-right">BTR Sold</th>
                           <th className="px-2 py-1.5 text-right">Total Apt</th>
                           <th className="px-2 py-1.5 text-right">Sold</th>
                           <th className="px-2 py-1.5 text-right">Harv $</th>
-                          <th className="px-2 py-1.5 text-right">Comp $</th>
+                          <th className="px-2 py-1.5 text-right">Co $</th>
                           <th className="px-2 py-1.5 text-right">BTR $</th>
                           <th className="px-2 py-1.5 text-right">$ Sold</th>
                           <th className="px-2 py-1.5 text-right">Harv %</th>
-                          <th className="px-2 py-1.5 text-right">Comp %</th>
+                          <th className="px-2 py-1.5 text-right">Co %</th>
                           <th className="px-2 py-1.5 text-right">BTR %</th>
                           <th className="px-2 py-1.5 text-right">Tot %</th>
                           <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
@@ -554,8 +557,11 @@ function AllApptConversion() {
                           <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenRep(open ? null : rk)}>
                             <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
+                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.harvSl}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
+                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.compSl}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
+                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.btrSl}</td>
                             <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
                             <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{r.sales}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">${(r.harvAmt || 0).toLocaleString()}</td>
@@ -571,7 +577,7 @@ function AllApptConversion() {
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                           </tr>
                           {open && (
-                            <tr><td colSpan={17} className="bg-slate-50 px-4 py-2">
+                            <tr><td colSpan={20} className="bg-slate-50 px-4 py-2">
                               <ApptDetail details={r.details} />
                             </td></tr>
                           )}
@@ -581,8 +587,11 @@ function AllApptConversion() {
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                           <td className="px-3 py-1.5">Zone total</td>
                           <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.harvSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.compSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.btrSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.appts}</td>
                           <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{zt.sales}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.harvAmt || 0).toLocaleString()}</td>
@@ -620,7 +629,7 @@ function AllApptConversion() {
               </div>
             </div>
           )}
-          <div className="text-[11px] text-slate-500">Appts counted in the week they happen (free-inspection signings excluded); Sales in the week they close. Buckets: Harv = harvested (Sales Rep Harvested = Yes) · Comp = company lead (IQ / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ appts (can top 100% when a prior-week appt closes this week). Avg $/Sale = approved estimate ÷ sales.</div>
+          <div className="text-[11px] text-slate-500">Appts counted in the week they happen (free-inspection signings excluded); Sales in the week they close. Each category shows appointments then sales (count). Buckets: Harv = harvested (Sales Rep Harvested = Yes) · Co = company lead (IQ / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ appts (can top 100% when a prior-week appt closes this week). Avg $/Sale = approved estimate ÷ sales.</div>
         </div>
       )}
     </section>
