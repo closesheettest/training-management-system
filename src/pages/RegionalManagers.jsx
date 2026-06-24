@@ -404,7 +404,7 @@ function ApptDetail({ details }) {
               return (
                 <tr key={i} className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
                   <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
-                  <td className={TD + ' text-slate-500'}>{(e.cat || '').toUpperCase()}</td>
+                  <td className={TD + ' text-slate-500'}>{e.cat === 'comp' ? 'CO' : (e.cat || '').toUpperCase()}</td>
                   <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-amber-100 px-1 text-[9px] font-bold text-amber-700">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.source || '—'}</td>
