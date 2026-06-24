@@ -475,6 +475,59 @@ function AllApptConversion() {
     URL.revokeObjectURL(url)
   }
 
+  // Pop the whole report into a borderless full-width window so the wide table
+  // is readable without scrolling left/right on a tablet/desktop. Renders the
+  // already-loaded `data` as a self-contained HTML doc (green bands preserved).
+  const openExpanded = () => {
+    if (!data) return
+    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    const money = (n) => '$' + (Math.round(Number(n) || 0)).toLocaleString()
+    const pc = (apt, v) => apt ? v + '%' : '—'
+    const HEAD = ['Rep', 'Harv Apt', 'Harv Sold', 'Co Apt', 'Co Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harv $', 'Co $', 'BTR $', '$ Sold', 'Harv %', 'Co %', 'BTR %', 'Tot %', 'Avg $/Sale', 'RB', 'Insul']
+    const greenSold = new Set([2, 4, 6, 8]), greenMoney = new Set([9, 10, 11, 12])
+    const colgroup = '<colgroup>' + HEAD.map((_, i) => `<col${greenSold.has(i) ? ' class="g"' : greenMoney.has(i) ? ' class="g2"' : ''}/>`).join('') + '</colgroup>'
+    const headRow = '<tr>' + HEAD.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr>'
+    const cells = (r) => [
+      esc(r.rep) + (r.level ? ` <span class="lvl">${esc(r.level)}</span>` : ''),
+      r.harvAp, `<span class="s">${r.harvSl}</span>`, r.compAp, `<span class="s">${r.compSl}</span>`, r.btrAp, `<span class="s">${r.btrSl}</span>`, `<b>${r.appts}</b>`, `<span class="s"><b>${r.sales}</b></span>`,
+      money(r.harvAmt), money(r.compAmt), money(r.btrAmt), `<b>${money(r.amt)}</b>`,
+      pc(r.harvAp, r.harvPct), pc(r.compAp, r.compPct), pc(r.btrAp, r.btrPct), `<b>${pc(r.appts, r.pct)}</b>`,
+      money(r.avg), `${r.rb} (${r.rb_pct}%)`, `${r.ins} (${r.ins_pct}%)`,
+    ]
+    const rowHtml = (r, cls = '') => `<tr class="${cls}">` + cells(r).map((c, i) => `<td${i === 0 ? ' class="l"' : ''}>${c}</td>`).join('') + '</tr>'
+    const zoneBlock = (label, summary, bodyRows, co = false) =>
+      `<div class="zone"><div class="zhdr${co ? ' co' : ''}"><span>${esc(label)}</span><span>${summary}</span></div>` +
+      `<table>${colgroup}<thead>${headRow}</thead><tbody>${bodyRows}</tbody></table></div>`
+    const sumLine = (t) => `Appts ${t.appts} · Sold ${t.sales} · ${t.pct}% · $ Sold ${money(t.amt)} · Avg ${money(t.avg)}`
+    const zonesHtml = data.zones.map((z) =>
+      zoneBlock(z.zone, sumLine(z.totals), z.reps.map((r) => rowHtml(r)).join('') + rowHtml({ ...z.totals, rep: 'Zone total', level: '' }, 'tot'))
+    ).join('')
+    const companyHtml = zoneBlock('🏢 Company total', sumLine(data.totals), rowHtml({ ...data.totals, rep: 'Company total', level: '' }, 'tot'), true)
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Appointments → Sales (${esc(data.period)})</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{padding:10px 12px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#0f172a;background:#fff}
+h1{font-size:15px;margin:0 0 10px}
+.zone{margin:0 0 16px}
+.zhdr{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#fee2e2;color:#b91c1c;font-weight:800;font-size:11px;padding:5px 8px;border-radius:6px 6px 0 0}
+.zhdr.co{background:#312e81;color:#fff}
+.zhdr span:last-child{font-weight:600;font-size:10px;opacity:.92}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th,td{padding:3px 5px;text-align:right;border-bottom:1px solid #f1f5f9}
+th{background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:8.5px;letter-spacing:.03em;white-space:normal;vertical-align:bottom}
+td{white-space:nowrap}
+th.l,td.l{text-align:left}
+col.g{background:#ecfdf5}col.g2{background:#d1fae5}
+tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
+.s{color:#047857}.lvl{font-size:8px;background:#e2e8f0;color:#475569;border-radius:3px;padding:0 3px;font-weight:700}
+@media print{.zone{break-inside:avoid}}
+</style></head>
+<body><h1>📈 Appointments → Sales — ${esc(data.period)}</h1>${zonesHtml}${companyHtml}</body></html>`
+    const w = window.open('', '_blank')
+    if (!w) { alert('Pop-up blocked — allow pop-ups for this site to open the expanded report.'); return }
+    w.document.open(); w.document.write(html); w.document.close()
+  }
+
   return (
     <section className="mb-6">
       <button type="button" onClick={() => load()} disabled={loading}
@@ -491,8 +544,10 @@ function AllApptConversion() {
             <button key={k} type="button" onClick={() => setP(k)}
               className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
           ))}
+          <button type="button" onClick={openExpanded}
+            className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⛶ Expand</button>
           <button type="button" onClick={downloadCsv}
-            className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⬇ CSV</button>
+            className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⬇ CSV</button>
         </div>
       )}
       {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
