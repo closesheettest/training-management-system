@@ -468,6 +468,13 @@ function AllApptConversion() {
       rows.push(totRow(z.zone + ' TOTAL', z.totals))
     }
     rows.push(totRow('COMPANY TOTAL', data.totals))
+    // Per-deal DETAIL — every appointment + sale behind the totals.
+    const cat3 = (c) => c === 'comp' ? 'CO' : (c || '').toUpperCase()
+    const detailRow = (z, rep, d) => [z, rep, d.kind === 'sale' ? 'SALE' : 'APPT', cat3(d.cat), d.customer || '', d.address || '', d.source || '', d.status || '', d.apptDate || '', d.sold || '', d.start || '', d.kind === 'sale' ? (d.amt || 0) : '', d.pitch || '', d.rb ? 'Y' : '', d.ins ? 'Y' : '']
+    rows.push([])
+    rows.push(['DETAIL — every appointment & sale behind the totals'])
+    rows.push(['Zone', 'Rep', 'Type', 'Bucket', 'Customer', 'Address', 'Source', 'Status', 'Appt', 'Sold', 'Start', '$', 'Pitch', 'RB', 'Insul'])
+    for (const z of data.zones) for (const r of z.reps) for (const d of (r.details || [])) rows.push(detailRow(z.zone, r.rep, d))
     const csv = rows.map((row) => row.map(esc).join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
     const a = document.createElement('a')
@@ -545,9 +552,9 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
               className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
           ))}
           <button type="button" onClick={openExpanded}
-            className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⛶ Expand</button>
+            className="ml-auto rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-300">⛶ Expand</button>
           <button type="button" onClick={downloadCsv}
-            className="rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100">⬇ CSV</button>
+            className="rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-300">⬇ CSV</button>
         </div>
       )}
       {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
