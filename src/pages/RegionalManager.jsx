@@ -207,7 +207,7 @@ const fixWeekStart = (s) => { const x = new Date(s); if (isNaN(x)) return null; 
 const fixStartBad = (e) => { if (!e.apptDate) return false; if (!e.start) return true; if (e.isReset) return false; const a = fixWeekStart(e.apptDate), s = fixWeekStart(e.start); return a == null || s == null ? false : a !== s }  // start blank, or in a DIFFERENT week than the appt — but a RESET legitimately sits in a later week than its original start, so don't flag those
 const fixApptPast = (e) => { if (!e.apptDate) return false; const d = new Date(e.apptDate); if (isNaN(d)) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return d < t }
 const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset appointment'].includes(String(e.status || '').toLowerCase().trim())
-const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.sale && e.roofrStatus === 'no_pdf' && 'no Roofr report attached', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
@@ -248,7 +248,7 @@ function ApptDetail({ details }) {
                   <td className={TD + ' text-slate-500'}>{e.sale ? (e.sold || '—') : ''}</td>
                   <td className={TD + (fixStartBad(e) ? ' font-semibold text-amber-600' : ' text-slate-500')}>{e.start || '—'}</td>
                   <td className={TD + ' text-right font-medium text-slate-700'}>{e.sale ? '$' + (e.amt || 0).toLocaleString() : ''}</td>
-                  <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-700">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-600">need Roofr</span> : '—')) : ''}</td>
+                  <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-700">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-600">NO ROOFR</span> : '—')) : ''}</td>
                   <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-600">✓</span> : ''}</td>
                   <td className={TD + ' text-center'}>{e.sale && e.ins ? <span className="font-bold text-violet-600">✓</span> : ''}</td>
                   <td className={TD} title={reasons.join('; ')}>{reasons.length ? <span className="font-bold text-amber-600">⚠</span> : ''}</td>
