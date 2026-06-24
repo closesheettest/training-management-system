@@ -524,6 +524,30 @@ function AllApptConversion() {
                 {zoneOpen && (
                   <div className="overflow-x-auto">
                     <table className="w-full whitespace-nowrap text-sm">
+                      {/* Soft column bands: green = sold counts, blue = dollars,
+                          so the eye finds outcomes vs plain appointments fast. */}
+                      <colgroup>
+                        <col />{/* Rep */}
+                        <col />{/* Harv Apt */}
+                        <col className="bg-emerald-50" />{/* Harv Sold */}
+                        <col />{/* Co Apt */}
+                        <col className="bg-emerald-50" />{/* Co Sold */}
+                        <col />{/* BTR Apt */}
+                        <col className="bg-emerald-50" />{/* BTR Sold */}
+                        <col />{/* Total Apt */}
+                        <col className="bg-emerald-50" />{/* Sold */}
+                        <col className="bg-sky-50" />{/* Harv $ */}
+                        <col className="bg-sky-50" />{/* Co $ */}
+                        <col className="bg-sky-50" />{/* BTR $ */}
+                        <col className="bg-sky-50" />{/* $ Sold */}
+                        <col />{/* Harv % */}
+                        <col />{/* Co % */}
+                        <col />{/* BTR % */}
+                        <col />{/* Tot % */}
+                        <col />{/* Avg $/Sale */}
+                        <col />{/* RB */}
+                        <col />{/* Insul */}
+                      </colgroup>
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left">Rep</th>
