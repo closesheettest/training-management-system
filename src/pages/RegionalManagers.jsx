@@ -746,17 +746,29 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
           })}
           {data.totals && (
             <div className="rounded-lg px-4 py-3 text-white shadow" style={{ background: '#1e1b4b' }}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="text-sm font-extrabold uppercase tracking-wide">🏢 Company total</span>
-                <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                  <span><span className="text-[10px] uppercase opacity-70">Appts</span> <b>{data.totals.appts}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvAp}·C{data.totals.compAp}·B{data.totals.btrAp})</span></span>
-                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b> <span className="text-[11px] opacity-70">(H{data.totals.harvSl}·C{data.totals.compSl}·B{data.totals.btrSl})</span></span>
+              <div className="mb-2 text-sm font-extrabold uppercase tracking-wide">🏢 Company total</div>
+              <div className="grid gap-1 text-sm">
+                {/* Per-bucket: every column header (Apt · Sold · % · $) for Harv, Co, BTR */}
+                {[['Harv', 'harvAp', 'harvSl', 'harvPct', 'harvAmt'], ['Co', 'compAp', 'compSl', 'compPct', 'compAmt'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt']].map(([lbl, ap, sl, pc, amt]) => (
+                  <div key={lbl} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                    <span className="w-12 font-bold">{lbl}</span>
+                    <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals[ap]}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals[sl]}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals[pc]}%</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals[amt] || 0).toLocaleString()}</b></span>
+                  </div>
+                ))}
+                {/* Totals row: Total Apt · Sold · Tot % · $ Sold · Avg · RB · Insul */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 border-t border-white/15 pt-1.5">
+                  <span className="w-12 font-extrabold">TOTAL</span>
+                  <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals.appts}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
                   <span className="text-base font-extrabold">{data.totals.pct}%</span>
                   <span><span className="text-[10px] uppercase opacity-70">$ Sold</span> <b>${(data.totals.amt || 0).toLocaleString()}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Avg/Sale</span> <b>${(data.totals.avg || 0).toLocaleString()}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b> <span className="text-[11px] opacity-70">({data.totals.rb_pct}%)</span></span>
                   <span><span className="text-[10px] uppercase opacity-70">Insul</span> <b>{data.totals.ins}</b> <span className="text-[11px] opacity-70">({data.totals.ins_pct}%)</span></span>
-                </span>
+                </div>
               </div>
             </div>
           )}
