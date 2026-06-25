@@ -145,6 +145,8 @@ export default function RegionalManager() {
 
       <QuickActions manager={manager} />
 
+      <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
+
       <ZoneMap reps={reps} zoneName={manager.region} token={token} />
 
       <RepsTable token={token} reps={reps} onChanged={reload} />
@@ -1386,6 +1388,68 @@ function ActionTile({ icon, title, subtitle, href, comingSoonNote, onClick, acti
     >
       {inner}
     </div>
+  )
+}
+
+// ── WhatsApp groups ────────────────────────────────────────────────
+// Pick which reps to invite; sends all 3 group links (Sales Team, Say
+// Anything, + this manager's zone group) by BOTH text and email. The
+// links are fixed server-side; the manager only chooses recipients.
+function WhatsAppGroups({ token, reps, zone }) {
+  const reachable = (reps || []).filter((r) => r.phone || r.email)
+  const [selected, setSelected] = useState(() => new Set(reachable.map((r) => r.id)))
+  const [sending, setSending] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const allSel = reachable.length > 0 && selected.size === reachable.length
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleAll = () => setSelected(allSel ? new Set() : new Set(reachable.map((r) => r.id)))
+
+  const send = async () => {
+    const ids = [...selected]
+    if (!ids.length) return
+    setSending(true); setMsg(null)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_whatsapp_invite', token, trainee_ids: ids }),
+      })
+      const d = await res.json()
+      if (res.ok && d.ok) {
+        const c = d.counts || {}
+        setMsg({ ok: true, text: `✓ Sent to ${c.recipients ?? ids.length} rep(s) — ${c.sms_sent || 0} texts, ${c.email_sent || 0} emails.` })
+      } else setMsg({ ok: false, text: d.error || 'Failed to send.' })
+    } catch { setMsg({ ok: false, text: 'Network error.' }) }
+    setSending(false)
+  }
+
+  return (
+    <section className="mt-6">
+      <div className="rounded-lg border border-emerald-500/30 bg-emerald-900/25 p-4">
+        <div className="text-sm font-bold uppercase tracking-wide text-emerald-200">💬 Invite reps to WhatsApp</div>
+        <p className="mt-1 text-xs text-slate-300/80">
+          Sends all 3 group links — <strong>Sales Team</strong>, <strong>Say Anything</strong>, and your <strong>{zone}</strong> group — to the reps you pick, by text <strong>and</strong> email.
+        </p>
+        <div className="mt-3 mb-1 flex items-center justify-between">
+          <div className="text-xs font-semibold text-slate-200">Send to ({selected.size}/{reachable.length})</div>
+          <button type="button" onClick={toggleAll} className="text-xs text-sky-300">{allSel ? 'Clear all' : 'Select all'}</button>
+        </div>
+        <div className="max-h-56 divide-y divide-white/5 overflow-y-auto rounded border border-white/10 bg-black/20">
+          {reachable.map((r) => (
+            <label key={r.id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-100">
+              <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+              <span className="font-medium">{`${r.first_name || ''} ${r.last_name || ''}`.trim()}</span>
+              <span className="ml-auto text-[10px] text-slate-400">{[r.phone && '📱', r.email && '✉️'].filter(Boolean).join(' ')}</span>
+            </label>
+          ))}
+          {!reachable.length && <div className="px-3 py-2 text-xs text-slate-400">No reps with a phone or email on file.</div>}
+        </div>
+        <button type="button" onClick={send} disabled={sending || !selected.size}
+          className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow disabled:opacity-50">
+          {sending ? 'Sending…' : `Send all 3 links to ${selected.size} rep${selected.size === 1 ? '' : 's'} (text + email)`}
+        </button>
+        {msg && <div className={`mt-2 text-xs ${msg.ok ? 'text-emerald-300' : 'text-red-300'}`}>{msg.text}</div>}
+      </div>
+    </section>
   )
 }
 

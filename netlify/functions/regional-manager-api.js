@@ -376,6 +376,64 @@ export const handler = async (event) => {
     return json(200, { ok: true, ...data })
   }
 
+  // ── WhatsApp groups: text + email all 3 group links to selected reps ──
+  // Two company-wide links + the manager's own zone link. The manager only
+  // picks WHO (trainee_ids); the links are fixed and all three always go.
+  // Region-gated: no matter what IDs are posted, only ACTIVE reps in this
+  // manager's own zone are reachable.
+  if (action === 'send_whatsapp_invite') {
+    const SALES_ANNOUNCE = 'https://chat.whatsapp.com/IbaQBwteRThFRXbF0TEsAO?mode=gi_t'
+    const SAY_ANYTHING = 'https://chat.whatsapp.com/DacDH9aUSScGTRPUTUC422?mode=gi_t'
+    const ZONE_LINKS = {
+      'Zone 1': 'https://chat.whatsapp.com/IEGNQuL1ei8IYcQ8UXzg4w?mode=gi_t',
+      'Zone 2': 'https://chat.whatsapp.com/GT0Kwe363FBAemOOjtHNFa?mode=gi_t',
+      'Zone 3': 'https://chat.whatsapp.com/DxjLRDq5Lx73g4gD1gLJmD?mode=gi_t',
+      'Zone 4': 'https://chat.whatsapp.com/LaEEMMdEncaGv8uwgPVbiW?mode=gi_t',
+    }
+    const zoneLink = ZONE_LINKS[region] || null
+
+    const ids = Array.isArray(body.trainee_ids) ? [...new Set(body.trainee_ids.map(String))] : []
+    if (!ids.length) return json(400, { error: 'Pick at least one rep to send to.' })
+
+    const { data: inZone, error: zErr } = await supabase
+      .from('trainees')
+      .select('id')
+      .eq('region', region)
+      .eq('is_active_sales_rep', true)
+      .in('id', ids)
+    if (zErr) return json(500, { error: zErr.message })
+    const validIds = (inZone || []).map((r) => String(r.id))
+    if (!validIds.length) return json(400, { error: 'None of the selected reps are active in your zone.' })
+
+    const smsBody =
+      `📣 Join our U.S. Shingle WhatsApp groups — tap each link to join (please join all 3):\n\n` +
+      `1) Sales Team (sales announcements):\n${SALES_ANNOUNCE}\n\n` +
+      `2) Say Anything (talk to all reps):\n${SAY_ANYTHING}` +
+      (zoneLink ? `\n\n3) Your zone — ${region}:\n${zoneLink}` : '')
+
+    const emailSubject = 'Join the U.S. Shingle WhatsApp groups'
+    const linkP = (n, label, url) =>
+      `<p style="margin:14px 0;"><strong>${n}) ${label}</strong><br><a href="${url}" style="color:#0e7490;word-break:break-all;">${url}</a></p>`
+    const emailBody =
+      `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">` +
+      `<h2 style="color:#0e7490;margin-top:0;">Join our WhatsApp groups</h2>` +
+      `<p>Tap each link below to join — please join all three:</p>` +
+      linkP(1, 'Sales Team (sales announcements)', SALES_ANNOUNCE) +
+      linkP(2, 'Say Anything (talk to all reps)', SAY_ANYTHING) +
+      (zoneLink ? linkP(3, `Your zone — ${region}`, zoneLink) : '') +
+      `</div>`
+
+    const { status, body: data } = await runGroupSend({
+      trainee_ids: validIds,
+      channels: { sms: true, email: true },
+      sms_body: smsBody,
+      email_subject: emailSubject,
+      email_body: emailBody,
+    })
+    if (status >= 400) return json(status, { error: data?.error || 'Send failed.' })
+    return json(200, { ok: true, ...data, sent_to: validIds.length, zone_link: !!zoneLink })
+  }
+
   // ── Team Replies inbox ───────────────────────────────────────────────
   // rep_messages mirrors rep<->manager SMS (inbound rows come from
   // cron-poll-rep-replies; see the 2026-06-03-rep-manager-messages.sql
