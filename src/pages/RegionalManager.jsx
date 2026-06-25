@@ -1305,17 +1305,9 @@ const MANAGERS_MEETING_URL =
 
 function QuickActions({ manager }) {
   const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
-  const hasRecords = !!(manager.ccg_records_url && String(manager.ccg_records_url).trim())
   return (
     <section className="mt-6">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <ActionTile
-          icon="📄"
-          title="Roof Inspection Records"
-          subtitle="Your team's deals · pending signatures · status"
-          href={hasRecords ? manager.ccg_records_url : null}
-          comingSoonNote="Deal board coming soon — admin is finalizing."
-        />
         <ActionTile
           icon="📹"
           title="Join Zone Zoom"
