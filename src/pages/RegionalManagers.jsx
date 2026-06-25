@@ -77,6 +77,8 @@ export default function RegionalManagers() {
         </p>
       </header>
 
+      <ResultsFollowups />
+
       <AllDealsToFix />
 
       <AllBackToRetailConversions />
@@ -105,6 +107,100 @@ export default function RegionalManagers() {
         </div>
       )}
     </div>
+  )
+}
+
+// "Inspection done — go back to review results." When a rep signs a free
+// inspection they ask the homeowner the best day/time to come back and go over
+// the results (review_availability). Once inspected, this lists every deal the
+// rep still needs to go back on, by zone → rep, with that day/time. Drops off
+// once the rep has gone back and handled it. (CCG all-results-followups.)
+function ResultsFollowups() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [openZone, setOpenZone] = useState(null)
+  const [openRep, setOpenRep] = useState(null)
+  const [err, setErr] = useState('')
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'all-results-followups')
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const BADGE = { damage: ['Damage', 'bg-rose-100 text-rose-700'], no_damage: ['No Damage', 'bg-emerald-100 text-emerald-700'], retail: ['Retail', 'bg-amber-100 text-amber-700'] }
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '' } }
+  return (
+    <section className="mb-6">
+      <button type="button" onClick={load} disabled={loading}
+        className="w-full rounded-lg bg-[#0e7490] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
+        🔁 Go back to review results{data ? ` (${data.total})` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Loading…' : `Inspected deals whose homeowner picked a best day/time to go over results — the rep hasn't gone back yet. By zone → rep. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+      {data && (
+        <div className="mt-3 space-y-3">
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">✅ No pending result-review visits right now.</div>
+          ) : data.zones.map((z) => {
+            const zoneOpen = openZone === z.zone
+            return (
+              <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <button type="button" onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                  className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                  style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}>
+                  <span className="flex items-center gap-2">
+                    <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>{teamLabel(z.zone) || z.zone}</span>
+                    <span className="text-xs text-slate-500">{z.zone}</span>
+                  </span>
+                  <span className="text-sm text-slate-700"><span className="font-bold text-[#0e7490]">{z.count}</span> to visit {zoneOpen ? '▾' : '▸'}</span>
+                </button>
+                {zoneOpen && (
+                  <div className="space-y-2 border-t border-slate-100 p-3">
+                    {z.reps.map((r) => {
+                      const key = `${z.zone}|${r.rep}`
+                      const repOpen = openRep === key
+                      return (
+                        <div key={key} className="rounded-lg border border-slate-200">
+                          <button type="button" onClick={() => setOpenRep(repOpen ? null : key)}
+                            className="flex w-full items-center justify-between p-3 text-left">
+                            <span className="font-semibold text-slate-800">{r.rep}</span>
+                            <span className="text-sm text-slate-600"><span className="font-bold text-[#0e7490]">{r.deals.length}</span> to visit {repOpen ? '▾' : '▸'}</span>
+                          </button>
+                          {repOpen && (
+                            <div className="space-y-2 border-t border-slate-100 p-3">
+                              {r.deals.map((dl, i) => {
+                                const [label, cls] = BADGE[dl.result] || [dl.result, 'bg-slate-100 text-slate-700']
+                                return (
+                                  <div key={i} className="rounded bg-slate-50 p-2.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-semibold text-slate-800">{dl.homeowner}</span>
+                                      <span className={'rounded px-1.5 py-0.5 text-[10px] font-bold ' + cls}>{label}</span>
+                                    </div>
+                                    <div className="mt-1 text-sm font-bold text-[#0e7490]">🗓 Go over results: {dl.review_availability}</div>
+                                    {dl.address && <div className="text-xs text-slate-500">📍 {dl.address}</div>}
+                                    <div className="text-[11px] text-slate-400">Inspected {fmtDate(dl.inspected_at)}{dl.mobile ? ` · 📞 ${dl.mobile}` : ''}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 
