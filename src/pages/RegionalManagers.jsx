@@ -471,7 +471,9 @@ const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset
 // A Damage / No-Damage inspection that SOLD is almost certainly a retail roof
 // sale still parked in the Insurance location (we don't auto-move those). Flag it
 // so the rep moves the JN location to Retail — then it counts as BTR, not Co.
-const fixNeedsRetailLoc = (e) => !!(e.sale && (e.result === 'damage' || e.result === 'no_damage'))
+// ...unless the JN location is ALREADY Retail (1) — then it's been moved and is fine.
+// (location 1 = Retail, 3 = Insurance; null/unset still flags so it gets set.)
+const fixNeedsRetailLoc = (e) => !!(e.sale && (e.result === 'damage' || e.result === 'no_damage') && e.location !== 1)
 const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
