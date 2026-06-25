@@ -145,6 +145,8 @@ export default function RegionalManager() {
 
       <BackToRetailWins zone={manager.region} />
 
+      <Damage zone={manager.region} />
+
       <NoDamage zone={manager.region} />
 
       <QuickActions manager={manager} />
@@ -1102,7 +1104,7 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
                   ? <div className="text-xs text-amber-200/90">📋 {statusLabel}: {dl.status}</div>
                   : <div className="text-[11px] text-slate-400">{dl.status}</div>)}
                 {r.inactive && dl.jnid && <DealReassign jnid={dl.jnid} reps={reps} zone={zone} customer={dl.customer} address={dl.address}
-                  kind={fn === 'zone-back-to-retail' ? 'back_to_retail' : fn === 'zone-no-damage' ? 'no_damage' : fn === 'zone-no-sits' ? 'no_sit' : ''}
+                  kind={fn === 'zone-back-to-retail' ? 'back_to_retail' : fn === 'zone-damage' ? 'damage' : fn === 'zone-no-damage' ? 'no_damage' : fn === 'zone-no-sits' ? 'no_sit' : ''}
                   onReassigned={load} />}
               </div>
             ))}
@@ -1173,6 +1175,10 @@ function BackToRetail({ zone }) {
 function NoDamage({ zone }) {
   return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected"
     blurb="Inspections in your zone that came back no-damage. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ No no-damage inspections right now." />
+}
+function Damage({ zone }) {
+  return <ZoneApptReport zone={zone} fn="zone-damage" emoji="⚠️" title="Damage" unit="deal" color="#b45309" dateLabel="Inspected"
+    blurb="Inspections in your zone that came back damage. Deals from a rep who's left show under Non-active rep — reassign them to an active rep." emptyMsg="✅ No damage inspections right now." />
 }
 
 // ── Back-to-retail conversions ─────────────────────────────────────
