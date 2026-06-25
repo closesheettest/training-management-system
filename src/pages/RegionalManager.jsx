@@ -1416,9 +1416,20 @@ function WhatsAppGroups({ token, reps, zone }) {
       const d = await res.json()
       if (res.ok && d.ok) {
         const c = d.counts || {}
-        setMsg({ ok: true, text: `✓ Sent to ${c.recipients ?? ids.length} rep(s) — ${c.sms_sent || 0} texts, ${c.email_sent || 0} emails.` })
-      } else setMsg({ ok: false, text: d.error || 'Failed to send.' })
-    } catch { setMsg({ ok: false, text: 'Network error.' }) }
+        const smsS = c.sms_sent || 0, smsF = c.sms_failed || 0
+        const emS = c.email_sent || 0, emF = c.email_failed || 0
+        const parts = [
+          `${smsS} text${smsS === 1 ? '' : 's'}${smsF ? ` (${smsF} failed)` : ''}`,
+          `${emS} email${emS === 1 ? '' : 's'}${emF ? ` (${emF} failed)` : ''}`,
+        ]
+        if (smsS === 0 && emS === 0) {
+          setMsg({ level: 'fail', text: '❌ Nothing went out (0 texts, 0 emails). Check the selected reps have a valid phone/email.' })
+        } else {
+          const anyFail = smsF > 0 || emF > 0
+          setMsg({ level: anyFail ? 'partial' : 'ok', text: `${anyFail ? '⚠️ Sent, some failed' : '✅ Sent'} — ${c.recipients ?? ids.length} rep(s): ${parts.join(', ')}.` })
+        }
+      } else setMsg({ level: 'fail', text: `❌ ${d.error || 'Failed to send.'}` })
+    } catch { setMsg({ level: 'fail', text: '❌ Network error — nothing sent. Try again.' }) }
     setSending(false)
   }
 
@@ -1447,7 +1458,13 @@ function WhatsAppGroups({ token, reps, zone }) {
           className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow disabled:opacity-50">
           {sending ? 'Sending…' : `Send all 3 links to ${selected.size} rep${selected.size === 1 ? '' : 's'} (text + email)`}
         </button>
-        {msg && <div className={`mt-2 text-xs ${msg.ok ? 'text-emerald-300' : 'text-red-300'}`}>{msg.text}</div>}
+        {msg && (
+          <div className={`mt-3 rounded-lg border px-3 py-2 text-sm font-semibold ${
+            msg.level === 'ok' ? 'border-emerald-400/40 bg-emerald-600/30 text-emerald-100'
+              : msg.level === 'partial' ? 'border-amber-400/40 bg-amber-600/30 text-amber-100'
+                : 'border-red-400/40 bg-red-600/30 text-red-100'
+          }`}>{msg.text}</div>
+        )}
       </div>
     </section>
   )
