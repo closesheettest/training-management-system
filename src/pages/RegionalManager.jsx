@@ -139,15 +139,9 @@ export default function RegionalManager() {
 
       <DealsToFix zone={manager.region} />
 
-      <NoSits zone={manager.region} />
-
-      <BackToRetail zone={manager.region} />
+      <ActiveLeads zone={manager.region} />
 
       <BackToRetailWins zone={manager.region} />
-
-      <Damage zone={manager.region} />
-
-      <NoDamage zone={manager.region} />
 
       <QuickActions manager={manager} />
 
@@ -1056,12 +1050,15 @@ function DealReassign({ jnid, reps, kind, zone, customer, address, onReassigned 
 // appointment was for. Any deal whose rep is NO LONGER ACTIVE is listed
 // in a separate "Non-active rep" section (data.inactive_reps) so the
 // manager knows to pass those leads out to an active rep.
-function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, dateLabel = 'Appt was for', statusLabel }) {
+function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, dateLabel = 'Appt was for', statusLabel, headless = false, autoLoad = false }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { reps, inactive_reps, total } | null
   const [openRep, setOpenRep] = useState(null)
   const [err, setErr] = useState('')
   const [reps, setReps] = useState([])     // active roster for the reassign dropdowns
+
+  // Headless tiles (Active leads grid) load on mount — the square IS the toggle.
+  useEffect(() => { if (autoLoad && !data && !loading) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = async () => {
     setLoading(true); setErr('')
@@ -1119,15 +1116,27 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
   const nothing = data && data.reps.length === 0 && inactive.length === 0 && notInterested.length === 0
 
   return (
-    <section className="mt-6">
-      <button type="button" onClick={load} disabled={loading}
-        className="w-full rounded-lg px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60"
-        style={{ backgroundColor: color }}>
-        {emoji} {title}{data ? ` (${data.total})` : ''}
-        <div className="text-xs font-normal opacity-90">
-          {loading ? 'Checking JobNimbus…' : `${blurb} Tap to ${data ? 'refresh' : 'load'}`}
+    <section className={headless ? 'mt-3' : 'mt-6'}>
+      {headless ? (
+        // Inside the Active-leads grid: the square tile is the toggle, so just
+        // a slim title row + a refresh link here.
+        <div className="mb-2 flex items-center justify-between border-l-2 pl-2" style={{ borderColor: color }}>
+          <div className="text-sm font-bold text-white">{emoji} {title}{data ? ` (${data.total})` : ''}</div>
+          <button type="button" onClick={load} disabled={loading} className="text-xs text-sky-300 disabled:opacity-50">
+            {loading ? 'Loading…' : (data ? '↻ refresh' : 'load')}
+          </button>
         </div>
-      </button>
+      ) : (
+        <button type="button" onClick={load} disabled={loading}
+          className="w-full rounded-lg px-4 py-3 text-left font-semibold text-white shadow disabled:opacity-60"
+          style={{ backgroundColor: color }}>
+          {emoji} {title}{data ? ` (${data.total})` : ''}
+          <div className="text-xs font-normal opacity-90">
+            {loading ? 'Checking JobNimbus…' : `${blurb} Tap to ${data ? 'refresh' : 'load'}`}
+          </div>
+        </button>
+      )}
+      {headless && loading && !data && <div className="text-xs text-slate-300/70">Checking JobNimbus…</div>}
       {err && <div className="mt-2 text-xs text-red-300">{err}</div>}
       {data && (
         <div className="mt-2 space-y-2">
@@ -1164,21 +1173,43 @@ function ZoneApptReport({ zone, fn, emoji, title, blurb, unit, color, emptyMsg, 
   )
 }
 
-function NoSits({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569" statusLabel="Status"
-    blurb="Appointments in your zone that didn't sit — chase them back onto the calendar." emptyMsg="✅ No no-sits to re-book right now." />
-}
-function BackToRetail({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e" dateLabel="Inspected"
-    blurb="Inspections in your zone that came back retail — work them as retail roof sales. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ Nothing back-to-retail right now." />
-}
-function NoDamage({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected"
-    blurb="Inspections in your zone that came back no-damage. Deals from a rep who's left show under Non-active rep." emptyMsg="✅ No no-damage inspections right now." />
-}
-function Damage({ zone }) {
-  return <ZoneApptReport zone={zone} fn="zone-damage" emoji="⚠️" title="Damage" unit="deal" color="#b45309" dateLabel="Inspected"
-    blurb="Inspections in your zone that came back damage. Deals from a rep who's left show under Non-active rep — reassign them to an active rep." emptyMsg="✅ No damage inspections right now." />
+// Active leads needing to be worked — compact 2×2 grid of square tiles. Tap a
+// tile to load that report inline below; tap it again (or another) to hide.
+function ActiveLeads({ zone }) {
+  const [open, setOpen] = useState(null) // 'btr' | 'damage' | 'no_damage' | 'no_sits' | null
+  const TILES = [
+    { key: 'btr', emoji: '🏠', label: 'Back to retail', color: '#0f766e' },
+    { key: 'damage', emoji: '⚠️', label: 'Damage', color: '#b45309' },
+    { key: 'no_damage', emoji: '🚫', label: 'No damage', color: '#6d28d9' },
+    { key: 'no_sits', emoji: '📵', label: 'No-sits to re-book', color: '#475569' },
+  ]
+  const report = (k) => {
+    if (k === 'btr') return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e" dateLabel="Inspected" blurb="" emptyMsg="✅ Nothing back-to-retail right now." headless autoLoad />
+    if (k === 'damage') return <ZoneApptReport zone={zone} fn="zone-damage" emoji="⚠️" title="Damage" unit="deal" color="#b45309" dateLabel="Inspected" blurb="" emptyMsg="✅ No damage inspections right now." headless autoLoad />
+    if (k === 'no_damage') return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected" blurb="" emptyMsg="✅ No no-damage inspections right now." headless autoLoad />
+    if (k === 'no_sits') return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569" statusLabel="Status" blurb="" emptyMsg="✅ No no-sits to re-book right now." headless autoLoad />
+    return null
+  }
+  return (
+    <section className="mt-6">
+      <div className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-300">📋 Active leads needing to be worked</div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {TILES.map((t) => {
+          const active = open === t.key
+          return (
+            <button key={t.key} type="button" onClick={() => setOpen(active ? null : t.key)}
+              className="flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 text-center text-white shadow transition"
+              style={{ backgroundColor: t.color, opacity: active ? 1 : 0.82, outline: active ? '2px solid #fff' : 'none', outlineOffset: '-2px' }}>
+              <span className="text-2xl leading-none">{t.emoji}</span>
+              <span className="text-xs font-bold leading-tight">{t.label}</span>
+              <span className="text-[10px] opacity-80">{active ? 'tap to hide ▾' : 'tap to load ▸'}</span>
+            </button>
+          )
+        })}
+      </div>
+      {open && <div className="mt-1">{report(open)}</div>}
+    </section>
+  )
 }
 
 // ── Back-to-retail conversions ─────────────────────────────────────
