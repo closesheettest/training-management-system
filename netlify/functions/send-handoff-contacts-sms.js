@@ -43,7 +43,7 @@ export const handler = async (event) => {
 
   const { data: trainee, error: tErr } = await supabase
     .from('trainees')
-    .select('id, first_name, phone, email, handoff_contacts_sent_at, classes!class_id(region)')
+    .select('id, first_name, phone, email, region, handoff_contacts_sent_at, classes!class_id(region)')
     .eq('id', trainee_id)
     .maybeSingle()
   if (tErr) return json(500, { error: `Supabase: ${tErr.message}` })
@@ -72,15 +72,18 @@ export const handler = async (event) => {
     return json(200, { ok: false, skipped_reason: 'No handoff contacts configured' })
   }
 
-  // Also pull the trainee's actual Regional Manager (by zone) + the daily sales
-  // meeting (the manager's Zoom link), so every grad gets their manager's direct
-  // contact and the meeting link — not just the admin-configured contact list.
+  // Also pull the trainee's actual Regional Manager + the daily sales meeting
+  // (the manager's Zoom link), so every grad gets their manager's direct contact
+  // and the meeting link — not just the admin-configured contact list. The
+  // manager is keyed by ZONE (the trainee's own region, e.g. "Zone 1"), which
+  // differs from the class/training region (e.g. "St Pete").
   let manager = null
-  if (region) {
+  const zone = trainee.region || null
+  if (zone) {
     const { data: m } = await supabase
       .from('trainees')
       .select('first_name, last_name, phone, email, manager_zoom_url')
-      .eq('managed_region', region)
+      .eq('managed_region', zone)
       .limit(1)
       .maybeSingle()
     manager = m || null
