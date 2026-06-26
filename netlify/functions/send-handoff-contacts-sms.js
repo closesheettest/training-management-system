@@ -72,12 +72,31 @@ export const handler = async (event) => {
     return json(200, { ok: false, skipped_reason: 'No handoff contacts configured' })
   }
 
+  // Also pull the trainee's actual Regional Manager (by zone) + the daily sales
+  // meeting (the manager's Zoom link), so every grad gets their manager's direct
+  // contact and the meeting link — not just the admin-configured contact list.
+  let manager = null
+  if (region) {
+    const { data: m } = await supabase
+      .from('trainees')
+      .select('first_name, last_name, phone, email, manager_zoom_url')
+      .eq('managed_region', region)
+      .limit(1)
+      .maybeSingle()
+    manager = m || null
+  }
+
   const siteUrl = (process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
   const vcardUrl = `${siteUrl}/.netlify/functions/trainee-contacts-vcard?trainee_id=${trainee.id}`
   const greeting = trainee.first_name ? `${trainee.first_name}, ` : ''
 
-  const smsMessage =
+  const mName = manager ? (`${manager.first_name || ''} ${manager.last_name || ''}`.trim() || 'Your Regional Manager') : ''
+  let smsMessage =
     `[Training] ${greeting}congrats on finishing your final test! Tap to save your team contacts to your phone in one go: ${vcardUrl}`
+  if (manager) {
+    if (mName || manager.phone) smsMessage += `\n\nYour manager ${mName}${manager.phone ? ` (${manager.phone})` : ''} will be in touch.`
+    if (manager.manager_zoom_url) smsMessage += `\nDaily sales meeting: ${manager.manager_zoom_url}`
+  }
 
   // Email lists each contact inline + the same one-tap save link.
   const emailLines = [
@@ -93,6 +112,19 @@ export const handler = async (event) => {
     if (c.phone) emailLines.push(`Phone: ${c.phone}`)
     if (c.email) emailLines.push(`Email: ${c.email}`)
     emailLines.push('')
+  }
+  // Your actual Regional Manager + the daily sales meeting link.
+  if (manager) {
+    emailLines.push('Your Regional Manager')
+    emailLines.push(mName)
+    if (manager.phone) emailLines.push(`Phone: ${manager.phone}`)
+    if (manager.email) emailLines.push(`Email: ${manager.email}`)
+    emailLines.push('')
+    if (manager.manager_zoom_url) {
+      emailLines.push('Daily Sales Meeting (Zoom)')
+      emailLines.push(manager.manager_zoom_url)
+      emailLines.push('')
+    }
   }
   emailLines.push(`Save them all to your phone in one tap: ${vcardUrl}`)
   const emailBody = emailLines.join('\n')

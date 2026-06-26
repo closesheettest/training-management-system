@@ -283,7 +283,7 @@ async function fireManagerHandoff(supabase, cls, graduates) {
   // One lookup for every regional manager → keyed by the zone they manage.
   const { data: managers } = await supabase
     .from('trainees')
-    .select('first_name, last_name, phone, managed_region')
+    .select('first_name, last_name, phone, email, managed_region')
     .not('managed_region', 'is', null)
   const managerByZone = {}
   for (const m of managers || []) managerByZone[m.managed_region] = m
@@ -293,19 +293,44 @@ async function fireManagerHandoff(supabase, cls, graduates) {
     const grads = byZone[zone]
     const team = ZONE_TEAMS[zone] ? `${ZONE_TEAMS[zone]} (${zone})` : zone
     const mgr = managerByZone[zone]
-    if (!mgr || !mgr.phone) {
-      out.push({ zone, team, graduates: grads.length, sent: false, reason: mgr ? 'manager has no phone on file' : 'no manager assigned to this zone' })
+    if (!mgr || (!mgr.phone && !mgr.email)) {
+      out.push({ zone, team, graduates: grads.length, sent: false, reason: mgr ? 'manager has no phone/email on file' : 'no manager assigned to this zone' })
       continue
     }
     const link = `${siteBase}/handoff?class_id=${encodeURIComponent(cls.id)}&zone=${encodeURIComponent(zone)}`
     const n = grads.length
-    const body =
+    // Roster of each new rep with their phone, so the manager can call right
+    // away without having to open the handoff page first.
+    const roster = grads.map((g) => {
+      const name = `${g.first_name || ''} ${g.last_name || ''}`.trim() || 'New rep'
+      return g.phone ? `• ${name} — ${g.phone}` : `• ${name} (no phone on file)`
+    }).join('\n')
+
+    const smsBody =
       `🎓 ${n} new rep${n === 1 ? '' : 's'} just graduated on your team, ${team}!\n\n` +
-      `Call ${n === 1 ? 'them' : 'each one'} right away to congratulate ${n === 1 ? 'them' : 'them'}, ` +
-      `then set up a plan to ride along on sales AND inspections.\n\n` +
-      `Tap to see ${n === 1 ? 'them' : 'them all'} + save their contact${n === 1 ? '' : 's'} to your phone:\n${link}`
-    const sms = await sendSmsViaGhl(mgr.phone, body, { firstName: mgr.first_name, lastName: mgr.last_name })
-    out.push({ zone, team, graduates: n, manager: `${mgr.first_name || ''} ${mgr.last_name || ''}`.trim(), sent: !!sms.ok, ...(sms.ok ? {} : { error: sms.error || sms.step }) })
+      `Call ${n === 1 ? 'them' : 'each one'} now to welcome ${n === 1 ? 'them' : 'them'}:\n${roster}\n\n` +
+      `Then plan a ride-along on sales AND inspections. Save their contacts: ${link}`
+    const emailBody =
+      `${mgr.first_name || 'Manager'},\n\n` +
+      `${n} new rep${n === 1 ? '' : 's'} just graduated onto your team — ${team}.\n\n` +
+      `Please call ${n === 1 ? 'them' : 'each of them'} right away to welcome ${n === 1 ? 'them' : 'them'} aboard:\n\n` +
+      `${roster}\n\n` +
+      `Next step: set up a plan to ride along with ${n === 1 ? 'them' : 'each of them'} on both a sales day and an inspection.\n\n` +
+      `You can also tap here to see them all and save their contacts to your phone:\n${link}`
+
+    const channels = []
+    const errs = []
+    if (mgr.phone) {
+      const sms = await sendSmsViaGhl(mgr.phone, smsBody, { firstName: mgr.first_name, lastName: mgr.last_name })
+      if (sms.ok) channels.push('sms'); else errs.push('sms: ' + (sms.error || sms.step || 'failed'))
+    }
+    if (mgr.email) {
+      try {
+        const r = await sendEmail(mgr.email, `${n} new rep${n === 1 ? '' : 's'} on your team — call to welcome ${n === 1 ? 'them' : 'them'}`, emailBody)
+        if (r && r.ok !== false) channels.push('email'); else errs.push('email: ' + (r?.error || 'failed'))
+      } catch (e) { errs.push('email: ' + (e.message || 'error')) }
+    }
+    out.push({ zone, team, graduates: n, manager: `${mgr.first_name || ''} ${mgr.last_name || ''}`.trim(), channels, sent: channels.length > 0, ...(errs.length ? { errors: errs } : {}) })
   }
   return { ok: true, zones: out }
 }

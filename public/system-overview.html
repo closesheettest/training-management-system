@@ -243,7 +243,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
   <li><strong>Credentials delivery</strong> — once setup is done, the corporate trainer sends each trainee a text with their email, password, and step-by-step iPhone/Android setup instructions.</li>
   <li><strong>Day-of safety nets</strong> — hotel no-show alerts that repeat every hour (after class start) until someone cancels the unused room and presses "Cancel Hotel"; dropout detection that pings IT and HR to clean up accounts.</li>
   <li><strong>End-of-week reporting</strong> — a PDF graduating class report is generated and emailed automatically once every trainee has submitted their final test.</li>
-  <li><strong>Auto-marketing &amp; handoff</strong> — every trainee gets a post-test review-request email asking for 4 reviews (Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo — Corporate Trainer), each pre-filled with one of their own essay answers. They also get a text with a vCard link that saves the team's handoff contacts (Sales Manager, Helpline, etc.) to their phone in one tap. A class graduation announcement fires immediately to Facebook + LinkedIn, and a paced testimonial queue posts one trainee quote per platform per day to keep social alive between classes.</li>
+  <li><strong>Auto-marketing &amp; handoff</strong> — every trainee gets a post-test review-request email asking for 4 reviews (Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo — Corporate Trainer), each pre-filled with one of their own essay answers. They also get a text and email with a vCard link that saves the team's handoff contacts to their phone in one tap — including their own Regional Manager and the daily sales meeting link — and each zone's manager gets a text + email listing every new rep with their phone number to call and welcome them. A class graduation announcement fires immediately to Facebook + LinkedIn, and a paced testimonial queue posts one trainee quote per platform per day to keep social alive between classes.</li>
 </ul>
 
 <p>The dollar value is in the time saved per class week — what used to be an inbox-driven, "who-texted-who" workflow is now visible, dedup'd, and self-driving.</p>
@@ -311,7 +311,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <div class="day">
   <div class="label">Last day — final test</div>
-  <p class="what">Trainees take a final assessment from their phone. Multiple-choice + a few essay/testimonial questions. Scores are saved automatically. The moment a trainee taps <strong>Submit</strong>, three things happen in parallel: <strong>(1)</strong> a 4-review email lands in their inbox (Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo — Corporate Trainer), each pre-filled with one of their own essay answers so they only click and paste; <strong>(2)</strong> a text fires with a vCard link that saves their team's handoff contacts (Sales Manager + Helpline) to their phone in one tap; <strong>(3)</strong> their testimonial-eligible essays are added to the paced social-post queue for the daily 9 AM Eastern flush.</p>
+  <p class="what">Trainees take a final assessment from their phone. Multiple-choice + a few essay/testimonial questions. Scores are saved automatically. The moment a trainee taps <strong>Submit</strong>, three things happen in parallel: <strong>(1)</strong> a 4-review email lands in their inbox (Google + Yelp for U.S. Shingle, Google + Yelp for Neal Scoppettuolo — Corporate Trainer), each pre-filled with one of their own essay answers so they only click and paste; <strong>(2)</strong> a text <em>and email</em> fire with a vCard link that saves their team's handoff contacts to their phone in one tap, and now also include their own Regional Manager (name, phone, email) plus the daily sales meeting Zoom link; <strong>(3)</strong> their testimonial-eligible essays are added to the paced social-post queue for the daily 9 AM Eastern flush.</p>
 </div>
 
 <div class="day">
@@ -436,10 +436,16 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. Two separate emails go to the trainee's personal inbox: one for U.S. Shingle (Google + Yelp inside) and one for Neal (Google + Yelp inside). U.S. Shingle email uses essays flagged <em>"Use for client business review"</em> (client-specific wording welcome); Neal email uses essays flagged <em>"Use for Neal's brand testimonials"</em> (must stay generic). Each block shows the original question above the verbatim answer; trainees click → paste → submit. Falls back to longest-of-any essay if a flag pool is empty. Stamps once if at least one of the two emails delivered (dedup via review_email_sent_at).</span></td>
     </tr>
     <tr>
-      <td><strong>Handoff contacts (vCard)</strong><br><em>Tap-to-save Sales Manager + Helpline (and any region-matched contacts) to the trainee's phone</em></td>
+      <td><strong>Handoff contacts (vCard)</strong><br><em>Tap-to-save team contacts + the trainee's own Regional Manager &amp; daily sales meeting link</em></td>
       <td>Each trainee</td>
-      <td>📱 Text · with vCard link</td>
-      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test. The text contains a link to a <code>.vcf</code> file — tapping it on iPhone or Android opens the native "Add to Contacts" sheet so every relevant team contact saves at once. Contacts are managed on the Handoff contacts page. Skipped silently if no contacts have been added. One-time only (dedup via handoff_contacts_sent_at).</span></td>
+      <td>📱 Text · 📧 Email · with vCard link</td>
+      <td><span class="pill pill-manual">Auto-fires the instant the trainee submits their final test, by <strong>both text and email</strong>. Carries a link to a <code>.vcf</code> file — tapping it opens the native "Add to Contacts" sheet so every team contact saves at once — and now also includes the trainee's <strong>actual Regional Manager</strong> (name, phone, email, looked up by their zone) plus the <strong>daily sales meeting</strong> Zoom link. Configured contacts are managed on the Handoff contacts page. One-time only (dedup via handoff_contacts_sent_at).</span></td>
+    </tr>
+    <tr>
+      <td><strong>New reps on your team</strong><br><em>Manager gets each new grad's name + phone to call and welcome them</em></td>
+      <td>Each zone's Regional Manager</td>
+      <td>📱 Text · 📧 Email</td>
+      <td><span class="pill pill-manual">Fires with the graduation report. New grads are grouped by zone and each zone's manager gets a text <strong>and</strong> email listing every new rep with their <strong>phone number</strong> — so they can call right away to welcome them and plan sales + inspection ride-alongs. Includes a link to save the reps' contacts. Skipped for a zone with no manager on file.</span></td>
     </tr>
     <tr>
       <td><strong>Class graduated — social post</strong><br><em>Generic post, same copy fanned out to both</em></td>
