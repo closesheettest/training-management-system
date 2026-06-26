@@ -49,10 +49,12 @@ export const handler = async (event) => {
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
 
   let targetClassId = null
+  let managerHandoffOnly = false
   if (isPost) {
     try {
       const body = JSON.parse(event.body || '{}')
       targetClassId = body.class_id || null
+      managerHandoffOnly = body.manager_handoff_only === true
     } catch {
       return json(400, { error: 'Invalid JSON body' })
     }
@@ -60,6 +62,24 @@ export const handler = async (event) => {
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+
+  // Manager-only mode: notify the zone manager about the reps in this class who
+  // have ALREADY finished their test — WITHOUT the leadership report, the social
+  // post, or the "graduated" stamp. Lets us alert the manager mid-week as reps
+  // finish, while the full report still fires cleanly once everyone's done.
+  if (managerHandoffOnly) {
+    const { data: cls, error: cErr } = await supabase
+      .from('classes')
+      .select('id, region, trainees!class_id(id, first_name, last_name, phone, region, enrolled, test_attempts(submitted_at))')
+      .eq('id', targetClassId)
+      .maybeSingle()
+    if (cErr) return json(500, { error: `Supabase: ${cErr.message}` })
+    if (!cls) return json(404, { error: 'Class not found' })
+    const graduates = (cls.trainees || []).filter((t) => t.enrolled !== false && (t.test_attempts || []).some((a) => a.submitted_at))
+    if (graduates.length === 0) return json(200, { ok: false, skipped_reason: 'No finished trainees in this class yet' })
+    const result = await fireManagerHandoff(supabase, cls, graduates)
+    return json(200, { ok: true, manager_handoff_only: true, finished_graduates: graduates.length, result })
+  }
 
   // Pull classes that haven't been reported yet.
   // Cron mode (no targetClassId) filters out already-stamped classes
