@@ -10,6 +10,7 @@ export default function Home() {
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
+        <Tile to="/regional-managers" title="Regional Managers" desc="Open each zone's manager dashboard — rep reports, active leads, damage / no-damage assignments, and manager links." />
         <Tile to="/calendar" title="Schedule" desc="See every training week. Click a week to see who's coming and manage SMS." />
         <Tile to="/attendance" title="Daily Attendance" desc="HR view: who signed in today, every class, every region." />
         <Tile to="/manager" title="Hiring Manager Portal" desc="Create a new training class and add trainees." />
