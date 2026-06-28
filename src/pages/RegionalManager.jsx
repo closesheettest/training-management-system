@@ -183,6 +183,14 @@ function ShellFrame({ children }) {
 // fed by the CCG zone-leaderboard / zone-sales-leaderboard functions, with
 // a This Week / This Month toggle. The manager's own zone is gold-outlined.
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
+
+// Human date range from a report's { start, end } (end is exclusive — formats
+// to the last included day in ET).
+const fmtRange = (range) => {
+  if (!range) return ''
+  const f = (iso) => new Date(iso).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' })
+  return `${f(range.start)} – ${f(range.end)}`
+}
 const LB_ZONE_COLOR = { 'Zone 1': '#dc2626', 'Zone 2': '#2563eb', 'Zone 3': '#16a34a', 'Zone 4': '#ea580c' }
 const LB_MEDALS = ['🥇', '🥈', '🥉', '']
 function lbOrdinal(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]) }
@@ -434,6 +442,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
             className="rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-300">⬇ CSV</button>
         </div>
       )}
+      {data && <div className="mt-1 text-[11px] font-semibold text-slate-300">📅 {fmtRange(data.range)}</div>}
       {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
 
       {data && (
