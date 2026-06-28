@@ -91,7 +91,7 @@ export default function ManagerPayReport({ admin = false }) {
           </div>
 
           {data.regions.map((z) => (
-            <RegionBlock key={z.zone} z={z} open={openZone === z.zone} onToggle={() => setOpenZone(openZone === z.zone ? null : z.zone)} />
+            <RegionBlock key={z.zone} z={z} basePct={pctOf(data.config.base_rate)} irbadPct={pctOf(data.config.irbad_rate + data.config.irbad_bonus)} open={openZone === z.zone} onToggle={() => setOpenZone(openZone === z.zone ? null : z.zone)} />
           ))}
         </div>
       )}
@@ -99,7 +99,7 @@ export default function ManagerPayReport({ admin = false }) {
   )
 }
 
-function RegionBlock({ z, open, onToggle }) {
+function RegionBlock({ z, basePct, irbadPct, open, onToggle }) {
   const c = ZONE_COLORS[z.zone] || { deep: '#64748b', light: '#f1f5f9' }
   return (
     <div className="mt-3 overflow-hidden rounded-lg border" style={{ borderColor: c.deep }}>
@@ -122,11 +122,10 @@ function RegionBlock({ z, open, onToggle }) {
               <tr className="bg-slate-50 text-left text-slate-500">
                 <th className="px-2 py-1 font-semibold">Rep / Deal</th>
                 <th className="px-2 py-1 text-right font-semibold">Contract</th>
-                <th className="px-2 py-1 text-right font-semibold">Roof</th>
+                <th className="px-2 py-1 text-right font-semibold">Override ({basePct})</th>
                 <th className="px-2 py-1 text-right font-semibold">IRBAD</th>
-                <th className="px-2 py-1 text-right font-semibold">Base OR</th>
+                <th className="px-2 py-1 text-right font-semibold">IRBAD OR ({irbadPct})</th>
                 <th className="px-2 py-1 text-right font-semibold">+Own</th>
-                <th className="px-2 py-1 text-right font-semibold">IRBAD OR</th>
                 <th className="px-2 py-1 text-right font-semibold">Deal OR</th>
               </tr>
             </thead>
@@ -137,18 +136,17 @@ function RegionBlock({ z, open, onToggle }) {
               <tr className="border-t-2 font-bold" style={{ borderColor: c.deep }}>
                 <td className="px-2 py-1.5" style={{ color: c.deep }}>{z.zone} TOTAL</td>
                 <td className="px-2 py-1.5 text-right">{usd(z.totals.contract)}</td>
-                <td className="px-2 py-1.5 text-right">{usd(z.totals.roof)}</td>
-                <td className="px-2 py-1.5 text-right">{usd(z.totals.irbad)}</td>
                 <td className="px-2 py-1.5 text-right">{usd(z.totals.base_or)}</td>
-                <td className="px-2 py-1.5 text-right">{usd(z.totals.own_or)}</td>
+                <td className="px-2 py-1.5 text-right">{usd(z.totals.irbad)}</td>
                 <td className="px-2 py-1.5 text-right">{usd(z.totals.irbad_or)}</td>
+                <td className="px-2 py-1.5 text-right">{usd(z.totals.own_or)}</td>
                 <td className="px-2 py-1.5 text-right" style={{ color: c.deep }}>{usd(z.totals.deal_or)}</td>
               </tr>
               {!z.unassigned && z.monthly_bonus > 0 && (
-                <tr className="text-slate-600"><td className="px-2 py-1" colSpan={7}>+ Monthly bonus</td><td className="px-2 py-1 text-right font-bold">{usd(z.monthly_bonus)}</td></tr>
+                <tr className="text-slate-600"><td className="px-2 py-1" colSpan={6}>+ Monthly bonus</td><td className="px-2 py-1 text-right font-bold">{usd(z.monthly_bonus)}</td></tr>
               )}
               {!z.unassigned && (
-                <tr className="bg-emerald-50 font-extrabold text-emerald-700"><td className="px-2 py-1.5" colSpan={7}>{z.manager} — TOTAL PAY</td><td className="px-2 py-1.5 text-right">{usd(z.grand_or)}</td></tr>
+                <tr className="bg-emerald-50 font-extrabold text-emerald-700"><td className="px-2 py-1.5" colSpan={6}>{z.manager} — TOTAL PAY</td><td className="px-2 py-1.5 text-right">{usd(z.grand_or)}</td></tr>
               )}
             </tbody>
           </table>
@@ -161,16 +159,15 @@ function RegionBlock({ z, open, onToggle }) {
 function RepRows({ r }) {
   return (
     <>
-      <tr className="bg-white"><td className="px-2 pt-2 font-bold text-slate-700" colSpan={8}>{r.rep}{r.is_manager && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700">★ MANAGER'S OWN</span>}</td></tr>
+      <tr className="bg-white"><td className="px-2 pt-2 font-bold text-slate-700" colSpan={7}>{r.rep}{r.is_manager && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700">★ MANAGER'S OWN</span>}</td></tr>
       {r.deals.map((d, i) => (
         <tr key={i} className="border-b border-slate-100 text-slate-600">
           <td className="px-2 py-1 pl-4">{d.customer}<span className="ml-1 text-[11px] text-slate-400">{d.sold}</span></td>
           <td className="px-2 py-1 text-right">{usd(d.contract)}</td>
-          <td className="px-2 py-1 text-right">{usd(d.roof)}</td>
-          <td className="px-2 py-1 text-right">{d.irbad ? usd(d.irbad) : '—'}</td>
           <td className="px-2 py-1 text-right">{usd(d.base_or)}</td>
-          <td className="px-2 py-1 text-right">{d.own_or ? usd(d.own_or) : '—'}</td>
+          <td className="px-2 py-1 text-right">{d.irbad ? usd(d.irbad) : '—'}</td>
           <td className="px-2 py-1 text-right">{d.irbad_or ? usd(d.irbad_or) : '—'}</td>
+          <td className="px-2 py-1 text-right">{d.own_or ? usd(d.own_or) : '—'}</td>
           <td className="px-2 py-1 text-right font-bold text-slate-800">{usd(d.deal_or)}</td>
         </tr>
       ))}
