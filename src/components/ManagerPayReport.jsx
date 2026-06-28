@@ -3,8 +3,10 @@
 // Managers page (admin={true} → editable rate config) and each manager's
 // dashboard (read-only, all regions). Data: CCG all-manager-pay; rates:
 // manager-pay-config. See those functions for the formula.
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
+
+const RATE_ZONES = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4']
 
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 const usd = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
@@ -61,7 +63,7 @@ export default function ManagerPayReport({ admin = false }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold text-brand-navy">💵 Managers Pay <span className="text-sm font-normal text-slate-500">(override — last week's results)</span></h2>
-          <p className="text-xs text-slate-500">Region → rep → deal. Base {data ? pctOf(data.config.base_rate) : '2%'} of contract · +{data ? pctOf(data.config.own_sale_rate) : '1%'} on a manager's own sales · IRBAD {data ? pctOf(data.config.irbad_rate + data.config.irbad_bonus) : '30%'}.</p>
+          <p className="text-xs text-slate-500">Region → rep → deal. Rates are set per region (each region's % shows in its column headers).</p>
         </div>
         <div className="flex items-center gap-2">
           {admin && <button onClick={() => setCfgOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">⚙️ Rates</button>}
@@ -70,7 +72,7 @@ export default function ManagerPayReport({ admin = false }) {
         </div>
       </div>
 
-      {admin && cfgOpen && <RateEditor data={data} onSaved={() => load()} ensureLoaded={load} />}
+      {admin && cfgOpen && <RateEditor onSaved={() => load()} />}
       {err && <div className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
       {data && (
@@ -91,7 +93,7 @@ export default function ManagerPayReport({ admin = false }) {
           </div>
 
           {data.regions.map((z) => (
-            <RegionBlock key={z.zone} z={z} basePct={pctOf(data.config.base_rate)} irbadPct={pctOf(data.config.irbad_rate + data.config.irbad_bonus)} open={openZone === z.zone} onToggle={() => setOpenZone(openZone === z.zone ? null : z.zone)} />
+            <RegionBlock key={z.zone} z={z} open={openZone === z.zone} onToggle={() => setOpenZone(openZone === z.zone ? null : z.zone)} />
           ))}
         </div>
       )}
@@ -99,8 +101,11 @@ export default function ManagerPayReport({ admin = false }) {
   )
 }
 
-function RegionBlock({ z, basePct, irbadPct, open, onToggle }) {
+function RegionBlock({ z, open, onToggle }) {
   const c = ZONE_COLORS[z.zone] || { deep: '#64748b', light: '#f1f5f9' }
+  const cfg = z.config || { base_rate: 0.02, irbad_rate: 0.20, irbad_bonus: 0.10 }
+  const basePct = pctOf(cfg.base_rate)
+  const irbadPct = pctOf(cfg.irbad_rate + cfg.irbad_bonus)
   return (
     <div className="mt-3 overflow-hidden rounded-lg border" style={{ borderColor: c.deep }}>
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left" style={{ background: c.light }}>
@@ -175,47 +180,83 @@ function RepRows({ r }) {
   )
 }
 
-// Admin-only rate editor → POST manager-pay-config (PIN-gated).
-function RateEditor({ data, onSaved, ensureLoaded }) {
-  const cfg = data?.config || { base_rate: 0.02, own_sale_rate: 0.01, irbad_rate: 0.20, irbad_bonus: 0.10, monthly_bonus: 0 }
-  const [base, setBase] = useState((cfg.base_rate * 100).toString())
-  const [own, setOwn] = useState((cfg.own_sale_rate * 100).toString())
-  const [irb, setIrb] = useState((cfg.irbad_rate * 100).toString())
-  const [bonus, setBonus] = useState((cfg.irbad_bonus * 100).toString())
-  const [monthly, setMonthly] = useState((cfg.monthly_bonus || 0).toString())
+// Admin-only PER-REGION rate editor → POST manager-pay-config (PIN-gated). Each
+// region has its own rates so a bonus can sit on one region without touching the
+// others. Inputs are inlined (not a sub-component) to avoid focus loss on keystroke.
+function RateEditor({ onSaved }) {
+  const [rows, setRows] = useState(null) // { zone: { base, own, irbad, bonus, monthly } as strings }
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(LB_ORIGIN + 'manager-pay-config')
+        const d = await res.json()
+        const reg = d.regions || {}
+        const init = {}
+        for (const z of RATE_ZONES) {
+          const c = reg[z] || { base_rate: 0.02, own_sale_rate: 0.01, irbad_rate: 0.20, irbad_bonus: 0.10, monthly_bonus: 0 }
+          init[z] = { base: (c.base_rate * 100).toString(), own: (c.own_sale_rate * 100).toString(), irbad: (c.irbad_rate * 100).toString(), bonus: (c.irbad_bonus * 100).toString(), monthly: (c.monthly_bonus || 0).toString() }
+        }
+        setRows(init)
+      } catch { setRows({}) }
+    })()
+  }, [])
+
+  const setField = (z, k, v) => setRows((r) => ({ ...r, [z]: { ...r[z], [k]: v } }))
+
   const save = async () => {
     setBusy(true); setMsg('')
     try {
-      const body = { pin, config: { base_rate: +base / 100, own_sale_rate: +own / 100, irbad_rate: +irb / 100, irbad_bonus: +bonus / 100, monthly_bonus: +monthly } }
-      const res = await fetch(LB_ORIGIN + 'manager-pay-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const regions = {}
+      for (const z of RATE_ZONES) { const x = rows[z]; regions[z] = { base_rate: +x.base / 100, own_sale_rate: +x.own / 100, irbad_rate: +x.irbad / 100, irbad_bonus: +x.bonus / 100, monthly_bonus: +x.monthly } }
+      const res = await fetch(LB_ORIGIN + 'manager-pay-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, config: { regions } }) })
       const d = await res.json()
       if (!d.ok) { setMsg(d.error || 'Save failed.'); setBusy(false); return }
       setMsg('Saved ✓'); setBusy(false); onSaved && onSaved()
     } catch { setMsg('Network error.'); setBusy(false) }
   }
 
-  const Field = ({ label, val, set, suffix }) => (
-    <label className="flex flex-col text-[11px] font-semibold text-slate-500">{label}
-      <span className="mt-0.5 flex items-center gap-1"><input value={val} onChange={(e) => set(e.target.value)} inputMode="decimal" className="w-16 rounded border border-slate-300 px-1.5 py-1 text-sm text-slate-800" /><span className="text-slate-400">{suffix}</span></span>
-    </label>
-  )
+  if (!rows) return <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">Loading rates…</div>
+  const inp = 'w-14 rounded border border-slate-300 px-1 py-1 text-right text-sm text-slate-800'
 
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="text-xs font-bold text-slate-600">Regional manager pay rates — change here and the report recalculates.</div>
-      <div className="mt-2 flex flex-wrap items-end gap-3">
-        <Field label="Base override" val={base} set={setBase} suffix="% of contract" />
-        <Field label="Own-sale extra" val={own} set={setOwn} suffix="%" />
-        <Field label="IRBAD base" val={irb} set={setIrb} suffix="%" />
-        <Field label="IRBAD bonus" val={bonus} set={setBonus} suffix="% (this month)" />
-        <Field label="Monthly bonus" val={monthly} set={setMonthly} suffix="$ / mgr" />
-        <label className="flex flex-col text-[11px] font-semibold text-slate-500">Admin PIN
-          <input value={pin} onChange={(e) => setPin(e.target.value)} type="password" className="mt-0.5 w-20 rounded border border-slate-300 px-1.5 py-1 text-sm" />
-        </label>
+      <div className="text-xs font-bold text-slate-600">Manager pay rates — <span className="font-normal">per region. Set a monthly bonus on one region without touching the others; the report recalculates.</span></div>
+      <div className="mt-2 overflow-x-auto">
+        <table className="min-w-[520px] text-[12px]">
+          <thead>
+            <tr className="text-slate-500">
+              <th className="px-1 py-1 text-left font-semibold">Region</th>
+              <th className="px-1 py-1 font-semibold">Base %</th>
+              <th className="px-1 py-1 font-semibold">Own +%</th>
+              <th className="px-1 py-1 font-semibold">IRBAD %</th>
+              <th className="px-1 py-1 font-semibold">IRBAD bonus %</th>
+              <th className="px-1 py-1 font-semibold">Monthly $</th>
+            </tr>
+          </thead>
+          <tbody>
+            {RATE_ZONES.map((z) => {
+              const col = ZONE_COLORS[z]?.deep || '#334155'
+              const r = rows[z] || { base: '', own: '', irbad: '', bonus: '', monthly: '' }
+              return (
+                <tr key={z}>
+                  <td className="px-1 py-1 font-semibold" style={{ color: col }}>{teamLabel(z, { showZone: false })} <span className="font-normal text-slate-400">{z}</span></td>
+                  <td className="px-1 py-1 text-center"><input value={r.base} onChange={(e) => setField(z, 'base', e.target.value)} inputMode="decimal" className={inp} /></td>
+                  <td className="px-1 py-1 text-center"><input value={r.own} onChange={(e) => setField(z, 'own', e.target.value)} inputMode="decimal" className={inp} /></td>
+                  <td className="px-1 py-1 text-center"><input value={r.irbad} onChange={(e) => setField(z, 'irbad', e.target.value)} inputMode="decimal" className={inp} /></td>
+                  <td className="px-1 py-1 text-center"><input value={r.bonus} onChange={(e) => setField(z, 'bonus', e.target.value)} inputMode="decimal" className={inp} /></td>
+                  <td className="px-1 py-1 text-center"><input value={r.monthly} onChange={(e) => setField(z, 'monthly', e.target.value)} inputMode="decimal" className="w-20 rounded border border-slate-300 px-1 py-1 text-right text-sm text-slate-800" /></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <label className="text-[11px] font-semibold text-slate-500">Admin PIN <input value={pin} onChange={(e) => setPin(e.target.value)} type="password" className="ml-1 w-20 rounded border border-slate-300 px-1.5 py-1 text-sm" /></label>
         <button onClick={save} disabled={busy || !pin} className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Save rates'}</button>
         {msg && <span className={`text-sm font-semibold ${msg.includes('✓') ? 'text-emerald-600' : 'text-red-600'}`}>{msg}</span>}
       </div>
