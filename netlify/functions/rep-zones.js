@@ -61,12 +61,14 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, managed_region')
     // Exclude only EXPLICIT non-field reps. A plain `.neq('rep_level','non_field')`
     // drops rows where rep_level IS NULL (SQL: null <> x → null → excluded), which
     // hid active reps activated manually without a rep_level set (e.g. Danny
     // Pasicolan → missing from zone reports). Keep null + anything ≠ non_field.
-    .or('rep_level.is.null,rep_level.neq.non_field')
+    // Always keep regional managers (managed_region set) so the Managers Pay
+    // report can identify each zone's manager even if they're marked non_field.
+    .or('rep_level.is.null,rep_level.neq.non_field,managed_region.not.is.null')
     .order('last_name', { ascending: true })
   if (!includeInactive) q = q.eq('is_active_sales_rep', true)
   const { data, error } = await q
@@ -85,6 +87,7 @@ export const handler = async (event) => {
     phone: t.phone || null,
     rep_level: t.rep_level || null,   // 'junior' | 'senior'
     active: t.is_active_sales_rep !== false,
+    managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
   }))
 
   return cors(
