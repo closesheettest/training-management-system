@@ -2,6 +2,7 @@ import { useEffect, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
+import ManagerPayReport from '../components/ManagerPayReport.jsx'
 
 // Admin hub for the regional-manager program. One place to grab any
 // manager's private dashboard link ("where do I go again?") and to see,
@@ -76,6 +77,8 @@ export default function RegionalManagers() {
           → Edit Info.
         </p>
       </header>
+
+      <div className="mb-4"><ManagerPayReport admin /></div>
 
       <ResultsFollowups />
 

@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
+import ManagerPayReport from '../components/ManagerPayReport.jsx'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -134,6 +135,12 @@ export default function RegionalManager() {
       <Leaderboard myZone={manager.region} />
 
       <ApptConversion zone={manager.region} />
+
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
+        <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
+        <ManagerPayReport />
+      </section>
 
       <WeeklyReport token={token} />
 
