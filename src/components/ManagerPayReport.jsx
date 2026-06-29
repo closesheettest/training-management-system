@@ -12,7 +12,9 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 const usd = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
 const pctOf = (f) => (Math.round((Number(f) || 0) * 1000) / 10) + '%'
 const fmtDay = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' }) } catch { return '' } }
-const weekLabel = (range) => { if (!range) return ''; const endMinus1 = new Date(new Date(range.end).getTime() - 864e5); return `${fmtDay(range.start)} – ${fmtDay(endMinus1.toISOString())}` }
+// range.end is the last second of the final day (Sun 23:59:59 ET), so format it
+// directly — don't subtract a day (that overshot to Saturday).
+const weekLabel = (range) => { if (!range) return ''; return `${fmtDay(range.start)} – ${fmtDay(range.end)}` }
 
 export default function ManagerPayReport({ admin = false }) {
   const [data, setData] = useState(null)
