@@ -59,7 +59,7 @@ export const handler = async (event) => {
   ]
 
   const checked = []
-  const failures = []
+  let failures = []
   let inspected = 0
   for (const k of KINDS) {
     const { data: rows, error } = await supabase
@@ -91,7 +91,7 @@ export const handler = async (event) => {
       const t = r.trainees || {}
       const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
       checked.push({ kind: k.label, channel: 'text', id: r.id, who, status: resolved, failed })
-      if (failed) failures.push({ kind: k.label, channel: 'text', who, contact: t.phone || '(no phone)', day: r.day_number, status: resolved })
+      if (failed) failures.push({ kind: k.label, channel: 'text', row_id: r.id, who, contact: t.phone || '(no phone)', day: r.day_number, status: resolved })
     }
   }
 
@@ -130,16 +130,42 @@ export const handler = async (event) => {
       const t = r.trainees || {}
       const who = `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'a trainee'
       checked.push({ kind: k.label, channel: 'email', id: r.id, who, status: resolved, failed })
-      if (failed) failures.push({ kind: k.label, channel: 'email', who, contact: t.email || '(no email)', day: r.day_number, status: resolved })
+      if (failed) failures.push({ kind: k.label, channel: 'email', row_id: r.id, who, contact: t.email || '(no email)', day: r.day_number, status: resolved })
     }
   }
 
-  // Alert admins about any non-delivery.
+  // Suppress any failure whose SIBLING channel delivered — we send by BOTH SMS
+  // and email, so a dropped text doesn't matter if the email got through (and
+  // vice versa). Only alert when the trainee got it on NO channel.
+  const suppressed = []
+  if (failures.length) {
+    const ids = [...new Set(failures.map((f) => f.row_id))]
+    const { data: sibRows } = await supabase
+      .from('training_day_attempts')
+      .select('id, homework_delivery_status, homework_email_status, quiz_delivery_status, quiz_email_status')
+      .in('id', ids)
+    const byId = {}
+    for (const r of (sibRows || [])) byId[r.id] = r
+    const siblingDelivered = (f) => {
+      const r = byId[f.row_id] || {}
+      if (f.channel === 'text') {
+        const sib = f.kind === 'homework' ? r.homework_email_status : r.quiz_email_status
+        return EMAIL_DELIVERED.includes(sib)
+      }
+      const sib = f.kind === 'homework' ? r.homework_delivery_status : r.quiz_delivery_status
+      return DELIVERED.includes(sib)
+    }
+    const kept = []
+    for (const f of failures) (siblingDelivered(f) ? suppressed : kept).push(f)
+    failures = kept
+  }
+
+  // Alert admins only about trainees who got it on NEITHER channel.
   let alerted = []
   if (failures.length && willAlert) {
-    const lines = ['⚠️ Training message NOT delivered:']
+    const lines = ['⚠️ Training message reached the trainee on NO channel:']
     failures.forEach((f) => lines.push(`• Day ${f.day} ${f.kind} ${f.channel} → ${f.who} (${f.contact}) — ${f.status}`))
-    lines.push('', 'Text failures are usually an SMS opt-out (DND) — clear DND / have them text START. Email failures (bounced/complained) usually mean a bad or spam-filtered address. Then resend.')
+    lines.push('', 'These failed on every channel we tried. Text = SMS opt-out (DND): clear DND / have them text START. Email = bounced/spam-filtered: fix the address. Then resend. (Anyone who got it on the other channel is not listed.)')
     const msg = lines.join('\n')
 
     let recipients = []
@@ -154,6 +180,7 @@ export const handler = async (event) => {
     ok: true,
     inspected,
     failures: failures.length,
+    suppressed_other_channel_delivered: suppressed.length,
     alerted: willAlert ? alerted : 'dry-run',
     detail: checked,
   })
