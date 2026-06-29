@@ -40,6 +40,34 @@ const CONFIG_TOOLS = TOOLS.filter((t) => t.field)
 // CCG functions origin (same one the per-manager dashboard uses).
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 
+// "Go back" label for review_availability. When the homeowner is open to
+// MULTIPLE days, collapse to the FIRST AVAILABLE upcoming day at that hour (ET) —
+// matches the JN go-back task rule. A single preferred day is left as entered.
+function firstAvailableGoBack(s) {
+  if (!s) return s
+  const [daysPart, timePart] = String(s).split(' · ').map((x) => (x || '').trim())
+  if (!timePart) return s
+  const tm = timePart.match(/(\d+)\s*(am|pm)/i)
+  if (!tm) return s
+  let hour = parseInt(tm[1], 10) % 12; if (/pm/i.test(tm[2])) hour += 12
+  const WMAP = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+  const days = /any/i.test(daysPart)
+    ? [0, 1, 2, 3, 4, 5, 6]
+    : daysPart.split(',').map((d) => WMAP[d.trim().slice(0, 3).toLowerCase()]).filter((x) => x != null)
+  if (days.length <= 1) return s
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', hour12: false })
+  const now = Date.now()
+  for (let d = 0; d < 14; d++) {
+    const p = {}; for (const x of fmt.formatToParts(new Date(now + d * 864e5))) p[x.type] = x.value
+    const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]
+    if (!days.includes(wd)) continue
+    if (d === 0 && Number(p.hour) >= hour) continue
+    const h12 = (hour % 12) || 12, ap = hour >= 12 ? 'PM' : 'AM'
+    return `${p.weekday} ${p.month}/${p.day} · ${h12} ${ap}`
+  }
+  return s
+}
+
 // Human date range from a report's { start, end } (end is exclusive — the last
 // second of the period — so it formats to the final included day in ET).
 const fmtRange = (range) => {
@@ -191,7 +219,7 @@ function ResultsFollowups() {
                                       <span className="font-semibold text-slate-800">{dl.homeowner}</span>
                                       <span className={'rounded px-1.5 py-0.5 text-[10px] font-bold ' + cls}>{label}</span>
                                     </div>
-                                    <div className="mt-1 text-sm font-bold text-[#0e7490]">🗓 Go over results: {dl.review_availability}</div>
+                                    <div className="mt-1 text-sm font-bold text-[#0e7490]">🗓 Go over results: {firstAvailableGoBack(dl.review_availability)}</div>
                                     {dl.address && <div className="text-xs text-slate-500">📍 {dl.address}</div>}
                                     <div className="text-[11px] text-slate-400">Inspected {fmtDate(dl.inspected_at)}{dl.mobile ? ` · 📞 ${dl.mobile}` : ''}</div>
                                   </div>
