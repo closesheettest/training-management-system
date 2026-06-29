@@ -146,6 +146,8 @@ export default function RegionalManager() {
 
       <DealsToFix zone={manager.region} />
 
+      <DamageNeedsRep zone={manager.region} />
+
       <ActiveLeads zone={manager.region} />
 
       <BackToRetailWins zone={manager.region} />
@@ -950,6 +952,85 @@ function WeeklyReport({ token }) {
 // On-demand scan of the last 14 days of sales in THIS manager's zone
 // (CCG zone-deals-to-fix, same checklist as the morning audit), grouped
 // by rep. Tap a rep → every deal + exactly what's missing/wrong.
+// Damage deals in this zone whose rep isn't active (or has none) — they show for
+// nobody until a manager assigns them to an active rep (then they land in that
+// rep's Damage visit list + JobNimbus). Backed by CCG manager-damage-queue.
+function DamageNeedsRep({ zone }) {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)   // { deals, reps }
+  const [err, setErr] = useState('')
+  const [sel, setSel] = useState({})       // inspection_id -> rep_jobnimbus_id
+  const [busy, setBusy] = useState('')
+  const [doneIds, setDoneIds] = useState({})
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'load', zone }) })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not load.'); setLoading(false); return }
+      setData(d)
+      const s = {}; for (const dl of d.deals) s[dl.inspection_id] = d.reps[0]?.jobnimbus_id || ''
+      setSel(s)
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const assign = async (dl) => {
+    const repId = sel[dl.inspection_id]; if (!repId) return
+    const rep = data.reps.find((r) => r.jobnimbus_id === repId)
+    setBusy(dl.inspection_id)
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assign', inspection_id: dl.inspection_id, rep_jobnimbus_id: repId, rep_name: rep?.name || '' }) })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Assign failed.'); setBusy(''); return }
+      setDoneIds((x) => ({ ...x, [dl.inspection_id]: rep?.name || 'rep' }))
+    } catch { setErr('Network error.') }
+    setBusy('')
+  }
+  const remaining = (data?.deals || []).filter((d) => !doneIds[d.inspection_id])
+
+  return (
+    <section className="mb-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-brand-navy">🏚️ Damage deals needing a rep</h2>
+            <p className="text-xs text-slate-500">Damage deals in your zone whose rep isn't active (or has none). Assign each to an active rep — it lands in their Damage visit list.</p>
+          </div>
+          <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load'}</button>
+        </div>
+        {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+        {data && (
+          <div className="mt-3">
+            {remaining.length === 0 ? <div className="text-sm text-slate-500">No damage deals waiting for a rep. 🎉</div> : remaining.map((dl) => (
+              <div key={dl.inspection_id} className="mt-2 rounded-lg border border-slate-200 p-3">
+                <div className="font-bold text-slate-800">{dl.client_name}</div>
+                <div className="text-[13px] text-slate-600">📍 {[dl.address, dl.city].filter(Boolean).join(', ')}{dl.county ? ` · ${dl.county}` : ''}</div>
+                <div className="text-[12px] text-slate-400">was: {dl.current_rep || 'no rep'}{dl.mobile ? ` · ${dl.mobile}` : ' · no phone'}</div>
+                <div className="mt-2 flex gap-2">
+                  <select value={sel[dl.inspection_id] || ''} onChange={(e) => setSel((s) => ({ ...s, [dl.inspection_id]: e.target.value }))} className="flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+                    {(data.reps || []).map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+                    {(!data.reps || !data.reps.length) && <option value="">No active reps in zone</option>}
+                  </select>
+                  <button onClick={() => assign(dl)} disabled={busy === dl.inspection_id || !sel[dl.inspection_id]} className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50">{busy === dl.inspection_id ? '…' : 'Assign'}</button>
+                </div>
+              </div>
+            ))}
+            {Object.keys(doneIds).length > 0 && (
+              <div className="mt-3 text-xs font-semibold text-emerald-700">
+                {Object.entries(doneIds).map(([id, name]) => {
+                  const dl = data.deals.find((x) => x.inspection_id === id)
+                  return <div key={id}>✓ {dl?.client_name} → {name}</div>
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function DealsToFix({ zone }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { reps, total_flagged } | null
