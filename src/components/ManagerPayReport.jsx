@@ -94,8 +94,22 @@ export default function ManagerPayReport({ admin = false }) {
           <div className="mt-3 rounded-lg bg-emerald-50 px-4 py-3 text-center">
             <div className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Total manager override pay</div>
             <div className="text-2xl font-extrabold text-emerald-700">{usd(data.totals.grand_or)}</div>
-            <div className="text-xs text-emerald-600">on {usd(data.totals.contract)} contract{data.totals.monthly_bonus ? ` · incl ${usd(data.totals.monthly_bonus)} monthly bonus` : ''}</div>
+            <div className="text-xs text-emerald-600">on {usd(data.totals.contract)} contract in managed regions{data.totals.monthly_bonus ? ` · incl ${usd(data.totals.monthly_bonus)} monthly bonus` : ''}</div>
           </div>
+
+          {(() => {
+            const unassigned = data.regions.filter((z) => z.unassigned)
+            const unContract = unassigned.reduce((s, z) => s + z.totals.contract, 0)
+            const unDeals = unassigned.reduce((s, z) => s + z.totals.deals, 0)
+            if (!unContract) return null
+            const allContract = data.totals.contract + unContract
+            const allDeals = data.totals.deals + unDeals
+            return (
+              <div className="mt-1 text-center text-[11px] text-slate-500">
+                Total sold last week: <b>{usd(allContract)}</b> across {allDeals} deals (matches Appt→Sales). {usd(unContract)} of it is <b>unassigned</b> (no manager) — see the ⚠️ section below — so no override is paid on it.
+              </div>
+            )
+          })()}
 
           {data.regions.map((z) => (
             <RegionBlock key={z.zone} z={z} open={openZone === z.zone} onToggle={() => setOpenZone(openZone === z.zone ? null : z.zone)} />
