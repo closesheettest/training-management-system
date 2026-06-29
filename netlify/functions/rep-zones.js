@@ -61,7 +61,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, managed_region')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, managed_region, latitude, longitude')
     // Exclude only EXPLICIT non-field reps. A plain `.neq('rep_level','non_field')`
     // drops rows where rep_level IS NULL (SQL: null <> x → null → excluded), which
     // hid active reps activated manually without a rep_level set (e.g. Danny
@@ -88,6 +88,8 @@ export const handler = async (event) => {
     rep_level: t.rep_level || null,   // 'junior' | 'senior'
     active: t.is_active_sales_rep !== false,
     managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
+    latitude: t.latitude != null ? Number(t.latitude) : null,    // rep home (for the setter's mile-radius match)
+    longitude: t.longitude != null ? Number(t.longitude) : null,
   }))
 
   return cors(
