@@ -169,13 +169,13 @@ function RepRows({ r, cfg }) {
   const radMin = cfg?.rad_min_ppsf ?? 2.5
   return (
     <>
-      <tr className="bg-white"><td className="px-2 pt-2 font-bold text-slate-700" colSpan={6}>{r.rep}{r.is_manager && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700">★ MANAGER'S OWN</span>}</td></tr>
+      <tr className="bg-white"><td className="px-2 pt-2 font-bold text-slate-700" colSpan={6}>{r.rep}{r.is_manager && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-700">★ MANAGER'S OWN — override {pctOf(cfg?.own_sale_rate ?? 0.01)} not {pctOf(cfg?.base_rate ?? 0.02)}</span>}</td></tr>
       {r.deals.map((d, i) => (
         <Fragment key={i}>
           <tr className={(d.ins > 0 || d.rad > 0) ? 'text-slate-600' : 'border-b border-slate-100 text-slate-600'}>
             <td className="px-2 py-1 pl-4">{d.customer}<span className="ml-1 text-[11px] text-slate-400">{d.sold}</span></td>
             <td className="px-2 py-1 text-right">{usd(d.contract)}</td>
-            <td className="px-2 py-1 text-right">{usd(d.base_or)}</td>
+            <td className="px-2 py-1 text-right">{usd(d.base_or)}{r.is_manager && <span className="ml-1 whitespace-nowrap text-[10px] font-bold text-amber-600">own {pctOf(cfg?.own_sale_rate ?? 0.01)}</span>}</td>
             <td className="px-2 py-1 text-right">{d.irbad ? usd(d.irbad) : '—'}</td>
             <td className="px-2 py-1 text-right">{d.irbad_or ? usd(d.irbad_or) : '—'}</td>
             <td className="px-2 py-1 text-right font-bold text-slate-800">{usd(d.deal_or)}</td>
