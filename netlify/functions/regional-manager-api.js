@@ -204,8 +204,9 @@ export const handler = async (event) => {
   }
 
   // Setter appointments awaiting a rep + this zone's reps (proxied to CCG).
+  // view: 'needs' (default) | 'today' | 'tomorrow'.
   if (action === 'list-appointments') {
-    const { status, body: out } = await ccgRecordsApi(region, { action: 'list-appointments' })
+    const { status, body: out } = await ccgRecordsApi(region, { action: 'list-appointments', view: body.view })
     return json(status, out)
   }
   // Assign an Owner + Sales Rep to a setter appointment (proxied to CCG, which

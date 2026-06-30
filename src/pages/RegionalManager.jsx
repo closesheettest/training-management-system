@@ -960,111 +960,128 @@ function WeeklyReport({ token }) {
 // sales rep. Manager picks an Owner + a Sales Rep → writes both to the JN job.
 // Proxied through regional-manager-api → CCG manager-records-api.
 function AssignAppointments({ token }) {
+  const [view, setView] = useState('needs') // 'needs' | 'today' | 'tomorrow'
   const [d, setD] = useState(null)
   const [sel, setSel] = useState({})
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (v) => {
+    setLoading(true)
     try {
       const res = await fetch('/.netlify/functions/regional-manager-api', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'list-appointments', token }),
+        body: JSON.stringify({ action: 'list-appointments', token, view: v }),
       })
       const j = await res.json().catch(() => ({}))
-      if (!j.ok) { setErr(j.error || 'Could not load.'); return }
+      if (!j.ok) { setErr(j.error || 'Could not load.'); setLoading(false); return }
       setErr(''); setD(j)
     } catch { setErr('Network error.') }
+    setLoading(false)
   }, [token])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(view) }, [load, view])
 
   const pick = (id, f, v) => setSel((p) => ({ ...p, [id]: { ...(p[id] || {}), [f]: v } }))
-  const submit = async (a) => {
-    const s = sel[a.id] || {}
+  const submit = async (id) => {
+    const s = sel[id] || {}
     if (!s.owner || !s.rep) { alert('Pick both an Owner and a Sales Rep.'); return }
     const reps = (d && d.reps) || []
     const owner = reps.find((x) => x.jobnimbus_id === s.owner)
     const rep = reps.find((x) => x.jobnimbus_id === s.rep)
-    setBusy(a.id)
+    setBusy(id)
     try {
       const res = await fetch('/.netlify/functions/regional-manager-api', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'assign-appointment', token, appt_id: a.id,
+          action: 'assign-appointment', token, appt_id: id,
           owner_jn_id: s.owner, owner_name: owner ? owner.name : '',
           sales_rep_jn_id: s.rep, sales_rep_name: rep ? rep.name : '',
         }),
       })
       const j = await res.json().catch(() => ({}))
       if (!j.ok) { alert(j.error || 'Assign failed.'); setBusy(null); return }
-      await load()
+      await load(view)
     } catch { alert('Network error.') }
     setBusy(null)
   }
 
   const reps = (d && d.reps) || []
-  const un = (d && d.unassigned) || []
-  const assigned = (d && d.assigned) || []
   const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
   const timeOnly = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
-  const dayKey = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric' }) } catch { return '' } }
-  const byDay = {}
-  for (const a of assigned) (byDay[dayKey(a.appt_at)] = byDay[dayKey(a.appt_at)] || []).push(a)
+
+  // The Owner + Sales Rep dropdowns + Submit, for an unassigned item (by setter_appointments id).
+  const assignRow = (id) => {
+    const s = sel[id] || {}
+    const ready = s.owner && s.rep
+    return (
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="text-xs text-slate-600">Owner (runs it)
+          <select value={s.owner || ''} onChange={(e) => pick(id, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">Select…</option>
+            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-slate-600">Sales Rep
+          <select value={s.rep || ''} onChange={(e) => pick(id, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">Select…</option>
+            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+          </select>
+        </label>
+        <button onClick={() => submit(id)} disabled={busy === id || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === id ? 'Assigning…' : 'Submit'}</button>
+      </div>
+    )
+  }
+
+  const Tab = ({ v, label }) => (
+    <button onClick={() => setView(v)} className={`rounded-md px-3 py-1 text-xs font-bold ${view === v ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-700'}`}>{label}</button>
+  )
 
   return (
     <section className="mb-6">
       <div className="rounded-lg border-2 border-amber-400 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-amber-700">📅 Assign Appointments{un.length ? ` (${un.length})` : ''}</h2>
-            <p className="text-xs text-slate-500">Setter booked these in your zone — pick an Owner + a Sales Rep, then Submit. Writes both to JobNimbus.</p>
+            <h2 className="text-lg font-bold text-amber-700">📅 Assign Appointments</h2>
+            <p className="text-xs text-slate-500">Setter-booked + your team's JobNimbus appointments. Pick an Owner + Sales Rep on the ones that need it → writes both to JobNimbus.</p>
           </div>
-          <button onClick={load} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white">Refresh</button>
+          <div className="flex gap-1.5">
+            <Tab v="needs" label="Needs assignment" />
+            <Tab v="today" label="Today" />
+            <Tab v="tomorrow" label="Tomorrow" />
+          </div>
         </div>
         {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+        {loading && <div className="mt-3 text-sm text-slate-500">Loading…</div>}
 
-        {Object.keys(byDay).length > 0 && (
-          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-1 text-xs font-bold text-slate-600">Your reps' upcoming appointments</div>
-            {Object.entries(byDay).map(([day, list]) => (
-              <div key={day} className="mb-1">
-                <div className="text-xs font-bold text-slate-800">{day}</div>
-                {list.map((a) => <div key={a.id} className="pl-2 text-[12.5px] text-slate-700">{timeOnly(a.appt_at)} — <b>{a.rep_name || '—'}</b> · {a.homeowner_name}</div>)}
-              </div>
-            ))}
-          </div>
-        )}
+        {!loading && view === 'needs' && d && (() => {
+          const un = d.unassigned || []
+          if (un.length === 0) return <div className="mt-3 text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
+          return <div className="mt-3">{un.map((a) => (
+            <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
+              <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
+              <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
+              {assignRow(a.id)}
+            </div>
+          ))}</div>
+        })()}
 
-        <div className="mt-3">
-          {!d ? <div className="text-sm text-slate-500">Loading…</div> : un.length === 0 ? (
-            <div className="text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
-          ) : un.map((a) => {
-            const s = sel[a.id] || {}
-            const ready = s.owner && s.rep
-            return (
-              <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
-                <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
-                <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
-                <div className="mt-2 flex flex-wrap items-end gap-2">
-                  <label className="text-xs text-slate-600">Owner (runs it)
-                    <select value={s.owner || ''} onChange={(e) => pick(a.id, 'owner', e.target.value)} className="mt-0.5 block min-w-[150px] rounded border border-slate-300 px-2 py-1.5 text-sm">
-                      <option value="">Select…</option>
-                      {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="text-xs text-slate-600">Sales Rep
-                    <select value={s.rep || ''} onChange={(e) => pick(a.id, 'rep', e.target.value)} className="mt-0.5 block min-w-[150px] rounded border border-slate-300 px-2 py-1.5 text-sm">
-                      <option value="">Select…</option>
-                      {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
-                    </select>
-                  </label>
-                  <button onClick={() => submit(a)} disabled={busy === a.id || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === a.id ? 'Assigning…' : 'Submit'}</button>
-                </div>
+        {!loading && (view === 'today' || view === 'tomorrow') && d && (() => {
+          const items = d.items || []
+          if (items.length === 0) return <div className="mt-3 text-sm text-slate-500">No appointments {view} for your team.</div>
+          return <div className="mt-3">{items.map((it) => (
+            <div key={it.key} className={`mt-2 rounded-lg border p-3 ${it.needs_assignment ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${it.source === 'jn' ? 'bg-slate-200 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>{it.source === 'jn' ? 'JobNimbus' : 'App'}</span>
               </div>
-            )
-          })}
-        </div>
+              {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
+              <div className="text-[12.5px] font-bold text-amber-700">🕒 {timeOnly(it.appt_at)}{it.rep_name ? ` · ${it.rep_name}` : it.needs_assignment ? ' · ⚠️ needs a rep' : ''}</div>
+              {it.needs_assignment && it.id && assignRow(it.id)}
+            </div>
+          ))}</div>
+        })()}
       </div>
     </section>
   )
