@@ -134,6 +134,12 @@ export default function RegionalManager() {
 
       <Leaderboard myZone={manager.region} />
 
+      {/* Appointments → Sales — pinned just under the leaderboard, set apart. */}
+      <div className="mb-5 mt-4 border-t border-slate-700/50 pt-4">
+        <p className="mb-2 text-sm text-slate-200/85">📋 Tap the report below to <strong>break down each rep's appointment-to-sale conversion</strong> — it shows you exactly what needs fixing, if anything.</p>
+        <ApptConversion zone={manager.region} />
+      </div>
+
       <Group title="⭐ Today's work" defaultOpen>
         <AssignAppointments token={token} />
         <DealsToFix zone={manager.region} />
@@ -141,7 +147,6 @@ export default function RegionalManager() {
       </Group>
 
       <Group title="📊 My team's numbers">
-        <ApptConversion zone={manager.region} />
         <section className="mb-6">
           <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
           <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
