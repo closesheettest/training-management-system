@@ -148,6 +148,8 @@ export default function RegionalManager() {
 
       <DamageNeedsRep zone={manager.region} />
 
+      <DamageRestore zone={manager.region} />
+
       <ActiveLeads zone={manager.region} />
 
       <BackToRetailWins zone={manager.region} />
@@ -955,6 +957,76 @@ function WeeklyReport({ token }) {
 // Damage deals in this zone whose rep isn't active (or has none) — they show for
 // nobody until a manager assigns them to an active rep (then they land in that
 // rep's Damage visit list + JobNimbus). Backed by CCG manager-damage-queue.
+// Restore damage deals wrongly marked "BTR - NI" (Not Interested) back onto the
+// rep's Damage-visit list — flips the JN status to "Sit Sold Insp" + clears the
+// stale copy (manager-damage-queue btr_load / btr_restore). Sibling of DamageNeedsRep.
+function DamageRestore({ zone }) {
+  const [loading, setLoading] = useState(false)
+  const [deals, setDeals] = useState(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState('')
+  const [doneIds, setDoneIds] = useState({})
+
+  const load = async () => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'btr_load', zone }) })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not load.'); setLoading(false); return }
+      setDeals(d.deals || [])
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const restore = async (dl) => {
+    setBusy(dl.inspection_id)
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'btr_restore', inspection_id: dl.inspection_id }) })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Restore failed.'); setBusy(''); return }
+      setDoneIds((x) => ({ ...x, [dl.inspection_id]: true }))
+    } catch { setErr('Network error.') }
+    setBusy('')
+  }
+  const remaining = (deals || []).filter((d) => !doneIds[d.inspection_id])
+
+  return (
+    <section className="mb-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-brand-navy">↩️ Restore to Damage list</h2>
+            <p className="text-xs text-slate-500">Damage deals in your zone wrongly marked “BTR – NI” (Not Interested) — that removes them from the rep’s Damage visit list. Restore puts the JN status back to “Sit Sold Insp” and returns it to the list.</p>
+          </div>
+          <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : deals ? 'Refresh' : 'Load'}</button>
+        </div>
+        {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+        {deals && (
+          <div className="mt-3">
+            {remaining.length === 0 ? <div className="text-sm text-slate-500">No damage deals marked Not Interested. 🎉</div> : remaining.map((dl) => (
+              <div key={dl.inspection_id} className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+                <div>
+                  <div className="font-bold text-slate-800">{dl.client_name}</div>
+                  <div className="text-[13px] text-slate-600">📍 {[dl.address, dl.city].filter(Boolean).join(', ')}{dl.county ? ` · ${dl.county}` : ''}</div>
+                  <div className="text-[12px] text-slate-400">rep: {dl.rep || 'none'}{dl.mobile ? ` · ${dl.mobile}` : ''}</div>
+                </div>
+                <button onClick={() => restore(dl)} disabled={busy === dl.inspection_id} className="whitespace-nowrap rounded bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50">{busy === dl.inspection_id ? '…' : 'Restore'}</button>
+              </div>
+            ))}
+            {Object.keys(doneIds).length > 0 && (
+              <div className="mt-3 text-xs font-semibold text-emerald-700">
+                {Object.entries(doneIds).map(([id]) => {
+                  const dl = (deals || []).find((x) => x.inspection_id === id)
+                  return <div key={id}>✓ {dl?.client_name} restored to Damage list</div>
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function DamageNeedsRep({ zone }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { deals, reps }
