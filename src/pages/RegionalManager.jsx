@@ -1062,15 +1062,32 @@ function AssignAppointments({ token }) {
 
         {!loading && view === 'needs' && d && (() => {
           const un = d.unassigned || []
-          if (un.length === 0) return <div className="mt-3 text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
-          return <div className="mt-3">{un.map((a) => (
-            <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-              <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
-              <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
-              <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
-              {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
+          const viv = d.viviana || []
+          if (un.length === 0 && viv.length === 0) return <div className="mt-3 text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
+          return (
+            <div className="mt-3">
+              {un.map((a) => (
+                <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
+                  <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
+                  <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
+                  {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
+                </div>
+              ))}
+              {viv.length > 0 && (
+                <div className="mt-4">
+                  <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Viviana's appointments — pick a rep ({viv.length})</div>
+                  {viv.map((it) => (
+                    <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                      <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                      <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
+                      {editRow(it, 'Assign')}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}</div>
+          )
         })()}
 
         {!loading && (view === 'today' || view === 'tomorrow') && d && (() => {
