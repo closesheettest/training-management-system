@@ -982,23 +982,25 @@ function AssignAppointments({ token }) {
   }, [token])
   useEffect(() => { load(view) }, [load, view])
 
-  const pick = (id, f, v) => setSel((p) => ({ ...p, [id]: { ...(p[id] || {}), [f]: v } }))
-  const submit = async (id) => {
-    const s = sel[id] || {}
-    if (!s.owner || !s.rep) { alert('Pick both an Owner and a Sales Rep.'); return }
+  const pick = (key, f, v) => setSel((p) => ({ ...p, [key]: { ...(p[key] || {}), [f]: v } }))
+
+  // target: { key, appt_id?, jn_job_id?, curOwner?, curRep? }. Sends the chosen
+  // (or unchanged current) owner + sales rep to JobNimbus.
+  const submit = async (target) => {
+    const s = sel[target.key] || {}
+    const ownerId = s.owner != null ? s.owner : (target.curOwner || '')
+    const repId = s.rep != null ? s.rep : (target.curRep || '')
+    if (!ownerId || !repId) { alert('Pick both an Owner and a Sales Rep.'); return }
     const reps = (d && d.reps) || []
-    const owner = reps.find((x) => x.jobnimbus_id === s.owner)
-    const rep = reps.find((x) => x.jobnimbus_id === s.rep)
-    setBusy(id)
+    const owner = reps.find((x) => x.jobnimbus_id === ownerId)
+    const rep = reps.find((x) => x.jobnimbus_id === repId)
+    const payload = { action: 'assign-appointment', token, owner_jn_id: ownerId, owner_name: owner ? owner.name : '', sales_rep_jn_id: repId, sales_rep_name: rep ? rep.name : '' }
+    if (target.appt_id) payload.appt_id = target.appt_id
+    else if (target.jn_job_id) payload.jn_job_id = target.jn_job_id
+    else { alert('This row has no linked JobNimbus job.'); return }
+    setBusy(target.key)
     try {
-      const res = await fetch('/.netlify/functions/regional-manager-api', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'assign-appointment', token, appt_id: id,
-          owner_jn_id: s.owner, owner_name: owner ? owner.name : '',
-          sales_rep_jn_id: s.rep, sales_rep_name: rep ? rep.name : '',
-        }),
-      })
+      const res = await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const j = await res.json().catch(() => ({}))
       if (!j.ok) { alert(j.error || 'Assign failed.'); setBusy(null); return }
       await load(view)
@@ -1010,25 +1012,29 @@ function AssignAppointments({ token }) {
   const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
   const timeOnly = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
 
-  // The Owner + Sales Rep dropdowns + Submit, for an unassigned item (by setter_appointments id).
-  const assignRow = (id) => {
-    const s = sel[id] || {}
-    const ready = s.owner && s.rep
+  // Editable Owner + Sales Rep dropdowns (pre-filled with current) + Save.
+  // item: { key, source, id, jn_job_id, owner_id, sales_rep_id }.
+  const editRow = (item, saveLabel) => {
+    const s = sel[item.key] || {}
+    const ownerVal = s.owner != null ? s.owner : (item.owner_id || '')
+    const repVal = s.rep != null ? s.rep : (item.sales_rep_id || '')
+    const ready = ownerVal && repVal
+    const target = { key: item.key, appt_id: item.source === 'app' ? item.id : null, jn_job_id: item.jn_job_id, curOwner: item.owner_id, curRep: item.sales_rep_id }
     return (
       <div className="mt-2 flex flex-wrap items-end gap-2">
-        <label className="text-xs text-slate-600">Owner (runs it)
-          <select value={s.owner || ''} onChange={(e) => pick(id, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+        <label className="text-xs text-slate-600">Assigned to (owner)
+          <select value={ownerVal} onChange={(e) => pick(item.key, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
             <option value="">Select…</option>
             {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
           </select>
         </label>
         <label className="text-xs text-slate-600">Sales Rep
-          <select value={s.rep || ''} onChange={(e) => pick(id, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <select value={repVal} onChange={(e) => pick(item.key, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
             <option value="">Select…</option>
             {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
           </select>
         </label>
-        <button onClick={() => submit(id)} disabled={busy === id || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === id ? 'Assigning…' : 'Submit'}</button>
+        <button onClick={() => submit(target)} disabled={busy === item.key || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === item.key ? 'Saving…' : (saveLabel || 'Save')}</button>
       </div>
     )
   }
@@ -1043,7 +1049,7 @@ function AssignAppointments({ token }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-amber-700">📅 Assign Appointments</h2>
-            <p className="text-xs text-slate-500">Setter-booked + your team's JobNimbus appointments. Pick an Owner + Sales Rep on the ones that need it → writes both to JobNimbus.</p>
+            <p className="text-xs text-slate-500">Setter-booked + your team's JobNimbus appointments. Set or change the Owner + Sales Rep on any row — writes both to JobNimbus.</p>
           </div>
           <div className="flex gap-1.5">
             <Tab v="needs" label="Needs assignment" />
@@ -1062,7 +1068,7 @@ function AssignAppointments({ token }) {
               <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
               <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
               <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
-              {assignRow(a.id)}
+              {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
             </div>
           ))}</div>
         })()}
@@ -1077,8 +1083,9 @@ function AssignAppointments({ token }) {
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${it.source === 'jn' ? 'bg-slate-200 text-slate-600' : 'bg-blue-100 text-blue-700'}`}>{it.source === 'jn' ? 'JobNimbus' : 'App'}</span>
               </div>
               {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
-              <div className="text-[12.5px] font-bold text-amber-700">🕒 {timeOnly(it.appt_at)}{it.rep_name ? ` · ${it.rep_name}` : it.needs_assignment ? ' · ⚠️ needs a rep' : ''}</div>
-              {it.needs_assignment && it.id && assignRow(it.id)}
+              <div className="text-[12.5px] font-bold text-amber-700">🕒 {timeOnly(it.appt_at)}</div>
+              <div className="text-[12px] text-slate-600">Owner: <b>{it.owner_name || '—'}</b> · Sales Rep: <b>{it.sales_rep_name || (it.needs_assignment ? '⚠️ none' : '—')}</b></div>
+              {editRow(it, 'Save')}
             </div>
           ))}</div>
         })()}
