@@ -1084,7 +1084,7 @@ function AssignAppointments({ token }) {
 
         {!loading && view === 'needs' && d && (() => {
           const un = d.unassigned || []
-          const viv = d.viviana || []
+          const viv = d.backlog || d.viviana || []
           if (un.length === 0 && viv.length === 0) return <div className="mt-3 text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
           return (
             <div className="mt-3">
@@ -1098,7 +1098,7 @@ function AssignAppointments({ token }) {
               ))}
               {viv.length > 0 && (
                 <div className="mt-4">
-                  <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Viviana's appointments — pick a rep ({viv.length})</div>
+                  <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — currently on Viviana / inactive reps ({viv.length})</div>
                   {viv.map((it) => (
                     <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
                       <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
