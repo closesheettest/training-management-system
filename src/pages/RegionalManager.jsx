@@ -142,6 +142,8 @@ export default function RegionalManager() {
         <ManagerPayReport />
       </section>
 
+      <AssignAppointments token={token} />
+
       <WeeklyReport token={token} />
 
       <DealsToFix zone={manager.region} />
@@ -954,6 +956,120 @@ function WeeklyReport({ token }) {
 // On-demand scan of the last 14 days of sales in THIS manager's zone
 // (CCG zone-deals-to-fix, same checklist as the morning audit), grouped
 // by rep. Tap a rep → every deal + exactly what's missing/wrong.
+// Setter-booked appointments in this zone that landed on the manager with NO
+// sales rep. Manager picks an Owner + a Sales Rep → writes both to the JN job.
+// Proxied through regional-manager-api → CCG manager-records-api.
+function AssignAppointments({ token }) {
+  const [d, setD] = useState(null)
+  const [sel, setSel] = useState({})
+  const [busy, setBusy] = useState(null)
+  const [err, setErr] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list-appointments', token }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!j.ok) { setErr(j.error || 'Could not load.'); return }
+      setErr(''); setD(j)
+    } catch { setErr('Network error.') }
+  }, [token])
+  useEffect(() => { load() }, [load])
+
+  const pick = (id, f, v) => setSel((p) => ({ ...p, [id]: { ...(p[id] || {}), [f]: v } }))
+  const submit = async (a) => {
+    const s = sel[a.id] || {}
+    if (!s.owner || !s.rep) { alert('Pick both an Owner and a Sales Rep.'); return }
+    const reps = (d && d.reps) || []
+    const owner = reps.find((x) => x.jobnimbus_id === s.owner)
+    const rep = reps.find((x) => x.jobnimbus_id === s.rep)
+    setBusy(a.id)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign-appointment', token, appt_id: a.id,
+          owner_jn_id: s.owner, owner_name: owner ? owner.name : '',
+          sales_rep_jn_id: s.rep, sales_rep_name: rep ? rep.name : '',
+        }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!j.ok) { alert(j.error || 'Assign failed.'); setBusy(null); return }
+      await load()
+    } catch { alert('Network error.') }
+    setBusy(null)
+  }
+
+  const reps = (d && d.reps) || []
+  const un = (d && d.unassigned) || []
+  const assigned = (d && d.assigned) || []
+  const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
+  const timeOnly = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
+  const dayKey = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric' }) } catch { return '' } }
+  const byDay = {}
+  for (const a of assigned) (byDay[dayKey(a.appt_at)] = byDay[dayKey(a.appt_at)] || []).push(a)
+
+  return (
+    <section className="mb-6">
+      <div className="rounded-lg border-2 border-amber-400 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-amber-700">📅 Assign Appointments{un.length ? ` (${un.length})` : ''}</h2>
+            <p className="text-xs text-slate-500">Setter booked these in your zone — pick an Owner + a Sales Rep, then Submit. Writes both to JobNimbus.</p>
+          </div>
+          <button onClick={load} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white">Refresh</button>
+        </div>
+        {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
+
+        {Object.keys(byDay).length > 0 && (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-1 text-xs font-bold text-slate-600">Your reps' upcoming appointments</div>
+            {Object.entries(byDay).map(([day, list]) => (
+              <div key={day} className="mb-1">
+                <div className="text-xs font-bold text-slate-800">{day}</div>
+                {list.map((a) => <div key={a.id} className="pl-2 text-[12.5px] text-slate-700">{timeOnly(a.appt_at)} — <b>{a.rep_name || '—'}</b> · {a.homeowner_name}</div>)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3">
+          {!d ? <div className="text-sm text-slate-500">Loading…</div> : un.length === 0 ? (
+            <div className="text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
+          ) : un.map((a) => {
+            const s = sel[a.id] || {}
+            const ready = s.owner && s.rep
+            return (
+              <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
+                <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
+                <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
+                <div className="mt-2 flex flex-wrap items-end gap-2">
+                  <label className="text-xs text-slate-600">Owner (runs it)
+                    <select value={s.owner || ''} onChange={(e) => pick(a.id, 'owner', e.target.value)} className="mt-0.5 block min-w-[150px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+                      <option value="">Select…</option>
+                      {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-600">Sales Rep
+                    <select value={s.rep || ''} onChange={(e) => pick(a.id, 'rep', e.target.value)} className="mt-0.5 block min-w-[150px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+                      <option value="">Select…</option>
+                      {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+                    </select>
+                  </label>
+                  <button onClick={() => submit(a)} disabled={busy === a.id || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === a.id ? 'Assigning…' : 'Submit'}</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // Damage deals in this zone whose rep isn't active (or has none) — they show for
 // nobody until a manager assigns them to an active rep (then they land in that
 // rep's Damage visit list + JobNimbus). Backed by CCG manager-damage-queue.

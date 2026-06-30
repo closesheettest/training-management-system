@@ -107,6 +107,40 @@ async function resolveCcgRecordsUrl(zone) {
   }
 }
 
+// The CCG-side regional_managers token for this zone — used to proxy the
+// setter-appointment assign actions to CCG's manager-records-api (which owns
+// the JobNimbus write + setter_appointments table). null if no CCG board.
+async function ccgTokenFor(zone) {
+  if (!CCG_SB_URL || !CCG_SB_KEY || !zone) return null
+  try {
+    const res = await fetch(
+      `${CCG_SB_URL}/rest/v1/regional_managers?zone=eq.${encodeURIComponent(zone)}&select=token&limit=1`,
+      { headers: { apikey: CCG_SB_KEY, Authorization: `Bearer ${CCG_SB_KEY}` } },
+    )
+    if (!res.ok) return null
+    const rows = await res.json().catch(() => [])
+    return rows[0]?.token || null
+  } catch {
+    return null
+  }
+}
+
+// Proxy an action to CCG's manager-records-api using the zone's CCG token.
+async function ccgRecordsApi(zone, payload) {
+  const ccgTok = await ccgTokenFor(zone)
+  if (!ccgTok) return { status: 502, body: { ok: false, error: 'No CCG board is linked to this zone.' } }
+  try {
+    const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/manager-records-api`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, token: ccgTok }),
+    })
+    const j = await r.json().catch(() => ({}))
+    return { status: r.ok && j.ok ? 200 : 502, body: j }
+  } catch (e) {
+    return { status: 502, body: { ok: false, error: e.message || 'CCG request failed' } }
+  }
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
   if (!SB_URL || !SB_KEY) return json(500, { error: 'Missing SUPABASE env vars' })
@@ -167,6 +201,23 @@ export const handler = async (event) => {
       },
       reps: reps || [],
     })
+  }
+
+  // Setter appointments awaiting a rep + this zone's reps (proxied to CCG).
+  if (action === 'list-appointments') {
+    const { status, body: out } = await ccgRecordsApi(region, { action: 'list-appointments' })
+    return json(status, out)
+  }
+  // Assign an Owner + Sales Rep to a setter appointment (proxied to CCG, which
+  // writes both to the JobNimbus job + stamps the local row).
+  if (action === 'assign-appointment') {
+    const { status, body: out } = await ccgRecordsApi(region, {
+      action: 'assign-appointment',
+      appt_id: body.appt_id,
+      owner_jn_id: body.owner_jn_id, owner_name: body.owner_name,
+      sales_rep_jn_id: body.sales_rep_jn_id, sales_rep_name: body.sales_rep_name,
+    })
+    return json(status, out)
   }
 
   if (action === 'deactivate_rep') {
