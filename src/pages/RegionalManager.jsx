@@ -132,42 +132,58 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      <Leaderboard myZone={manager.region} />
+      <Group title="⭐ Today's work" defaultOpen>
+        <AssignAppointments token={token} />
+        <DealsToFix zone={manager.region} />
+        <DamageNeedsRep zone={manager.region} />
+      </Group>
 
-      <ApptConversion zone={manager.region} />
+      <Group title="📊 My team's numbers">
+        <Leaderboard myZone={manager.region} />
+        <ApptConversion zone={manager.region} />
+        <section className="mb-6">
+          <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
+          <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
+          <ManagerPayReport />
+        </section>
+        <BackToRetailWins zone={manager.region} />
+      </Group>
 
-      <section className="mb-6">
-        <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
-        <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
-        <ManagerPayReport />
-      </section>
+      <Group title="🎯 Leads to work">
+        <ActiveLeads zone={manager.region} />
+        <DamageRestore zone={manager.region} />
+      </Group>
 
-      <AssignAppointments token={token} />
-
-      <WeeklyReport token={token} />
-
-      <DealsToFix zone={manager.region} />
-
-      <DamageNeedsRep zone={manager.region} />
-
-      <DamageRestore zone={manager.region} />
-
-      <ActiveLeads zone={manager.region} />
-
-      <BackToRetailWins zone={manager.region} />
-
-      <QuickActions manager={manager} />
-
-      <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
-
-      <ZoneMap reps={reps} zoneName={manager.region} token={token} />
-
-      <RepsTable token={token} reps={reps} onChanged={reload} />
+      <Group title="📋 Roster & tools">
+        <WeeklyReport token={token} />
+        <RepsTable token={token} reps={reps} onChanged={reload} />
+        <ZoneMap reps={reps} zoneName={manager.region} token={token} />
+        <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
+        <QuickActions manager={manager} />
+      </Group>
 
       <footer className="mt-8 text-center text-xs text-slate-200/60">
         Need help? Reply to the text you got with this link.
       </footer>
     </ShellFrame>
+  )
+}
+
+// Collapsible group — wraps a set of sections under one tappable header so the
+// dashboard opens calm instead of a wall of cards. Daily group opens by default.
+function Group({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800"
+      >
+        <span className="text-base font-bold text-white">{title}</span>
+        <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
   )
 }
 
