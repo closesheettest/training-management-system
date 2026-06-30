@@ -214,7 +214,7 @@ export const handler = async (event) => {
   if (action === 'assign-appointment') {
     const { status, body: out } = await ccgRecordsApi(region, {
       action: 'assign-appointment',
-      appt_id: body.appt_id,
+      appt_id: body.appt_id, jn_job_id: body.jn_job_id,
       owner_jn_id: body.owner_jn_id, owner_name: body.owner_name,
       sales_rep_jn_id: body.sales_rep_jn_id, sales_rep_name: body.sales_rep_name,
     })
