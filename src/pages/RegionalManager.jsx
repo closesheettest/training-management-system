@@ -132,6 +132,8 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      <Leaderboard myZone={manager.region} />
+
       <Group title="⭐ Today's work" defaultOpen>
         <AssignAppointments token={token} />
         <DealsToFix zone={manager.region} />
@@ -139,7 +141,6 @@ export default function RegionalManager() {
       </Group>
 
       <Group title="📊 My team's numbers">
-        <Leaderboard myZone={manager.region} />
         <ApptConversion zone={manager.region} />
         <section className="mb-6">
           <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
