@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
@@ -1051,12 +1051,23 @@ function AssignMap({ srReps, items, zoneName }) {
           <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {repPts.map((r) => (
             <Marker key={'r' + r.jobnimbus_id} position={[r.latitude, r.longitude]} icon={RED_PIN}>
-              <Popup closeButton={false} autoPan={false}><div style={{ fontSize: 13 }}><b>{r.name}</b><div style={{ color: '#475569', fontSize: 12 }}>Senior sales rep</div></div></Popup>
+              <Tooltip direction="top" offset={[0, -28]} opacity={1}>
+                <div style={{ fontSize: 12.5, lineHeight: 1.35 }}>
+                  <b>{r.name}</b> <span style={{ color: '#dc2626', fontWeight: 700 }}>· Senior rep</span>
+                  {r.phone && <div style={{ color: '#475569' }}>{r.phone}</div>}
+                  {fmtAddress(r) && <div style={{ color: '#475569' }}>{fmtAddress(r)}</div>}
+                </div>
+              </Tooltip>
             </Marker>
           ))}
           {apptPts.map((x) => (
             <Marker key={'a' + x.key} position={x.c} icon={BLUE_PIN}>
-              <Popup closeButton={false} autoPan={false}><div style={{ fontSize: 13 }}><b>{x.homeowner || 'Appointment'}</b><div style={{ color: '#475569', fontSize: 12 }}>{x.address}</div></div></Popup>
+              <Tooltip direction="top" offset={[0, -28]} opacity={1}>
+                <div style={{ fontSize: 12.5, lineHeight: 1.35 }}>
+                  <b>{x.homeowner || 'Appointment'}</b> <span style={{ color: '#2563eb', fontWeight: 700 }}>· needs a rep</span>
+                  <div style={{ color: '#475569' }}>{x.address}</div>
+                </div>
+              </Tooltip>
             </Marker>
           ))}
         </MapContainer>
