@@ -334,7 +334,7 @@ function ApptConversion({ zone }) {
     setErr(lastErr); setLoading(false)
   }
   const setP = (p) => { setPeriod(p); if (data) load(p) }
-  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
+  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month'], ['lastmonth', 'Last month']]
 
   const downloadCsv = () => {
     if (!data) return

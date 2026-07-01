@@ -476,7 +476,7 @@ function AllApptConversion() {
     setErr(lastErr); setLoading(false)
   }
   const setP = (p) => { setPeriod(p); if (data) load(p) }
-  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month']]
+  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month'], ['lastmonth', 'Last month']]
 
   // Spreadsheet-friendly CSV of the whole report: every rep across all zones,
   // each zone total, then the company total. Amounts/percents as plain numbers.
