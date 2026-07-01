@@ -255,7 +255,11 @@ const fixNeedsRetailLoc = (e) => !!(e.sale && (e.result === 'damage' || e.result
 // A back-to-retail deal (inspections.result = retail) still sitting at the
 // "Sit Sold Insp" JN status never got re-statused after the revert — flag it.
 const fixStuckSitSold = (e) => e.result === 'retail' && String(e.status || '').toLowerCase().trim() === 'sit sold insp'
-const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', fixStuckSitSold(e) && 'sent back to retail but still “Sit Sold Insp” — re-status it in JN', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
+// A back-to-retail deal IS a first retail appointment (not a reset), so its JN
+// Start Date must be set = the appointment date — same as any retail sale. Flag
+// a blank/mismatched Start Date on these even though they aren't "sold" yet.
+const fixBtrNeedsStart = (e) => fixStuckSitSold(e) && !!e.apptDate && (!e.start || fixWeekStart(e.apptDate) !== fixWeekStart(e.start))
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixBtrNeedsStart(e) && (e.start ? 'Start date must match the appointment date' : 'no Start date — set it to the appointment date'), fixNotStatused(e) && 'appointment past but never statused', fixStuckSitSold(e) && 'sent back to retail but still “Sit Sold Insp” — re-status it in JN', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
