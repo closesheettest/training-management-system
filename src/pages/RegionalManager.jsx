@@ -252,7 +252,10 @@ const fixNotStatused = (e) => fixApptPast(e) && ['appointment scheduled', 'reset
 // sale still parked in the Insurance location (we don't auto-move those). Flag it
 // so the rep moves the JN location to Retail — then it counts as BTR, not Co.
 const fixNeedsRetailLoc = (e) => !!(e.sale && (e.result === 'damage' || e.result === 'no_damage'))
-const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
+// A back-to-retail deal (inspections.result = retail) still sitting at the
+// "Sit Sold Insp" JN status never got re-statused after the revert — flag it.
+const fixStuckSitSold = (e) => e.result === 'retail' && String(e.status || '').toLowerCase().trim() === 'sit sold insp'
+const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixNotStatused(e) && 'appointment past but never statused', fixStuckSitSold(e) && 'sent back to retail but still “Sit Sold Insp” — re-status it in JN', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const list = mergeDeals(details)
@@ -288,7 +291,7 @@ function ApptDetail({ details }) {
                   <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.source || '—'}</td>
-                  <td className={TD + (fixNotStatused(e) ? ' bg-red-100 font-semibold text-red-700' : ' text-slate-500')}>{e.status || '—'}</td>
+                  <td className={TD + ((fixNotStatused(e) || fixStuckSitSold(e)) ? ' bg-red-100 font-semibold text-red-700' : ' text-slate-500')}>{e.status || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.apptDate || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.sale ? (e.sold || '—') : ''}</td>
                   <td className={TD + (fixStartBad(e) ? ' bg-red-100 font-semibold text-red-700' : ' text-slate-500')}>{e.start || '—'}</td>
@@ -391,7 +394,7 @@ function ApptConversion({ zone }) {
         + `<td>${e.cat === 'comp' ? 'CO' : esc((e.cat || '').toUpperCase())}</td>`
         + `<td>${esc(e.customer || '')}${e.dupCount > 1 ? ` <b style="color:#b91c1c">(${e.dupCount} jobs)</b>` : ''}</td>`
         + `<td>${esc(e.address || '')}</td><td>${esc(e.source || '')}</td>`
-        + `<td${fixNotStatused(e) ? ` style="${RED}"` : ''}>${esc(e.status || '')}</td>`
+        + `<td${(fixNotStatused(e) || fixStuckSitSold(e)) ? ` style="${RED}"` : ''}>${esc(e.status || '')}</td>`
         + `<td>${esc(e.apptDate || '')}</td><td>${e.sale ? esc(e.sold || '') : ''}</td>`
         + `<td${fixStartBad(e) ? ` style="${RED}"` : ''}>${esc(e.start || '—')}</td>`
         + `<td class="r">${e.sale ? money(e.amt) : ''}</td>`
