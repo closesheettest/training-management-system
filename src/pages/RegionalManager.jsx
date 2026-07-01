@@ -1231,6 +1231,7 @@ function AssignAppointments({ token }) {
                     {viv.map((it) => (
                       <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
                         <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                        {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
                         <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
                         {editRow(it, 'Assign')}
                       </div>
