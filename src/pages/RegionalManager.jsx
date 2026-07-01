@@ -320,6 +320,7 @@ function ApptDetail({ details }) {
 // as one of the admin's zones[] entries).
 function ApptConversion({ zone }) {
   const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)   // collapsed by default — click to open/close
   const [data, setData] = useState(null)
   const [openRep, setOpenRep] = useState(null)   // rep name — drill-down detail
   const [period, setPeriod] = useState('month')
@@ -457,15 +458,18 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
   const zt = data?.totals
   return (
     <section className="mb-6">
-      <button type="button" onClick={() => load()} disabled={loading}
+      <button type="button" onClick={() => { const n = !open; setOpen(n); if (n && !data) load() }} disabled={loading}
         className="w-full rounded-lg bg-indigo-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
-        📈 Appointments → Sales{data ? ` (${data.totals.pct}% · ${data.totals.sales}/${data.totals.appts})` : ''}
+        <span className="flex items-center justify-between gap-2">
+          <span>📈 Appointments → Sales{data ? ` (${data.totals.pct}% · ${data.totals.sales}/${data.totals.appts})` : ''}</span>
+          <span className="text-sm">{open ? '▲' : '▼'}</span>
+        </span>
         <div className="text-xs font-normal opacity-90">
-          {loading ? 'Loading…' : `Per-rep conversion + Radiant Barrier / Insulation attach rate. Tap to ${data ? 'refresh' : 'load'}.`}
+          {loading ? 'Loading…' : (open ? 'Tap to close' : `Per-rep conversion + Radiant Barrier / Insulation attach. Tap to ${data ? 'open' : 'load'}.`)}
         </div>
       </button>
 
-      {data && (
+      {open && data && (
         <div className="mt-2 flex items-center gap-1">
           {periods.map(([k, label]) => (
             <button key={k} type="button" onClick={() => setP(k)}
@@ -477,10 +481,10 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
             className="rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-300">⬇ CSV</button>
         </div>
       )}
-      {data && <div className="mt-1 text-[11px] font-semibold text-slate-300">📅 {fmtRange(data.range)}</div>}
-      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+      {open && data && <div className="mt-1 text-[11px] font-semibold text-slate-300">📅 {fmtRange(data.range)}</div>}
+      {open && err && <div className="mt-2 text-xs text-red-600">{err}</div>}
 
-      {data && (
+      {open && data && (
         <div className="mt-3">
           {data.reps.length === 0 ? (
             <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No appointments in this period.</div>
