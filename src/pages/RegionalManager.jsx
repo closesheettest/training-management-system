@@ -282,6 +282,7 @@ const fixBtrNeedsStart = (e) => fixStuckSitSold(e) && !!e.apptDate && (!e.start 
 const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned)', fixStartBad(e) && (e.start ? 'Start date in a different week than the appt' : 'no Start date'), fixBtrNeedsStart(e) && (e.start ? 'Start date must match the appointment date' : 'no Start date — set it to the appointment date'), fixNotStatused(e) && 'appointment past but never statused', fixStuckSitSold(e) && 'sent back to retail but still “Sit Sold Insp” — re-status it in JN', fixNeedsRetailLoc(e) && 'sold a Damage/No-Damage deal — if retail, change the JN location to Retail', e.dupCount > 1 && (e.dupCount + ' jobs on this contact — merge in JN')].filter(Boolean)
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
+  const [openFix, setOpenFix] = useState(null) // row index whose fix-reasons are expanded (tap the ⚠ — works on iPad/touch)
   const list = mergeDeals(details)
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
@@ -309,7 +310,8 @@ function ApptDetail({ details }) {
             {list.map((e, i) => {
               const reasons = fixReasonsFor(e)
               return (
-                <tr key={i} className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
+                <Fragment key={i}>
+                <tr className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
                   <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
                   <td className={TD + ' text-slate-500'}>{e.cat === 'comp' ? 'CO' : (e.cat || '').toUpperCase()}</td>
                   <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
@@ -323,8 +325,22 @@ function ApptDetail({ details }) {
                   <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-700">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-600">NO ROOFR</span> : '—')) : ''}</td>
                   <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-600">✓</span> : ''}</td>
                   <td className={TD + ' text-center'}>{e.sale && e.ins ? <span className="font-bold text-violet-600">✓</span> : ''}</td>
-                  <td className={TD} title={reasons.join('; ')}>{reasons.length ? <span className="font-bold text-amber-600">⚠</span> : ''}</td>
+                  <td className={TD + ' text-center'} title={reasons.join('; ')}>{reasons.length ? <button type="button" onClick={() => setOpenFix(openFix === i ? null : i)} className="cursor-pointer text-base font-bold text-amber-600">⚠</button> : ''}</td>
                 </tr>
+                {openFix === i && reasons.length > 0 && (
+                  <tr className="bg-amber-50">
+                    <td colSpan={14} className="px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-bold text-amber-700">Needs fixing in JobNimbus:</div>
+                        <button type="button" onClick={() => setOpenFix(null)} className="text-[11px] font-bold text-slate-400">✕ close</button>
+                      </div>
+                      <ul className="mt-1 list-disc pl-5 text-[11.5px] leading-relaxed text-slate-700">
+                        {reasons.map((r, ri) => <li key={ri}>{r}</li>)}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>
