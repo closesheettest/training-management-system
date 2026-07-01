@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -58,6 +58,26 @@ const REP_PIN = L.divIcon({
   iconAnchor: [12, 32],
   popupAnchor: [0, -28],
 })
+
+// Colored teardrop pins for the Assign-Appointments map: RED = senior sales
+// reps, BLUE = appointments that still need assigning.
+const mkPin = (fill) => L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="32"><path d="M16 0C8.27 0 2 6.27 2 14c0 9.5 14 18 14 18s14-8.5 14-18c0-7.73-6.27-14-14-14z" fill="${fill}" stroke="white" stroke-width="2"/><circle cx="16" cy="13" r="5" fill="white"/></svg>`,
+  className: '', iconSize: [24, 32], iconAnchor: [12, 32], popupAnchor: [0, -28],
+})
+const RED_PIN = mkPin('#dc2626')
+const BLUE_PIN = mkPin('#2563eb')
+
+// Best-effort client-side geocode (OpenStreetMap Nominatim — no key). Used to
+// pin appointment addresses on the Assign map. Returns [lat,lng] or null.
+async function geocodeAddress(address) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(address)}`, { headers: { Accept: 'application/json' } })
+    const j = await r.json()
+    if (Array.isArray(j) && j[0]) return [parseFloat(j[0].lat), parseFloat(j[0].lon)]
+  } catch { /* skip */ }
+  return null
+}
 
 // Single-line address joiner — skips empty parts so a partial address
 // (just street, no zip) doesn't render with awkward "—, —, —" gaps.
@@ -992,6 +1012,60 @@ function WeeklyReport({ token }) {
 // Setter-booked appointments in this zone that landed on the manager with NO
 // sales rep. Manager picks an Owner + a Sales Rep → writes both to the JN job.
 // Proxied through regional-manager-api → CCG manager-records-api.
+// Split-view map for Assign Appointments: RED = the manager's senior sales reps
+// (home pins), BLUE = appointments that still need assigning (geocoded from
+// their address). Helps the manager assign the nearest rep.
+function AssignMap({ srReps, items, zoneName }) {
+  const [coords, setCoords] = useState({})   // item.key -> [lat,lng]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      for (const it of items) {
+        if (!it.address || coords[it.key]) continue
+        const c = await geocodeAddress(it.address)
+        if (cancelled) return
+        if (c) setCoords((p) => ({ ...p, [it.key]: c }))
+        await new Promise((r) => setTimeout(r, 1100))   // Nominatim: ~1 req/sec
+      }
+    })()
+    return () => { cancelled = true }
+  }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const repPts = srReps.filter((r) => typeof r.latitude === 'number' && typeof r.longitude === 'number')
+  const apptPts = items.map((it) => ({ ...it, c: coords[it.key] })).filter((x) => x.c)
+  const pts = [...repPts.map((r) => [r.latitude, r.longitude]), ...apptPts.map((x) => x.c)]
+  let center = ZONE_CENTERS[zoneName] || [27.99, -81.76], zoom = 9
+  if (pts.length) {
+    const lats = pts.map((p) => p[0]), lngs = pts.map((p) => p[1])
+    center = [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lngs) + Math.max(...lngs)) / 2]
+    const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs))
+    zoom = span > 2 ? 7 : span > 1 ? 8 : span > 0.4 ? 9 : 10
+  }
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-600">
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#dc2626' }} /> Senior reps ({repPts.length})</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#2563eb' }} /> Appts to assign ({apptPts.length}/{items.length})</span>
+      </div>
+      <div className="overflow-hidden rounded-md border border-slate-200" style={{ height: 460 }}>
+        <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          {repPts.map((r) => (
+            <Marker key={'r' + r.jobnimbus_id} position={[r.latitude, r.longitude]} icon={RED_PIN}>
+              <Popup closeButton={false} autoPan={false}><div style={{ fontSize: 13 }}><b>{r.name}</b><div style={{ color: '#475569', fontSize: 12 }}>Senior sales rep</div></div></Popup>
+            </Marker>
+          ))}
+          {apptPts.map((x) => (
+            <Marker key={'a' + x.key} position={x.c} icon={BLUE_PIN}>
+              <Popup closeButton={false} autoPan={false}><div style={{ fontSize: 13 }}><b>{x.homeowner || 'Appointment'}</b><div style={{ color: '#475569', fontSize: 12 }}>{x.address}</div></div></Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+      {apptPts.length < items.length && <div className="mt-1 text-[10.5px] text-slate-400">{items.length - apptPts.length} appt(s) still geocoding or without a mappable address.</div>}
+    </div>
+  )
+}
+
 function AssignAppointments({ token }) {
   const [view, setView] = useState('needs') // 'needs' | 'today' | 'tomorrow'
   const [d, setD] = useState(null)
@@ -999,6 +1073,21 @@ function AssignAppointments({ token }) {
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const [allReps, setAllReps] = useState([])
+  useEffect(() => {
+    fetch('/.netlify/functions/rep-zones?include_inactive=1').then((r) => r.json()).then((j) => setAllReps(j.reps || [])).catch(() => {})
+  }, [])
+  // The manager's SENIOR reps in this zone that have home coordinates → red pins.
+  const srReps = useMemo(() => allReps.filter((r) => d && r.zone === d.zone && String(r.rep_level || '').toLowerCase() === 'senior' && typeof r.latitude === 'number' && typeof r.longitude === 'number'), [allReps, d])
+  // Appointments still needing a rep (with an address to geocode) → blue pins.
+  const needItems = useMemo(() => {
+    // Backlog rows carry their address inside the JN job name (e.g. "123 Main St
+    // - 12741"); strip the trailing job number + add FL so it geocodes.
+    const clean = (s) => String(s || '').replace(/\s*-\s*\d+\s*$/, '').trim()
+    const u = (d?.unassigned || []).map((a) => ({ key: 'need:' + a.id, homeowner: a.homeowner_name, address: a.address }))
+    const b = (d?.backlog || d?.viviana || []).map((it) => ({ key: it.key, homeowner: it.homeowner, address: it.address || (clean(it.homeowner) ? clean(it.homeowner) + ', FL' : null) }))
+    return [...u, ...b].filter((x) => x.address)
+  }, [d])
 
   const load = useCallback(async (v) => {
     setLoading(true)
@@ -1098,27 +1187,34 @@ function AssignAppointments({ token }) {
           const viv = d.backlog || d.viviana || []
           if (un.length === 0 && viv.length === 0) return <div className="mt-3 text-sm text-emerald-700">No appointments waiting to be assigned. 🎉</div>
           return (
-            <div className="mt-3">
-              {un.map((a) => (
-                <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                  <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
-                  <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
-                  <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
-                  {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
-                </div>
-              ))}
-              {viv.length > 0 && (
-                <div className="mt-4">
-                  <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — currently on Viviana / inactive reps ({viv.length})</div>
-                  {viv.map((it) => (
-                    <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                      <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
-                      <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
-                      {editRow(it, 'Assign')}
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
+              {/* Left half — the assignment list */}
+              <div className="lg:w-1/2">
+                {un.map((a) => (
+                  <div key={a.id} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                    <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
+                    <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
+                    <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
+                    {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
+                  </div>
+                ))}
+                {viv.length > 0 && (
+                  <div className="mt-4">
+                    <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — currently on Viviana / inactive reps ({viv.length})</div>
+                    {viv.map((it) => (
+                      <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                        <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                        <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
+                        {editRow(it, 'Assign')}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Right half — map: RED senior reps · BLUE appointments to assign */}
+              <div className="lg:w-1/2">
+                <AssignMap srReps={srReps} items={needItems} zoneName={d.zone} />
+              </div>
             </div>
           )
         })()}
