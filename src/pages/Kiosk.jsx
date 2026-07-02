@@ -54,7 +54,26 @@ export default function Kiosk() {
       q = q.eq('registered', true)
     }
     const { data: traineeData } = await q
-    setTrainees(traineeData || [])
+
+    // Drop no-shows: only list trainees who were present on the most recent
+    // prior class day. Miss a day → off the kiosk the next day. On the class's
+    // first day (no prior attendance yet) everyone shows.
+    const { data: priorAtt } = await supabase
+      .from('attendance')
+      .select('trainee_id, attendance_date')
+      .eq('class_id', class_id)
+      .eq('confirmed', true)
+      .lt('attendance_date', today)
+      .order('attendance_date', { ascending: false })
+    let visible = traineeData || []
+    if (priorAtt && priorAtt.length) {
+      const prevDate = priorAtt[0].attendance_date
+      const presentPrevDay = new Set(
+        priorAtt.filter((a) => a.attendance_date === prevDate).map((a) => a.trainee_id),
+      )
+      visible = visible.filter((t) => presentPrevDay.has(t.id))
+    }
+    setTrainees(visible)
 
     const { data: attData } = await supabase
       .from('attendance')
