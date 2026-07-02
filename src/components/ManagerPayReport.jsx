@@ -82,6 +82,25 @@ export default function ManagerPayReport({ admin = false }) {
 
       {data && (
         <div className="mt-3">
+          {data.reconciliation && (
+            <div className={`mb-3 rounded-lg border-2 px-4 py-3 text-center ${data.reconciliation.reconciled ? 'border-emerald-300 bg-emerald-50' : 'border-red-400 bg-red-50'}`}>
+              <div className={`text-3xl font-extrabold uppercase tracking-tight ${data.reconciliation.reconciled ? 'text-emerald-700' : 'text-red-700'}`}>
+                {data.reconciliation.reconciled ? '✅ Reconciled' : '⛔ Not Reconciled'}
+              </div>
+              {data.reconciliation.reconciled ? (
+                <div className="text-sm font-semibold text-emerald-700">All {data.reconciliation.total_deals} deals have an invoice — pay is on the invoiced totals.</div>
+              ) : (
+                <div className="mt-1 text-sm font-bold text-red-700">
+                  {data.reconciliation.missing_count} of {data.reconciliation.total_deals} deal{data.reconciliation.missing_count !== 1 ? 's' : ''} missing an invoice — pay can't be finalized until they're created:
+                  <div className="mt-1 space-y-0.5 text-[12px] font-normal text-red-600">
+                    {data.reconciliation.missing.map((m, i) => (
+                      <div key={i}>{m.customer}<span className="text-red-400"> · {m.rep}{m.sold ? ' · sold ' + m.sold : ''}</span></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <button onClick={() => go(1)} className="rounded-md border border-slate-300 px-3 py-1 text-sm font-bold text-slate-600 hover:bg-slate-50">◀ Older</button>
             <div className="text-center">
