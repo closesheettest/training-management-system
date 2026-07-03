@@ -1790,8 +1790,8 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
           </select>
         </label>
         {(() => {
-          const sug = zoneForCounty(value.county)
-          const z = Array.isArray(sug) ? sug[0] : sug
+          const sug = zoneForCounty(value.county)   // → { zones:[...], split } | null
+          const z = sug && sug.zones && sug.zones[0]
           if (value.region || !z || !ZONE_TEAMS[z]) return null
           return (
             <button
