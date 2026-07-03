@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
+import InspectionLookup from '../components/InspectionLookup.jsx'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -165,6 +166,8 @@ export default function RegionalManager() {
         <DealsToFix zone={manager.region} />
         <DamageNeedsRep zone={manager.region} />
       </Group>
+
+      <section className="mb-6"><InspectionLookup /></section>
 
       <Group title="📊 My team's numbers">
         <section className="mb-6">
