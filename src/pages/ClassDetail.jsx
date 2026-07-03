@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
-import { ZONE_TEAMS, teamLabel } from '../lib/zones.js'
+import { ZONE_TEAMS, teamLabel, zoneForCounty } from '../lib/zones.js'
 import { formatDateRange, formatDateLong } from '../lib/dates.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
 
@@ -208,6 +208,7 @@ export default function ClassDetail() {
       city: t.city || '',
       state: t.state || '',
       zip: t.zip || '',
+      county: t.county || t.home_county || '',
       region: t.region || '',
     })
     setMessage(null)
@@ -1703,9 +1704,10 @@ function TraineeGroup({
                       <button
                         onClick={() => onSend(t.id)}
                         disabled={sending !== null || editingTraineeId !== null}
+                        title="Sends the link by text and email"
                         className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-navy-dark disabled:opacity-50"
                       >
-                        {sending === t.id ? 'Sending…' : showResend ? 'Resend text' : 'Send text'}
+                        {sending === t.id ? 'Sending…' : showResend ? 'Resend link (text + email)' : 'Send link (text + email)'}
                       </button>
                       )}
                     </div>
@@ -1769,6 +1771,20 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
             )}
           </select>
         </label>
+        {(() => {
+          const sug = zoneForCounty(value.county)
+          const z = Array.isArray(sug) ? sug[0] : sug
+          if (value.region || !z || !ZONE_TEAMS[z]) return null
+          return (
+            <button
+              type="button"
+              onClick={() => onChange({ ...value, region: z })}
+              className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+            >
+              💡 Suggested: {teamLabel(z)}{value.county ? ` — ${value.county} County` : ''} · tap to use
+            </button>
+          )
+        })()}
         <p className="mt-1 text-xs text-amber-700">
           Required before this trainee can take the test — they’re blocked at the test screen until a zone is assigned.
         </p>
