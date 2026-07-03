@@ -4,7 +4,75 @@
 // the CCG `inspection-lookup` function (cross-origin, same as ManagerPayReport).
 import { useState } from 'react'
 
-const ENDPOINT = 'https://free-roof-inspections.netlify.app/.netlify/functions/inspection-lookup'
+const BASE = 'https://free-roof-inspections.netlify.app'
+const ENDPOINT = `${BASE}/.netlify/functions/inspection-lookup`
+const post = (fn, body) => fetch(`${BASE}/.netlify/functions/${fn}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json())
+
+// Per-card action panel: fix homeowner info (Supabase + JobNimbus) or schedule a
+// PA appointment (reusing pa-schedule-api). Mirrors the CCG admin-hub version.
+function InspectionActions({ d, onChanged }) {
+  const [open, setOpen] = useState(null)
+  const [form, setForm] = useState(() => ({ ...(d.raw || {}) }))
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [slots, setSlots] = useState(null)
+  const canPa = d.result === 'damage'
+  const fields = [['client_name', 'Name'], ['mobile', 'Phone'], ['email', 'Email'], ['address', 'Address'], ['city', 'City'], ['state', 'State'], ['zip', 'Zip']]
+
+  const saveFix = async () => {
+    setBusy(true); setMsg('')
+    try {
+      const j = await post('inspection-action', { action: 'update_contact', inspection_id: d.inspection_id, ...form, by: 'Manager (lookup)' })
+      if (!j.ok) setMsg(j.error || 'Save failed.')
+      else if (!j.changes?.length) setMsg('Nothing changed.')
+      else { setMsg(`✓ Saved${j.jn?.contact_updated ? ' + JobNimbus updated' : ''}.`); setTimeout(() => onChanged && onChanged(), 900) }
+    } catch { setMsg('Network error.') }
+    setBusy(false)
+  }
+  const loadSlots = async () => {
+    setOpen('pa'); setSlots(null); setMsg('')
+    try { const j = await post('pa-schedule-api', { action: 'slots', inspection_id: d.inspection_id }); setSlots(j.ok ? (j.slots || []) : []); if (!j.ok) setMsg(j.error || "Couldn't load times.") }
+    catch { setSlots([]); setMsg('Network error.') }
+  }
+  const bookSlot = async (s) => {
+    setBusy(true); setMsg('')
+    try {
+      const j = await post('pa-schedule-api', { action: 'book', pa_id: s.pa_id, start_at: s.start_at, inspection_id: d.inspection_id, homeowner_name: d.raw?.client_name, homeowner_phone: d.raw?.mobile, address: d.raw?.address, booked_by: 'Manager (lookup)' })
+      if (j.duplicate) setMsg('Already has a PA appointment — reschedule from the PA tool.')
+      else if (!j.ok) setMsg(j.error || 'Booking failed.')
+      else { setMsg(`✓ PA appointment booked with ${s.pa_name}.`); setTimeout(() => onChanged && onChanged(), 1000) }
+    } catch { setMsg('Network error.') }
+    setBusy(false)
+  }
+
+  return (
+    <div className="mt-3 border-t border-dashed border-slate-300 pt-2.5">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => setOpen(open === 'fix' ? null : 'fix')} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800 hover:bg-slate-50">✏️ Fix homeowner info</button>
+        {canPa && <button type="button" onClick={() => (open === 'pa' ? setOpen(null) : loadSlots())} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800 hover:bg-slate-50">📅 Schedule a PA</button>}
+      </div>
+      {open === 'fix' && (
+        <div className="mt-2.5 grid gap-1.5">
+          {fields.map(([k, lbl]) => (
+            <label key={k} className="flex items-center gap-2 text-[13px]">
+              <span className="w-16 text-slate-500">{lbl}</span>
+              <input value={form[k] || ''} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} className="h-8 flex-1 rounded-md border border-slate-300 px-2.5 text-[13px] text-slate-800" />
+            </label>
+          ))}
+          <button type="button" onClick={saveFix} disabled={busy} className="mt-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-60">{busy ? 'Saving…' : 'Save + update JobNimbus'}</button>
+        </div>
+      )}
+      {open === 'pa' && (
+        <div className="mt-2.5">
+          {slots === null ? <div className="text-[13px] text-slate-500">Loading available times…</div>
+            : slots.length === 0 ? <div className="text-[13px] text-slate-500">No PA times available (check PA availability / zones).</div>
+              : <div className="flex flex-wrap gap-1.5">{slots.slice(0, 12).map((s, i) => <button key={i} type="button" onClick={() => bookSlot(s)} disabled={busy} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60">{s.label} · {s.pa_name}</button>)}</div>}
+        </div>
+      )}
+      {msg && <div className={`mt-2 text-[12.5px] font-bold ${msg.startsWith('✓') ? 'text-emerald-700' : 'text-amber-700'}`}>{msg}</div>}
+    </div>
+  )
+}
 
 const stageClasses = (stage) => {
   const s = String(stage || '').toLowerCase()
@@ -82,6 +150,7 @@ export default function InspectionLookup() {
             {d.sold_date && <span>Sold: <b className="text-slate-700">{d.sold_date}</b></span>}
             {d.jn_url && <a href={d.jn_url} target="_blank" rel="noreferrer" className="font-bold text-cyan-700 underline">Open in JobNimbus ↗</a>}
           </div>
+          <InspectionActions d={d} onChanged={run} />
         </div>
       ))}
     </div>
