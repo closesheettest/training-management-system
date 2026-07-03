@@ -850,6 +850,24 @@ export default function ClassDetail() {
   const holdingHere = enrolled.filter((t) => t.holding)
   const activeEnrolled = enrolled.filter((t) => !t.holding)
   const registered = activeEnrolled.filter((t) => t.registered)
+  // Drop no-shows on multi-day classes — mirror the Kiosk: once past day 1, only
+  // keep trainees who signed in on the most recent PRIOR class day. Miss the last
+  // day → they fall out of Registered into a muted "Didn't return" group (still
+  // there to unenroll/delete). Single-day / attendance-only + day 1 show everyone.
+  const registeredSplit = (() => {
+    if (cls.attendance_only) return { attending: registered, noShow: [] }
+    const today = todayLocalIso()
+    let prevDate = null
+    for (const t of trainees) for (const a of (t.attendance || [])) {
+      if (a.confirmed && a.attendance_date < today && (!prevDate || a.attendance_date > prevDate)) prevDate = a.attendance_date
+    }
+    if (!prevDate) return { attending: registered, noShow: [] } // first day — no prior attendance yet
+    const present = new Set()
+    for (const t of trainees) if ((t.attendance || []).some((a) => a.confirmed && a.attendance_date === prevDate)) present.add(t.id)
+    return { attending: registered.filter((t) => present.has(t.id)), noShow: registered.filter((t) => !present.has(t.id)) }
+  })()
+  const registeredAttending = registeredSplit.attending
+  const registeredNoShow = registeredSplit.noShow
   const sentNoResponse = activeEnrolled.filter((t) => !t.registered && t.last_sms_sent_at)
   const notSent = activeEnrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
   const isTBD = !cls.locations
@@ -1235,7 +1253,8 @@ export default function ClassDetail() {
         />
       ) : (
       [
-        { title: 'Registered', emoji: '✅', color: 'green', items: registered, empty: 'No trainees have completed registration yet.', showResend: true },
+        { title: 'Registered', emoji: '✅', color: 'green', items: registeredAttending, empty: 'No trainees have completed registration yet.', showResend: true },
+        ...(registeredNoShow.length ? [{ title: 'Didn’t return (missed the last class day)', emoji: '🚫', color: 'slate', items: registeredNoShow, empty: '' }] : []),
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
       ].map((group) => (
