@@ -1040,6 +1040,9 @@ function AssignMap({ srReps, items, zoneName }) {
     let cancelled = false
     ;(async () => {
       for (const it of items) {
+        // Server already geocoded most (Google, reliable) — only fall back to
+        // Nominatim for any that came back without coords.
+        if (typeof it.lat === 'number' && typeof it.lng === 'number') continue
         if (!it.address || coords[it.key]) continue
         const c = await geocodeAddress(it.address)
         if (cancelled) return
@@ -1050,7 +1053,7 @@ function AssignMap({ srReps, items, zoneName }) {
     return () => { cancelled = true }
   }, [items]) // eslint-disable-line react-hooks/exhaustive-deps
   const repPts = srReps.filter((r) => typeof r.latitude === 'number' && typeof r.longitude === 'number')
-  const apptPts = items.map((it) => ({ ...it, c: coords[it.key] })).filter((x) => x.c)
+  const apptPts = items.map((it) => ({ ...it, c: (typeof it.lat === 'number' && typeof it.lng === 'number') ? [it.lat, it.lng] : coords[it.key] })).filter((x) => x.c)
   const pts = [...repPts.map((r) => [r.latitude, r.longitude]), ...apptPts.map((x) => x.c)]
   let center = ZONE_CENTERS[zoneName] || [27.99, -81.76], zoom = 9
   if (pts.length) {
@@ -1114,8 +1117,8 @@ function AssignAppointments({ token }) {
     // Backlog rows carry their address inside the JN job name (e.g. "123 Main St
     // - 12741"); strip the trailing job number + add FL so it geocodes.
     const clean = (s) => String(s || '').replace(/\s*-\s*\d+\s*$/, '').trim()
-    const u = (d?.unassigned || []).map((a) => ({ key: 'need:' + a.id, homeowner: a.homeowner_name, address: a.address }))
-    const b = (d?.backlog || d?.viviana || []).map((it) => ({ key: it.key, homeowner: it.homeowner, address: it.address || (clean(it.homeowner) ? clean(it.homeowner) + ', FL' : null) }))
+    const u = (d?.unassigned || []).map((a) => ({ key: 'need:' + a.id, homeowner: a.homeowner_name, address: a.address, lat: a.lat, lng: a.lng }))
+    const b = (d?.backlog || d?.viviana || []).map((it) => ({ key: it.key, homeowner: it.homeowner, address: it.address || (clean(it.homeowner) ? clean(it.homeowner) + ', FL' : null), lat: it.lat, lng: it.lng }))
     return [...u, ...b].filter((x) => x.address)
   }, [d])
 
