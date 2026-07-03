@@ -17,6 +17,11 @@ function dedupeSlotsByTime(slots) {
   for (const s of slots || []) { const k = s.start_at || s.label; if (k && !seen.has(k)) { seen.add(k); out.push(s) } }
   return out
 }
+// Show just the START of the slot ("Fri, Jul 3, 9:00 AM"), not the 2-hour range.
+function slotStartLabel(s) {
+  if (s && s.start_at) { try { return new Date(s.start_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { /* fall through */ } }
+  return String((s && s.label) || '').split(/[–-]/)[0].trim()
+}
 function InspectionActions({ d, onChanged }) {
   const [open, setOpen] = useState(null)
   const [form, setForm] = useState(() => ({ ...(d.raw || {}) }))
@@ -47,7 +52,7 @@ function InspectionActions({ d, onChanged }) {
       const j = await post('inspection-action', { action: 'pa_book', inspection_id: d.inspection_id, pa_id: s.pa_id, start_at: s.start_at, homeowner_name: d.raw?.client_name, homeowner_phone: d.raw?.mobile, address: d.raw?.address })
       if (j.duplicate) setMsg('Already has a PA appointment — reschedule from the PA tool.')
       else if (!j.ok) setMsg(j.error || 'Booking failed.')
-      else { setMsg(`✓ PA appointment booked for ${s.label}.`); setTimeout(() => onChanged && onChanged(), 1000) }
+      else { setMsg(`✓ PA appointment booked for ${slotStartLabel(s)}.`); setTimeout(() => onChanged && onChanged(), 1000) }
     } catch { setMsg('Network error.') }
     setBusy(false)
   }
@@ -73,7 +78,7 @@ function InspectionActions({ d, onChanged }) {
         <div className="mt-2.5">
           {slots === null ? <div className="text-[13px] text-slate-500">Loading available times…</div>
             : slots.length === 0 ? <div className="text-[13px] text-slate-500">No PA times available (check PA availability / zones).</div>
-              : <div className="flex flex-wrap gap-1.5">{dedupeSlotsByTime(slots).slice(0, 16).map((s, i) => <button key={i} type="button" onClick={() => bookSlot(s)} disabled={busy} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60">{s.label}</button>)}</div>}
+              : <div className="flex flex-wrap gap-1.5">{dedupeSlotsByTime(slots).slice(0, 16).map((s, i) => <button key={i} type="button" onClick={() => bookSlot(s)} disabled={busy} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[12px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60">{slotStartLabel(s)}</button>)}</div>}
         </div>
       )}
       {msg && <div className={`mt-2 text-[12.5px] font-bold ${msg.startsWith('✓') ? 'text-emerald-700' : 'text-amber-700'}`}>{msg}</div>}
