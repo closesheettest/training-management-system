@@ -35,6 +35,24 @@ export default function ClassDetail() {
   const [cancellingClass, setCancellingClass] = useState(false)
   const [upcomingClasses, setUpcomingClasses] = useState([])
 
+  // When a trainee is opened for edit with no zone AND no county on file, geocode
+  // their address → county so the zone suggestion works for everyone (not just the
+  // few whose county was captured at registration). Fires once per edit-open.
+  useEffect(() => {
+    if (!editingTraineeId || !traineeDraft) return
+    if (traineeDraft.region || traineeDraft.county) return
+    if (!traineeDraft.street_address && !traineeDraft.city && !traineeDraft.zip) return
+    let live = true
+    fetch('/.netlify/functions/suggest-zone', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ street_address: traineeDraft.street_address, city: traineeDraft.city, state: traineeDraft.state, zip: traineeDraft.zip }),
+    })
+      .then((r) => r.json())
+      .then((j) => { if (live && j.ok && j.county) setTraineeDraft((d) => (d && !d.region && !d.county ? { ...d, county: j.county } : d)) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [editingTraineeId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     load()
     loadLocations()
