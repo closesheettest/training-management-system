@@ -18,6 +18,10 @@ export default function Register() {
     city: '',
     state: '',
     zip: '',
+    currently_employed: '',   // '' | 'yes' | 'no'
+    notice_status: '',        // '' | 'given' | 'havent' (only when currently_employed === 'yes')
+    two_week_notice_date: '',
+    last_employed_date: '',
   })
   const [errorMsg, setErrorMsg] = useState(null)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
@@ -43,10 +47,10 @@ export default function Register() {
         schedule_details: null,
         locations: {
           name: 'U.S. Shingle and Metal LLC Corporate Office',
-          street_address: '3845 Gateway Centre Blvd Ste 300',
-          city: 'Pinellas Park',
+          street_address: '12910 Automobile Blvd Ste A',
+          city: 'Clearwater',
           state: 'FL',
-          zip: '33635',
+          zip: '33782',
           phone: null,
           contact_info: null,
           schedule_template: null,
@@ -77,6 +81,10 @@ export default function Register() {
         city: '',
         state: '',
         zip: '',
+        currently_employed: '',
+        notice_status: '',
+        two_week_notice_date: '',
+        last_employed_date: '',
       })
       setStatus('form')
       return
@@ -106,6 +114,10 @@ export default function Register() {
       city: data.city || '',
       state: data.state || '',
       zip: data.zip || '',
+      currently_employed: '',
+      notice_status: '',
+      two_week_notice_date: '',
+      last_employed_date: '',
     })
     if (data.declined_at) {
       setStatus('declined')
@@ -152,9 +164,66 @@ export default function Register() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
+  // "Still employed, no notice given" — stop registration and record it as a
+  // rejection (reuses the decline flow so it lands in the rejected list + the
+  // reason, and notifies HR / hiring manager).
+  async function rejectNotReady() {
+    setStatus('submitting')
+    setErrorMsg(null)
+    if (token === 'demo') {
+      setStatus('not_ready')
+      return
+    }
+    try {
+      const res = await fetch('/.netlify/functions/decline-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration_token: token,
+          reason:
+            'Currently employed — has not given a two-week notice yet. Will register when ready to come on board full time.',
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.ok) {
+        setErrorMsg(json.error || 'Something went wrong. Please try again or call us.')
+        setStatus('form')
+        return
+      }
+      setStatus('not_ready')
+    } catch (err) {
+      setErrorMsg(err.message || 'Network error. Please try again or call us.')
+      setStatus('form')
+    }
+  }
+
   async function submit(e) {
     e.preventDefault()
     setErrorMsg(null)
+
+    // Employment questions (asked first, before we take the rest of the details).
+    if (!form.currently_employed) {
+      setErrorMsg('Please tell us whether you are currently employed.')
+      return
+    }
+    if (form.currently_employed === 'yes') {
+      if (!form.notice_status) {
+        setErrorMsg('Please answer the two-week notice question.')
+        return
+      }
+      if (form.notice_status === 'havent') {
+        // Not ready to come on board yet — stop and record the rejection.
+        return rejectNotReady()
+      }
+      if (!form.two_week_notice_date) {
+        setErrorMsg('Please enter the date you gave your two-week notice.')
+        return
+      }
+    }
+    if (form.currently_employed === 'no' && !form.last_employed_date) {
+      setErrorMsg('Please enter when you were last employed.')
+      return
+    }
 
     if (!form.first_name.trim() || !form.last_name.trim()) {
       setErrorMsg('Please confirm your first and last name.')
@@ -198,6 +267,9 @@ export default function Register() {
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
         zip: form.zip.trim(),
+        currently_employed: form.currently_employed === 'yes',
+        two_week_notice_date: form.currently_employed === 'yes' ? form.two_week_notice_date : null,
+        last_employed_date: form.currently_employed === 'no' ? form.last_employed_date : null,
         registered: true,
         registered_at: new Date().toISOString(),
       })
@@ -228,6 +300,8 @@ export default function Register() {
       </Centered>
     )
   }
+
+  const notReady = form.currently_employed === 'yes' && form.notice_status === 'havent'
 
   return (
     <Centered>
@@ -283,11 +357,32 @@ export default function Register() {
               change your mind, please call us at <strong>(727) 761-5200</strong>.
             </p>
           </div>
+        ) : status === 'not_ready' ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">
+            <h2 className="text-lg font-semibold text-amber-900">Register when you're ready</h2>
+            <p className="mt-2 text-sm text-amber-800">
+              Please register when you're ready to come on board full time. Once you've given your
+              two-week notice, reach out to your hiring manager for a fresh registration link.
+            </p>
+          </div>
         ) : (
           <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <h2 className="text-lg font-semibold">Your details</h2>
 
             <div className="grid gap-4 sm:grid-cols-6">
+              {/* Employment status — asked first, gates the rest of the form */}
+              <EmploymentSection form={form} setForm={setForm} />
+
+              {notReady ? (
+                <div className="sm:col-span-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-4 text-sm">
+                  <strong className="text-amber-900">Please register when you're ready to come on board full time.</strong>
+                  <p className="mt-1 text-amber-800">
+                    Once you've given your two-week notice, ask your hiring manager for a fresh
+                    registration link. Tap the button below and we'll note that you'll join when ready.
+                  </p>
+                </div>
+              ) : (
+              <>
               <div className="sm:col-span-6">
                 <h3 className="text-sm font-semibold text-slate-800">Confirm the spelling of your name</h3>
                 <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -399,6 +494,8 @@ export default function Register() {
                   title="5-digit zip, optionally followed by -4 digits"
                 />
               </Field>
+              </>
+              )}
             </div>
 
             {errorMsg && (
@@ -413,7 +510,11 @@ export default function Register() {
                 disabled={status === 'submitting'}
                 className="rounded-md bg-brand-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
               >
-                {status === 'submitting' ? 'Submitting…' : 'Confirm registration'}
+                {status === 'submitting'
+                  ? 'Submitting…'
+                  : notReady
+                    ? "Got it — I'll register when I'm ready"
+                    : 'Confirm registration'}
               </button>
             </div>
           </form>
@@ -505,6 +606,85 @@ function Field({ label, children, className = '', hint = null }) {
       {children}
       {hint && <span className="mt-1 block text-xs font-normal text-slate-500">{hint}</span>}
     </label>
+  )
+}
+
+function EmploymentSection({ form, setForm }) {
+  const set = (patch) => setForm((prev) => ({ ...prev, ...patch }))
+  return (
+    <div className="sm:col-span-6 space-y-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
+      <h3 className="text-sm font-semibold text-slate-800">Employment status</h3>
+
+      <div>
+        <span className="block text-sm font-medium text-slate-700">Are you currently employed?</span>
+        <div className="mt-2 flex gap-6">
+          {[['yes', 'Yes'], ['no', 'No']].map(([v, label]) => (
+            <label key={v} className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                name="currently_employed"
+                checked={form.currently_employed === v}
+                onChange={() =>
+                  set({
+                    currently_employed: v,
+                    notice_status: '',
+                    two_week_notice_date: '',
+                    last_employed_date: '',
+                  })
+                }
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {form.currently_employed === 'yes' && (
+        <div>
+          <span className="block text-sm font-medium text-slate-700">
+            When did you give your two-week notice?
+          </span>
+          <div className="mt-2 space-y-2">
+            <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                name="notice_status"
+                checked={form.notice_status === 'given'}
+                onChange={() => set({ notice_status: 'given' })}
+              />
+              I gave my notice on
+              <input
+                type="date"
+                value={form.two_week_notice_date}
+                onChange={(e) => set({ notice_status: 'given', two_week_notice_date: e.target.value })}
+                className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                name="notice_status"
+                checked={form.notice_status === 'havent'}
+                onChange={() => set({ notice_status: 'havent' })}
+              />
+              I haven't given my two-week notice yet
+            </label>
+          </div>
+        </div>
+      )}
+
+      {form.currently_employed === 'no' && (
+        <label className="block text-sm font-medium text-slate-700">
+          When was the last time you were employed?
+          <input
+            type="date"
+            value={form.last_employed_date}
+            onChange={(e) => set({ last_employed_date: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+      )}
+    </div>
   )
 }
 

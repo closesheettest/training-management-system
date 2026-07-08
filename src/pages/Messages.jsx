@@ -77,8 +77,8 @@ Reply to this text if anything looks wrong. — U.S. Shingle Training`,
       `Please reply to this email to confirm your attendance for May 11, 2026.\n\n` +
       `TRAINING SCHEDULE\n` +
       `${SAMPLE.location}\n` +
-      `3845 Gateway Centre Blvd Suite 300\n` +
-      `Pinellas Park, FL 33782\n\n` +
+      `12910 Automobile Blvd Suite A\n` +
+      `Clearwater, FL 33782\n\n` +
       `Monday: 11:30 AM – 4:00 PM (please arrive 15 minutes early for onboarding)\n` +
       `Tuesday–Thursday: 10:00 AM – 2:00 PM\n` +
       `Friday: 9:00 AM – 11:00 AM\n\n` +

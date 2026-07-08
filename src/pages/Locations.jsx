@@ -254,7 +254,7 @@ export default function Locations() {
               <input
                 type="text"
                 required
-                placeholder="3845 Gateway Centre Blvd"
+                placeholder="12910 Automobile Blvd"
                 value={form.street_address}
                 onChange={(e) => updateForm('street_address', e.target.value)}
                 className={inputCls}
