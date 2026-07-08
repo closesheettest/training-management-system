@@ -125,6 +125,8 @@ export default function RegionalManagers() {
 
       <AllApptConversion />
 
+      <SalesTrend />
+
       <AllNoSits />
 
       <ToolsetReference />
@@ -147,6 +149,145 @@ export default function RegionalManagers() {
         </div>
       )}
     </div>
+  )
+}
+
+// Sales trends by week — a collapsible line graph. Overlays up to four
+// toggleable series (IQ / Harvested / BTR / Insulation-Radiant Barrier) so a
+// manager can compare how each is trending. Data: CCG admin-sales-metrics.
+const TREND_SERIES = [
+  { key: 'iq', label: 'IQ sales', color: '#2563eb' },
+  { key: 'harvested', label: 'Harvested', color: '#16a34a' },
+  { key: 'btr', label: 'BTR sales', color: '#ea580c' },
+  { key: 'irb', label: 'Insulation / RB', color: '#7c3aed' },
+]
+function SalesTrend() {
+  const [open, setOpen] = useState(false)
+  const [range, setRange] = useState('year')
+  const [active, setActive] = useState({ iq: true, harvested: true, btr: true, irb: true })
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [hoverI, setHoverI] = useState(null)
+
+  const load = async (r) => {
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'admin-sales-metrics?range=' + r)
+      const d = await res.json()
+      if (d && d.ok) setData(d); else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const toggleOpen = () => { const willOpen = !open; setOpen(willOpen); if (willOpen && !data) load(range) }
+  const pickRange = (r) => { setRange(r); load(r) }
+
+  const weeks = data?.weeks || []
+  const n = weeks.length
+  const shown = TREND_SERIES.filter((s) => active[s.key])
+  const max = Math.max(1, ...shown.flatMap((s) => data?.series?.[s.key] || []))
+
+  // geometry
+  const W = 780, H = 300, padL = 32, padR = 14, padT = 12, padB = 30
+  const plotW = W - padL - padR, plotH = H - padT - padB
+  const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
+  const yAt = (v) => padT + plotH - (v / max) * plotH
+  const yTicks = [0, Math.ceil(max / 2), max]
+  const labelEvery = n > 26 ? Math.ceil(n / 12) : n > 13 ? 2 : 1
+
+  return (
+    <section className="mb-6">
+      <button type="button" onClick={toggleOpen}
+        className="w-full rounded-lg bg-[#4f46e5] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
+        📈 Sales trends by week {open ? '▾' : '▸'}
+        <div className="text-xs font-normal opacity-90">
+          IQ · Harvested · BTR · Insulation/Radiant Barrier — toggle any line on/off to compare. Tap to {open ? 'hide' : 'open'}.
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-4">
+          {/* controls */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {TREND_SERIES.map((s) => {
+                const on = active[s.key]
+                const tot = (data?.series?.[s.key] || []).reduce((a, b) => a + b, 0)
+                return (
+                  <button key={s.key} type="button" onClick={() => setActive((p) => ({ ...p, [s.key]: !p[s.key] }))}
+                    className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+                    style={{ borderColor: on ? s.color : '#e2e8f0', background: on ? s.color : '#fff', color: on ? '#fff' : '#94a3b8' }}>
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: on ? '#fff' : s.color }} />
+                    {s.label}{data ? ` (${tot})` : ''}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex gap-1">
+              {[['year', 'This year'], ['all', 'All time']].map(([k, lbl]) => (
+                <button key={k} type="button" onClick={() => pickRange(k)}
+                  className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {err && <div className="text-xs text-red-600">{err}</div>}
+          {loading ? (
+            <div className="flex h-56 items-center justify-center text-sm text-slate-400">Loading…</div>
+          ) : n === 0 ? (
+            <div className="flex h-56 items-center justify-center text-sm text-slate-400">No data for this range.</div>
+          ) : (
+            <div className="relative">
+              <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
+                {yTicks.map((t, i) => (
+                  <g key={i}>
+                    <line x1={padL} y1={yAt(t)} x2={W - padR} y2={yAt(t)} stroke="#eef2f7" strokeWidth="1" />
+                    <text x={padL - 5} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{t}</text>
+                  </g>
+                ))}
+                {/* x labels */}
+                {weeks.map((w, i) => (i % labelEvery === 0 ? (
+                  <text key={w.key} x={xAt(i)} y={H - 9} textAnchor="middle" fontSize="9.5" fill="#94a3b8">{w.label}</text>
+                ) : null))}
+                {/* hover crosshair */}
+                {hoverI != null && <line x1={xAt(hoverI)} y1={padT} x2={xAt(hoverI)} y2={padT + plotH} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />}
+                {/* series lines */}
+                {shown.map((s) => {
+                  const vals = data.series[s.key] || []
+                  const pts = vals.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ')
+                  return (
+                    <g key={s.key}>
+                      <polyline points={pts} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                      {n <= 40 && vals.map((v, i) => <circle key={i} cx={xAt(i)} cy={yAt(v)} r={hoverI === i ? 3.5 : 2} fill={s.color} />)}
+                    </g>
+                  )
+                })}
+                {/* hover hit bands */}
+                {weeks.map((w, i) => (
+                  <rect key={w.key} x={xAt(i) - (plotW / Math.max(n, 1)) / 2} y={padT} width={plotW / Math.max(n, 1)} height={plotH}
+                    fill="transparent" onMouseEnter={() => setHoverI(i)} onMouseLeave={() => setHoverI(null)} />
+                ))}
+              </svg>
+              {hoverI != null && (
+                <div className="pointer-events-none absolute z-10 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
+                  style={{ left: `${(xAt(hoverI) / W) * 100}%`, top: 0, transform: 'translate(-50%,-6px)' }}>
+                  <div className="font-semibold">Week of {weeks[hoverI].label}</div>
+                  {shown.map((s) => (
+                    <div key={s.key} className="flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
+                      {s.label}: <b>{data.series[s.key][hoverI]}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {data?.truncated && <div className="mt-2 text-[11px] text-amber-600">⚠ Large history — some older weeks may be capped.</div>}
+        </div>
+      )}
+    </section>
   )
 }
 
