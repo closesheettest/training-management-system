@@ -156,39 +156,51 @@ export default function RegionalManagers() {
 // toggleable series (IQ / Harvested / BTR / Insulation-Radiant Barrier) so a
 // manager can compare how each is trending. Data: CCG admin-sales-metrics.
 const TREND_SERIES = [
+  { key: 'all', label: 'All sales', color: '#334155' },
   { key: 'iq', label: 'IQ sales', color: '#2563eb' },
   { key: 'harvested', label: 'Harvested', color: '#16a34a' },
   { key: 'btr', label: 'BTR sales', color: '#ea580c' },
   { key: 'irb', label: 'Insulation / RB', color: '#7c3aed' },
 ]
+// Compact value formatter — counts as-is, dollars as $12k / $1.2M.
+const fmtVal = (v, unit) => {
+  if (unit !== 'dollars') return String(v)
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M'
+  if (v >= 1e3) return '$' + Math.round(v / 1e3) + 'k'
+  return '$' + Math.round(v)
+}
 function SalesTrend() {
   const [open, setOpen] = useState(false)
   const [range, setRange] = useState('year')
-  const [active, setActive] = useState({ iq: true, harvested: true, btr: true, irb: true })
+  const [unit, setUnit] = useState('count') // 'count' | 'dollars'
+  const [bucket, setBucket] = useState('week') // 'week' | 'month'
+  const [active, setActive] = useState({ all: true, iq: true, harvested: true, btr: true, irb: true })
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [hoverI, setHoverI] = useState(null)
 
-  const load = async (r) => {
+  const load = async (r = range, b = bucket) => {
     setLoading(true); setErr('')
     try {
-      const res = await fetch(LB_ORIGIN + 'admin-sales-metrics?range=' + r)
+      const res = await fetch(`${LB_ORIGIN}admin-sales-metrics?range=${r}&bucket=${b}`)
       const d = await res.json()
       if (d && d.ok) setData(d); else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
   }
-  const toggleOpen = () => { const willOpen = !open; setOpen(willOpen); if (willOpen && !data) load(range) }
-  const pickRange = (r) => { setRange(r); load(r) }
+  const toggleOpen = () => { const willOpen = !open; setOpen(willOpen); if (willOpen && !data) load(range, bucket) }
+  const pickRange = (r) => { setRange(r); load(r, bucket) }
+  const pickBucket = (b) => { setBucket(b); load(range, b) }
 
   const weeks = data?.weeks || []
   const n = weeks.length
+  const vals = data?.[unit] || {}   // count{} or dollars{}
   const shown = TREND_SERIES.filter((s) => active[s.key])
-  const max = Math.max(1, ...shown.flatMap((s) => data?.series?.[s.key] || []))
+  const max = Math.max(1, ...shown.flatMap((s) => vals[s.key] || []))
 
   // geometry
-  const W = 780, H = 300, padL = 32, padR = 14, padT = 12, padB = 30
+  const W = 780, H = 300, padL = unit === 'dollars' ? 50 : 32, padR = 14, padT = 12, padB = 30
   const plotW = W - padL - padR, plotH = H - padT - padB
   const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
   const yAt = (v) => padT + plotH - (v / max) * plotH
@@ -199,7 +211,7 @@ function SalesTrend() {
     <section className="mb-6">
       <button type="button" onClick={toggleOpen}
         className="w-full rounded-lg bg-[#4f46e5] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
-        📈 Sales trends by week {open ? '▾' : '▸'}
+        📈 Sales trends {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
           IQ · Harvested · BTR · Insulation/Radiant Barrier — toggle any line on/off to compare. Tap to {open ? 'hide' : 'open'}.
         </div>
@@ -212,24 +224,42 @@ function SalesTrend() {
             <div className="flex flex-wrap gap-1.5">
               {TREND_SERIES.map((s) => {
                 const on = active[s.key]
-                const tot = (data?.series?.[s.key] || []).reduce((a, b) => a + b, 0)
+                const tot = (vals[s.key] || []).reduce((a, b) => a + b, 0)
                 return (
                   <button key={s.key} type="button" onClick={() => setActive((p) => ({ ...p, [s.key]: !p[s.key] }))}
                     className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                     style={{ borderColor: on ? s.color : '#e2e8f0', background: on ? s.color : '#fff', color: on ? '#fff' : '#94a3b8' }}>
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: on ? '#fff' : s.color }} />
-                    {s.label}{data ? ` (${tot})` : ''}
+                    {s.label}{data ? ` (${fmtVal(tot, unit)})` : ''}
                   </button>
                 )
               })}
             </div>
-            <div className="flex gap-1">
-              {[['year', 'This year'], ['all', 'All time']].map(([k, lbl]) => (
-                <button key={k} type="button" onClick={() => pickRange(k)}
-                  className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
-                  {lbl}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex gap-1">
+                {[['count', '# Deals'], ['dollars', '$ Revenue']].map(([k, lbl]) => (
+                  <button key={k} type="button" onClick={() => setUnit(k)}
+                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (unit === k ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600')}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {[['week', 'Weekly'], ['month', 'Monthly']].map(([k, lbl]) => (
+                  <button key={k} type="button" onClick={() => pickBucket(k)}
+                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (bucket === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                {[['year', 'This year'], ['all', 'All time']].map(([k, lbl]) => (
+                  <button key={k} type="button" onClick={() => pickRange(k)}
+                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -244,7 +274,7 @@ function SalesTrend() {
                 {yTicks.map((t, i) => (
                   <g key={i}>
                     <line x1={padL} y1={yAt(t)} x2={W - padR} y2={yAt(t)} stroke="#eef2f7" strokeWidth="1" />
-                    <text x={padL - 5} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{t}</text>
+                    <text x={padL - 5} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{fmtVal(t, unit)}</text>
                   </g>
                 ))}
                 {/* x labels */}
@@ -255,12 +285,12 @@ function SalesTrend() {
                 {hoverI != null && <line x1={xAt(hoverI)} y1={padT} x2={xAt(hoverI)} y2={padT + plotH} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />}
                 {/* series lines */}
                 {shown.map((s) => {
-                  const vals = data.series[s.key] || []
-                  const pts = vals.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ')
+                  const sv = vals[s.key] || []
+                  const pts = sv.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ')
                   return (
                     <g key={s.key}>
                       <polyline points={pts} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                      {n <= 40 && vals.map((v, i) => <circle key={i} cx={xAt(i)} cy={yAt(v)} r={hoverI === i ? 3.5 : 2} fill={s.color} />)}
+                      {n <= 40 && sv.map((v, i) => <circle key={i} cx={xAt(i)} cy={yAt(v)} r={hoverI === i ? 3.5 : 2} fill={s.color} />)}
                     </g>
                   )
                 })}
@@ -273,11 +303,11 @@ function SalesTrend() {
               {hoverI != null && (
                 <div className="pointer-events-none absolute z-10 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
                   style={{ left: `${(xAt(hoverI) / W) * 100}%`, top: 0, transform: 'translate(-50%,-6px)' }}>
-                  <div className="font-semibold">Week of {weeks[hoverI].label}</div>
+                  <div className="font-semibold">{bucket === 'month' ? weeks[hoverI].label : 'Week of ' + weeks[hoverI].label}</div>
                   {shown.map((s) => (
                     <div key={s.key} className="flex items-center gap-1.5">
                       <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
-                      {s.label}: <b>{data.series[s.key][hoverI]}</b>
+                      {s.label}: <b>{fmtVal(vals[s.key][hoverI], unit)}</b>
                     </div>
                   ))}
                 </div>
