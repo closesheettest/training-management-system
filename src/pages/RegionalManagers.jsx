@@ -162,8 +162,12 @@ const TREND_SERIES = [
   { key: 'btr', label: 'BTR sales', color: '#ea580c' },
   { key: 'irb', label: 'Insulation / RB', color: '#7c3aed' },
 ]
+const TREND_BY_KEY = Object.fromEntries(TREND_SERIES.map((s) => [s.key, s]))
+const YEAR_PALETTE = ['#94a3b8', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#ec4899']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 // Compact value formatter — counts as-is, dollars as $12k / $1.2M.
 const fmtVal = (v, unit) => {
+  if (v == null) return '—'
   if (unit !== 'dollars') return String(v)
   if (v >= 1e6) return '$' + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M'
   if (v >= 1e3) return '$' + Math.round(v / 1e3) + 'k'
@@ -171,17 +175,19 @@ const fmtVal = (v, unit) => {
 }
 function SalesTrend() {
   const [open, setOpen] = useState(false)
-  const [range, setRange] = useState('year')
-  const [unit, setUnit] = useState('count') // 'count' | 'dollars'
-  const [bucket, setBucket] = useState('week') // 'week' | 'month'
+  const [range, setRange] = useState('year')   // 'year' = timeline · 'all' = year-over-year
+  const [unit, setUnit] = useState('count')     // 'count' | 'dollars'
+  const [bucket, setBucket] = useState('week')  // 'week' | 'month' (timeline only)
   const [active, setActive] = useState({ all: true, iq: true, harvested: true, btr: true, irb: true })
+  const [yoyMetric, setYoyMetric] = useState('all') // which metric to compare across years
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [hoverI, setHoverI] = useState(null)
 
   const load = async (r = range, b = bucket) => {
-    setLoading(true); setErr('')
+    if (r === 'all') b = 'month'   // year-over-year is always monthly
+    setLoading(true); setErr(''); setHoverI(null)
     try {
       const res = await fetch(`${LB_ORIGIN}admin-sales-metrics?range=${r}&bucket=${b}`)
       const d = await res.json()
@@ -193,19 +199,40 @@ function SalesTrend() {
   const pickRange = (r) => { setRange(r); load(r, bucket) }
   const pickBucket = (b) => { setBucket(b); load(range, b) }
 
-  const weeks = data?.weeks || []
-  const n = weeks.length
-  const vals = data?.[unit] || {}   // count{} or dollars{}
-  const shown = TREND_SERIES.filter((s) => active[s.key])
-  const max = Math.max(1, ...shown.flatMap((s) => vals[s.key] || []))
+  const isYoY = range === 'all'
+  const src = data?.[unit] || {}   // count{} or dollars{}
+
+  // Build the x-axis labels + the lines, depending on the mode.
+  let xLabels, lines
+  if (isYoY) {
+    // Year-over-year: 12 months across, one line per year, for one metric.
+    xLabels = MONTHS
+    const mv = src[yoyMetric] || []
+    const byYear = {}
+    ;(data?.weeks || []).forEach((w, i) => {
+      const yr = w.key.slice(0, 4), mi = +w.key.slice(5, 7) - 1
+      ;(byYear[yr] = byYear[yr] || Array(12).fill(null))[mi] = mv[i]
+    })
+    lines = Object.keys(byYear).sort().map((yr, idx) => ({
+      id: yr, label: yr, color: YEAR_PALETTE[idx % YEAR_PALETTE.length], values: byYear[yr],
+    }))
+  } else {
+    // Timeline: the toggled metrics, week or month across.
+    xLabels = (data?.weeks || []).map((w) => w.label)
+    lines = TREND_SERIES.filter((s) => active[s.key]).map((s) => ({
+      id: s.key, label: s.label, color: s.color, values: src[s.key] || [],
+    }))
+  }
+  const n = xLabels.length
+  const max = Math.max(1, ...lines.flatMap((l) => l.values.filter((v) => v != null)))
 
   // geometry
-  const W = 780, H = 300, padL = unit === 'dollars' ? 50 : 32, padR = 14, padT = 12, padB = 30
+  const W = 780, H = 300, padL = unit === 'dollars' ? 52 : 30, padR = 14, padT = 12, padB = 30
   const plotW = W - padL - padR, plotH = H - padT - padB
   const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
   const yAt = (v) => padT + plotH - (v / max) * plotH
   const yTicks = [0, Math.ceil(max / 2), max]
-  const labelEvery = n > 26 ? Math.ceil(n / 12) : n > 13 ? 2 : 1
+  const labelEvery = isYoY ? 1 : (n > 26 ? Math.ceil(n / 12) : n > 13 ? 2 : 1)
 
   return (
     <section className="mb-6">
@@ -213,7 +240,7 @@ function SalesTrend() {
         className="w-full rounded-lg bg-[#4f46e5] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
         📈 Sales trends {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
-          IQ · Harvested · BTR · Insulation/Radiant Barrier — toggle any line on/off to compare. Tap to {open ? 'hide' : 'open'}.
+          This year: compare IQ / Harvested / BTR / Insulation-RB. Year over year: one metric, a line per year. Tap to {open ? 'hide' : 'open'}.
         </div>
       </button>
 
@@ -223,10 +250,11 @@ function SalesTrend() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5">
               {TREND_SERIES.map((s) => {
-                const on = active[s.key]
-                const tot = (vals[s.key] || []).reduce((a, b) => a + b, 0)
+                const on = isYoY ? yoyMetric === s.key : active[s.key]
+                const tot = (src[s.key] || []).reduce((a, b) => a + (b || 0), 0)
                 return (
-                  <button key={s.key} type="button" onClick={() => setActive((p) => ({ ...p, [s.key]: !p[s.key] }))}
+                  <button key={s.key} type="button"
+                    onClick={() => (isYoY ? setYoyMetric(s.key) : setActive((p) => ({ ...p, [s.key]: !p[s.key] })))}
                     className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                     style={{ borderColor: on ? s.color : '#e2e8f0', background: on ? s.color : '#fff', color: on ? '#fff' : '#94a3b8' }}>
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: on ? '#fff' : s.color }} />
@@ -244,16 +272,18 @@ function SalesTrend() {
                   </button>
                 ))}
               </div>
+              {!isYoY && (
+                <div className="flex gap-1">
+                  {[['week', 'Weekly'], ['month', 'Monthly']].map(([k, lbl]) => (
+                    <button key={k} type="button" onClick={() => pickBucket(k)}
+                      className={'rounded-full px-3 py-1 text-xs font-semibold ' + (bucket === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-1">
-                {[['week', 'Weekly'], ['month', 'Monthly']].map(([k, lbl]) => (
-                  <button key={k} type="button" onClick={() => pickBucket(k)}
-                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (bucket === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                {[['year', 'This year'], ['all', 'All time']].map(([k, lbl]) => (
+                {[['year', 'This year'], ['all', 'Year over year']].map(([k, lbl]) => (
                   <button key={k} type="button" onClick={() => pickRange(k)}
                     className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
                     {lbl}
@@ -263,11 +293,22 @@ function SalesTrend() {
             </div>
           </div>
 
+          {/* year legend — only in year-over-year mode (the lines are years) */}
+          {isYoY && !loading && lines.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-3 text-xs font-semibold text-slate-600">
+              {lines.map((l) => (
+                <span key={l.id} className="flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-5 rounded-full" style={{ background: l.color }} />{l.label}
+                </span>
+              ))}
+            </div>
+          )}
+
           {err && <div className="text-xs text-red-600">{err}</div>}
           {loading ? (
             <div className="flex h-56 items-center justify-center text-sm text-slate-400">Loading…</div>
           ) : n === 0 ? (
-            <div className="flex h-56 items-center justify-center text-sm text-slate-400">No data for this range.</div>
+            <div className="flex h-56 items-center justify-center text-sm text-slate-400">No data.</div>
           ) : (
             <div className="relative">
               <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
@@ -277,37 +318,34 @@ function SalesTrend() {
                     <text x={padL - 5} y={yAt(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{fmtVal(t, unit)}</text>
                   </g>
                 ))}
-                {/* x labels */}
-                {weeks.map((w, i) => (i % labelEvery === 0 ? (
-                  <text key={w.key} x={xAt(i)} y={H - 9} textAnchor="middle" fontSize="9.5" fill="#94a3b8">{w.label}</text>
+                {xLabels.map((lbl, i) => (i % labelEvery === 0 ? (
+                  <text key={i} x={xAt(i)} y={H - 9} textAnchor="middle" fontSize="9.5" fill="#94a3b8">{lbl}</text>
                 ) : null))}
-                {/* hover crosshair */}
                 {hoverI != null && <line x1={xAt(hoverI)} y1={padT} x2={xAt(hoverI)} y2={padT + plotH} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />}
-                {/* series lines */}
-                {shown.map((s) => {
-                  const sv = vals[s.key] || []
-                  const pts = sv.map((v, i) => `${xAt(i)},${yAt(v)}`).join(' ')
+                {lines.map((l) => {
+                  const pts = l.values.map((v, i) => (v == null ? null : `${xAt(i)},${yAt(v)}`)).filter(Boolean).join(' ')
                   return (
-                    <g key={s.key}>
-                      <polyline points={pts} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                      {n <= 40 && sv.map((v, i) => <circle key={i} cx={xAt(i)} cy={yAt(v)} r={hoverI === i ? 3.5 : 2} fill={s.color} />)}
+                    <g key={l.id}>
+                      <polyline points={pts} fill="none" stroke={l.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                      {n <= 40 && l.values.map((v, i) => (v == null ? null : <circle key={i} cx={xAt(i)} cy={yAt(v)} r={hoverI === i ? 3.5 : 2} fill={l.color} />))}
                     </g>
                   )
                 })}
-                {/* hover hit bands */}
-                {weeks.map((w, i) => (
-                  <rect key={w.key} x={xAt(i) - (plotW / Math.max(n, 1)) / 2} y={padT} width={plotW / Math.max(n, 1)} height={plotH}
+                {xLabels.map((lbl, i) => (
+                  <rect key={i} x={xAt(i) - (plotW / Math.max(n, 1)) / 2} y={padT} width={plotW / Math.max(n, 1)} height={plotH}
                     fill="transparent" onMouseEnter={() => setHoverI(i)} onMouseLeave={() => setHoverI(null)} />
                 ))}
               </svg>
               {hoverI != null && (
                 <div className="pointer-events-none absolute z-10 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
                   style={{ left: `${(xAt(hoverI) / W) * 100}%`, top: 0, transform: 'translate(-50%,-6px)' }}>
-                  <div className="font-semibold">{bucket === 'month' ? weeks[hoverI].label : 'Week of ' + weeks[hoverI].label}</div>
-                  {shown.map((s) => (
-                    <div key={s.key} className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
-                      {s.label}: <b>{fmtVal(vals[s.key][hoverI], unit)}</b>
+                  <div className="font-semibold">
+                    {isYoY ? `${xLabels[hoverI]} · ${TREND_BY_KEY[yoyMetric].label}` : (bucket === 'month' ? xLabels[hoverI] : 'Week of ' + xLabels[hoverI])}
+                  </div>
+                  {lines.filter((l) => l.values[hoverI] != null).map((l) => (
+                    <div key={l.id} className="flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-full" style={{ background: l.color }} />
+                      {l.label}: <b>{fmtVal(l.values[hoverI], unit)}</b>
                     </div>
                   ))}
                 </div>
