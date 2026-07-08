@@ -175,39 +175,44 @@ const fmtVal = (v, unit) => {
 }
 function SalesTrend() {
   const [open, setOpen] = useState(false)
-  const [range, setRange] = useState('year')   // 'year' = timeline · 'all' = year-over-year
+  const [mode, setMode] = useState('trend')     // 'trend' | 'yoy' | 'zone'
+  const [range, setRange] = useState('year')    // 'year' | 'all' (trend & zone)
   const [unit, setUnit] = useState('count')     // 'count' | 'dollars'
-  const [bucket, setBucket] = useState('week')  // 'week' | 'month' (timeline only)
+  const [bucket, setBucket] = useState('week')  // 'week' | 'month' (trend & zone)
   const [active, setActive] = useState({ all: true, iq: true, harvested: true, btr: true, irb: true })
-  const [yoyMetric, setYoyMetric] = useState('all') // which metric to compare across years
+  const [soloMetric, setSoloMetric] = useState('all') // yoy & zone: one metric to compare
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [hoverI, setHoverI] = useState(null)
 
-  const load = async (r = range, b = bucket) => {
-    if (r === 'all') b = 'month'   // year-over-year is always monthly
+  const single = mode !== 'trend'   // yoy & zone show one metric, lines are years/zones
+
+  const load = async (m = mode, r = range, b = bucket) => {
+    const params = m === 'yoy'
+      ? 'range=all&bucket=month'                                   // yoy is always all-time monthly
+      : `range=${r}&bucket=${b}${m === 'zone' ? '&by=zone' : ''}`
     setLoading(true); setErr(''); setHoverI(null)
     try {
-      const res = await fetch(`${LB_ORIGIN}admin-sales-metrics?range=${r}&bucket=${b}`)
+      const res = await fetch(`${LB_ORIGIN}admin-sales-metrics?${params}`)
       const d = await res.json()
       if (d && d.ok) setData(d); else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
   }
-  const toggleOpen = () => { const willOpen = !open; setOpen(willOpen); if (willOpen && !data) load(range, bucket) }
-  const pickRange = (r) => { setRange(r); load(r, bucket) }
-  const pickBucket = (b) => { setBucket(b); load(range, b) }
+  const toggleOpen = () => { const willOpen = !open; setOpen(willOpen); if (willOpen && !data) load(mode, range, bucket) }
+  const pickMode = (m) => { setMode(m); load(m, range, bucket) }
+  const pickRange = (r) => { setRange(r); load(mode, r, bucket) }
+  const pickBucket = (b) => { setBucket(b); load(mode, range, b) }
 
-  const isYoY = range === 'all'
   const src = data?.[unit] || {}   // count{} or dollars{}
 
   // Build the x-axis labels + the lines, depending on the mode.
   let xLabels, lines
-  if (isYoY) {
+  if (mode === 'yoy') {
     // Year-over-year: 12 months across, one line per year, for one metric.
     xLabels = MONTHS
-    const mv = src[yoyMetric] || []
+    const mv = src[soloMetric] || []
     const byYear = {}
     ;(data?.weeks || []).forEach((w, i) => {
       const yr = w.key.slice(0, 4), mi = +w.key.slice(5, 7) - 1
@@ -216,6 +221,14 @@ function SalesTrend() {
     lines = Object.keys(byYear).sort().map((yr, idx) => ({
       id: yr, label: yr, color: YEAR_PALETTE[idx % YEAR_PALETTE.length], values: byYear[yr],
     }))
+  } else if (mode === 'zone') {
+    // By zone: one line per team, for one metric, over the timeline.
+    xLabels = (data?.weeks || []).map((w) => w.label)
+    const zones = data?.zones || {}
+    const ZORDER = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4']
+    lines = Object.keys(zones)
+      .sort((a, b) => (ZORDER.indexOf(a) + 1 || 99) - (ZORDER.indexOf(b) + 1 || 99))
+      .map((z) => ({ id: z, label: teamLabel(z) || z, color: ZONE_COLORS[z]?.deep || '#64748b', values: zones[z]?.[unit]?.[soloMetric] || [] }))
   } else {
     // Timeline: the toggled metrics, week or month across.
     xLabels = (data?.weeks || []).map((w) => w.label)
@@ -232,7 +245,7 @@ function SalesTrend() {
   const xAt = (i) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW)
   const yAt = (v) => padT + plotH - (v / max) * plotH
   const yTicks = [0, Math.ceil(max / 2), max]
-  const labelEvery = isYoY ? 1 : (n > 26 ? Math.ceil(n / 12) : n > 13 ? 2 : 1)
+  const labelEvery = mode === 'yoy' ? 1 : (n > 26 ? Math.ceil(n / 12) : n > 13 ? 2 : 1)
 
   return (
     <section className="mb-6">
@@ -240,7 +253,7 @@ function SalesTrend() {
         className="w-full rounded-lg bg-[#4f46e5] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
         📈 Sales trends {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
-          This year: compare IQ / Harvested / BTR / Insulation-RB. Year over year: one metric, a line per year. Tap to {open ? 'hide' : 'open'}.
+          Trends by metric · year-over-year · or by zone — toggle lines to compare. Tap to {open ? 'hide' : 'open'}.
         </div>
       </button>
 
@@ -250,11 +263,11 @@ function SalesTrend() {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5">
               {TREND_SERIES.map((s) => {
-                const on = isYoY ? yoyMetric === s.key : active[s.key]
+                const on = single ? soloMetric === s.key : active[s.key]
                 const tot = (src[s.key] || []).reduce((a, b) => a + (b || 0), 0)
                 return (
                   <button key={s.key} type="button"
-                    onClick={() => (isYoY ? setYoyMetric(s.key) : setActive((p) => ({ ...p, [s.key]: !p[s.key] })))}
+                    onClick={() => (single ? setSoloMetric(s.key) : setActive((p) => ({ ...p, [s.key]: !p[s.key] })))}
                     className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                     style={{ borderColor: on ? s.color : '#e2e8f0', background: on ? s.color : '#fff', color: on ? '#fff' : '#94a3b8' }}>
                     <span className="inline-block h-2 w-2 rounded-full" style={{ background: on ? '#fff' : s.color }} />
@@ -265,6 +278,14 @@ function SalesTrend() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="flex gap-1">
+                {[['trend', 'Trends'], ['yoy', 'Year / year'], ['zone', 'By zone']].map(([k, lbl]) => (
+                  <button key={k} type="button" onClick={() => pickMode(k)}
+                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (mode === k ? 'bg-[#4f46e5] text-white' : 'bg-slate-100 text-slate-600')}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1">
                 {[['count', '# Deals'], ['dollars', '$ Revenue']].map(([k, lbl]) => (
                   <button key={k} type="button" onClick={() => setUnit(k)}
                     className={'rounded-full px-3 py-1 text-xs font-semibold ' + (unit === k ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600')}>
@@ -272,7 +293,7 @@ function SalesTrend() {
                   </button>
                 ))}
               </div>
-              {!isYoY && (
+              {mode !== 'yoy' && (
                 <div className="flex gap-1">
                   {[['week', 'Weekly'], ['month', 'Monthly']].map(([k, lbl]) => (
                     <button key={k} type="button" onClick={() => pickBucket(k)}
@@ -282,19 +303,21 @@ function SalesTrend() {
                   ))}
                 </div>
               )}
-              <div className="flex gap-1">
-                {[['year', 'This year'], ['all', 'Year over year']].map(([k, lbl]) => (
-                  <button key={k} type="button" onClick={() => pickRange(k)}
-                    className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
+              {mode !== 'yoy' && (
+                <div className="flex gap-1">
+                  {[['year', 'This year'], ['all', 'All time']].map(([k, lbl]) => (
+                    <button key={k} type="button" onClick={() => pickRange(k)}
+                      className={'rounded-full px-3 py-1 text-xs font-semibold ' + (range === k ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* year legend — only in year-over-year mode (the lines are years) */}
-          {isYoY && !loading && lines.length > 0 && (
+          {/* legend — lines are years (yoy) or zones (zone) */}
+          {single && !loading && lines.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-3 text-xs font-semibold text-slate-600">
               {lines.map((l) => (
                 <span key={l.id} className="flex items-center gap-1.5">
@@ -340,7 +363,9 @@ function SalesTrend() {
                 <div className="pointer-events-none absolute z-10 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
                   style={{ left: `${(xAt(hoverI) / W) * 100}%`, top: 0, transform: 'translate(-50%,-6px)' }}>
                   <div className="font-semibold">
-                    {isYoY ? `${xLabels[hoverI]} · ${TREND_BY_KEY[yoyMetric].label}` : (bucket === 'month' ? xLabels[hoverI] : 'Week of ' + xLabels[hoverI])}
+                    {mode === 'yoy'
+                      ? `${xLabels[hoverI]} · ${TREND_BY_KEY[soloMetric].label}`
+                      : `${bucket === 'month' ? xLabels[hoverI] : 'Week of ' + xLabels[hoverI]}${mode === 'zone' ? ' · ' + TREND_BY_KEY[soloMetric].label : ''}`}
                   </div>
                   {lines.filter((l) => l.values[hoverI] != null).map((l) => (
                     <div key={l.id} className="flex items-center gap-1.5">
