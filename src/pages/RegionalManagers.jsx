@@ -191,7 +191,7 @@ function SalesTrend() {
   const load = async (m = mode, r = range, b = bucket) => {
     const params = m === 'yoy'
       ? 'range=all&bucket=month'                                   // yoy is always all-time monthly
-      : `range=${r}&bucket=${b}${m === 'zone' ? '&by=zone' : ''}`
+      : `range=${r}&bucket=${b}${m === 'zone' ? '&by=zone' : m === 'region' ? '&by=region' : ''}`
     setLoading(true); setErr(''); setHoverI(null)
     try {
       const res = await fetch(`${LB_ORIGIN}admin-sales-metrics?${params}`)
@@ -221,14 +221,17 @@ function SalesTrend() {
     lines = Object.keys(byYear).sort().map((yr, idx) => ({
       id: yr, label: yr, color: YEAR_PALETTE[idx % YEAR_PALETTE.length], values: byYear[yr],
     }))
-  } else if (mode === 'zone') {
-    // By zone: one line per team, for one metric, over the timeline.
+  } else if (mode === 'zone' || mode === 'region') {
+    // By zone (selling TEAM) or by region (property LOCATION in FL): one line
+    // per zone/region, for one metric, over the timeline.
     xLabels = (data?.weeks || []).map((w) => w.label)
     const zones = data?.zones || {}
     const ZORDER = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4']
+    const REGION_LABEL = { 'Zone 1': 'North FL', 'Zone 2': 'Tampa / Central', 'Zone 3': 'West Coast / SW', 'Zone 4': 'Southeast', 'Unknown': 'Unknown' }
     lines = Object.keys(zones)
+      .filter((z) => !(mode === 'region' && z === 'Unknown'))   // tiny bucket — hide from the geo view
       .sort((a, b) => (ZORDER.indexOf(a) + 1 || 99) - (ZORDER.indexOf(b) + 1 || 99))
-      .map((z) => ({ id: z, label: teamLabel(z) || z, color: ZONE_COLORS[z]?.deep || '#64748b', values: zones[z]?.[unit]?.[soloMetric] || [] }))
+      .map((z) => ({ id: z, label: mode === 'region' ? (REGION_LABEL[z] || z) : (teamLabel(z) || z), color: ZONE_COLORS[z]?.deep || '#64748b', values: zones[z]?.[unit]?.[soloMetric] || [] }))
   } else {
     // Timeline: the toggled metrics, week or month across.
     xLabels = (data?.weeks || []).map((w) => w.label)
@@ -278,7 +281,7 @@ function SalesTrend() {
             </div>
             <div className="flex flex-wrap gap-3">
               <div className="flex gap-1">
-                {[['trend', 'Trends'], ['yoy', 'Year / year'], ['zone', 'By zone']].map(([k, lbl]) => (
+                {[['trend', 'Trends'], ['yoy', 'Year / year'], ['zone', 'By zone'], ['region', 'By region']].map(([k, lbl]) => (
                   <button key={k} type="button" onClick={() => pickMode(k)}
                     className={'rounded-full px-3 py-1 text-xs font-semibold ' + (mode === k ? 'bg-[#4f46e5] text-white' : 'bg-slate-100 text-slate-600')}>
                     {lbl}
@@ -365,7 +368,7 @@ function SalesTrend() {
                   <div className="font-semibold">
                     {mode === 'yoy'
                       ? `${xLabels[hoverI]} · ${TREND_BY_KEY[soloMetric].label}`
-                      : `${bucket === 'month' ? xLabels[hoverI] : 'Week of ' + xLabels[hoverI]}${mode === 'zone' ? ' · ' + TREND_BY_KEY[soloMetric].label : ''}`}
+                      : `${bucket === 'month' ? xLabels[hoverI] : 'Week of ' + xLabels[hoverI]}${(mode === 'zone' || mode === 'region') ? ' · ' + TREND_BY_KEY[soloMetric].label : ''}`}
                   </div>
                   {lines.filter((l) => l.values[hoverI] != null).map((l) => (
                     <div key={l.id} className="flex items-center gap-1.5">
