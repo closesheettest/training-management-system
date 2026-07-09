@@ -23,20 +23,30 @@ export const handler = async (event) => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // YYYY-MM-DD ET
   const supabase = createClient(SB_URL, SB_KEY)
 
-  // !inner drops trainees with no class; the week filters keep only the class
-  // whose window contains today.
-  const { data, error } = await supabase
+  // 1) In-training (not yet active), non-declined trainees who have a class.
+  const { data: ts, error: e1 } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, is_active_sales_rep, declined_at, classes!inner(week_start_date, week_end_date)')
+    .select('id, first_name, last_name, phone, is_active_sales_rep, declined_at, class_id')
     .is('declined_at', null)
-    .lte('classes.week_start_date', today)
-    .gte('classes.week_end_date', today)
     .order('last_name', { ascending: true })
+  if (e1) return cors(500, JSON.stringify({ ok: false, error: e1.message }))
+  const inTraining = (ts || []).filter((t) => t.is_active_sales_rep !== true && t.class_id)
 
-  if (error) return cors(500, JSON.stringify({ ok: false, error: error.message }))
+  // 2) Keep only those whose class's week window contains today.
+  let currentClassIds = new Set()
+  const classIds = [...new Set(inTraining.map((t) => t.class_id))]
+  if (classIds.length) {
+    const { data: cs } = await supabase
+      .from('classes')
+      .select('id, week_start_date, week_end_date')
+      .in('id', classIds)
+      .lte('week_start_date', today)
+      .gte('week_end_date', today)
+    currentClassIds = new Set((cs || []).map((c) => c.id))
+  }
 
-  const trainees = (data || [])
-    .filter((t) => t.is_active_sales_rep !== true)  // still in training (false or null)
+  const trainees = inTraining
+    .filter((t) => currentClassIds.has(t.class_id))
     .map((t) => ({
       id: t.id,
       name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
