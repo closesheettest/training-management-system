@@ -32,17 +32,23 @@ export const handler = async (event) => {
   if (e1) return cors(500, JSON.stringify({ ok: false, error: e1.message }))
   const inTraining = (ts || []).filter((t) => t.is_active_sales_rep !== true && t.class_id)
 
-  // 2) Keep only those whose class's week window contains today.
-  let currentClassIds = new Set()
+  // 2) Keep only those whose class's week window contains today; capture the
+  //    training LOCATION so William knows where to go.
+  const currentClassIds = new Set()
+  const classLoc = {}
   const classIds = [...new Set(inTraining.map((t) => t.class_id))]
   if (classIds.length) {
     const { data: cs } = await supabase
       .from('classes')
-      .select('id, week_start_date, week_end_date')
+      .select('id, week_start_date, week_end_date, locations(name, street_address, city, state, zip)')
       .in('id', classIds)
       .lte('week_start_date', today)
       .gte('week_end_date', today)
-    currentClassIds = new Set((cs || []).map((c) => c.id))
+    for (const c of cs || []) {
+      currentClassIds.add(c.id)
+      const l = Array.isArray(c.locations) ? c.locations[0] : c.locations
+      if (l) classLoc[c.id] = { name: l.name || null, address: [l.street_address, l.city, l.state, l.zip].filter(Boolean).join(', ') || null }
+    }
   }
 
   const trainees = inTraining
@@ -53,6 +59,7 @@ export const handler = async (event) => {
       first_name: t.first_name || '',
       last_name: t.last_name || '',
       phone: t.phone || null,
+      location: classLoc[t.class_id] || null,
     }))
 
   return cors(200, JSON.stringify({ ok: true, generated_at: new Date().toISOString(), count: trainees.length, trainees }))
