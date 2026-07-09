@@ -68,8 +68,12 @@ export const handler = async (event) => {
       .lte('attendance_date', today)
       .order('attendance_date', { ascending: false })
     if (att && att.length) {
-      const latest = att[0].attendance_date
-      activeIds = new Set(att.filter((a) => a.attendance_date === latest).map((a) => a.trainee_id))
+      // Use the most recent COMPLETED day (before today) — today's sign-ins are
+      // still trickling in each morning, so today alone would under-count. Falls
+      // back to today's if there's no prior day yet.
+      const priorDates = att.map((a) => a.attendance_date).filter((dt) => dt < today)
+      const activeDate = priorDates.length ? priorDates[0] : att[0].attendance_date
+      activeIds = new Set(att.filter((a) => a.attendance_date === activeDate).map((a) => a.trainee_id))
     }
   }
 
