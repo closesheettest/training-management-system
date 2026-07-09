@@ -51,8 +51,30 @@ export const handler = async (event) => {
     }
   }
 
-  const trainees = inTraining
-    .filter((t) => currentClassIds.has(t.class_id))
+  const weekTrainees = inTraining.filter((t) => currentClassIds.has(t.class_id))
+
+  // 3) Keep only trainees STILL ACTIVE — those who signed in (attendance) on the
+  //    MOST RECENT day this week. Mirrors the kiosk's carry-forward and drops
+  //    no-shows/dropouts. If there's no attendance yet this week, show all.
+  let activeIds = null
+  const traineeIds = weekTrainees.map((t) => t.id)
+  if (traineeIds.length) {
+    const weekAgo = new Date(Date.now() - 8 * 864e5).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    const { data: att } = await supabase
+      .from('attendance')
+      .select('trainee_id, attendance_date')
+      .in('trainee_id', traineeIds)
+      .gte('attendance_date', weekAgo)
+      .lte('attendance_date', today)
+      .order('attendance_date', { ascending: false })
+    if (att && att.length) {
+      const latest = att[0].attendance_date
+      activeIds = new Set(att.filter((a) => a.attendance_date === latest).map((a) => a.trainee_id))
+    }
+  }
+
+  const trainees = weekTrainees
+    .filter((t) => (activeIds ? activeIds.has(t.id) : true))
     .map((t) => ({
       id: t.id,
       name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
