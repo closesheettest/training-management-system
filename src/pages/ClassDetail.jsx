@@ -1999,7 +1999,10 @@ function computeSummary(trainees, attemptsByTrainee = {}) {
   const attempts = trainees.map((t) => attemptsByTrainee[t.id]).filter(Boolean)
   const submitted = attempts.filter((a) => a.submitted_at)
   const testSubmitted = submitted.length
-  const testNotSubmitted = total - testSubmitted
+  // "Not submitted" counts only trainees present on the final day (no-shows are
+  // not expected to take the test), matching the TestResults list below.
+  const finalDay = latestConfirmedDate(trainees)
+  const testNotSubmitted = trainees.filter((t) => !attemptsByTrainee[t.id]?.submitted_at && attendedOn(t, finalDay)).length
   const retentionScores = submitted.filter((a) => a.retention_pct != null).map((a) => Number(a.retention_pct))
   const avgRetention =
     retentionScores.length > 0
@@ -2197,8 +2200,23 @@ function Stat({ label, value, pct: pctValue, tone = 'slate' }) {
   )
 }
 
+// The class's final day = the most recent confirmed attendance date across the
+// class (the day the test is given). Used to hide no-shows from the final test.
+function latestConfirmedDate(trainees) {
+  let d = null
+  for (const t of trainees || []) for (const a of t.attendance || []) if (a.confirmed && (!d || a.attendance_date > d)) d = a.attendance_date
+  return d
+}
+function attendedOn(t, date) {
+  return !!date && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === date)
+}
+
 function TestResults({ trainees, attemptsByTrainee, classId }) {
+  // Only show trainees who were there on the final day (or already submitted) —
+  // a no-show shouldn't appear as "not submitted."
+  const finalDay = latestConfirmedDate(trainees)
   const withAttempts = trainees
+    .filter((t) => attemptsByTrainee[t.id]?.submitted_at || attendedOn(t, finalDay))
     .map((t) => ({ trainee: t, attempt: attemptsByTrainee[t.id] }))
     .sort((a, b) => `${a.trainee.first_name} ${a.trainee.last_name}`.localeCompare(`${b.trainee.first_name} ${b.trainee.last_name}`))
 
