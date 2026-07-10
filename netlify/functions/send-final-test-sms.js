@@ -29,17 +29,19 @@ export const handler = async (event) => {
   } catch {
     return json(400, { error: 'Invalid JSON body' })
   }
-  const { class_id } = body
-  if (!class_id) return json(400, { error: 'class_id required' })
+  const { class_id, trainee_id } = body
+  if (!class_id && !trainee_id) return json(400, { error: 'class_id or trainee_id required' })
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
   const siteUrl = (process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '')
 
-  // Find all enrolled + registered trainees for this class
-  const { data: trainees, error: tErr } = await supabase
+  // All enrolled + registered trainees for the class, OR a single trainee when
+  // trainee_id is passed (e.g. someone who arrived late / missed the class blast).
+  let q = supabase
     .from('trainees')
     .select('id, first_name, last_name, phone, email, registration_token, registered, enrolled')
-    .eq('class_id', class_id)
+  q = trainee_id ? q.eq('id', trainee_id) : q.eq('class_id', class_id)
+  const { data: trainees, error: tErr } = await q
   if (tErr) return json(500, { error: tErr.message })
 
   // Eligible = registered, enrolled, and reachable on at least one channel.
