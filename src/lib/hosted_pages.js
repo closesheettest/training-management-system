@@ -86,7 +86,7 @@ export const HOSTED_PAGES = [
       'Afternoon is the products walkthrough: framing (both energy sides equal weight), the 5 ' +
       'shared benefits, the Energy Package upgrades, then every product family (Asphalt · GAF + ' +
       'Tamko Titan, Exposed Fastener Metal · Ultra Rib + PBR, Standing Seam · TCM Lok, Stone ' +
-      'Coated Metal, Permalock, Tilcor, Tile) with wind/warranty/pitch specs and the insurance ' +
+      'Coated Metal, Tilcor, Tile) with wind/warranty/pitch specs and the insurance ' +
       'category badge. Closes on the cheat-sheet table and the tomorrow-morning quiz reminder.',
     created: '2026-05-31',
     category: 'Day 2',
@@ -114,7 +114,7 @@ export const HOSTED_PAGES = [
       'MORNING: role-play Slides 1–5 (the warm-up) until lunch — warm-up is 80% of the sale, ' +
       'hit the control points, deliver off-book. AFTERNOON Part 1 — PRODUCTS (with photos): ' +
       'roofing pitch chart, asphalt shingle (GAF 130 / Tamko Titan 160), exposed-fastener metal ' +
-      '(Ultra Rib / PBR), standing seam (TCM Lok), stone-coated, Permalock. AFTERNOON Part 2 — ' +
+      '(Ultra Rib / PBR), standing seam (TCM Lok), stone-coated. AFTERNOON Part 2 — ' +
       'FINANCING: the waterfall (Upgrade Financial → Service Finance → PACE → credit repair), ' +
       'protect-credit-first, PACE criteria, no prepayment penalties. (Tech/apps moved to Day 4.)',
     created: '2026-06-02',
