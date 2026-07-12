@@ -145,6 +145,12 @@ export const NOTIFICATION_EVENTS = [
     desc:
       'Every day at 12:00 PM ET, the sales system scans yesterday\'s JobNimbus sales and texts what\'s missing or wrong. Each zone\'s regional manager gets their deals; subscribers here get the company-wide summary. Check this to get the daily summary text; uncheck to stop. (Sent by the sales app — this just controls who gets the summary.)',
   },
+  {
+    key: 'training_day_submitted',
+    label: 'New training day submitted — needs review',
+    desc:
+      'Fires when a manager submits a new sales-training day from the Training Days page. The SMS + email name who submitted it and the title, and include a private link to review, edit, and Activate it (goes live once activated). Subscribers should be whoever approves training content — DeWayne + Neal.',
+  },
   // Future events (will be wired in Commit B/C):
   // {
   //   key: 'va_setup_complete',

@@ -40,6 +40,8 @@ import RegionalManager from './pages/RegionalManager.jsx'
 import RegionalManagers from './pages/RegionalManagers.jsx'
 import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
+import TrainingDays from './pages/TrainingDays.jsx'
+import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -94,6 +96,12 @@ export default function App() {
             for the fan-out logic. */}
         <Route path="/quiz/:token" element={<MinimalLayout><Quiz /></MinimalLayout>} />
 
+        {/* Public training-day review page — DeWayne & Neal tap the link
+            from the "new training day submitted" SMS/email. The review
+            token in the URL is the credential; edit + Activate/Decline all
+            go through training-day-review-api.js. No app chrome, no nav. */}
+        <Route path="/review-training-day/:token" element={<ReviewTrainingDay />} />
+
         {/* Public regional sales manager dashboard. The token IS the
             credential — no app chrome, no nav. The manager can see the
             reps in their region, deactivate someone, and SMS/email their
@@ -144,6 +152,7 @@ export default function App() {
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
           <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
           <Route path="/training-week" element={<RouteGate pageKey="setup.training_week"><TrainingWeek /></RouteGate>} />
+          <Route path="/training-days" element={<RouteGate pageKey="setup.training_days"><TrainingDays /></RouteGate>} />
           <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
         </Route>
       </Routes>
@@ -181,6 +190,7 @@ function AdminLayout() {
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
     { key: 'setup.training_week', to: '/training-week', label: 'Training Week' },
+    { key: 'setup.training_days', to: '/training-days', label: 'Training Days' },
     { key: 'setup.field_trainee', to: '/field-trainee', label: 'Field Trainee' },
   ].filter((it) => show(it.key))
   const teamItems = [

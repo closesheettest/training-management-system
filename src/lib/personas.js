@@ -23,6 +23,7 @@ export const PAGES = [
   { key: 'setup.questions', label: 'Questions', path: '/questions', menu: 'setup' },
   { key: 'setup.testimonials', label: 'Testimonials', path: '/testimonials', menu: 'setup' },
   { key: 'setup.training_week', label: 'Training Week', path: '/training-week', menu: 'setup' },
+  { key: 'setup.training_days', label: 'Training Days', path: '/training-days', menu: 'setup' },
   { key: 'setup.field_trainee', label: 'Field Trainee', path: '/field-trainee', menu: 'setup' },
   { key: 'settings.messages', label: 'Messages', path: '/messages', menu: 'settings' },
   { key: 'settings.notifications', label: 'Notifications', path: '/notifications', menu: 'settings' },
@@ -57,12 +58,12 @@ export const ROLES = [
 // seed in the migration. '*' means "see everything".
 export const ROLE_DEFAULTS = {
   admin: ['*'],
-  hiring_manager: ['home', 'schedule', 'setup.manager', 'setup.hotels', 'settings.overview'],
+  hiring_manager: ['home', 'schedule', 'setup.manager', 'setup.hotels', 'setup.training_days', 'settings.overview'],
   it: ['home', 'provisioning', 'settings.overview'],
   // HR co-owns the persona config alongside admin — they shape who sees what.
   hr: ['home', 'schedule', 'setup.hotels', 'setup.welcome_links', 'settings.notifications', 'settings.personas', 'settings.group_messages', 'settings.active_reps', 'settings.offboarding', 'team.map', 'team.regions', 'settings.overview'],
   va: ['home', 'settings.overview'],
-  trainer: ['home', 'schedule', 'attendance', 'homework', 'setup.questions', 'settings.messages', 'settings.overview'],
+  trainer: ['home', 'schedule', 'attendance', 'homework', 'setup.questions', 'setup.training_days', 'settings.messages', 'settings.overview'],
   test: ['*'],
   custom: ['home', 'settings.overview'],
 }
