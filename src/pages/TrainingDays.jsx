@@ -44,9 +44,45 @@ export default function TrainingDays() {
   const [draft, setDraft] = useState(blankDraft())
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [sendOn, setSendOn] = useState(null)   // null=unknown, true/false
+  const [togglingSend, setTogglingSend] = useState(false)
+  const [usage, setUsage] = useState([])
   const formRef = useRef(null)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); if (isAdmin) { loadSettings(); loadUsage() } }, [])
+
+  async function loadSettings() {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'ongoing_training_daily_send').maybeSingle()
+    setSendOn(data ? data.value === 'on' : false)
+  }
+
+  async function toggleSend() {
+    const next = sendOn ? 'off' : 'on'
+    setTogglingSend(true)
+    const { error } = await supabase.from('app_settings')
+      .upsert({ key: 'ongoing_training_daily_send', value: next, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    setTogglingSend(false)
+    if (error) { setFlash({ kind: 'error', text: `Couldn't change the toggle: ${error.message}` }); return }
+    setSendOn(next === 'on')
+    setFlash({ kind: 'success', text: next === 'on' ? 'Daily send is ON — managers get the 8 AM link Mon–Thu.' : 'Daily send is OFF — nothing goes out.' })
+  }
+
+  async function loadUsage() {
+    const { data } = await supabase.from('training_views')
+      .select('manager_id, manager_name, seconds, opened_at')
+      .order('opened_at', { ascending: false }).limit(1000)
+    const byMgr = new Map()
+    for (const v of data || []) {
+      const key = v.manager_id || v.manager_name
+      if (!key) continue
+      const cur = byMgr.get(key) || { name: v.manager_name || 'Manager', sessions: 0, seconds: 0, last: v.opened_at }
+      cur.sessions += 1
+      cur.seconds += v.seconds || 0
+      if (new Date(v.opened_at) > new Date(cur.last)) cur.last = v.opened_at
+      byMgr.set(key, cur)
+    }
+    setUsage([...byMgr.values()].sort((a, b) => new Date(b.last) - new Date(a.last)))
+  }
   useEffect(() => {
     if (!editingId) return
     const id = requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
@@ -173,6 +209,54 @@ export default function TrainingDays() {
         </div>
       )}
 
+      {isAdmin && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-900">Daily auto-send to managers</span>
+                <span className={'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ' + (sendOn ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600')}>
+                  {sendOn === null ? '…' : sendOn ? 'On' : 'Off'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Texts + emails each regional manager that day's training link at <strong>8:00 AM ET, Mon–Thu</strong>. Keep it OFF until you're done reviewing.
+              </p>
+            </div>
+            <button type="button" onClick={toggleSend} disabled={togglingSend || sendOn === null}
+              role="switch" aria-checked={!!sendOn}
+              className={'relative h-7 w-12 flex-none rounded-full transition-colors ' + (sendOn ? 'bg-emerald-500' : 'bg-slate-300') + (togglingSend ? ' opacity-60' : '')}>
+              <span className={'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ' + (sendOn ? 'left-[22px]' : 'left-0.5')} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && usage.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-2 text-sm font-semibold text-slate-900">Who's using it</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="py-1 pr-4">Manager</th><th className="py-1 pr-4">Opens</th><th className="py-1 pr-4">Total time</th><th className="py-1">Last opened</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usage.map((u, k) => (
+                  <tr key={k} className="border-t border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium text-slate-800">{u.name}</td>
+                    <td className="py-1.5 pr-4 tabular-nums">{u.sessions}</td>
+                    <td className="py-1.5 pr-4 tabular-nums">{fmtMins(u.seconds)}</td>
+                    <td className="py-1.5 text-slate-500">{fmtWhen(u.last)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button type="button" onClick={startAdd}
           className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">
@@ -277,6 +361,19 @@ export default function TrainingDays() {
       )}
     </div>
   )
+}
+
+function fmtMins(seconds) {
+  const m = Math.round((seconds || 0) / 60)
+  if (m < 1) return '<1 min'
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  return `${h}h ${m % 60}m`
+}
+function fmtWhen(iso) {
+  try {
+    return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  } catch { return '' }
 }
 
 function Field({ label, hint, children, className = '' }) {

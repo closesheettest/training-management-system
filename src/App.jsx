@@ -42,6 +42,7 @@ import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import TrainingDays from './pages/TrainingDays.jsx'
 import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
+import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -95,6 +96,11 @@ export default function App() {
             previous day's training content. See send-training-quiz.js
             for the fan-out logic. */}
         <Route path="/quiz/:token" element={<MinimalLayout><Quiz /></MinimalLayout>} />
+
+        {/* Public manager training viewer — opened from the daily 8am link.
+            The manager_access_token is the credential; loads the live
+            curriculum and logs time-on-page (ongoing-training-view-api). */}
+        <Route path="/ongoing-training/view/:token" element={<OngoingTrainingView />} />
 
         {/* Public training-day review page — DeWayne & Neal tap the link
             from the "new training day submitted" SMS/email. The review
