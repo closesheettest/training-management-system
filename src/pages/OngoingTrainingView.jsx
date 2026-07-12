@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
 
 // Manager-facing Ongoing Training viewer. Opened from the daily link
 // (/ongoing-training/view/:token?day=N). Loads the live curriculum from the
@@ -12,6 +13,8 @@ export default function OngoingTrainingView() {
   const { token } = useParams()
   const [params] = useSearchParams()
   const wantDay = parseInt(params.get('day'), 10)
+  const previewId = params.get('id')
+  const isPreview = token === 'preview'
 
   const [days, setDays] = useState(null)
   const [i, setI] = useState(0)
@@ -25,6 +28,28 @@ export default function OngoingTrainingView() {
     let cancelled = false
     ;(async () => {
       try {
+        // Admin preview (View button on the Ongoing Training page): load the
+        // day(s) directly, no manager token, and DON'T log a view.
+        if (isPreview) {
+          let list = []
+          if (previewId) {
+            const { data, error } = await supabase.from('training_days').select('*').eq('id', previewId).maybeSingle()
+            if (error) throw new Error(error.message)
+            if (!data) throw new Error('That training day was not found.')
+            list = [data]
+          } else {
+            const { data, error } = await supabase.from('training_days').select('*').eq('status', 'active').order('position', { ascending: true })
+            if (error) throw new Error(error.message)
+            list = data || []
+          }
+          if (cancelled) return
+          setManager('')
+          setDays(list)
+          const pIdx = Number.isFinite(wantDay) ? list.findIndex((d) => d.position === wantDay) : 0
+          setI(pIdx > 0 ? pIdx : 0)
+          return
+        }
+
         const res = await fetch(API, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'open', token, day: wantDay }),
@@ -43,7 +68,7 @@ export default function OngoingTrainingView() {
       }
     })()
     return () => { cancelled = true }
-  }, [token, wantDay])
+  }, [token, wantDay, previewId, isPreview])
 
   // Heartbeat: count visible time, ping the server, and send a final beacon
   // on unload so partial sessions still get recorded.
@@ -91,7 +116,9 @@ export default function OngoingTrainingView() {
   return (
     <Shell>
       <div className="mb-4 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span>{manager ? `Hi ${manager}` : 'Ongoing Training'}</span>
+        {isPreview
+          ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Preview · not logged</span>
+          : <span>{manager ? `Hi ${manager}` : 'Ongoing Training'}</span>}
         <span>Day {i + 1} / {total}</span>
       </div>
 

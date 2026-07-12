@@ -286,10 +286,16 @@ export default function TrainingDays() {
                 </div>
               </div>
               {isAdmin && (
-                <button type="button" onClick={() => startEdit(r)}
-                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  Edit
-                </button>
+                <div className="flex gap-2">
+                  <a href={`/ongoing-training/view/preview?id=${r.id}`} target="_blank" rel="noreferrer"
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    View
+                  </a>
+                  <button type="button" onClick={() => startEdit(r)}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    Edit
+                  </button>
+                </div>
               )}
             </li>
           ))}
