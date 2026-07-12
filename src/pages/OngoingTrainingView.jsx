@@ -140,7 +140,7 @@ export default function OngoingTrainingView() {
           {d.theme && <span>{d.theme}</span>}
         </div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-brand-navy sm:text-3xl">{d.title}</h1>
-        {d.on_slide && <p className="mt-1 text-sm italic text-slate-400">On the slide: {d.on_slide}</p>}
+        {d.on_slide && <p className="mt-1 text-sm italic text-slate-400">{d.on_slide}</p>}
 
         {d.point && (
           <Block label="The point"><p className="text-slate-800">{d.point}</p></Block>
@@ -148,7 +148,7 @@ export default function OngoingTrainingView() {
 
         {Array.isArray(d.script) && d.script.length > 0 && (
           <div className="mt-6 rounded-r-xl border-l-4 border-brand-navy bg-slate-50 p-4">
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">The script — word for word</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">The script</p>
             {d.script.map((seg, k) => (
               seg.k === 'dir'
                 ? <p key={k} className="mb-2 border-l-2 border-slate-300 pl-3 text-sm italic text-slate-500">{seg.t}</p>

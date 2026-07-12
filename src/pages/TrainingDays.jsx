@@ -326,9 +326,9 @@ export default function TrainingDays() {
                 placeholder="Objection Handling"
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
             </Field>
-            <Field label="On the slide (short description)" className="sm:col-span-6">
+            <Field label="Overview (short description)" className="sm:col-span-6">
               <input type="text" value={draft.on_slide} onChange={(e) => setDraft({ ...draft, on_slide: e.target.value })}
-                placeholder="What's on the slide, in a few words"
+                placeholder="What it covers, in a few words"
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
             </Field>
             <Field label="The point *" className="sm:col-span-6">
@@ -336,7 +336,7 @@ export default function TrainingDays() {
                 placeholder="A sentence or two on the objective of this day."
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
             </Field>
-            <Field label="The script *" hint="One line per line. Wrap a line in (parentheses) to make it a stage direction." className="sm:col-span-6">
+            <Field label="The script *" hint="One line per line. Wrap a line in (parentheses) for a note or aside." className="sm:col-span-6">
               <textarea rows={6} value={draft.scriptText} onChange={(e) => setDraft({ ...draft, scriptText: e.target.value })}
                 placeholder={'Say this line to the homeowner...\n(then pause and point to the iPad)\nThen say this next line...'}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" />

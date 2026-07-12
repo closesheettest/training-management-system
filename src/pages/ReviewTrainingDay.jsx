@@ -149,7 +149,7 @@ export default function ReviewTrainingDay() {
                   <input type="text" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
                 </Field>
-                <Field label="On the slide">
+                <Field label="Overview">
                   <input type="text" value={f.on_slide} onChange={(e) => setF({ ...f, on_slide: e.target.value })}
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
                 </Field>
@@ -158,7 +158,7 @@ export default function ReviewTrainingDay() {
                 <textarea rows={2} value={f.point} onChange={(e) => setF({ ...f, point: e.target.value })}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
               </Field>
-              <Field label="The script" hint="One line per line. Wrap a line in (parentheses) for a stage direction.">
+              <Field label="The script" hint="One line per line. Wrap a line in (parentheses) for a note or aside.">
                 <textarea rows={8} value={f.scriptText} onChange={(e) => setF({ ...f, scriptText: e.target.value })}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono" />
               </Field>
