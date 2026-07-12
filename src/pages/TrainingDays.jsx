@@ -4,18 +4,17 @@ import { usePersona } from '../lib/PersonaContext.jsx'
 
 // Training Days — the structured sales-training curriculum.
 //
-// Managers submit a NEW day here → it saves as 'pending' and texts +
-// emails the reviewers (DeWayne + Neal, whoever subscribes to the
-// 'training_day_submitted' event). They open the private link, edit, and
-// Activate it. Only then does it go live.
+// Two paths, by who's using it:
+//   • ADMIN (DeWayne / Neal): add or edit a day → it goes LIVE immediately.
+//     No pending, no review, no notification — admin IS the reviewer.
+//   • MANAGER (hiring_manager / trainer): submit a new day → saves as
+//     'pending' and texts + emails the reviewers a private link. It only
+//     goes live once a reviewer activates it (on /review-training-day/:token).
 //
-// The list is read-only for managers. Admins get a "Review & edit" link
-// per row (opens the same reviewer page) so they can manage from here too.
-// Activation always happens on the token-gated reviewer page — this page
-// never flips a day live.
+// All writes are direct Supabase (anon key, open RLS) — same as the other
+// admin CRUD pages. The reviewer link + notification exist only for the
+// manager-submission path.
 
-// One line per script line. A line wrapped in (parentheses) becomes a
-// stage direction; everything else is spoken script. Matches the manual.
 function parseScript(text) {
   return String(text || '')
     .split(/\r?\n/)
@@ -23,16 +22,11 @@ function parseScript(text) {
     .filter(Boolean)
     .map((l) => (/^\(.*\)$/.test(l) ? { k: 'dir', t: l } : { k: 'say', t: l }))
 }
+function scriptToText(script) {
+  return (Array.isArray(script) ? script : []).map((s) => s.t).join('\n')
+}
 
-const blankDraft = () => ({
-  title: '',
-  subject: '',
-  on_slide: '',
-  point: '',
-  scriptText: '',
-  coach: '',
-  drill: '',
-})
+const blankDraft = () => ({ title: '', subject: '', on_slide: '', point: '', scriptText: '', coach: '', drill: '' })
 
 const STATUS_BADGE = {
   active: 'bg-emerald-100 text-emerald-800',
@@ -43,9 +37,10 @@ const STATUS_BADGE = {
 export default function TrainingDays() {
   const { persona } = usePersona()
   const isAdmin = persona?.role === 'admin' || persona?.role === 'test'
+  const who = persona?.name || (isAdmin ? 'Admin' : 'A manager')
 
   const [rows, setRows] = useState(null)
-  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState(null) // null | 'new' | uuid
   const [draft, setDraft] = useState(blankDraft())
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(null)
@@ -53,18 +48,14 @@ export default function TrainingDays() {
 
   useEffect(() => { load() }, [])
   useEffect(() => {
-    if (!adding) return
+    if (!editingId) return
     const id = requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
     return () => cancelAnimationFrame(id)
-  }, [adding])
+  }, [editingId])
 
   async function load() {
-    const { data, error } = await supabase
-      .from('training_days')
-      .select('id, position, title, subject, status, source, submitted_by_name, review_token, created_at')
-      .order('position', { ascending: true })
+    const { data, error } = await supabase.from('training_days').select('*').order('position', { ascending: true })
     if (error) { setFlash({ kind: 'error', text: error.message }); setRows([]); return }
-    // active (by position) → pending (newest first) → archived
     const order = { active: 0, pending: 1, archived: 2 }
     const sorted = (data || []).slice().sort((a, b) => {
       const s = (order[a.status] ?? 3) - (order[b.status] ?? 3)
@@ -75,17 +66,22 @@ export default function TrainingDays() {
     setRows(sorted)
   }
 
-  function startAdd() { setDraft(blankDraft()); setAdding(true); setFlash(null) }
-  function cancel() { setAdding(false); setDraft(blankDraft()) }
+  function nextPosition() {
+    return (rows || []).filter((r) => r.status === 'active').reduce((m, r) => Math.max(m, r.position || 0), 0) + 1
+  }
 
-  async function submit() {
-    if (!draft.title.trim() || !draft.point.trim() || !draft.scriptText.trim()) {
-      setFlash({ kind: 'error', text: 'Please fill in Title, The point, and The script.' })
-      return
-    }
-    setSaving(true)
-    const token = (crypto?.randomUUID?.() || String(Math.random()).slice(2) + Date.now())
-    const payload = {
+  function startAdd() { setDraft(blankDraft()); setEditingId('new'); setFlash(null) }
+  function startEdit(r) {
+    setDraft({
+      title: r.title || '', subject: r.subject || '', on_slide: r.on_slide || '',
+      point: r.point || '', scriptText: scriptToText(r.script), coach: r.coach || '', drill: r.drill || '',
+    })
+    setEditingId(r.id); setFlash(null)
+  }
+  function cancel() { setEditingId(null); setDraft(blankDraft()) }
+
+  function fieldsFromDraft() {
+    return {
       title: draft.title.trim(),
       subject: draft.subject.trim() || 'New',
       theme: draft.subject.trim() || 'Added Training',
@@ -94,18 +90,50 @@ export default function TrainingDays() {
       script: parseScript(draft.scriptText),
       coach: draft.coach.trim() || null,
       drill: draft.drill.trim() || null,
-      status: 'pending',
-      source: 'submission',
-      review_token: token,
-      submitted_by_name: persona?.name || 'A manager',
-      submitted_by_recipient_id: persona?.id || null,
     }
-    const { data, error } = await supabase.from('training_days').insert(payload).select('id').single()
+  }
+
+  async function save() {
+    if (!draft.title.trim() || !draft.point.trim() || !draft.scriptText.trim()) {
+      setFlash({ kind: 'error', text: 'Please fill in Title, The point, and The script.' })
+      return
+    }
+    setSaving(true)
+    const now = new Date().toISOString()
+    const token = (crypto?.randomUUID?.() || String(Math.random()).slice(2) + Date.now())
+    const fields = fieldsFromDraft()
+
+    // ── ADMIN: everything goes live immediately, no review ──────────────
+    if (isAdmin) {
+      let error
+      if (editingId === 'new') {
+        ;({ error } = await supabase.from('training_days').insert({
+          ...fields, status: 'active', source: 'submission', review_token: token,
+          position: nextPosition(), activated_at: now, activated_by: who,
+          submitted_by_name: who, submitted_by_recipient_id: persona?.id || null,
+        }))
+      } else {
+        const row = rows.find((r) => r.id === editingId)
+        const patch = { ...fields, status: 'active', activated_by: who, updated_at: now }
+        // First time it goes live (was pending/archived): append + stamp.
+        if (row && row.status !== 'active') { patch.position = nextPosition(); patch.activated_at = now }
+        ;({ error } = await supabase.from('training_days').update(patch).eq('id', editingId))
+      }
+      setSaving(false)
+      if (error) { setFlash({ kind: 'error', text: error.message }); return }
+      setFlash({ kind: 'success', text: editingId === 'new' ? 'Added and published live.' : 'Saved — live now.' })
+      setEditingId(null); setDraft(blankDraft()); await load()
+      return
+    }
+
+    // ── MANAGER: submit for review (pending + notify) ───────────────────
+    const { data, error } = await supabase.from('training_days').insert({
+      ...fields, status: 'pending', source: 'submission', review_token: token,
+      submitted_by_name: who, submitted_by_recipient_id: persona?.id || null,
+    }).select('id').single()
     if (error) { setSaving(false); setFlash({ kind: 'error', text: error.message }); return }
 
-    // Fire the reviewer notification (SMS + email). A failure here doesn't
-    // lose the submission — it's saved as pending either way.
-    let notifyNote = ''
+    let notifyNote = ' — DeWayne & Neal have been notified.'
     try {
       const res = await fetch('/.netlify/functions/notify-training-day-submitted', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -118,10 +146,8 @@ export default function TrainingDays() {
       notifyNote = ' (but the reviewer alert couldn\'t send — try again).'
     }
     setSaving(false)
-    setFlash({ kind: 'success', text: `Submitted for review${notifyNote || ' — DeWayne & Neal have been notified.'}` })
-    setAdding(false)
-    setDraft(blankDraft())
-    await load()
+    setFlash({ kind: 'success', text: `Submitted for review${notifyNote}` })
+    setEditingId(null); setDraft(blankDraft()); await load()
   }
 
   if (rows === null) return <p className="text-sm text-slate-500">Loading…</p>
@@ -131,9 +157,11 @@ export default function TrainingDays() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Training Days</h1>
         <p className="mt-2 max-w-2xl text-slate-600">
-          The sales-training curriculum — one slide-breakdown per day. Submit a new day below and it
-          goes to <strong>DeWayne &amp; Neal</strong> for review; they edit and activate it before it
-          goes live. Everyone stays on the same, consistent script.
+          The sales-training curriculum — one slide-breakdown per day. {isAdmin ? (
+            <>As an admin, anything you add or edit here <strong>goes live immediately</strong>.</>
+          ) : (
+            <>Submit a new day below and it goes to <strong>DeWayne &amp; Neal</strong> to review and activate before it goes live.</>
+          )} Keeps every rep on the same script.
         </p>
       </header>
 
@@ -148,7 +176,7 @@ export default function TrainingDays() {
       <div className="flex justify-end">
         <button type="button" onClick={startAdd}
           className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">
-          + Submit a training day
+          {isAdmin ? '+ Add a training day' : '+ Submit a training day'}
         </button>
       </div>
 
@@ -170,26 +198,32 @@ export default function TrainingDays() {
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
                   {r.status === 'active' && <>Day {r.position} · </>}
-                  {r.source === 'submission' && r.submitted_by_name ? <>Submitted by {r.submitted_by_name}</> : <>From the sales manual</>}
+                  {r.source === 'submission' && r.submitted_by_name ? <>By {r.submitted_by_name}</> : <>From the sales manual</>}
                 </div>
               </div>
-              {isAdmin && r.review_token && (
-                <a href={`/review-training-day/${r.review_token}`} target="_blank" rel="noreferrer"
+              {isAdmin && (
+                <button type="button" onClick={() => startEdit(r)}
                   className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  Review &amp; edit →
-                </a>
+                  Edit
+                </button>
               )}
             </li>
           ))}
         </ul>
       )}
 
-      {adding && (
-        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); submit() }} noValidate
+      {editingId && (
+        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); save() }} noValidate
           className="space-y-4 rounded-lg border-2 border-brand-navy bg-white p-5 shadow-lg">
-          <h3 className="text-lg font-semibold text-brand-navy">✏️ Submit a training day for review</h3>
+          <h3 className="text-lg font-semibold text-brand-navy">
+            {editingId === 'new'
+              ? (isAdmin ? '✏️ Add a training day' : '✏️ Submit a training day for review')
+              : '✏️ Edit training day'}
+          </h3>
           <p className="text-sm text-slate-600">
-            This saves as <strong>pending</strong> and alerts the reviewers. It won't go live until they activate it.
+            {isAdmin
+              ? 'Saving publishes this live right away.'
+              : 'This saves as pending and alerts the reviewers. It won\'t go live until they activate it.'}
           </p>
           <div className="grid gap-3 sm:grid-cols-6">
             <Field label="Title *" className="sm:col-span-4">
@@ -233,7 +267,10 @@ export default function TrainingDays() {
             </button>
             <button type="submit" disabled={saving}
               className="rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-50">
-              {saving ? 'Submitting…' : 'Submit for review'}
+              {saving ? 'Saving…'
+                : editingId === 'new'
+                  ? (isAdmin ? 'Add & publish live' : 'Submit for review')
+                  : 'Save changes (live)'}
             </button>
           </div>
         </form>
