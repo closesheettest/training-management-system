@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
 
-// Training Days — the structured sales-training curriculum.
+// Ongoing Training — the structured sales-training curriculum.
 //
 // Two paths, by who's using it:
 //   • ADMIN (DeWayne / Neal): add or edit a day → it goes LIVE immediately.
@@ -155,7 +155,7 @@ export default function TrainingDays() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Training Days</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Ongoing Training</h1>
         <p className="mt-2 max-w-2xl text-slate-600">
           The sales-training curriculum — one slide-breakdown per day. {isAdmin ? (
             <>As an admin, anything you add or edit here <strong>goes live immediately</strong>.</>

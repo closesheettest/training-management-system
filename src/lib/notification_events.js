@@ -149,7 +149,7 @@ export const NOTIFICATION_EVENTS = [
     key: 'training_day_submitted',
     label: 'New training day submitted — needs review',
     desc:
-      'Fires when a manager submits a new sales-training day from the Training Days page. The SMS + email name who submitted it and the title, and include a private link to review, edit, and Activate it (goes live once activated). Subscribers should be whoever approves training content — DeWayne + Neal.',
+      'Fires when a manager submits a new sales-training day from the Ongoing Training page. The SMS + email name who submitted it and the title, and include a private link to review, edit, and Activate it (goes live once activated). Subscribers should be whoever approves training content — DeWayne + Neal.',
   },
   // Future events (will be wired in Commit B/C):
   // {

@@ -152,7 +152,7 @@ export default function App() {
           <Route path="/regions" element={<RouteGate pageKey="team.regions"><Regions /></RouteGate>} />
           <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
           <Route path="/training-week" element={<RouteGate pageKey="setup.training_week"><TrainingWeek /></RouteGate>} />
-          <Route path="/training-days" element={<RouteGate pageKey="setup.training_days"><TrainingDays /></RouteGate>} />
+          <Route path="/ongoing-training" element={<RouteGate pageKey="setup.training_days"><TrainingDays /></RouteGate>} />
           <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
         </Route>
       </Routes>
@@ -190,7 +190,7 @@ function AdminLayout() {
     { key: 'setup.questions', to: '/questions', label: 'Questions' },
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
     { key: 'setup.training_week', to: '/training-week', label: 'Training Week' },
-    { key: 'setup.training_days', to: '/training-days', label: 'Training Days' },
+    { key: 'setup.training_days', to: '/ongoing-training', label: 'Ongoing Training' },
     { key: 'setup.field_trainee', to: '/field-trainee', label: 'Field Trainee' },
   ].filter((it) => show(it.key))
   const teamItems = [
