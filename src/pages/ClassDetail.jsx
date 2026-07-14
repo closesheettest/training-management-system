@@ -887,6 +887,16 @@ export default function ClassDetail() {
   })()
   const registeredAttending = registeredSplit.attending
   const registeredNoShow = registeredSplit.noShow
+  // "Signed in today" = enrolled trainees with a confirmed check-in for TODAY.
+  // Unlike Registered (which keys off the most recent PRIOR class day so it stays
+  // stable), this reflects who's actually here right now — nobody is unenrolled;
+  // a trainee who misses today simply isn't in this list, and reappears when they
+  // sign in again. Only shown on a day that falls within the class week.
+  const todayLocal = todayLocalIso()
+  const todayIsClassDay = todayLocal >= cls.week_start_date && todayLocal <= cls.week_end_date
+  const signedInToday = todayIsClassDay
+    ? enrolled.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === todayLocal))
+    : []
   const sentNoResponse = activeEnrolled.filter((t) => !t.registered && t.last_sms_sent_at)
   const notSent = activeEnrolled.filter((t) => !t.registered && !t.last_sms_sent_at)
   const isTBD = !cls.locations
@@ -1272,6 +1282,7 @@ export default function ClassDetail() {
         />
       ) : (
       [
+        ...(todayIsClassDay ? [{ title: 'Signed in today', emoji: '🟢', color: 'green', items: signedInToday, empty: 'No one has signed in yet today.' }] : []),
         { title: 'Registered', emoji: '✅', color: 'green', items: registeredAttending, empty: 'No trainees have completed registration yet.', showResend: true },
         ...(registeredNoShow.length ? [{ title: 'Didn’t return (missed the last class day)', emoji: '🚫', color: 'slate', items: registeredNoShow, empty: '' }] : []),
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
