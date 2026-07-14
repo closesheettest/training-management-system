@@ -31,6 +31,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
+import { isLateStartDate } from './_late-start.js'
 
 // Don't re-text the same booking more than once an hour. 55 min (not 60)
 // so a cron that fires a hair early on the next hour still passes the gate.
@@ -61,6 +62,7 @@ export const handler = async (event) => {
   const force = params.force === '1' || params.force === 'true'
   const today = params.date || computeFloridaToday()
   const nowEtHour = params.hour != null ? Number(params.hour) : computeFloridaHour()
+  const lateStartToday = isLateStartDate(today) // noon start → hold gate to 12:30 PM ET
   const nowMs = Date.now()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
@@ -108,7 +110,7 @@ export const handler = async (event) => {
     // Class-start-aware grace: Day 1 starts at noon (alert ≥ 12:30 PM ET),
     // Day 2+ starts at 10 AM (alert ≥ 10:30 AM ET). Skip when overriding date.
     const isDay1 = today === start
-    const earliestAlertHour = isDay1 ? 12.5 : 10.5
+    const earliestAlertHour = (isDay1 || lateStartToday) ? 12.5 : 10.5
     if (!force && !params.date && nowEtHour < earliestAlertHour) continue
 
     const checkedIn = (t.attendance || []).some(
