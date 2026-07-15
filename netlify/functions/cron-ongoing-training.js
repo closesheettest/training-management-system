@@ -21,7 +21,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
-export const config = { schedule: '0 12,13 * * 1-4' }
+export const config = { schedule: '0 12,13,14 * * 1-4' } // 8, 9, 10 AM ET (3 attempts; once-per-day guard prevents double-send)
 
 function etParts() {
   const s = new Date().toLocaleString('en-US', {
@@ -47,9 +47,12 @@ export const handler = async (event) => {
 
   const { hour, weekday } = etParts()
   const isWorkday = ['Mon', 'Tue', 'Wed', 'Thu'].includes(weekday)
-  // Only proceed at 8 AM ET on a Mon–Thu (unless forced for a manual test).
-  if (!force && (hour !== 8 || !isWorkday)) {
-    return json(200, { ok: true, skipped: `not 8am ET Mon-Thu (et hour ${hour}, ${weekday})` })
+  const etToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // YYYY-MM-DD, ET
+  // Morning window 7–10 AM ET on a Mon–Thu. Widened (was exact 8 AM) so a Netlify
+  // fire a minute early/late or the backup fires still land — the once-per-day
+  // guard below makes sure only the FIRST one of the morning actually sends.
+  if (!force && (!isWorkday || hour < 7 || hour > 10)) {
+    return json(200, { ok: true, skipped: `outside 7-10am ET Mon-Thu (et hour ${hour}, ${weekday})` })
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
@@ -57,10 +60,14 @@ export const handler = async (event) => {
   // Toggle gate.
   const { data: settingsRows } = await supabase
     .from('app_settings').select('key,value')
-    .in('key', ['ongoing_training_daily_send', 'ongoing_training_next_day'])
+    .in('key', ['ongoing_training_daily_send', 'ongoing_training_next_day', 'ongoing_training_last_sent_date'])
   const settings = Object.fromEntries((settingsRows || []).map((r) => [r.key, r.value]))
   if ((settings.ongoing_training_daily_send || 'off') !== 'on') {
     return json(200, { ok: true, skipped: 'daily send toggle is OFF' })
+  }
+  // Once-per-day guard: several fires (8/9/10 AM) reach here; only the first sends.
+  if (!force && settings.ongoing_training_last_sent_date === etToday) {
+    return json(200, { ok: true, skipped: `already sent today (${etToday})` })
   }
 
   // Which day goes out today.
@@ -112,6 +119,9 @@ export const handler = async (event) => {
   await supabase.from('app_settings')
     .update({ value: String(advanced), updated_at: new Date().toISOString() })
     .eq('key', 'ongoing_training_next_day')
+  // Stamp today so the other morning fires skip.
+  await supabase.from('app_settings')
+    .upsert({ key: 'ongoing_training_last_sent_date', value: etToday, updated_at: new Date().toISOString() }, { onConflict: 'key' })
 
   return json(200, {
     ok: true, day: nextDay, day_title: today.title, total,
