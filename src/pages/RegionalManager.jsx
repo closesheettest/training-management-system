@@ -207,6 +207,8 @@ function MeetingIdea({ token }) {
   const [title, setTitle] = useState('')
   const [point, setPoint] = useState('')
   const [details, setDetails] = useState('')
+  const [coach, setCoach] = useState('')
+  const [drill, setDrill] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null) // { kind, text }
 
@@ -219,7 +221,7 @@ function MeetingIdea({ token }) {
     try {
       const res = await fetch('/.netlify/functions/regional-manager-api', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit_meeting_idea', token, title, point, details }),
+        body: JSON.stringify({ action: 'submit_meeting_idea', token, title, point, details, coach, drill }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.ok) { setMsg({ kind: 'error', text: j.error || 'Could not send. Try again.' }); setBusy(false); return }
@@ -229,7 +231,7 @@ function MeetingIdea({ token }) {
           ? '✅ Sent to DeWayne & Neal to review. If they accept it, it joins the daily training.'
           : '✅ Saved for DeWayne & Neal to review. (Their text/email alert didn\'t go out, but they\'ll see it.)',
       })
-      setTitle(''); setPoint(''); setDetails('')
+      setTitle(''); setPoint(''); setDetails(''); setCoach(''); setDrill('')
     } catch (e) {
       setMsg({ kind: 'error', text: e?.message || 'Network error.' })
     }
@@ -264,6 +266,18 @@ function MeetingIdea({ token }) {
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">How you'd run it <span className="normal-case text-slate-400">(optional — talk track, one line per line)</span></span>
             <textarea rows={5} value={details} onChange={(e) => setDetails(e.target.value)}
               placeholder={'Say this…\nThen ask…\n(Note to the manager in parentheses)'}
+              className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">Coach your team <span className="normal-case text-slate-400">(optional)</span></span>
+            <textarea rows={2} value={coach} onChange={(e) => setCoach(e.target.value)}
+              placeholder="What should managers watch for / reinforce as they coach this?"
+              className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">Run the drill <span className="normal-case text-slate-400">(optional — what to do with the rep)</span></span>
+            <textarea rows={2} value={drill} onChange={(e) => setDrill(e.target.value)}
+              placeholder="A quick practice / role-play the reps do together after."
               className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
           </label>
           {msg && (

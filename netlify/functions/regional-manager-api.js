@@ -636,6 +636,8 @@ export const handler = async (event) => {
     const title = String(body.title || '').trim()
     const point = String(body.point || '').trim()
     const scriptText = String(body.details || '').trim()
+    const coach = String(body.coach || '').trim() || null
+    const drill = String(body.drill || '').trim() || null
     if (!title || !point) {
       return json(400, { error: 'Give it a title and a sentence on the point.' })
     }
@@ -653,6 +655,8 @@ export const handler = async (event) => {
         theme: 'Meeting idea',
         point,
         script,
+        coach,
+        drill,
         status: 'pending',
         source: 'submission',
         review_token: reviewToken,
