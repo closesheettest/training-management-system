@@ -737,6 +737,32 @@ export default function ClassDetail() {
 
   // Manually send ONE trainee today's homework SMS (homework no longer
   // auto-blasts; an admin sends it per person from here).
+  // Text + email the PRACTICE (sandbox) Free Roof Inspection link to the reps
+  // signed in today. Confirm-gated; sends nothing until clicked.
+  async function sendPracticeInspection(list) {
+    const recips = (list || []).filter((t) => t.phone || t.email)
+    if (!recips.length) { setMessage({ type: 'error', text: 'No one signed in has a phone or email on file.' }); return }
+    if (!confirm(`Text + email the practice Free Roof Inspection link to the ${recips.length} rep${recips.length === 1 ? '' : 's'} signed in today?`)) return
+    setMessage(null)
+    setSending('practice')
+    try {
+      const res = await fetch('/.netlify/functions/send-sandbox-inspection', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traineeIds: recips.map((t) => t.id) }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.ok) {
+        setMessage({ type: 'error', text: res.status === 404 ? 'This only works on the deployed site.' : (j.error || `Failed: ${res.status}`) })
+      } else {
+        setMessage({ type: 'success', text: `📲 Practice inspection sent to ${j.recipients} rep${j.recipients === 1 ? '' : 's'} — ${j.sms_sent} text, ${j.email_sent} email.` })
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setSending(null)
+    }
+  }
+
   async function sendHomework(traineeId) {
     setMessage(null)
     setSending('hw:' + traineeId)
@@ -1282,7 +1308,19 @@ export default function ClassDetail() {
         />
       ) : (
       [
-        ...(todayIsClassDay ? [{ title: 'Signed in today', emoji: '🟢', color: 'green', items: signedInToday, empty: 'No one has signed in yet today.' }] : []),
+        ...(todayIsClassDay ? [{ title: 'Signed in today', emoji: '🟢', color: 'green', items: signedInToday, empty: 'No one has signed in yet today.',
+          headerAction: signedInToday.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => sendPracticeInspection(signedInToday)}
+              disabled={sending === 'practice'}
+              title="Text + email the sandbox (practice) Free Roof Inspection signing link to everyone signed in. Nothing they do in it is saved."
+              className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50"
+            >
+              {sending === 'practice' ? 'Sending…' : '📲 Send practice inspection to all'}
+            </button>
+          ) : null,
+        }] : []),
         { title: 'Registered', emoji: '✅', color: 'green', items: registeredAttending, empty: 'No trainees have completed registration yet.', showResend: true },
         ...(registeredNoShow.length ? [{ title: 'Didn’t return (missed the last class day)', emoji: '🚫', color: 'slate', items: registeredNoShow, empty: '' }] : []),
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
@@ -1297,6 +1335,7 @@ export default function ClassDetail() {
           empty={group.empty}
           sending={sending}
           showResend={group.showResend}
+          headerAction={group.headerAction}
           onSend={(tid) => sendSms([tid], tid)}
           onHomework={sendHomework}
           onClearDnd={clearDnd}
@@ -1494,6 +1533,7 @@ function TraineeGroup({
   sending,
   onSend,
   showResend = false,
+  headerAction = null,
   // hideSend = true → no "Send text" button on each row. Used by the
   // attendance-only class view, where there's no registration flow.
   hideSend = false,
@@ -1526,9 +1566,12 @@ function TraineeGroup({
 
   return (
     <section className={`rounded-lg border ${palette} p-6 shadow-sm`}>
-      <h2 className="text-lg font-semibold">
-        {emoji} {title} <span className="text-slate-500 font-normal">({trainees.length})</span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">
+          {emoji} {title} <span className="text-slate-500 font-normal">({trainees.length})</span>
+        </h2>
+        {headerAction}
+      </div>
       {trainees.length === 0 ? (
         <p className="mt-2 text-sm text-slate-600">{empty}</p>
       ) : (

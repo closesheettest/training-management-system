@@ -8,7 +8,10 @@
 // The sandbox link (?mode=training) is a shared practice mode — reps rehearse
 // the whole signup + sign flow and nothing is saved.
 //
-// POST { date? }  →  { ok, date, signed_in, recipients, sms_sent, email_sent }
+// POST { traineeIds?, date? }
+//   traineeIds — explicit list (e.g. the "Signed in today" list on a class page)
+//   date       — otherwise resolve confirmed attendance for this date (default today, ET)
+// →  { ok, signed_in, recipients, sms_sent, email_sent }
 //
 // Required env: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN, GHL_LOCATION_ID
 
@@ -31,11 +34,17 @@ export const handler = async (event) => {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
-  // Who's signed in (confirmed attendance) on this date.
-  const { data: att, error: attErr } = await supabase
-    .from('attendance').select('trainee_id').eq('attendance_date', date).eq('confirmed', true)
-  if (attErr) return json(500, { ok: false, error: attErr.message })
-  const ids = [...new Set((att || []).map((a) => a.trainee_id).filter(Boolean))]
+  // Recipients: an explicit trainee list (from a class page's "Signed in today")
+  // wins; otherwise resolve everyone with confirmed attendance for the date.
+  let ids
+  if (Array.isArray(body.traineeIds) && body.traineeIds.length) {
+    ids = [...new Set(body.traineeIds.filter(Boolean))]
+  } else {
+    const { data: att, error: attErr } = await supabase
+      .from('attendance').select('trainee_id').eq('attendance_date', date).eq('confirmed', true)
+    if (attErr) return json(500, { ok: false, error: attErr.message })
+    ids = [...new Set((att || []).map((a) => a.trainee_id).filter(Boolean))]
+  }
   if (!ids.length) return json(200, { ok: true, date, signed_in: 0, recipients: 0, sms_sent: 0, email_sent: 0, note: `Nobody signed in on ${date}.` })
 
   const { data: trainees, error: trErr } = await supabase
