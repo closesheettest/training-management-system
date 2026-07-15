@@ -14,6 +14,8 @@ export default function Attendance() {
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [sending, setSending] = useState(false)
+  const [sendMsg, setSendMsg] = useState(null)
 
   useEffect(() => {
     load()
@@ -55,6 +57,29 @@ export default function Attendance() {
     }
     return { expected, dropouts, present }
   }, [classes, date])
+
+  // Blast the practice (sandbox) Free Roof Inspection link to everyone signed
+  // in on the viewed day. Sends real SMS + email, so it's confirm-gated and
+  // only fires when the office clicks it.
+  async function sendPracticeInspection() {
+    if (summary.present === 0 || sending) return
+    if (!window.confirm(
+      `Text + email the practice Free Roof Inspection link to the ${summary.present} rep${summary.present === 1 ? '' : 's'} signed in on ${formatDateLong(date)}?`,
+    )) return
+    setSending(true); setSendMsg(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-sandbox-inspection', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.ok) setSendMsg({ ok: false, text: j.error || 'Could not send — try again.' })
+      else setSendMsg({ ok: true, text: `Sent to ${j.recipients} rep${j.recipients === 1 ? '' : 's'} — ${j.sms_sent} text, ${j.email_sent} email.` })
+    } catch (e) {
+      setSendMsg({ ok: false, text: e?.message || 'Network error.' })
+    }
+    setSending(false)
+  }
 
   function shiftDate(days) {
     const d = parseLocalDate(date)
@@ -123,6 +148,23 @@ export default function Attendance() {
             </>
           )}
         </div>
+        {classes.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+            <button
+              onClick={sendPracticeInspection}
+              disabled={sending || summary.present === 0}
+              title="Text + email the sandbox (practice) Free Roof Inspection signing link to every rep signed in on this day. Nothing they do in it is saved."
+              className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : `📲 Send practice inspection to everyone signed in (${summary.present})`}
+            </button>
+            {sendMsg && (
+              <span className={sendMsg.ok ? 'text-sm font-medium text-emerald-700' : 'text-sm font-medium text-red-600'}>
+                {sendMsg.text}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
