@@ -78,13 +78,17 @@ export default function TrainingDays() {
       if (!key) continue
       const cur = byMgr.get(key) || { name: v.manager_name || 'Manager', sessions: 0, seconds: 0, windowSecs: 0, last: v.opened_at }
       cur.sessions += 1
-      cur.seconds += v.seconds || 0
-      // How long they had it open DURING today's 9:30–10 AM meeting window:
-      // overlap of the open interval [opened_at, last_ping_at] with the window.
+      const active = Math.max(0, v.seconds || 0)
+      cur.seconds += active
+      // Time actually ENGAGED during today's 9:30–10 AM meeting window. We take
+      // the overlap of the open interval [opened_at, last_ping_at] with the
+      // window, then CAP it by the session's active seconds — otherwise a tab
+      // left open but idle (opened 9:32, closed 10:43, but only 20s of real use)
+      // reads as ~28 min. Capping keeps this ≤ the manager's Total time.
       const s = new Date(v.opened_at).getTime()
       const e = new Date(v.last_ping_at || v.opened_at).getTime()
-      const overlapMs = Math.min(end, e) - Math.max(start, s)
-      if (overlapMs > 0) cur.windowSecs += overlapMs / 1000
+      const overlapSecs = Math.max(0, (Math.min(end, e) - Math.max(start, s)) / 1000)
+      cur.windowSecs += Math.min(overlapSecs, active)
       if (new Date(v.opened_at) > new Date(cur.last)) cur.last = v.opened_at
       byMgr.set(key, cur)
     }
@@ -243,7 +247,7 @@ export default function TrainingDays() {
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-1 text-sm font-semibold text-slate-900">Who's using it</div>
           <div className="mb-2 text-xs text-slate-500">
-            The <b>9:30–10 AM meeting</b> column shows how long each manager had today's slide open during that window — a quick check on who actually ran it live with their team.
+            The <b>9:30–10 AM meeting</b> column shows how long each manager was <b>actively on</b> today's slide during that window (a tab left open but idle doesn't count) — a quick check on who actually ran it live with their team.
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
