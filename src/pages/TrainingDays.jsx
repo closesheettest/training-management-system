@@ -69,15 +69,22 @@ export default function TrainingDays() {
 
   async function loadUsage() {
     const { data } = await supabase.from('training_views')
-      .select('manager_id, manager_name, seconds, opened_at')
+      .select('manager_id, manager_name, seconds, opened_at, last_ping_at')
       .order('opened_at', { ascending: false }).limit(1000)
+    const { start, end } = etMeetingWindow() // today's 9:30–10 AM ET
     const byMgr = new Map()
     for (const v of data || []) {
       const key = v.manager_id || v.manager_name
       if (!key) continue
-      const cur = byMgr.get(key) || { name: v.manager_name || 'Manager', sessions: 0, seconds: 0, last: v.opened_at }
+      const cur = byMgr.get(key) || { name: v.manager_name || 'Manager', sessions: 0, seconds: 0, windowSecs: 0, last: v.opened_at }
       cur.sessions += 1
       cur.seconds += v.seconds || 0
+      // How long they had it open DURING today's 9:30–10 AM meeting window:
+      // overlap of the open interval [opened_at, last_ping_at] with the window.
+      const s = new Date(v.opened_at).getTime()
+      const e = new Date(v.last_ping_at || v.opened_at).getTime()
+      const overlapMs = Math.min(end, e) - Math.max(start, s)
+      if (overlapMs > 0) cur.windowSecs += overlapMs / 1000
       if (new Date(v.opened_at) > new Date(cur.last)) cur.last = v.opened_at
       byMgr.set(key, cur)
     }
@@ -234,18 +241,26 @@ export default function TrainingDays() {
 
       {isAdmin && usage.length > 0 && (
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-2 text-sm font-semibold text-slate-900">Who's using it</div>
+          <div className="mb-1 text-sm font-semibold text-slate-900">Who's using it</div>
+          <div className="mb-2 text-xs text-slate-500">
+            The <b>9:30–10 AM meeting</b> column shows how long each manager had today's slide open during that window — a quick check on who actually ran it live with their team.
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="py-1 pr-4">Manager</th><th className="py-1 pr-4">Opens</th><th className="py-1 pr-4">Total time</th><th className="py-1">Last opened</th>
+                  <th className="py-1 pr-4">Manager</th><th className="py-1 pr-4">9:30–10 AM meeting</th><th className="py-1 pr-4">Opens</th><th className="py-1 pr-4">Total time</th><th className="py-1">Last opened</th>
                 </tr>
               </thead>
               <tbody>
                 {usage.map((u, k) => (
                   <tr key={k} className="border-t border-slate-100">
                     <td className="py-1.5 pr-4 font-medium text-slate-800">{u.name}</td>
+                    <td className="py-1.5 pr-4 tabular-nums">
+                      {u.windowSecs >= 30
+                        ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">{fmtMins(u.windowSecs)}</span>
+                        : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="py-1.5 pr-4 tabular-nums">{u.sessions}</td>
                     <td className="py-1.5 pr-4 tabular-nums">{fmtMins(u.seconds)}</td>
                     <td className="py-1.5 text-slate-500">{fmtWhen(u.last)}</td>
@@ -375,6 +390,21 @@ function fmtMins(seconds) {
   if (m < 60) return `${m} min`
   const h = Math.floor(m / 60)
   return `${h}h ${m % 60}m`
+}
+// Today's 9:30–10:00 AM America/New_York meeting window, as epoch-ms bounds.
+// Reads the live ET UTC-offset (EDT/EST) so it's correct year-round.
+function etMeetingWindow() {
+  const now = new Date()
+  const offName = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' })
+    .formatToParts(now).find((p) => p.type === 'timeZoneName')?.value || 'GMT-4'
+  const m = /GMT([+-]\d{1,2})(?::?(\d{2}))?/.exec(offName)
+  const h = m ? parseInt(m[1], 10) : -4
+  const iso = `${h < 0 ? '-' : '+'}${String(Math.abs(h)).padStart(2, '0')}:${m && m[2] ? m[2] : '00'}`
+  const etDate = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // YYYY-MM-DD, ET
+  return {
+    start: new Date(`${etDate}T09:30:00${iso}`).getTime(),
+    end: new Date(`${etDate}T10:00:00${iso}`).getTime(),
+  }
 }
 function fmtWhen(iso) {
   try {

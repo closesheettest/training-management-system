@@ -627,6 +627,57 @@ export const handler = async (event) => {
     return json(200, { ok: true })
   }
 
+  // ── Idea for a meeting ────────────────────────────────────────────────
+  // A regional manager proposes a topic to run as an Ongoing Training day.
+  // Saves as a PENDING training day (source 'submission') and alerts DeWayne
+  // & Neal, who review/edit it and Activate — same pipeline the admin page
+  // uses, so an accepted idea just joins the daily rotation.
+  if (action === 'submit_meeting_idea') {
+    const title = String(body.title || '').trim()
+    const point = String(body.point || '').trim()
+    const scriptText = String(body.details || '').trim()
+    if (!title || !point) {
+      return json(400, { error: 'Give it a title and a sentence on the point.' })
+    }
+    const script = scriptText
+      .split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      .map((l) => (/^\(.*\)$/.test(l) ? { k: 'dir', t: l } : { k: 'say', t: l }))
+    const reviewToken = (globalThis.crypto?.randomUUID?.() || String(Math.random()).slice(2) + Date.now())
+    const who = `${manager.first_name || ''} ${manager.last_name || ''}`.trim() || 'A manager'
+
+    const { data: created, error: insErr } = await supabase
+      .from('training_days')
+      .insert({
+        title,
+        subject: 'Meeting idea',
+        theme: 'Meeting idea',
+        point,
+        script,
+        status: 'pending',
+        source: 'submission',
+        review_token: reviewToken,
+        submitted_by_name: who,
+        submitted_by_recipient_id: manager.id,
+      })
+      .select('id')
+      .single()
+    if (insErr) return json(500, { error: insErr.message })
+
+    // Alert the reviewers (best-effort — the idea is saved regardless).
+    let notified = true
+    try {
+      const siteUrl = (process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
+      const r = await fetch(`${siteUrl}/.netlify/functions/notify-training-day-submitted`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: created.id }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok || !j.ok || ((j.sms_sent || 0) + (j.email_sent || 0) === 0)) notified = false
+    } catch { notified = false }
+
+    return json(200, { ok: true, notified })
+  }
+
   return json(400, { error: `Unknown action: ${action}` })
 }
 

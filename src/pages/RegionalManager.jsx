@@ -188,6 +188,7 @@ export default function RegionalManager() {
         <RepsTable token={token} reps={reps} onChanged={reload} />
         <ZoneMap reps={reps} zoneName={manager.region} token={token} />
         <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
+        <MeetingIdea token={token} />
         <QuickActions manager={manager} />
       </Group>
 
@@ -195,6 +196,88 @@ export default function RegionalManager() {
         Need help? Reply to the text you got with this link.
       </footer>
     </ShellFrame>
+  )
+}
+
+// 💡 Idea for a meeting — a manager proposes an Ongoing Training topic. It
+// saves as a pending day and alerts DeWayne & Neal, who review/edit and
+// Activate it into the daily rotation.
+function MeetingIdea({ token }) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [point, setPoint] = useState('')
+  const [details, setDetails] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null) // { kind, text }
+
+  async function submit() {
+    if (!title.trim() || !point.trim()) {
+      setMsg({ kind: 'error', text: 'Add a title and a sentence on the point.' })
+      return
+    }
+    setBusy(true); setMsg(null)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submit_meeting_idea', token, title, point, details }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.ok) { setMsg({ kind: 'error', text: j.error || 'Could not send. Try again.' }); setBusy(false); return }
+      setMsg({
+        kind: 'success',
+        text: j.notified
+          ? '✅ Sent to DeWayne & Neal to review. If they accept it, it joins the daily training.'
+          : '✅ Saved for DeWayne & Neal to review. (Their text/email alert didn\'t go out, but they\'ll see it.)',
+      })
+      setTitle(''); setPoint(''); setDetails('')
+    } catch (e) {
+      setMsg({ kind: 'error', text: e?.message || 'Network error.' })
+    }
+    setBusy(false)
+  }
+
+  return (
+    <section className="mt-6 rounded-xl border border-indigo-400/40 bg-indigo-500/5 p-4">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-left">
+        <span className="text-lg font-semibold text-white">💡 Idea for a meeting</span>
+        <span className="text-sm text-slate-300">{open ? '▾' : '▸'}</span>
+      </button>
+      {!open ? (
+        <p className="mt-1 text-sm text-slate-200/70">Got a topic your team should hear? Suggest it — DeWayne & Neal review it, then it goes into the daily Ongoing Training.</p>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-slate-200/75">Fill this out and it goes to <strong>DeWayne &amp; Neal</strong>. They can edit it, then Accept — and it joins the daily Ongoing Training rotation.</p>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">Title</span>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Handling the “I need to talk to my spouse” objection"
+              className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">The point (one sentence)</span>
+            <textarea rows={2} value={point} onChange={(e) => setPoint(e.target.value)}
+              placeholder="What's the one thing you want reps to walk away with?"
+              className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-300">How you'd run it <span className="normal-case text-slate-400">(optional — talk track, one line per line)</span></span>
+            <textarea rows={5} value={details} onChange={(e) => setDetails(e.target.value)}
+              placeholder={'Say this…\nThen ask…\n(Note to the manager in parentheses)'}
+              className="w-full rounded-md border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-sm text-white placeholder-slate-400 focus:border-indigo-400 focus:outline-none" />
+          </label>
+          {msg && (
+            <div className={'rounded-md px-3 py-2 text-sm ' + (msg.kind === 'success' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-red-500/15 text-red-200')}>
+              {msg.text}
+            </div>
+          )}
+          <button type="button" onClick={submit} disabled={busy}
+            className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60">
+            {busy ? 'Sending…' : 'Send idea to DeWayne & Neal'}
+          </button>
+        </div>
+      )}
+    </section>
   )
 }
 
