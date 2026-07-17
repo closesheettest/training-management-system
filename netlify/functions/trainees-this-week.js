@@ -23,11 +23,17 @@ export const handler = async (event) => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // YYYY-MM-DD ET
   const supabase = createClient(SB_URL, SB_KEY)
 
-  // 1) In-training (not yet active), non-declined trainees who have a class.
+  // 1) In-training (not yet active), non-declined, STILL-ENROLLED trainees who
+  //    have a class. The enrolled filter matters: un-enrolling a no-show (here or
+  //    via mark-class-dropouts) has to actually drop them from this feed, or they
+  //    keep showing up as someone to hand a map link to. `not.is.false` keeps
+  //    enrolled=true AND enrolled=null (older rows), and drops only the explicitly
+  //    un-enrolled.
   const { data: ts, error: e1 } = await supabase
     .from('trainees')
     .select('id, first_name, last_name, phone, is_active_sales_rep, declined_at, class_id')
     .is('declined_at', null)
+    .not('enrolled', 'is', false)
     .order('last_name', { ascending: true })
   if (e1) return cors(500, JSON.stringify({ ok: false, error: e1.message }))
   const inTraining = (ts || []).filter((t) => t.is_active_sales_rep !== true && t.class_id)
