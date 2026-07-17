@@ -1483,17 +1483,24 @@ function DamageNeedsRep({ zone }) {
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-brand-navy">🏚️ Damage deals needing a rep</h2>
-            <p className="text-xs text-slate-500">Damage deals in your zone whose rep isn't active (or has none). Assign each to an active rep — it lands in their Damage visit list.</p>
+            <h2 className="text-lg font-bold text-brand-navy">🗂️ Inspected deals needing a rep</h2>
+            <p className="text-xs text-slate-500">Damage, no-damage &amp; retail results in your zone whose rep isn't active (or has none) — they show for no one until you assign them. Oldest first, so nothing sits for months. Assign each to an active rep and it lands in their visit list.</p>
           </div>
           <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load'}</button>
         </div>
         {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
         {data && (
           <div className="mt-3">
-            {remaining.length === 0 ? <div className="text-sm text-slate-500">No damage deals waiting for a rep. 🎉</div> : remaining.map((dl) => (
+            {remaining.length === 0 ? <div className="text-sm text-slate-500">No inspected deals waiting for a rep. 🎉</div> : remaining.map((dl) => {
+              const RES = { damage: { l: '🏚️ Damage', c: 'bg-rose-100 text-rose-700' }, no_damage: { l: '✅ No-Damage', c: 'bg-emerald-100 text-emerald-700' }, retail: { l: '🏠 Retail', c: 'bg-amber-100 text-amber-700' } }[dl.result] || { l: dl.result, c: 'bg-slate-100 text-slate-600' }
+              const old = dl.age_days != null && dl.age_days >= 14
+              return (
               <div key={dl.inspection_id} className="mt-2 rounded-lg border border-slate-200 p-3">
-                <div className="font-bold text-slate-800">{dl.client_name}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${RES.c}`}>{RES.l}</span>
+                  {dl.age_days != null && <span className={`text-[11px] font-bold ${old ? 'text-red-600' : 'text-slate-400'}`}>{old ? '⚠️ ' : ''}{dl.age_days}d waiting</span>}
+                </div>
+                <div className="mt-1 font-bold text-slate-800">{dl.client_name}</div>
                 <div className="text-[13px] text-slate-600">📍 {[dl.address, dl.city].filter(Boolean).join(', ')}{dl.county ? ` · ${dl.county}` : ''}</div>
                 <div className="text-[12px] text-slate-400">was: {dl.current_rep || 'no rep'}{dl.mobile ? ` · ${dl.mobile}` : ' · no phone'}</div>
                 <div className="mt-2 flex gap-2">
@@ -1504,7 +1511,7 @@ function DamageNeedsRep({ zone }) {
                   <button onClick={() => assign(dl)} disabled={busy === dl.inspection_id || !sel[dl.inspection_id]} className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50">{busy === dl.inspection_id ? '…' : 'Assign'}</button>
                 </div>
               </div>
-            ))}
+            )})}
             {Object.keys(doneIds).length > 0 && (
               <div className="mt-3 text-xs font-semibold text-emerald-700">
                 {Object.entries(doneIds).map(([id, name]) => {
