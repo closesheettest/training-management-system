@@ -1477,14 +1477,16 @@ function DamageNeedsRep({ zone }) {
     setBusy('')
   }
   const remaining = (data?.deals || []).filter((d) => !doneIds[d.inspection_id])
+  // Auto-load so the manager sees what needs assigning without a click.
+  useEffect(() => { load() }, [zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="mb-6">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-brand-navy">🗂️ Inspected deals needing a rep</h2>
-            <p className="text-xs text-slate-500">Damage, no-damage &amp; retail results in your zone whose rep isn't active (or has none) — they show for no one until you assign them. Oldest first, so nothing sits for months. Assign each to an active rep and it lands in their visit list.</p>
+            <h2 className="text-lg font-bold text-brand-navy">🗂️ Needs assignment{data ? ` (${remaining.length})` : ''}</h2>
+            <p className="text-xs text-slate-500">Inspected results (damage, no-damage &amp; retail) in your zone whose rep isn't active — they show for no one until you assign them. Oldest first, so nothing sits for months. Assign each to an active rep and it lands in their visit list.</p>
           </div>
           <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load'}</button>
         </div>
