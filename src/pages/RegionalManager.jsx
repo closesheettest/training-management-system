@@ -167,9 +167,9 @@ export default function RegionalManager() {
         <DamageNeedsRep zone={manager.region} />
       </Group>
 
-      <Group title="🗺️ Live Team Map — where your reps are knocking" defaultOpen>
-        <TeamHarvestMap zone={manager.region} />
-      </Group>
+      {/* Renders its own collapsible header; hides itself entirely when the company
+          has the manager map turned off (server flag). */}
+      <TeamHarvestMap zone={manager.region} />
 
       <section className="mb-6"><InspectionLookup /></section>
 
@@ -2103,6 +2103,8 @@ function FitBounds({ points }) {
 function TeamHarvestMap({ zone }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
+  const [enabled, setEnabled] = useState(null)  // null = unknown; false = company turned it off
+  const [open, setOpen] = useState(true)
   useEffect(() => {
     let live = true
     const pull = async () => {
@@ -2111,6 +2113,7 @@ function TeamHarvestMap({ zone }) {
         const j = await r.json()
         if (!live) return
         if (!j.ok) { setErr(j.error || 'Could not load the team map.'); return }
+        setEnabled(j.enabled !== false)
         setErr(''); setData(j)
       } catch { if (live) setErr('Network error loading the team map.') }
     }
@@ -2125,10 +2128,18 @@ function TeamHarvestMap({ zone }) {
   const totals = reps.reduce((a, r) => ({ knocks: a.knocks + r.today.knocks, sold: a.sold + r.today.sold, appts: a.appts + r.today.appts }), { knocks: 0, sold: 0, appts: 0 })
   const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
 
+  // Company turned it off (or we can't confirm it's on yet) → show nothing.
+  if (enabled !== true) return null
   return (
-    <section className="mt-4 rounded-lg border border-white/10 bg-white/5 p-5">
+    <div className="mb-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800">
+        <span className="text-base font-bold text-white">🗺️ Live Team Map — where your reps are knocking</span>
+        <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+      <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-amber-200">🗺️ Live team map · {zone}</h2>
+        <h2 className="text-sm font-semibold text-amber-200/90">{zone}</h2>
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white">{liveCount} working now</span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-200">{totals.knocks} knocks</span>
@@ -2178,8 +2189,10 @@ function TeamHarvestMap({ zone }) {
           ))}
         </div>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">Refreshes every 30s · a rep goes “idle” after 15 min with no ping · trails cover the last 3 hours.</p>
-    </section>
+      <p className="mt-2 text-[11px] text-slate-400">Refreshes every 30s · a rep goes “idle” after 15 min with no ping (or right away when they close their map) · trails cover the last 3 hours.</p>
+      </section>
+      )}
+    </div>
   )
 }
 
