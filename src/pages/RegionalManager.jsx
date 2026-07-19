@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, Fragment } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
@@ -165,6 +165,10 @@ export default function RegionalManager() {
         <AssignAppointments token={token} />
         <DealsToFix zone={manager.region} />
         <DamageNeedsRep zone={manager.region} />
+      </Group>
+
+      <Group title="🗺️ Live Team Map — where your reps are knocking" defaultOpen>
+        <TeamHarvestMap zone={manager.region} />
       </Group>
 
       <section className="mb-6"><InspectionLookup /></section>
@@ -2066,6 +2070,119 @@ function WhatsAppGroups({ token, reps, zone }) {
 }
 
 // ── Zone Map ───────────────────────────────────────────────────────
+// ── LIVE team Harvesting Map — this zone's reps only ────────────────────────
+// Where each of the manager's reps is RIGHT NOW on the door-knock map (live GPS
+// breadcrumb + last action) plus today's counts. Data comes from CCG (the harvest
+// app owns that data) via the zone-scoped harvest-team-manager function — same
+// cross-app pattern as the leaderboard / conversion reports on this page.
+const HARVEST_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
+const HREP_COLORS = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777', '#65a30d', '#4f46e5', '#b45309', '#0d9488', '#be123c']
+const hRepColor = (i) => HREP_COLORS[i % HREP_COLORS.length]
+const hEsc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+function hDot(color, name, live, action) {
+  return L.divIcon({
+    className: 'hrep',
+    html: `<div style="display:flex;flex-direction:column;align-items:center;transform:translateY(-4px)${live ? '' : ';opacity:.55;filter:grayscale(.4)'}">
+      <div style="background:${color};color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4);margin-bottom:2px">${hEsc(name)}${live ? '' : ' · idle'}${action ? ' · ' + hEsc(action) : ''}</div>
+      <div style="width:15px;height:15px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5)"></div>
+    </div>`,
+    iconSize: [1, 1], iconAnchor: [0, 7],
+  })
+}
+// Fit the map to the reps ONCE (first data) — after that the manager can pan freely
+// without it snapping back on every 30s refresh.
+function FitBounds({ points }) {
+  const map = useMap()
+  const done = useRef(false)
+  useEffect(() => {
+    if (done.current || !points.length) return
+    try { map.fitBounds(points, { padding: [40, 40], maxZoom: 14 }); done.current = true } catch { /* ignore */ }
+  }, [points, map])
+  return null
+}
+function TeamHarvestMap({ zone }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    let live = true
+    const pull = async () => {
+      try {
+        const r = await fetch(HARVEST_ORIGIN + 'harvest-team-manager?zone=' + encodeURIComponent(zone) + '&mins=180')
+        const j = await r.json()
+        if (!live) return
+        if (!j.ok) { setErr(j.error || 'Could not load the team map.'); return }
+        setErr(''); setData(j)
+      } catch { if (live) setErr('Network error loading the team map.') }
+    }
+    pull()
+    const t = setInterval(pull, 30000)
+    return () => { live = false; clearInterval(t) }
+  }, [zone])
+
+  const reps = data?.reps || []
+  const positions = reps.filter((r) => r.last_pos && Number.isFinite(r.last_pos.lat)).map((r) => [r.last_pos.lat, r.last_pos.lng])
+  const liveCount = reps.filter((r) => r.live).length
+  const totals = reps.reduce((a, r) => ({ knocks: a.knocks + r.today.knocks, sold: a.sold + r.today.sold, appts: a.appts + r.today.appts }), { knocks: 0, sold: 0, appts: 0 })
+  const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
+
+  return (
+    <section className="mt-4 rounded-lg border border-white/10 bg-white/5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-amber-200">🗺️ Live team map · {zone}</h2>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white">{liveCount} working now</span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-slate-200">{totals.knocks} knocks</span>
+          <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 font-semibold text-emerald-200">{totals.sold} signed</span>
+          <span className="rounded-full bg-blue-500/20 px-2.5 py-1 font-semibold text-blue-200">{totals.appts} appts</span>
+        </div>
+      </div>
+      {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
+      {!data && !err && <p className="mt-2 text-sm text-slate-300">Loading team map…</p>}
+      <div className="mt-3 flex flex-col gap-3 lg:flex-row">
+        <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 440, flex: '1 1 60%', minWidth: 280 }}>
+          <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+            <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <FitBounds points={positions} />
+            {reps.map((rep, i) => {
+              const color = hRepColor(i)
+              const trail = (rep.pings || []).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)).map((p) => [p.lat, p.lng])
+              return (
+                <Fragment key={rep.rep_id || rep.name}>
+                  {trail.length > 1 && <Polyline positions={trail} pathOptions={{ color, weight: 3.5, opacity: 0.75 }} />}
+                  {rep.last_pos && Number.isFinite(rep.last_pos.lat) && (
+                    <Marker position={[rep.last_pos.lat, rep.last_pos.lng]} icon={hDot(color, rep.name, rep.live, rep.last_action)} zIndexOffset={rep.live ? 2000 : 800} />
+                  )}
+                </Fragment>
+              )
+            })}
+          </MapContainer>
+        </div>
+        <div className="space-y-1.5" style={{ flex: '1 1 40%', minWidth: 220, maxHeight: 440, overflowY: 'auto' }}>
+          {data && reps.length === 0 && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+              No reps on this team have worked the map today. Their live spot and today's counts show up here as they knock.
+            </div>
+          )}
+          {reps.map((rep, i) => (
+            <div key={rep.rep_id || rep.name} className={`flex items-center gap-2.5 rounded-lg border p-2.5 ${rep.live ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}>
+              <span style={{ width: 11, height: 11, borderRadius: 6, background: hRepColor(i), flexShrink: 0 }} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-white">
+                  {rep.name} {rep.live ? <span className="text-[10px] font-extrabold text-emerald-300">● LIVE</span> : <span className="text-[10px] text-slate-400">idle</span>}
+                </div>
+                <div className="text-[11px] text-slate-300">
+                  {rep.today.knocks} knock{rep.today.knocks === 1 ? '' : 's'} · {rep.today.sold} signed · {rep.today.appts} appt{rep.today.appts === 1 ? '' : 's'}{rep.last_action ? ` · ${rep.last_action}` : ''}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-400">Refreshes every 30s · a rep goes “idle” after 15 min with no ping · trails cover the last 3 hours.</p>
+    </section>
+  )
+}
+
 // Embedded Leaflet map showing every rep in the zone with a pin at
 // their geocoded home address. Hover/tap shows name + address. Reps
 // without lat/lng (haven't run /update-info or geocoding failed) are
