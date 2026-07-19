@@ -1273,12 +1273,58 @@ function Stat({ n, l, tone }) {
 // Top reference block — the "every tool we're building for them" catalog,
 // independent of any one manager.
 function ToolsetReference() {
+  // Live Team Map is a company on/off — the flag lives in the CCG app (harvest data),
+  // read/set through the harvest-admin-flag function.
+  const [teamMap, setTeamMap] = useState(null) // null = loading
+  const [teamBusy, setTeamBusy] = useState(false)
+  useEffect(() => {
+    fetch(LB_ORIGIN + 'harvest-admin-flag?key=harvest_manager_map_enabled')
+      .then((r) => r.json()).then((j) => { if (j && j.ok) setTeamMap(!!j.enabled) })
+      .catch(() => setTeamMap(true))
+  }, [])
+  const toggleTeamMap = async () => {
+    if (teamMap == null || teamBusy) return
+    const next = !teamMap
+    setTeamBusy(true); setTeamMap(next)
+    try {
+      const j = await (await fetch(LB_ORIGIN + 'harvest-admin-flag', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'harvest_manager_map_enabled', enabled: next }),
+      })).json()
+      if (!j || !j.ok) setTeamMap(!next) // revert on failure
+    } catch { setTeamMap(!next) }
+    setTeamBusy(false)
+  }
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
         What every manager gets
       </h2>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Live Team Map — the one company-toggleable tool. */}
+        <div className="flex gap-3 rounded-md bg-slate-50 p-3">
+          <span className="text-2xl leading-none" aria-hidden="true">🛰️</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-800">Live Team Map</span>
+              {teamMap == null ? (
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">…</span>
+              ) : (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${teamMap ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                  {teamMap ? 'On' : 'Off'}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-slate-600">
+              Live map of where their reps are knocking right now (positions, trails, today's counts). Company on/off — turn off to hide it from every manager.
+            </p>
+          </div>
+          <button type="button" onClick={toggleTeamMap} disabled={teamMap == null || teamBusy}
+            title={teamMap ? 'On — tap to turn off' : 'Off — tap to turn on'}
+            style={{ flexShrink: 0, width: 52, height: 28, borderRadius: 999, border: 'none', cursor: teamMap == null || teamBusy ? 'default' : 'pointer', background: teamMap ? '#7c3aed' : '#cbd5e1', position: 'relative', opacity: teamMap == null ? 0.5 : 1, transition: 'background .15s', alignSelf: 'center' }}>
+            <span style={{ position: 'absolute', top: 3, left: teamMap ? 27 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)', transition: 'left .15s' }} />
+          </button>
+        </div>
         {TOOLS.map((t) => (
           <div key={t.name} className="flex gap-3 rounded-md bg-slate-50 p-3">
             <span className="text-2xl leading-none" aria-hidden="true">
