@@ -167,20 +167,8 @@ export default function RegionalManager() {
         <DamageNeedsRep zone={manager.region} />
       </Group>
 
-      {/* Renders its own collapsible header; hides itself entirely when the company
-          has the manager map turned off (server flag). */}
-      <TeamHarvestMap zone={manager.region} />
-
-      {/* Practice mode — see exactly what your reps see, try every tool, nothing saves. */}
-      <a href="https://free-roof-inspections.netlify.app/?mode=harvest&demo=1" target="_blank" rel="noreferrer"
-        className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
-        <span className="text-2xl">🧪</span>
-        <div className="min-w-0">
-          <div className="text-base font-bold text-white">Practice the Harvesting tools</div>
-          <div className="text-xs text-slate-200/80">Open the map in a safe sandbox — real pins, but nothing you do is saved. Try Start my day, Route an area, and Plan-your-day so you can coach your reps on them.</div>
-        </div>
-        <span className="ml-auto text-slate-300">↗</span>
-      </a>
+      {/* Harvesting tools — gated behind the manager tool-training certification. */}
+      <HarvestToolsGate token={token} region={manager.region} />
 
       <section className="mb-6"><InspectionLookup /></section>
 
@@ -2204,6 +2192,51 @@ function TeamHarvestMap({ zone }) {
       </section>
       )}
     </div>
+  )
+}
+
+// Gate the Harvesting tools (Live Team Map + practice sandbox) behind the manager
+// tool-training certification. The training + pass record live in the CCG app; we just
+// check the pass flag here and, if not passed, send them to take it. On any error we
+// don't block (so a hiccup never hides their tools).
+const TRAINING_ORIGIN = 'https://free-roof-inspections.netlify.app'
+function HarvestToolsGate({ token, region }) {
+  const [passed, setPassed] = useState(null) // null=checking
+  useEffect(() => {
+    let live = true
+    fetch(`${LB_ORIGIN}harvest-training-status?user_type=manager&user_key=${encodeURIComponent(token)}`)
+      .then((r) => r.json()).then((j) => { if (live) setPassed(j && j.ok ? !!j.passed : true) })
+      .catch(() => { if (live) setPassed(true) })
+    return () => { live = false }
+  }, [token])
+
+  if (passed === null) return null
+  if (!passed) {
+    return (
+      <a href={`${TRAINING_ORIGIN}/?mode=harvesttraining&manager=${encodeURIComponent(token)}`} target="_blank" rel="noreferrer"
+        className="mb-3 flex items-center gap-3 rounded-lg border border-amber-400/50 bg-amber-500/10 p-4 no-underline hover:bg-amber-500/20">
+        <span className="text-2xl">🎓</span>
+        <div className="min-w-0">
+          <div className="text-base font-bold text-white">Complete your tool training to unlock the Harvesting tools</div>
+          <div className="text-xs text-slate-200/85">A short lesson + a quick test (pass 80%). Once you pass, your Live Team Map and practice sandbox appear right here.</div>
+        </div>
+        <span className="ml-auto rounded-md bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-900">Start →</span>
+      </a>
+    )
+  }
+  return (
+    <>
+      <TeamHarvestMap zone={region} />
+      <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
+        className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
+        <span className="text-2xl">🧪</span>
+        <div className="min-w-0">
+          <div className="text-base font-bold text-white">Practice the Harvesting tools</div>
+          <div className="text-xs text-slate-200/80">Open the map in a safe sandbox — real pins, but nothing you do is saved. Try Start my day, Route an area, and Plan-your-day so you can coach your reps on them.</div>
+        </div>
+        <span className="ml-auto text-slate-300">↗</span>
+      </a>
+    </>
   )
 }
 
