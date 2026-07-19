@@ -2227,6 +2227,7 @@ function HarvestToolsGate({ token, region }) {
   return (
     <>
       <TeamHarvestMap zone={region} />
+      <ZoneActivityReport zone={region} />
       <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
         className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
         <span className="text-2xl">🧪</span>
@@ -2237,6 +2238,126 @@ function HarvestToolsGate({ token, region }) {
         <span className="ml-auto text-slate-300">↗</span>
       </a>
     </>
+  )
+}
+
+// Zone-scoped historical activity report — the "look back" companion to the Live Team
+// Map. Per rep: doors knocked, outcome counts, not-home, and an off-spot flag (from the
+// location audit) so a manager can spot fake-work. Data comes from the CCG endpoint,
+// scoped to this zone's reps. Period toggle: today / 7d / 30d / all.
+const RPT_OUTCOMES = [
+  { key: 'appt', label: 'Appts', cls: 'text-blue-200' },
+  { key: 'insp_sold', label: 'Signed', cls: 'text-emerald-200' },
+  { key: 'no_sit_reschedule', label: 'No-sits', cls: 'text-amber-200' },
+  { key: 'iq_ni', label: 'IQ NI', cls: 'text-slate-200' },
+  { key: 'insp_ni', label: 'Insp NI', cls: 'text-slate-200' },
+  { key: 'dead', label: 'Dead', cls: 'text-slate-400' },
+]
+const RPT_PERIODS = [{ k: 'today', t: 'Today' }, { k: '7d', t: '7 days' }, { k: '30d', t: '30 days' }, { k: 'all', t: 'All' }]
+function fmtLastActive(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso), now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+function ZoneActivityReport({ zone }) {
+  const [period, setPeriod] = useState('7d')
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    setLoading(true); setErr('')
+    fetch(`${HARVEST_ORIGIN}harvest-report-manager?zone=${encodeURIComponent(zone)}&period=${period}`)
+      .then((r) => r.json())
+      .then((j) => { if (!live) return; if (!j.ok) { setErr(j.error || 'Could not load the report.'); setData(null) } else setData(j) })
+      .catch(() => { if (live) setErr('Network error loading the report.') })
+      .finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [zone, period, open])
+
+  const reps = data?.reps || []
+  const tot = reps.reduce((a, r) => {
+    a.knocks += r.knocks; a.notHome += r.notHome
+    for (const o of RPT_OUTCOMES) a[o.key] = (a[o.key] || 0) + (r.outcomes?.[o.key] || 0)
+    return a
+  }, { knocks: 0, notHome: 0 })
+
+  return (
+    <div className="mb-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800">
+        <span className="text-base font-bold text-white">📊 Team Activity Report — your zone's history</span>
+        <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-amber-200/90">{zone}</h2>
+            <div className="flex gap-1 rounded-lg bg-white/5 p-1">
+              {RPT_PERIODS.map((p) => (
+                <button key={p.k} onClick={() => setPeriod(p.k)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-semibold ${period === p.k ? 'bg-amber-400 text-slate-900' : 'text-slate-300 hover:text-white'}`}>
+                  {p.t}
+                </button>
+              ))}
+            </div>
+          </div>
+          {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
+          {loading && <p className="mt-2 text-sm text-slate-300">Loading report…</p>}
+          {!loading && !err && reps.length === 0 && (
+            <p className="mt-3 text-sm text-slate-300">No door-knocking activity from this team in this period.</p>
+          )}
+          {!loading && reps.length > 0 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[620px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+                    <th className="py-2 pr-3">Rep</th>
+                    <th className="px-2 text-right">Knocks</th>
+                    {RPT_OUTCOMES.map((o) => <th key={o.key} className="px-2 text-right">{o.label}</th>)}
+                    <th className="px-2 text-right">Not home</th>
+                    <th className="px-2 text-right">Off-spot</th>
+                    <th className="pl-2 text-right">Last active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reps.map((r) => (
+                    <tr key={r.name} className="border-t border-white/10">
+                      <td className="py-2 pr-3 font-bold text-white">{r.name}</td>
+                      <td className="px-2 text-right text-slate-200">{r.knocks}</td>
+                      {RPT_OUTCOMES.map((o) => (
+                        <td key={o.key} className={`px-2 text-right ${(r.outcomes?.[o.key] || 0) ? o.cls : 'text-slate-500'}`}>{r.outcomes?.[o.key] || 0}</td>
+                      ))}
+                      <td className="px-2 text-right text-slate-300">{r.notHome}</td>
+                      <td className={`px-2 text-right font-semibold ${r.offSpot ? 'text-red-300' : 'text-slate-500'}`}>{r.offSpot ? `⚑ ${r.offSpot}` : '0'}</td>
+                      <td className="pl-2 text-right text-slate-400">{fmtLastActive(r.lastActive)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-white/20 text-slate-100">
+                    <td className="py-2 pr-3 font-bold">Team</td>
+                    <td className="px-2 text-right font-bold">{tot.knocks}</td>
+                    {RPT_OUTCOMES.map((o) => <td key={o.key} className="px-2 text-right font-bold">{tot[o.key] || 0}</td>)}
+                    <td className="px-2 text-right font-bold">{tot.notHome}</td>
+                    <td className="px-2" colSpan={2} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          {data?.newRoof?.total > 0 && (
+            <div className="mt-3 rounded-lg border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">
+              🏚️ {data.newRoof.total} door{data.newRoof.total === 1 ? '' : 's'} marked <b>new roof</b> (lost) in this period{data.newRoof.bySrc?.length ? ` — from: ${data.newRoof.bySrc.map(([s, n]) => `${s} (${n})`).join(', ')}` : ''}.
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-slate-400"><b>Off-spot</b> = actions logged far from the pin (location audit) — a flag to check in, not proof of anything. Reps are matched to your zone by their JobNimbus link.</p>
+        </section>
+      )}
+    </div>
   )
 }
 
