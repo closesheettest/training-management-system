@@ -171,6 +171,17 @@ export default function RegionalManager() {
           has the manager map turned off (server flag). */}
       <TeamHarvestMap zone={manager.region} />
 
+      {/* Practice mode — see exactly what your reps see, try every tool, nothing saves. */}
+      <a href="https://free-roof-inspections.netlify.app/?mode=harvest&demo=1" target="_blank" rel="noreferrer"
+        className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
+        <span className="text-2xl">🧪</span>
+        <div className="min-w-0">
+          <div className="text-base font-bold text-white">Practice the Harvesting tools</div>
+          <div className="text-xs text-slate-200/80">Open the map in a safe sandbox — real pins, but nothing you do is saved. Try Start my day, Route an area, and Plan-your-day so you can coach your reps on them.</div>
+        </div>
+        <span className="ml-auto text-slate-300">↗</span>
+      </a>
+
       <section className="mb-6"><InspectionLookup /></section>
 
       <Group title="📊 My team's numbers">
