@@ -2134,18 +2134,43 @@ function BoxDrawer({ active, color, onBox }) {
   useEffect(() => {
     if (!active) return
     map.dragging.disable()
+    const container = map.getContainer()
+    // Pointer events cover BOTH mouse and touch (tablets) — the old mouse-only
+    // handlers never fired on the iPads the managers actually use.
     let start = null, rect = null
-    const down = (e) => { start = e.latlng; rect = L.rectangle([start, start], { color: color || '#f59e0b', weight: 2, fillOpacity: 0.15, dashArray: '4' }).addTo(map) }
-    const move = (e) => { if (start && rect) rect.setBounds([start, e.latlng]) }
-    const up = (e) => {
+    const toLatLng = (ev) => {
+      const box = container.getBoundingClientRect()
+      return map.containerPointToLatLng(L.point(ev.clientX - box.left, ev.clientY - box.top))
+    }
+    const down = (ev) => {
+      ev.preventDefault()
+      start = toLatLng(ev)
+      rect = L.rectangle([start, start], { color: color || '#f59e0b', weight: 2, fillOpacity: 0.15, dashArray: '4' }).addTo(map)
+      try { container.setPointerCapture(ev.pointerId) } catch { /* ignore */ }
+    }
+    const move = (ev) => { if (start && rect) rect.setBounds([start, toLatLng(ev)]) }
+    const up = (ev) => {
       if (start) {
-        const b = [[Math.min(start.lat, e.latlng.lat), Math.min(start.lng, e.latlng.lng)], [Math.max(start.lat, e.latlng.lat), Math.max(start.lng, e.latlng.lng)]]
+        const end = toLatLng(ev)
+        const b = [[Math.min(start.lat, end.lat), Math.min(start.lng, end.lng)], [Math.max(start.lat, end.lat), Math.max(start.lng, end.lng)]]
         if (Math.abs(b[1][0] - b[0][0]) > 1e-4 || Math.abs(b[1][1] - b[0][1]) > 1e-4) onBox(b)
       }
       if (rect) { map.removeLayer(rect); rect = null } start = null
     }
-    map.on('mousedown', down); map.on('mousemove', move); map.on('mouseup', up)
-    return () => { map.dragging.enable(); map.off('mousedown', down); map.off('mousemove', move); map.off('mouseup', up); if (rect) map.removeLayer(rect) }
+    container.addEventListener('pointerdown', down)
+    container.addEventListener('pointermove', move)
+    container.addEventListener('pointerup', up)
+    const prevCursor = container.style.cursor, prevTouch = container.style.touchAction
+    container.style.cursor = 'crosshair'
+    container.style.touchAction = 'none'   // stop the browser scrolling/panning mid-draw
+    return () => {
+      map.dragging.enable()
+      container.removeEventListener('pointerdown', down)
+      container.removeEventListener('pointermove', move)
+      container.removeEventListener('pointerup', up)
+      container.style.cursor = prevCursor; container.style.touchAction = prevTouch
+      if (rect) map.removeLayer(rect)
+    }
   }, [active, color, map, onBox])
   return null
 }
@@ -2563,7 +2588,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
             <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins${manual ? '' : ` → ${clusters.length} sections`}` : ''}</h2>
             <div className="flex gap-2">
               <button onClick={() => setFullscreen((f) => !f)} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
-              <button onClick={() => { setManual((m) => !m); setHi(null); setDrawRep(null) }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${manual ? 'bg-amber-400 text-slate-900' : 'bg-white/10 text-white hover:bg-white/20'}`}>{manual ? '⟲ Back to auto-split' : '✏️ Draw territories'}</button>
+              <button onClick={() => { setManual((m) => { const nm = !m; setHi(null); setDrawRep(nm ? (reps[0]?.harvest_token || null) : null); return nm }) }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${manual ? 'bg-amber-400 text-slate-900' : 'bg-white/10 text-white hover:bg-white/20'}`}>{manual ? '⟲ Back to auto-split' : '✏️ Draw territories'}</button>
               {!manual && <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>}
             </div>
           </div>
