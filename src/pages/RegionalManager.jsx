@@ -463,15 +463,19 @@ function ApptConversion({ zone }) {
   const [data, setData] = useState(null)
   const [openRep, setOpenRep] = useState(null)   // rep name — drill-down detail
   const [period, setPeriod] = useState('month')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [usingRange, setUsingRange] = useState(false)
   const [err, setErr] = useState('')
 
-  const load = async (p = period) => {
+  const load = async (override) => {
     setLoading(true); setErr('')
+    const q = override || ('period=' + period)
     // Heavy JobNimbus pull (~5-6s) — auto-retry a couple times before erroring.
     let lastErr = ''
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const res = await fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&period=' + p)
+        const res = await fetch(LB_ORIGIN + 'zone-appt-conversion?zone=' + encodeURIComponent(zone) + '&' + q)
         const d = await res.json()
         if (d && d.ok) { setData(d); setLoading(false); return }
         lastErr = d?.error || 'Could not load.'
@@ -480,7 +484,8 @@ function ApptConversion({ zone }) {
     }
     setErr(lastErr); setLoading(false)
   }
-  const setP = (p) => { setPeriod(p); if (data) load(p) }
+  const setP = (p) => { setPeriod(p); setUsingRange(false); load('period=' + p) }
+  const applyRange = () => { if (fromDate && toDate) { setUsingRange(true); load('start=' + fromDate + 'T00:00:00&end=' + toDate + 'T23:59:59') } }
   const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month'], ['lastmonth', 'Last month']]
 
   const downloadCsv = () => {
@@ -609,11 +614,18 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
       </button>
 
       {open && data && (
-        <div className="mt-2 flex items-center gap-1">
+        <div className="mt-2 flex flex-wrap items-center gap-1">
           {periods.map(([k, label]) => (
             <button key={k} type="button" onClick={() => setP(k)}
-              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
+              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (!usingRange && period === k ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
           ))}
+          <span className="ml-1 flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5">
+            <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} className="rounded border border-slate-300 px-1 py-0.5 text-[11px] text-slate-700" />
+            <span className="text-[11px] text-slate-500">→</span>
+            <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} className="rounded border border-slate-300 px-1 py-0.5 text-[11px] text-slate-700" />
+            <button type="button" onClick={applyRange} disabled={!fromDate || !toDate || loading}
+              className={'rounded px-2 py-0.5 text-[11px] font-semibold ' + (usingRange ? 'bg-indigo-600 text-white' : 'bg-slate-300 text-slate-700 hover:bg-slate-400 disabled:opacity-50')}>Go</button>
+          </span>
           <button type="button" onClick={openExpanded}
             className="ml-auto rounded-md bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-300">⛶ Expand</button>
           <button type="button" onClick={downloadCsv}
