@@ -2202,6 +2202,9 @@ function TeamHarvestMap({ zone }) {
 const TRAINING_ORIGIN = 'https://free-roof-inspections.netlify.app'
 function HarvestToolsGate({ token, region }) {
   const [passed, setPassed] = useState(null) // null=checking
+  // Office preview: add ?preview=1 to the dashboard URL to see the Harvesting tools
+  // without taking the manager training (for reviewing what's built).
+  const preview = (() => { try { return new URLSearchParams(window.location.search).get('preview') === '1' } catch { return false } })()
   useEffect(() => {
     let live = true
     fetch(`${LB_ORIGIN}harvest-training-status?user_type=manager&user_key=${encodeURIComponent(token)}`)
@@ -2210,8 +2213,8 @@ function HarvestToolsGate({ token, region }) {
     return () => { live = false }
   }, [token])
 
-  if (passed === null) return null
-  if (!passed) {
+  if (passed === null && !preview) return null
+  if (!passed && !preview) {
     return (
       <a href={`${TRAINING_ORIGIN}/?mode=harvesttraining&manager=${encodeURIComponent(token)}`} target="_blank" rel="noreferrer"
         className="mb-3 flex items-center gap-3 rounded-lg border border-amber-400/50 bg-amber-500/10 p-4 no-underline hover:bg-amber-500/20">
@@ -2226,6 +2229,11 @@ function HarvestToolsGate({ token, region }) {
   }
   return (
     <>
+      {preview && !passed && (
+        <div className="mb-3 rounded-lg border border-slate-500/40 bg-slate-800/60 px-4 py-2.5 text-sm font-semibold text-slate-200">
+          🔍 Office preview — you're seeing the Harvesting tools without the manager training. Managers still have to pass it to unlock these.
+        </div>
+      )}
       <TeamHarvestMap zone={region} />
       <EnhancedPlannedDay zone={region} token={token} />
       <ZoneActivityReport zone={region} />
