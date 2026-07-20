@@ -820,15 +820,19 @@ function Leaderboard({ myZone }) {
   const [period, setPeriod] = useState('week')
   const [insp, setInsp] = useState(null)
   const [sales, setSales] = useState(null)
+  const [harvest, setHarvest] = useState(null)
   const [openInsp, setOpenInsp] = useState(null)   // zone string | null
   const [openSales, setOpenSales] = useState(null)
+  const [openHarvest, setOpenHarvest] = useState(null)
   useEffect(() => {
     let cancelled = false
-    setInsp(null); setSales(null); setOpenInsp(null); setOpenSales(null)
+    setInsp(null); setSales(null); setHarvest(null); setOpenInsp(null); setOpenSales(null); setOpenHarvest(null)
     fetch(LB_ORIGIN + 'zone-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setInsp(d.zones) }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setSales(d.zones) }).catch(() => {})
+    fetch(LB_ORIGIN + 'zone-harvest-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d && d.ok) setHarvest(d.zones) }).catch(() => {})
     return () => { cancelled = true }
   }, [period])
 
@@ -850,7 +854,7 @@ function Leaderboard({ myZone }) {
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
         <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
         <div className="mt-1 text-xs font-bold">
-          <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : 'signed'}
+          <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}
           {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
         </div>
         <div className="mt-1 text-[10px] underline opacity-90">{isOpen ? '▾ Hide' : '▸ Details'}</div>
@@ -905,6 +909,21 @@ function Leaderboard({ myZone }) {
     )
   }
 
+  // Harvest detail: reps + how many appointments they booked off the map.
+  const harvestDetail = (z) => {
+    const reps = z.reps || []
+    if (!reps.length) return <div className="text-xs text-slate-300/70">No harvest appointments booked yet.</div>
+    return (
+      <div className="divide-y divide-white/10">
+        {reps.map((r) => (
+          <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
+            <span className="truncate">{r.name}</span>
+            <span className="font-bold">{r.count}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
   const board = (zones, kind, openZone, setOpen, detailFn) => {
     if (zones === null) return <div className="text-xs text-slate-300/70">Loading…</div>
     const openZ = zones.find((z) => z.zone === openZone)
@@ -942,6 +961,8 @@ function Leaderboard({ myZone }) {
       {board(insp, 'inspections', openInsp, setOpenInsp, inspDetail)}
       <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales — tap a team for the deals</div>
       {board(sales, 'sales', openSales, setOpenSales, salesDetail)}
+      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">🌾 Harvest — appointments booked from the map (IQ + No-Sit)</div>
+      {board(harvest, 'harvest', openHarvest, setOpenHarvest, harvestDetail)}
     </section>
   )
 }
