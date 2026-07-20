@@ -2109,6 +2109,12 @@ function PlanFit({ points, dep }) {
   }, [dep]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
+// Nudge Leaflet to recompute its size when the container resizes (full-screen toggle).
+function Resizer({ dep }) {
+  const map = useMap()
+  useEffect(() => { const t = setTimeout(() => { try { map.invalidateSize() } catch { /* ignore */ } }, 80); return () => clearTimeout(t) }, [dep]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
 // Drag-to-draw a rectangle on the map (manager territory override). Active only when a
 // rep is selected to draw for; disables panning while dragging so the box tracks cleanly.
 function BoxDrawer({ active, color, onBox }) {
@@ -2440,6 +2446,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [manual, setManual] = useState(false)          // manual draw-territories mode
   const [boxes, setBoxes] = useState([])               // [{ repTok, bounds:[[s,w],[n,e]] }] manager-drawn
   const [drawRep, setDrawRep] = useState(null)         // rep token currently drawing for
+  const [fullscreen, setFullscreen] = useState(false)  // expand the planner to fill the screen
 
   useEffect(() => {
     let live = true
@@ -2516,10 +2523,11 @@ function EnhancedPlannedDay({ zone, token, preview }) {
         <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
       </button>
       {open && (
-        <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
+        <section className={fullscreen ? 'fixed inset-0 z-[70] overflow-y-auto bg-slate-900 p-4' : 'mt-3 rounded-lg border border-white/10 bg-white/5 p-5'}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins${manual ? '' : ` → ${clusters.length} sections`}` : ''}</h2>
             <div className="flex gap-2">
+              <button onClick={() => setFullscreen((f) => !f)} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{fullscreen ? '✕ Exit full screen' : '⛶ Full screen'}</button>
               <button onClick={() => { setManual((m) => !m); setHi(null); setDrawRep(null) }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${manual ? 'bg-amber-400 text-slate-900' : 'bg-white/10 text-white hover:bg-white/20'}`}>{manual ? '⟲ Back to auto-split' : '✏️ Draw territories'}</button>
               {!manual && <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>}
             </div>
@@ -2564,9 +2572,10 @@ function EnhancedPlannedDay({ zone, token, preview }) {
           {data && clusters.length === 0 && <p className="mt-3 text-sm text-slate-300">No IQ or No-sit pins to plan in this zone right now.</p>}
           {data && clusters.length > 0 && (
             <div className="mt-3 flex flex-col gap-3 lg:flex-row">
-              <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 420, flex: '1 1 55%', minWidth: 280 }}>
+              <div className="overflow-hidden rounded-md border border-white/10" style={{ height: fullscreen ? 'calc(100vh - 210px)' : 420, flex: fullscreen ? '1 1 68%' : '1 1 55%', minWidth: 280 }}>
                 <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Resizer dep={fullscreen} />
                   <PlanFit points={manual ? allPins.map((p) => [p.lat, p.lng]) : (hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || []))} dep={manual ? 'manual' : hi} />
                   {manual ? (
                     <>
@@ -2593,7 +2602,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
                   )}
                 </MapContainer>
               </div>
-              <div className="space-y-2" style={{ flex: '1 1 45%', minWidth: 240, maxHeight: 420, overflowY: 'auto' }}>
+              <div className="space-y-2" style={{ flex: fullscreen ? '1 1 32%' : '1 1 45%', minWidth: 240, maxHeight: fullscreen ? 'calc(100vh - 210px)' : 420, overflowY: 'auto' }}>
                 {manual ? (
                   <>
                     <div className="text-[11px] text-slate-400">Each rep's box(es) are their turf. Grey pins aren't in anyone's box yet.</div>
