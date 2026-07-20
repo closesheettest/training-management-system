@@ -144,6 +144,13 @@ export default function InspectionLookup() {
           </div>
           <div className="mt-0.5 text-[13px] text-slate-500">{d.address} · Rep: {d.rep}{d.mobile ? ` · ${d.mobile}` : ''}</div>
           {d.stage_detail && <div className="mt-2 text-sm font-semibold text-slate-700">{d.stage_detail}</div>}
+          {d.pa_name && (
+            <div className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[13px]">
+              <span className="font-extrabold text-cyan-700">🧑‍💼 PA: {d.pa_name}</span>
+              {d.pa_company && <span className="text-slate-600">· {d.pa_company}</span>}
+              {d.pa_phone && <a href={`tel:${String(d.pa_phone).replace(/[^\d+]/g, '')}`} className="font-bold text-cyan-700 no-underline">· 📞 {d.pa_phone}</a>}
+            </div>
+          )}
           {d.jn_status_stale && <div className="mt-1.5 text-[12.5px] font-bold text-amber-700">⚠ JobNimbus still says “{d.jn_status}” — stale (the deal was released).</div>}
 
           {d.timeline?.length > 0 && (
