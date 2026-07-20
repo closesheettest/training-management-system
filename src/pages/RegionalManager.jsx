@@ -2439,6 +2439,11 @@ function sectionBadge(i, count) {
   return L.divIcon({ className: '', iconAnchor: [16, 10], html: `<div style="background:${color};color:#fff;font-weight:800;font-size:11px;padding:2px 7px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap">${letter} · ${count}</div>` })
 }
 
+// Existing JobNimbus appointment pin for the plan map — a 📅 teardrop with the rep + time.
+function apptShort(ms) { const d = new Date(ms); return d.toLocaleDateString([], { weekday: 'short' }) + ' ' + d.toLocaleTimeString([], { hour: 'numeric' }).replace(/\s/g, '').toLowerCase() }
+function apptIcon(label) {
+  return L.divIcon({ className: '', iconAnchor: [11, 28], html: `<div style="display:flex;flex-direction:column;align-items:center"><div style="background:#0f172a;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4);margin-bottom:1px">${label}</div><div style="width:20px;height:20px;border-radius:50% 50% 50% 2px;transform:rotate(45deg);background:#0f172a;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"><div style="transform:rotate(-45deg);color:#fff;font-size:11px;text-align:center;line-height:18px">📅</div></div></div>` })
+}
 // Enhanced Planned Day (Sr-only) — the manager plans their team's day. The zone's
 // IQ + No-sit pins auto-split into balanced sections (one per Sr rep, incl. the
 // manager); the manager assigns each section to a rep and publishes. Each Sr rep's
@@ -2460,6 +2465,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [boxes, setBoxes] = useState([])               // [{ repTok, bounds:[[s,w],[n,e]] }] manager-drawn
   const [drawRep, setDrawRep] = useState(null)         // rep token currently drawing for
   const [fullscreen, setFullscreen] = useState(false)  // expand the planner to fill the screen
+  const [appts, setAppts] = useState([])               // reps' existing JN appointments (mirror JN)
 
   useEffect(() => {
     let live = true
@@ -2474,6 +2480,11 @@ function EnhancedPlannedDay({ zone, token, preview }) {
       .then((r) => r.json()).then((j) => { if (j && j.ok) { setProgress(j.reps); setPublished((j.reps || []).length > 0) } }).catch(() => { /* ignore */ })
   }
   useEffect(() => { if (enabled || preview) loadProgress() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
+  const loadAppts = () => {
+    fetch(`${HARVEST_ORIGIN}harvest-zone-appts?zone=${encodeURIComponent(zone)}`)
+      .then((r) => r.json()).then((j) => { if (j && j.ok) setAppts(j.appts || []) }).catch(() => { /* ignore */ })
+  }
+  useEffect(() => { if (enabled || preview) loadAppts() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = (exc) => {
     const ex = exc || excluded
@@ -2624,6 +2635,12 @@ function EnhancedPlannedDay({ zone, token, preview }) {
                       })}
                     </>
                   )}
+                  {/* Existing JN appointments — mirror what's booked, incl. out-of-section. */}
+                  {appts.map((a, i) => (
+                    <Marker key={`appt${i}`} position={[a.lat, a.lng]} icon={apptIcon(`${(a.rep_name || '').split(' ')[0]} · ${apptShort(a.at_ms)}`)} zIndexOffset={3000}>
+                      <Tooltip><b>📅 {a.rep_name}</b><br />{a.name}<br />{new Date(a.at_ms).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}<br />{a.address}</Tooltip>
+                    </Marker>
+                  ))}
                 </MapContainer>
               </div>
               <div className="space-y-2" style={{ flex: fullscreen ? '1 1 32%' : '1 1 45%', minWidth: 240, maxHeight: fullscreen ? 'calc(100vh - 210px)' : 420, overflowY: 'auto' }}>
