@@ -2414,6 +2414,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [publishedAt, setPublishedAt] = useState(null)
   const [progress, setProgress] = useState(null)
   const [hi, setHi] = useState(null)           // highlighted section index (null = show all)
+  const [excluded, setExcluded] = useState(new Set()) // rep jnids excluded from the plan
 
   useEffect(() => {
     let live = true
@@ -2429,18 +2430,24 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   }
   useEffect(() => { if (enabled || preview) loadProgress() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const plan = () => {
+  const plan = (exc) => {
+    const ex = exc || excluded
     setLoading(true); setErr(''); setPublishedAt(null); setHi(null)
-    fetch(`${HARVEST_ORIGIN}harvest-plan-clusters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, points: true }) })
+    fetch(`${HARVEST_ORIGIN}harvest-plan-clusters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, points: true, exclude: [...ex] }) })
       .then((r) => r.json())
       .then((j) => {
         if (!j.ok) { setErr(j.error || 'Could not build the plan.'); setData(null); return }
         setData(j)
-        const a = {}; j.clusters.forEach((c, i) => { a[i] = j.srReps[i]?.harvest_token || '' })
+        const a = {}; j.clusters.forEach((c, i) => { a[i] = c.rep?.harvest_token || '' })
         setAssign(a)
+        if (j.indexing) setTimeout(() => plan(ex), 1500) // first time: keep building the county cache
       })
       .catch(() => setErr('Network error building the plan.'))
       .finally(() => setLoading(false))
+  }
+  const toggleRep = (jnid) => {
+    if (!jnid) return
+    setExcluded((prev) => { const n = new Set(prev); n.has(jnid) ? n.delete(jnid) : n.add(jnid); plan(n); return n })
   }
   useEffect(() => { if (enabled || preview) plan() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2459,7 +2466,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
 
   if (enabled !== true && !preview) return null
   const clusters = data?.clusters || []
-  const reps = data?.srReps || []
+  const reps = (data?.srReps || []).filter((r) => !excluded.has(r.jobnimbus_id)) // dropdown offers only included reps
   const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
   return (
     <div className="mb-3">
@@ -2471,8 +2478,24 @@ function EnhancedPlannedDay({ zone, token, preview }) {
         <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins → ${clusters.length} sections` : ''}</h2>
-            <button onClick={plan} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>
+            <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>
           </div>
+          {/* Who's working this plan — uncheck a rep and their share redisperses across the rest. */}
+          {data && (data.srReps || []).length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-slate-400">Reps in this plan:</span>
+              {data.srReps.map((r) => {
+                const off = excluded.has(r.jobnimbus_id)
+                return (
+                  <button key={r.jobnimbus_id || r.name} type="button" onClick={() => toggleRep(r.jobnimbus_id)} disabled={loading}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${off ? 'bg-white/5 text-slate-500' : 'bg-emerald-500/20 text-emerald-200'}`}>
+                    {off ? '☐' : '☑'} <span className={off ? 'line-through' : ''}>{r.name}</span>{r.harvest_token ? '' : ' ⚠︎'}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {data?.indexing && <p className="mt-2 text-xs text-slate-400">📍 Indexing addresses to their zones… ({data.remaining} left) — this only happens once, refreshing…</p>}
           {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
           {loading && !data && <p className="mt-2 text-sm text-slate-300">Building sections…</p>}
           {data && clusters.length === 0 && <p className="mt-3 text-sm text-slate-300">No IQ or No-sit pins to plan in this zone right now.</p>}
