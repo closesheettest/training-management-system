@@ -2573,7 +2573,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
           {data && clusters.length > 0 && (
             <div className="mt-3 flex flex-col gap-3 lg:flex-row">
               <div className="overflow-hidden rounded-md border border-white/10" style={{ height: fullscreen ? 'calc(100vh - 210px)' : 420, flex: fullscreen ? '1 1 68%' : '1 1 55%', minWidth: 280 }}>
-                <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+                <MapContainer key={fullscreen ? 'plan-fs' : 'plan-sm'} center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Resizer dep={fullscreen} />
                   <PlanFit points={manual ? allPins.map((p) => [p.lat, p.lng]) : (hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || []))} dep={manual ? 'manual' : hi} />
