@@ -2480,16 +2480,17 @@ function EnhancedPlannedDay({ zone, token, preview }) {
             <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins → ${clusters.length} sections` : ''}</h2>
             <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>
           </div>
-          {/* Who's working this plan — uncheck a rep and their share redisperses across the rest. */}
+          {/* Who's working this plan — tap a rep to SHUT THEM OFF; their share redisperses. */}
           {data && (data.srReps || []).length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-slate-400">Reps in this plan:</span>
+              <span className="text-[11px] text-slate-400">Tap a rep to take them off this plan:</span>
               {data.srReps.map((r) => {
                 const off = excluded.has(r.jobnimbus_id)
                 return (
                   <button key={r.jobnimbus_id || r.name} type="button" onClick={() => toggleRep(r.jobnimbus_id)} disabled={loading}
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${off ? 'bg-white/5 text-slate-500' : 'bg-emerald-500/20 text-emerald-200'}`}>
-                    {off ? '☐' : '☑'} <span className={off ? 'line-through' : ''}>{r.name}</span>{r.harvest_token ? '' : ' ⚠︎'}
+                    title={off ? 'Tap to add back to the plan' : 'Tap to shut this rep off the plan'}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${off ? 'bg-white/5 text-slate-500 line-through' : 'bg-emerald-500/20 text-emerald-200 hover:bg-red-500/25 hover:text-red-200'}`}>
+                    <span className="no-underline">{r.name}</span> {off ? '＋' : '✕'}{r.harvest_token ? '' : ' ⚠︎'}
                   </button>
                 )
               })}
@@ -2505,10 +2506,11 @@ function EnhancedPlannedDay({ zone, token, preview }) {
                 <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <PlanFit points={hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || [])} dep={hi} />
-                  {/* Outline the selected section's territory so the split is obvious. */}
-                  {hi != null && convexHull(clusters[hi]?.pts || []).length >= 3 && (
-                    <Polygon positions={convexHull(clusters[hi].pts)} pathOptions={{ color: hRepColor(hi), weight: 2, fillColor: hRepColor(hi), fillOpacity: 0.12 }} />
-                  )}
+                  {/* Territory outlines: ALL sections at once by default (shows reps
+                      criss-crossing); just the selected one when a section is picked. */}
+                  {clusters.map((c, i) => ((hi == null || hi === i) && convexHull(c.pts || []).length >= 3 && (
+                    <Polygon key={`hull${i}`} positions={convexHull(c.pts)} pathOptions={{ color: hRepColor(i), weight: 2, fillColor: hRepColor(i), fillOpacity: hi === i ? 0.15 : 0.08 }} />
+                  )))}
                   {clusters.map((c, i) => {
                     const on = hi == null || hi === i
                     return (
@@ -2521,7 +2523,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
                 </MapContainer>
               </div>
               <div className="space-y-2" style={{ flex: '1 1 45%', minWidth: 240, maxHeight: 420, overflowY: 'auto' }}>
-                <div className="text-[11px] text-slate-400">Tap a section to see just that rep's doors on the map. Each color is one section.</div>
+                <div className="text-[11px] text-slate-400">All sections show at once (each color = one rep's territory) so you can see any criss-crossing. Tap a section to isolate just that rep.</div>
                 {clusters.map((c, i) => (
                   <div key={i} className={`rounded-lg border p-2.5 ${hi === i ? 'border-amber-300/70 bg-white/10' : 'border-white/10 bg-white/5'}`}>
                     <button type="button" onClick={() => setHi(hi === i ? null : i)} className="flex w-full items-center gap-2.5 text-left">
