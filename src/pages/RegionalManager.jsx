@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, Polygon, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
@@ -2099,6 +2099,29 @@ function FitBounds({ points }) {
   }, [points, map])
   return null
 }
+// Re-fits every time `dep` changes (used by the plan map: fit all sections, or zoom
+// to one when it's selected). Unlike FitBounds it isn't one-shot.
+function PlanFit({ points, dep }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!points || !points.length) return
+    try { map.fitBounds(points, { padding: [30, 30], maxZoom: 15 }) } catch { /* ignore */ }
+  }, [dep]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
+// Convex hull (Andrew's monotone chain) for outlining a section's territory.
+// pts: [[lat,lng],...] → hull as [[lat,lng],...].
+function convexHull(pts) {
+  if (!pts || pts.length < 3) return pts || []
+  const p = pts.map(([lat, lng]) => [lng, lat]).sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const lower = []
+  for (const q of p) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q) }
+  const upper = []
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q) }
+  lower.pop(); upper.pop()
+  return lower.concat(upper).map(([lng, lat]) => [lat, lng])
+}
 function TeamHarvestMap({ zone, preview }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
@@ -2390,6 +2413,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [publishing, setPublishing] = useState(false)
   const [publishedAt, setPublishedAt] = useState(null)
   const [progress, setProgress] = useState(null)
+  const [hi, setHi] = useState(null)           // highlighted section index (null = show all)
 
   useEffect(() => {
     let live = true
@@ -2406,7 +2430,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   useEffect(() => { if (enabled || preview) loadProgress() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = () => {
-    setLoading(true); setErr(''); setPublishedAt(null)
+    setLoading(true); setErr(''); setPublishedAt(null); setHi(null)
     fetch(`${HARVEST_ORIGIN}harvest-plan-clusters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, points: true }) })
       .then((r) => r.json())
       .then((j) => {
@@ -2457,26 +2481,36 @@ function EnhancedPlannedDay({ zone, token, preview }) {
               <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 420, flex: '1 1 55%', minWidth: 280 }}>
                 <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {clusters.map((c, i) => (
-                    <Fragment key={i}>
-                      {(c.pts || []).map((p, j) => <CircleMarker key={j} center={p} radius={4} pathOptions={{ color: '#fff', weight: 1, fillColor: hRepColor(i), fillOpacity: 0.9 }} />)}
-                      {c.centroid && <Marker position={[c.centroid.lat, c.centroid.lng]} icon={sectionBadge(i, c.count)} />}
-                    </Fragment>
-                  ))}
+                  <PlanFit points={hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || [])} dep={hi} />
+                  {/* Outline the selected section's territory so the split is obvious. */}
+                  {hi != null && convexHull(clusters[hi]?.pts || []).length >= 3 && (
+                    <Polygon positions={convexHull(clusters[hi].pts)} pathOptions={{ color: hRepColor(hi), weight: 2, fillColor: hRepColor(hi), fillOpacity: 0.12 }} />
+                  )}
+                  {clusters.map((c, i) => {
+                    const on = hi == null || hi === i
+                    return (
+                      <Fragment key={i}>
+                        {(c.pts || []).map((p, j) => <CircleMarker key={j} center={p} radius={hi === i ? 6 : hi == null ? 5 : 3} pathOptions={{ color: '#fff', weight: 1, fillColor: hRepColor(i), fillOpacity: on ? 0.95 : 0.2 }} />)}
+                        {c.centroid && (hi == null || hi === i) && <Marker position={[c.centroid.lat, c.centroid.lng]} icon={sectionBadge(i, c.count)} />}
+                      </Fragment>
+                    )
+                  })}
                 </MapContainer>
               </div>
               <div className="space-y-2" style={{ flex: '1 1 45%', minWidth: 240, maxHeight: 420, overflowY: 'auto' }}>
+                <div className="text-[11px] text-slate-400">Tap a section to see just that rep's doors on the map. Each color is one section.</div>
                 {clusters.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 p-2.5">
-                    <span style={{ width: 14, height: 14, borderRadius: 4, background: hRepColor(i), flexShrink: 0 }} />
-                    <div className="min-w-0 flex-1">
+                  <div key={i} className={`rounded-lg border p-2.5 ${hi === i ? 'border-amber-300/70 bg-white/10' : 'border-white/10 bg-white/5'}`}>
+                    <button type="button" onClick={() => setHi(hi === i ? null : i)} className="flex w-full items-center gap-2.5 text-left">
+                      <span style={{ width: 14, height: 14, borderRadius: 4, background: hRepColor(i), flexShrink: 0, boxShadow: hi === i ? `0 0 0 2px #fff` : 'none' }} />
                       <div className="text-sm font-bold text-white">Section {String.fromCharCode(65 + i)} <span className="text-xs font-normal text-slate-400">· {c.count} pins</span></div>
-                      <select value={assign[i] || ''} onChange={(e) => setAssign((a) => ({ ...a, [i]: e.target.value }))}
-                        className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/60 px-2 py-1 text-sm text-white">
-                        <option value="">— unassigned —</option>
-                        {reps.map((r) => <option key={r.harvest_token || r.name} value={r.harvest_token || ''} disabled={!r.harvest_token}>{r.name}{r.harvest_token ? '' : ' (no map link)'}</option>)}
-                      </select>
-                    </div>
+                      <span className="ml-auto text-[11px] font-semibold text-amber-200/90">{hi === i ? 'Hide ▲' : 'Show on map ▾'}</span>
+                    </button>
+                    <select value={assign[i] || ''} onChange={(e) => setAssign((a) => ({ ...a, [i]: e.target.value }))}
+                      className="mt-2 w-full rounded-md border border-white/10 bg-slate-900/60 px-2 py-1 text-sm text-white">
+                      <option value="">— unassigned —</option>
+                      {reps.map((r) => <option key={r.harvest_token || r.name} value={r.harvest_token || ''} disabled={!r.harvest_token}>{r.name}{r.harvest_token ? '' : ' (no map link)'}</option>)}
+                    </select>
                   </div>
                 ))}
               </div>
