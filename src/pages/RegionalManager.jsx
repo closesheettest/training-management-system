@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, Polygon, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, Polygon, Rectangle, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
@@ -2109,6 +2109,28 @@ function PlanFit({ points, dep }) {
   }, [dep]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
+// Drag-to-draw a rectangle on the map (manager territory override). Active only when a
+// rep is selected to draw for; disables panning while dragging so the box tracks cleanly.
+function BoxDrawer({ active, color, onBox }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!active) return
+    map.dragging.disable()
+    let start = null, rect = null
+    const down = (e) => { start = e.latlng; rect = L.rectangle([start, start], { color: color || '#f59e0b', weight: 2, fillOpacity: 0.15, dashArray: '4' }).addTo(map) }
+    const move = (e) => { if (start && rect) rect.setBounds([start, e.latlng]) }
+    const up = (e) => {
+      if (start) {
+        const b = [[Math.min(start.lat, e.latlng.lat), Math.min(start.lng, e.latlng.lng)], [Math.max(start.lat, e.latlng.lat), Math.max(start.lng, e.latlng.lng)]]
+        if (Math.abs(b[1][0] - b[0][0]) > 1e-4 || Math.abs(b[1][1] - b[0][1]) > 1e-4) onBox(b)
+      }
+      if (rect) { map.removeLayer(rect); rect = null } start = null
+    }
+    map.on('mousedown', down); map.on('mousemove', move); map.on('mouseup', up)
+    return () => { map.dragging.enable(); map.off('mousedown', down); map.off('mousemove', move); map.off('mouseup', up); if (rect) map.removeLayer(rect) }
+  }, [active, color, map, onBox])
+  return null
+}
 // Convex hull (Andrew's monotone chain) for outlining a section's territory.
 // pts: [[lat,lng],...] → hull as [[lat,lng],...].
 function convexHull(pts) {
@@ -2415,6 +2437,9 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [progress, setProgress] = useState(null)
   const [hi, setHi] = useState(null)           // highlighted section index (null = show all)
   const [excluded, setExcluded] = useState(new Set()) // rep jnids excluded from the plan
+  const [manual, setManual] = useState(false)          // manual draw-territories mode
+  const [boxes, setBoxes] = useState([])               // [{ repTok, bounds:[[s,w],[n,e]] }] manager-drawn
+  const [drawRep, setDrawRep] = useState(null)         // rep token currently drawing for
 
   useEffect(() => {
     let live = true
@@ -2456,7 +2481,15 @@ function EnhancedPlannedDay({ zone, token, preview }) {
     setPublishing(true); setErr('')
     try {
       const byToken = Object.fromEntries((data.srReps || []).map((r) => [r.harvest_token, r.name]))
-      const assignments = data.clusters.map((c, i) => ({ rep_token: assign[i], rep_name: byToken[assign[i]] || null, cluster_index: i, pin_ids: c.pin_ids })).filter((a) => a.rep_token)
+      let assignments
+      if (manual) {
+        // Manager-drawn: group pins by the box that claimed them.
+        const byRep = {}
+        for (const p of allPins) { const tok = manualByPin[p.id]; if (tok) (byRep[tok] = byRep[tok] || []).push(p.id) }
+        assignments = Object.entries(byRep).map(([tok, ids]) => ({ rep_token: tok, rep_name: byToken[tok] || null, pin_ids: ids }))
+      } else {
+        assignments = data.clusters.map((c, i) => ({ rep_token: assign[i], rep_name: byToken[assign[i]] || null, cluster_index: i, pin_ids: c.pin_ids })).filter((a) => a.rep_token)
+      }
       const r = await fetch(`${HARVEST_ORIGIN}harvest-publish-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, created_by: token, assignments }) })
       const j = await r.json()
       if (!j.ok) { setErr(j.error || 'Publish failed.'); return }
@@ -2468,6 +2501,14 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const clusters = data?.clusters || []
   const reps = (data?.srReps || []).filter((r) => !excluded.has(r.jobnimbus_id)) // dropdown offers only included reps
   const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
+  const repColor = (tok) => { const i = reps.findIndex((r) => r.harvest_token === tok); return i >= 0 ? hRepColor(i) : '#64748b' }
+  const repName = (tok) => (reps.find((r) => r.harvest_token === tok) || {}).name || '—'
+  // Every zone pin with its id + coord (pts are aligned to pin_ids in the response).
+  const allPins = clusters.flatMap((c) => (c.pin_ids || []).map((id, j) => ({ id, lat: c.pts?.[j]?.[0], lng: c.pts?.[j]?.[1] }))).filter((p) => Number.isFinite(p.lat))
+  // Manual mode: a pin belongs to the LAST drawn box that contains it (redraw to refine).
+  const manualByPin = {}
+  if (manual) for (const p of allPins) for (const b of boxes) { if (p.lat >= b.bounds[0][0] && p.lat <= b.bounds[1][0] && p.lng >= b.bounds[0][1] && p.lng <= b.bounds[1][1]) manualByPin[p.id] = b.repTok }
+  const manualCounts = {}; if (manual) for (const id in manualByPin) manualCounts[manualByPin[id]] = (manualCounts[manualByPin[id]] || 0) + 1
   return (
     <div className="mb-3">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800">
@@ -2477,11 +2518,14 @@ function EnhancedPlannedDay({ zone, token, preview }) {
       {open && (
         <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins → ${clusters.length} sections` : ''}</h2>
-            <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>
+            <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins${manual ? '' : ` → ${clusters.length} sections`}` : ''}</h2>
+            <div className="flex gap-2">
+              <button onClick={() => { setManual((m) => !m); setHi(null); setDrawRep(null) }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${manual ? 'bg-amber-400 text-slate-900' : 'bg-white/10 text-white hover:bg-white/20'}`}>{manual ? '⟲ Back to auto-split' : '✏️ Draw territories'}</button>
+              {!manual && <button onClick={() => plan()} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>}
+            </div>
           </div>
-          {/* Who's working this plan — tap a rep to SHUT THEM OFF; their share redisperses. */}
-          {data && (data.srReps || []).length > 0 && (
+          {/* AUTO mode: tap a rep to shut them off; their share redisperses. */}
+          {!manual && data && (data.srReps || []).length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-[11px] text-slate-400">Tap a rep to take them off this plan:</span>
               {data.srReps.map((r) => {
@@ -2496,6 +2540,24 @@ function EnhancedPlannedDay({ zone, token, preview }) {
               })}
             </div>
           )}
+          {/* MANUAL mode: pick a rep, then drag boxes on the map for their turf. */}
+          {manual && data && (
+            <div className="mt-2">
+              <div className="text-[11px] text-slate-400 mb-1">Pick a rep, then <b>drag a box</b> on the map for their turf. Draw more boxes to add area; redraw over a spot to reassign it.</div>
+              <div className="flex flex-wrap items-center gap-2">
+                {reps.map((r, i) => (
+                  <button key={r.harvest_token || r.name} type="button" onClick={() => setDrawRep(r.harvest_token)} disabled={!r.harvest_token}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${drawRep === r.harvest_token ? 'ring-2 ring-white' : ''}`} style={{ background: hRepColor(i) + '33', color: '#fff' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: hRepColor(i), display: 'inline-block', marginRight: 5, verticalAlign: 'middle' }} />
+                    {r.name} · {manualCounts[r.harvest_token] || 0}{r.harvest_token ? '' : ' ⚠︎'}
+                  </button>
+                ))}
+                {boxes.length > 0 && <button type="button" onClick={() => setBoxes([])} className="rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-200">Clear boxes</button>}
+                {boxes.length > 0 && <button type="button" onClick={() => setBoxes((b) => b.slice(0, -1))} className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white">Undo</button>}
+              </div>
+              <div className="mt-1 text-xs">{drawRep ? <span className="text-emerald-300">✏️ Drawing for {repName(drawRep)} — drag a box on the map. Unassigned pins stay grey.</span> : <span className="text-amber-200/80">Tap a rep above to start drawing their box.</span>}</div>
+            </div>
+          )}
           {data?.indexing && <p className="mt-2 text-xs text-slate-400">📍 Indexing addresses to their zones… ({data.remaining} left) — this only happens once, refreshing…</p>}
           {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
           {loading && !data && <p className="mt-2 text-sm text-slate-300">Building sections…</p>}
@@ -2505,24 +2567,46 @@ function EnhancedPlannedDay({ zone, token, preview }) {
               <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 420, flex: '1 1 55%', minWidth: 280 }}>
                 <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <PlanFit points={hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || [])} dep={hi} />
-                  {/* Territory outlines: ALL sections at once by default (shows reps
-                      criss-crossing); just the selected one when a section is picked. */}
-                  {clusters.map((c, i) => ((hi == null || hi === i) && convexHull(c.pts || []).length >= 3 && (
-                    <Polygon key={`hull${i}`} positions={convexHull(c.pts)} pathOptions={{ color: hRepColor(i), weight: 2, fillColor: hRepColor(i), fillOpacity: hi === i ? 0.15 : 0.08 }} />
-                  )))}
-                  {clusters.map((c, i) => {
-                    const on = hi == null || hi === i
-                    return (
-                      <Fragment key={i}>
-                        {(c.pts || []).map((p, j) => <CircleMarker key={j} center={p} radius={hi === i ? 6 : hi == null ? 5 : 3} pathOptions={{ color: '#fff', weight: 1, fillColor: hRepColor(i), fillOpacity: on ? 0.95 : 0.2 }} />)}
-                        {c.centroid && (hi == null || hi === i) && <Marker position={[c.centroid.lat, c.centroid.lng]} icon={sectionBadge(i, c.count)} />}
-                      </Fragment>
-                    )
-                  })}
+                  <PlanFit points={manual ? allPins.map((p) => [p.lat, p.lng]) : (hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || []))} dep={manual ? 'manual' : hi} />
+                  {manual ? (
+                    <>
+                      <BoxDrawer active={!!drawRep} color={repColor(drawRep)} onBox={(b) => setBoxes((prev) => [...prev, { repTok: drawRep, bounds: b }])} />
+                      {boxes.map((b, i) => <Rectangle key={i} bounds={b.bounds} pathOptions={{ color: repColor(b.repTok), weight: 2, fillColor: repColor(b.repTok), fillOpacity: 0.06 }} />)}
+                      {allPins.map((p, i) => { const tok = manualByPin[p.id]; return <CircleMarker key={i} center={[p.lat, p.lng]} radius={5} pathOptions={{ color: '#fff', weight: 1, fillColor: tok ? repColor(tok) : '#94a3b8', fillOpacity: tok ? 0.95 : 0.55 }} /> })}
+                    </>
+                  ) : (
+                    <>
+                      {/* Territory outlines: ALL sections at once (shows criss-crossing); just the selected one when picked. */}
+                      {clusters.map((c, i) => ((hi == null || hi === i) && convexHull(c.pts || []).length >= 3 && (
+                        <Polygon key={`hull${i}`} positions={convexHull(c.pts)} pathOptions={{ color: hRepColor(i), weight: 2, fillColor: hRepColor(i), fillOpacity: hi === i ? 0.15 : 0.08 }} />
+                      )))}
+                      {clusters.map((c, i) => {
+                        const on = hi == null || hi === i
+                        return (
+                          <Fragment key={i}>
+                            {(c.pts || []).map((p, j) => <CircleMarker key={j} center={p} radius={hi === i ? 6 : hi == null ? 5 : 3} pathOptions={{ color: '#fff', weight: 1, fillColor: hRepColor(i), fillOpacity: on ? 0.95 : 0.2 }} />)}
+                            {c.centroid && (hi == null || hi === i) && <Marker position={[c.centroid.lat, c.centroid.lng]} icon={sectionBadge(i, c.count)} />}
+                          </Fragment>
+                        )
+                      })}
+                    </>
+                  )}
                 </MapContainer>
               </div>
               <div className="space-y-2" style={{ flex: '1 1 45%', minWidth: 240, maxHeight: 420, overflowY: 'auto' }}>
+                {manual ? (
+                  <>
+                    <div className="text-[11px] text-slate-400">Each rep's box(es) are their turf. Grey pins aren't in anyone's box yet.</div>
+                    {reps.map((r, i) => (
+                      <div key={r.harvest_token || r.name} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 p-2.5">
+                        <span style={{ width: 14, height: 14, borderRadius: 4, background: hRepColor(i), flexShrink: 0 }} />
+                        <span className="flex-1 truncate text-sm font-bold text-white">{r.name}</span>
+                        <span className="text-xs font-semibold text-slate-300">{manualCounts[r.harvest_token] || 0} pins</span>
+                      </div>
+                    ))}
+                    {allPins.length - Object.keys(manualByPin).length > 0 && <div className="text-xs text-amber-200/80">{allPins.length - Object.keys(manualByPin).length} pin(s) not in any box yet.</div>}
+                  </>
+                ) : (<>
                 <div className="text-[11px] text-slate-400">All sections show at once (each color = one rep's territory) so you can see any criss-crossing. Tap a section to isolate just that rep.</div>
                 {clusters.map((c, i) => (
                   <div key={i} className={`rounded-lg border p-2.5 ${hi === i ? 'border-amber-300/70 bg-white/10' : 'border-white/10 bg-white/5'}`}>
@@ -2538,6 +2622,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
                     </select>
                   </div>
                 ))}
+                </>)}
               </div>
             </div>
           )}
