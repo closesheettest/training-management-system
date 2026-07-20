@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
@@ -2227,6 +2227,7 @@ function HarvestToolsGate({ token, region }) {
   return (
     <>
       <TeamHarvestMap zone={region} />
+      <EnhancedPlannedDay zone={region} token={token} />
       <ZoneActivityReport zone={region} />
       <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
         className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
@@ -2355,6 +2356,124 @@ function ZoneActivityReport({ zone }) {
             </div>
           )}
           <p className="mt-2 text-[11px] text-slate-400"><b>Off-spot</b> = actions logged far from the pin (location audit) — a flag to check in, not proof of anything. Reps are matched to your zone by their JobNimbus link.</p>
+        </section>
+      )}
+    </div>
+  )
+}
+
+// Section badge marker for the plan map — a small colored pill "A · 41".
+function sectionBadge(i, count) {
+  const color = hRepColor(i), letter = String.fromCharCode(65 + i)
+  return L.divIcon({ className: '', iconAnchor: [16, 10], html: `<div style="background:${color};color:#fff;font-weight:800;font-size:11px;padding:2px 7px;border-radius:8px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap">${letter} · ${count}</div>` })
+}
+
+// Enhanced Planned Day (Sr-only) — the manager plans their team's day. The zone's
+// IQ + No-sit pins auto-split into balanced sections (one per Sr rep, incl. the
+// manager); the manager assigns each section to a rep and publishes. Each Sr rep's
+// Start-my-day then loads their section. Gated by the company flag.
+function EnhancedPlannedDay({ zone, token }) {
+  const [enabled, setEnabled] = useState(null) // null=checking
+  const [open, setOpen] = useState(true)
+  const [data, setData] = useState(null)
+  const [assign, setAssign] = useState({})     // cluster_index -> rep_token
+  const [err, setErr] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishedAt, setPublishedAt] = useState(null)
+
+  useEffect(() => {
+    let live = true
+    fetch(`${HARVEST_ORIGIN}harvest-admin-flag?key=harvest_enhanced_planned_day_enabled`)
+      .then((r) => r.json()).then((j) => { if (live) setEnabled(j && j.ok ? !!j.enabled : false) })
+      .catch(() => { if (live) setEnabled(false) })
+    return () => { live = false }
+  }, [])
+
+  const plan = () => {
+    setLoading(true); setErr(''); setPublishedAt(null)
+    fetch(`${HARVEST_ORIGIN}harvest-plan-clusters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, points: true }) })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.ok) { setErr(j.error || 'Could not build the plan.'); setData(null); return }
+        setData(j)
+        const a = {}; j.clusters.forEach((c, i) => { a[i] = j.srReps[i]?.harvest_token || '' })
+        setAssign(a)
+      })
+      .catch(() => setErr('Network error building the plan.'))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { if (enabled) plan() }, [enabled, zone]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const publish = async () => {
+    if (!data) return
+    setPublishing(true); setErr('')
+    try {
+      const byToken = Object.fromEntries((data.srReps || []).map((r) => [r.harvest_token, r.name]))
+      const assignments = data.clusters.map((c, i) => ({ rep_token: assign[i], rep_name: byToken[assign[i]] || null, cluster_index: i, pin_ids: c.pin_ids })).filter((a) => a.rep_token)
+      const r = await fetch(`${HARVEST_ORIGIN}harvest-publish-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, created_by: token, assignments }) })
+      const j = await r.json()
+      if (!j.ok) { setErr(j.error || 'Publish failed.'); return }
+      setPublishedAt(j.plan_date || 'today')
+    } catch { setErr('Network error publishing.') } finally { setPublishing(false) }
+  }
+
+  if (enabled !== true) return null
+  const clusters = data?.clusters || []
+  const reps = data?.srReps || []
+  const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
+  return (
+    <div className="mb-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800">
+        <span className="text-base font-bold text-white">🧭 Plan the Day — assign each rep a section</span>
+        <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && (
+        <section className="mt-3 rounded-lg border border-white/10 bg-white/5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-amber-200/90">{zone}{data ? ` · ${data.total} IQ + No-sit pins → ${clusters.length} sections` : ''}</h2>
+            <button onClick={plan} disabled={loading} className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">{loading ? 'Building…' : '↻ Re-split'}</button>
+          </div>
+          {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
+          {loading && !data && <p className="mt-2 text-sm text-slate-300">Building sections…</p>}
+          {data && clusters.length === 0 && <p className="mt-3 text-sm text-slate-300">No IQ or No-sit pins to plan in this zone right now.</p>}
+          {data && clusters.length > 0 && (
+            <div className="mt-3 flex flex-col gap-3 lg:flex-row">
+              <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 420, flex: '1 1 55%', minWidth: 280 }}>
+                <MapContainer center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+                  <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  {clusters.map((c, i) => (
+                    <Fragment key={i}>
+                      {(c.pts || []).map((p, j) => <CircleMarker key={j} center={p} radius={4} pathOptions={{ color: '#fff', weight: 1, fillColor: hRepColor(i), fillOpacity: 0.9 }} />)}
+                      {c.centroid && <Marker position={[c.centroid.lat, c.centroid.lng]} icon={sectionBadge(i, c.count)} />}
+                    </Fragment>
+                  ))}
+                </MapContainer>
+              </div>
+              <div className="space-y-2" style={{ flex: '1 1 45%', minWidth: 240, maxHeight: 420, overflowY: 'auto' }}>
+                {clusters.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 p-2.5">
+                    <span style={{ width: 14, height: 14, borderRadius: 4, background: hRepColor(i), flexShrink: 0 }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-white">Section {String.fromCharCode(65 + i)} <span className="text-xs font-normal text-slate-400">· {c.count} pins</span></div>
+                      <select value={assign[i] || ''} onChange={(e) => setAssign((a) => ({ ...a, [i]: e.target.value }))}
+                        className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/60 px-2 py-1 text-sm text-white">
+                        <option value="">— unassigned —</option>
+                        {reps.map((r) => <option key={r.harvest_token || r.name} value={r.harvest_token || ''} disabled={!r.harvest_token}>{r.name}{r.harvest_token ? '' : ' (no map link)'}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {data && clusters.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button onClick={publish} disabled={publishing} className="rounded-md bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60">{publishing ? 'Publishing…' : '📤 Publish the plan'}</button>
+              {publishedAt && <span className="text-sm font-semibold text-emerald-300">✓ Published for {publishedAt} — each rep's Start-my-day now loads their section.</span>}
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-slate-400">Sections auto-balance the IQ + No-sit pins across your Sr reps (including you). Reassign any section, then publish. Only reps with a map link can receive one.</p>
         </section>
       )}
     </div>
