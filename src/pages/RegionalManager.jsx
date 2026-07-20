@@ -2440,6 +2440,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
   const [loading, setLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishedAt, setPublishedAt] = useState(null)
+  const [published, setPublished] = useState(false)    // is a plan live for this zone today?
   const [progress, setProgress] = useState(null)
   const [hi, setHi] = useState(null)           // highlighted section index (null = show all)
   const [excluded, setExcluded] = useState(new Set()) // rep jnids excluded from the plan
@@ -2458,7 +2459,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
 
   const loadProgress = () => {
     fetch(`${HARVEST_ORIGIN}harvest-plan-progress?zone=${encodeURIComponent(zone)}`)
-      .then((r) => r.json()).then((j) => { if (j && j.ok) setProgress(j.reps) }).catch(() => { /* ignore */ })
+      .then((r) => r.json()).then((j) => { if (j && j.ok) { setProgress(j.reps); setPublished((j.reps || []).length > 0) } }).catch(() => { /* ignore */ })
   }
   useEffect(() => { if (enabled || preview) loadProgress() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2500,8 +2501,19 @@ function EnhancedPlannedDay({ zone, token, preview }) {
       const r = await fetch(`${HARVEST_ORIGIN}harvest-publish-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, created_by: token, assignments }) })
       const j = await r.json()
       if (!j.ok) { setErr(j.error || 'Publish failed.'); return }
-      setPublishedAt(j.plan_date || 'today'); loadProgress()
+      setPublishedAt(j.plan_date || 'today'); setPublished(true); loadProgress()
     } catch { setErr('Network error publishing.') } finally { setPublishing(false) }
+  }
+  const unpublish = async () => {
+    if (!window.confirm('Unpublish this plan? Reps will stop seeing their assigned day until you publish again.')) return
+    setPublishing(true); setErr('')
+    try {
+      // Publishing an empty set clears the zone+day plan (harvest-publish-plan deletes then re-inserts).
+      const r = await fetch(`${HARVEST_ORIGIN}harvest-publish-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, created_by: token, assignments: [] }) })
+      const j = await r.json()
+      if (!j.ok) { setErr(j.error || 'Unpublish failed.'); return }
+      setPublished(false); setPublishedAt(null); setProgress([])
+    } catch { setErr('Network error.') } finally { setPublishing(false) }
   }
 
   if (enabled !== true && !preview) return null
@@ -2637,8 +2649,11 @@ function EnhancedPlannedDay({ zone, token, preview }) {
           )}
           {data && clusters.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button onClick={publish} disabled={publishing} className="rounded-md bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60">{publishing ? 'Publishing…' : '📤 Publish the plan'}</button>
-              {publishedAt && <span className="text-sm font-semibold text-emerald-300">✓ Published for {publishedAt} — each rep's Start-my-day now loads their section.</span>}
+              <button onClick={publish} disabled={publishing} className="rounded-md bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60">{publishing ? 'Working…' : published ? '📤 Re-publish' : '📤 Publish the plan'}</button>
+              {published && <button onClick={unpublish} disabled={publishing} className="rounded-md border border-red-400/50 bg-red-500/15 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-500/25 disabled:opacity-60">🗑 Unpublish</button>}
+              {published
+                ? <span className="text-sm font-semibold text-emerald-300">✓ Live{publishedAt ? ` for ${publishedAt}` : ''} — reps' Start-my-day loads their section.</span>
+                : <span className="text-xs text-slate-400">Not published — reps aren't on an assigned day yet.</span>}
             </div>
           )}
           {progress && progress.length > 0 && (
