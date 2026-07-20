@@ -2381,6 +2381,7 @@ function EnhancedPlannedDay({ zone, token }) {
   const [loading, setLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishedAt, setPublishedAt] = useState(null)
+  const [progress, setProgress] = useState(null)
 
   useEffect(() => {
     let live = true
@@ -2389,6 +2390,12 @@ function EnhancedPlannedDay({ zone, token }) {
       .catch(() => { if (live) setEnabled(false) })
     return () => { live = false }
   }, [])
+
+  const loadProgress = () => {
+    fetch(`${HARVEST_ORIGIN}harvest-plan-progress?zone=${encodeURIComponent(zone)}`)
+      .then((r) => r.json()).then((j) => { if (j && j.ok) setProgress(j.reps) }).catch(() => { /* ignore */ })
+  }
+  useEffect(() => { if (enabled) loadProgress() }, [enabled, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = () => {
     setLoading(true); setErr(''); setPublishedAt(null)
@@ -2414,7 +2421,7 @@ function EnhancedPlannedDay({ zone, token }) {
       const r = await fetch(`${HARVEST_ORIGIN}harvest-publish-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zone, created_by: token, assignments }) })
       const j = await r.json()
       if (!j.ok) { setErr(j.error || 'Publish failed.'); return }
-      setPublishedAt(j.plan_date || 'today')
+      setPublishedAt(j.plan_date || 'today'); loadProgress()
     } catch { setErr('Network error publishing.') } finally { setPublishing(false) }
   }
 
@@ -2471,6 +2478,32 @@ function EnhancedPlannedDay({ zone, token }) {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button onClick={publish} disabled={publishing} className="rounded-md bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60">{publishing ? 'Publishing…' : '📤 Publish the plan'}</button>
               {publishedAt && <span className="text-sm font-semibold text-emerald-300">✓ Published for {publishedAt} — each rep's Start-my-day now loads their section.</span>}
+            </div>
+          )}
+          {progress && progress.length > 0 && (
+            <div className="mt-4 border-t border-white/10 pt-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-bold text-white">📊 Today's progress</span>
+                <button onClick={loadProgress} className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20">↻ Refresh</button>
+              </div>
+              <div className="space-y-2">
+                {progress.map((r) => {
+                  const pct = r.assigned ? Math.round((r.worked / r.assigned) * 100) : 0
+                  const stalled = pct < 25
+                  return (
+                    <div key={r.rep_token} className="min-w-0">
+                      <div className="flex justify-between text-xs">
+                        <span className="truncate font-bold text-white">{r.rep_name}</span>
+                        <span className={stalled ? 'font-bold text-red-300' : 'text-slate-300'}>{r.worked}/{r.assigned} worked</span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: stalled ? '#f87171' : '#34d399' }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">Reps lowest on their section float to the top. "Worked" = a door that's been statused today.</p>
             </div>
           )}
           <p className="mt-2 text-[11px] text-slate-400">Sections auto-balance the IQ + No-sit pins across your Sr reps (including you). Reassign any section, then publish. Only reps with a map link can receive one.</p>
