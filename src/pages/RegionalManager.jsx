@@ -2099,7 +2099,7 @@ function FitBounds({ points }) {
   }, [points, map])
   return null
 }
-function TeamHarvestMap({ zone }) {
+function TeamHarvestMap({ zone, preview }) {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [enabled, setEnabled] = useState(null)  // null = unknown; false = company turned it off
@@ -2128,7 +2128,7 @@ function TeamHarvestMap({ zone }) {
   const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
 
   // Company turned it off (or we can't confirm it's on yet) → show nothing.
-  if (enabled !== true) return null
+  if (enabled !== true && !preview) return null
   return (
     <div className="mb-3">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800">
@@ -2234,8 +2234,8 @@ function HarvestToolsGate({ token, region }) {
           🔍 Office preview — you're seeing the Harvesting tools without the manager training. Managers still have to pass it to unlock these.
         </div>
       )}
-      <TeamHarvestMap zone={region} />
-      <EnhancedPlannedDay zone={region} token={token} />
+      <TeamHarvestMap zone={region} preview={preview} />
+      <EnhancedPlannedDay zone={region} token={token} preview={preview} />
       <ZoneActivityReport zone={region} />
       <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
         className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
@@ -2380,7 +2380,7 @@ function sectionBadge(i, count) {
 // IQ + No-sit pins auto-split into balanced sections (one per Sr rep, incl. the
 // manager); the manager assigns each section to a rep and publishes. Each Sr rep's
 // Start-my-day then loads their section. Gated by the company flag.
-function EnhancedPlannedDay({ zone, token }) {
+function EnhancedPlannedDay({ zone, token, preview }) {
   const [enabled, setEnabled] = useState(null) // null=checking
   const [open, setOpen] = useState(true)
   const [data, setData] = useState(null)
@@ -2403,7 +2403,7 @@ function EnhancedPlannedDay({ zone, token }) {
     fetch(`${HARVEST_ORIGIN}harvest-plan-progress?zone=${encodeURIComponent(zone)}`)
       .then((r) => r.json()).then((j) => { if (j && j.ok) setProgress(j.reps) }).catch(() => { /* ignore */ })
   }
-  useEffect(() => { if (enabled) loadProgress() }, [enabled, zone]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (enabled || preview) loadProgress() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const plan = () => {
     setLoading(true); setErr(''); setPublishedAt(null)
@@ -2418,7 +2418,7 @@ function EnhancedPlannedDay({ zone, token }) {
       .catch(() => setErr('Network error building the plan.'))
       .finally(() => setLoading(false))
   }
-  useEffect(() => { if (enabled) plan() }, [enabled, zone]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (enabled || preview) plan() }, [enabled, preview, zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const publish = async () => {
     if (!data) return
@@ -2433,7 +2433,7 @@ function EnhancedPlannedDay({ zone, token }) {
     } catch { setErr('Network error publishing.') } finally { setPublishing(false) }
   }
 
-  if (enabled !== true) return null
+  if (enabled !== true && !preview) return null
   const clusters = data?.clusters || []
   const reps = data?.srReps || []
   const center = ZONE_CENTERS[zone] || [27.9944, -81.7603]
