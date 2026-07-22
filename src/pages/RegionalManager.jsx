@@ -2363,13 +2363,17 @@ function HarvestToolsGate({ token, region }) {
 // Map. Per rep: doors knocked, outcome counts, not-home, and an off-spot flag (from the
 // location audit) so a manager can spot fake-work. Data comes from the CCG endpoint,
 // scoped to this zone's reps. Period toggle: today / 7d / 30d / all.
+// Mirrors the rep-activity report's columns; every column is a distinct knock outcome,
+// so Appts + Signed + IQ-NI + Insp-NI + Dead + New Roof + Not home = Knocks. The old
+// standalone "No-sits" column double-counted appts and broke that sum — no-sit
+// reschedules now show as the "·N NS" note on Appts instead.
 const RPT_OUTCOMES = [
   { key: 'appt', label: 'Appts', cls: 'text-blue-200' },
   { key: 'insp_sold', label: 'Signed', cls: 'text-emerald-200' },
-  { key: 'no_sit_reschedule', label: 'No-sits', cls: 'text-amber-200' },
   { key: 'iq_ni', label: 'IQ NI', cls: 'text-slate-200' },
   { key: 'insp_ni', label: 'Insp NI', cls: 'text-slate-200' },
   { key: 'dead', label: 'Dead', cls: 'text-slate-400' },
+  { key: 'new_roof', label: 'New Roof', cls: 'text-cyan-200' },
 ]
 const RPT_PERIODS = [{ k: 'today', t: 'Today' }, { k: 'yesterday', t: 'Yesterday' }, { k: '7d', t: '7 days' }, { k: '30d', t: '30 days' }, { k: 'all', t: 'All' }]
 function fmtLastActive(iso) {
@@ -2446,9 +2450,16 @@ function ZoneActivityReport({ zone }) {
                     <tr key={r.name} className="border-t border-white/10">
                       <td className="py-2 pr-3 font-bold text-white">{r.name}</td>
                       <td className="px-2 text-right text-slate-200">{r.knocks}</td>
-                      {RPT_OUTCOMES.map((o) => (
-                        <td key={o.key} className={`px-2 text-right ${(r.outcomes?.[o.key] || 0) ? o.cls : 'text-slate-500'}`}>{r.outcomes?.[o.key] || 0}</td>
-                      ))}
+                      {RPT_OUTCOMES.map((o) => {
+                        const v = r.outcomes?.[o.key] || 0
+                        const ns = o.key === 'appt' ? (r.apptSrc?.no_sit || 0) : 0
+                        return (
+                          <td key={o.key} className={`px-2 text-right whitespace-nowrap ${v ? o.cls : 'text-slate-500'}`}
+                            title={o.key === 'appt' && v ? `${r.apptSrc?.iq || 0} from IQ · ${ns} from No-sit` : undefined}>
+                            {v}{ns ? <span className="text-amber-300 font-semibold"> ·{ns} NS</span> : null}
+                          </td>
+                        )
+                      })}
                       <td className="px-2 text-right text-slate-300">{r.notHome}</td>
                       <td className={`px-2 text-right font-semibold ${r.offSpot ? 'text-red-300' : 'text-slate-500'}`}>{r.offSpot ? `⚑ ${r.offSpot}` : '0'}</td>
                       <td className="pl-2 text-right text-slate-400">{fmtLastActive(r.lastActive)}</td>
