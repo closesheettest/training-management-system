@@ -2371,7 +2371,7 @@ const RPT_OUTCOMES = [
   { key: 'insp_ni', label: 'Insp NI', cls: 'text-slate-200' },
   { key: 'dead', label: 'Dead', cls: 'text-slate-400' },
 ]
-const RPT_PERIODS = [{ k: 'today', t: 'Today' }, { k: '7d', t: '7 days' }, { k: '30d', t: '30 days' }, { k: 'all', t: 'All' }]
+const RPT_PERIODS = [{ k: 'today', t: 'Today' }, { k: 'yesterday', t: 'Yesterday' }, { k: '7d', t: '7 days' }, { k: '30d', t: '30 days' }, { k: 'all', t: 'All' }]
 function fmtLastActive(iso) {
   if (!iso) return '—'
   const d = new Date(iso), now = new Date()
