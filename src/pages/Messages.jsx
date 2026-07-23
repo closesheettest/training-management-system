@@ -78,7 +78,7 @@ Reply to this text if anything looks wrong. — U.S. Shingle Training`,
       `TRAINING SCHEDULE\n` +
       `${SAMPLE.location}\n` +
       `12910 Automobile Blvd Suite A\n` +
-      `Clearwater, FL 33782\n\n` +
+      `Clearwater, FL 33762\n\n` +
       `Monday: 11:30 AM – 4:00 PM (please arrive 15 minutes early for onboarding)\n` +
       `Tuesday–Thursday: 10:00 AM – 2:00 PM\n` +
       `Friday: 9:00 AM – 11:00 AM\n\n` +

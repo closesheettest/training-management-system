@@ -292,7 +292,7 @@ export default function Locations() {
                 inputMode="numeric"
                 pattern={ZIP_PATTERN}
                 maxLength={10}
-                placeholder="33782"
+                placeholder="33762"
                 value={form.zip}
                 onChange={(e) => updateForm('zip', e.target.value)}
                 className={inputCls}

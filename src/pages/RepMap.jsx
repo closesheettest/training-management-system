@@ -18,7 +18,7 @@ import { ZONE_COLORS as ZONE_COLOR_PAIRS } from '../lib/zones.js'
 // Each pin gets a small random jitter around its region's center so reps
 // in the same region don't perfectly stack — gives a visual sense of
 // density without requiring real geocoded addresses. Reps with no region
-// fall back to the corporate office (Pinellas Park).
+// fall back to the corporate office (Clearwater).
 //
 // Future enhancement: geocode street_address/city/zip when present so
 // individual reps show at their actual homes. The skeleton is here — just
@@ -26,10 +26,10 @@ import { ZONE_COLORS as ZONE_COLOR_PAIRS } from '../lib/zones.js'
 
 // Fallback for reps with no region (or with a region that has no
 // latitude/longitude on its regions-table row) — the corporate office
-// in Pinellas Park. New regions added via the /regions page can
-// include their own lat/lng so reps there get a sensible jittered
-// pin instead of all clustering at corporate.
-const CORPORATE_OFFICE = { lat: 27.8636, lng: -82.7298 }
+// in Clearwater (12910 Automobile Blvd, 33762). New regions added via
+// the /regions page can include their own lat/lng so reps there get a
+// sensible jittered pin instead of all clustering at corporate.
+const CORPORATE_OFFICE = { lat: 27.9599, lng: -82.7406 }
 
 // Stable deterministic jitter from a string seed (the trainee id). Returns
 // a small lat/lng offset (~5km radius) so the same rep lands at the same
@@ -287,7 +287,7 @@ export default function RepMap() {
           home address via <Link to="/active-reps" className="underline">/update-info</Link>,
           pins are placed near their <strong>region</strong>'s metro center (with a small
           random scatter so they don't perfectly stack). Reps with no region yet fall back to
-          the corporate office in Pinellas Park.
+          the corporate office in Clearwater.
         </p>
       </header>
 

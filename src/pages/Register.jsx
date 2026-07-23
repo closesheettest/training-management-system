@@ -50,7 +50,7 @@ export default function Register() {
           street_address: '12910 Automobile Blvd Ste A',
           city: 'Clearwater',
           state: 'FL',
-          zip: '33782',
+          zip: '33762',
           phone: null,
           contact_info: null,
           schedule_template: null,
