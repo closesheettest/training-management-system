@@ -816,6 +816,47 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
   )
 }
 
+// Harvest zone drill-down: reps ranked by booked count; tap a rep to reveal
+// every door (address) that accounts for their number. Detail comes from the
+// API's per-zone `deals:[{rep,label}]`; falls back to plain counts if an older
+// API build hasn't shipped the per-house detail yet.
+function HarvestDetail({ z }) {
+  const [openRep, setOpenRep] = useState(null)
+  const deals = z.deals || []
+  const reps = z.reps || []
+  if (!reps.length && !deals.length) return <div className="text-xs text-slate-300/70">No harvest appointments booked yet.</div>
+  const byRep = {}
+  deals.forEach((d) => { const k = d.rep || '—'; (byRep[k] = byRep[k] || []).push(d.label || 'Lead') })
+  const rows = (reps.length
+    ? reps.map((r) => ({ rep: r.name, count: r.count, items: byRep[r.name] || [] }))
+    : Object.keys(byRep).map((k) => ({ rep: k, count: byRep[k].length, items: byRep[k] })))
+    .sort((a, b) => b.count - a.count)
+  return (
+    <div className="divide-y divide-white/10">
+      {rows.map((r) => {
+        const isOpen = openRep === r.rep
+        const hasItems = r.items.length > 0
+        return (
+          <div key={r.rep} className="py-1">
+            <button type="button" disabled={!hasItems} onClick={() => setOpenRep(isOpen ? null : r.rep)}
+              className="flex w-full items-center justify-between py-1 text-left text-sm">
+              <span className="truncate">{hasItems ? (isOpen ? '▾ ' : '▸ ') : ''}{r.rep}</span>
+              <span className="font-bold">{r.count}</span>
+            </button>
+            {isOpen && hasItems && (
+              <div className="pb-1 pl-3">
+                {r.items.map((addr, j) => (
+                  <div key={j} className="truncate py-0.5 text-xs opacity-90">🏠 {addr}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Leaderboard({ myZone }) {
   const [period, setPeriod] = useState('week')
   const [insp, setInsp] = useState(null)
@@ -909,21 +950,10 @@ function Leaderboard({ myZone }) {
     )
   }
 
-  // Harvest detail: reps + how many appointments they booked off the map.
-  const harvestDetail = (z) => {
-    const reps = z.reps || []
-    if (!reps.length) return <div className="text-xs text-slate-300/70">No harvest appointments booked yet.</div>
-    return (
-      <div className="divide-y divide-white/10">
-        {reps.map((r) => (
-          <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
-            <span className="truncate">{r.name}</span>
-            <span className="font-bold">{r.count}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
+  // Harvest detail: reps + how many appointments they booked. Tap a rep to
+  // reveal every door (address) that accounts for their number.
+  const harvestDetail = (z) => <HarvestDetail z={z} />
+
   const board = (zones, kind, openZone, setOpen, detailFn) => {
     if (zones === null) return <div className="text-xs text-slate-300/70">Loading…</div>
     const openZ = zones.find((z) => z.zone === openZone)
