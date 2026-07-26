@@ -1399,9 +1399,13 @@ function AssignAppointments({ token }) {
                     <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — currently on Viviana / inactive reps ({viv.length})</div>
                     {viv.map((it) => (
                       <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                        <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
+                          {it.is_goback && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">{it.appt_note || 'Go-back'}</span>}
+                        </div>
                         {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
                         <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
+                        {it.is_goback && <div className="text-[11.5px] text-orange-700">📋 Review visit — {it.appt_note || 'go-back'}. Assign a rep so it isn't missed.</div>}
                         {editRow(it, 'Assign')}
                       </div>
                     ))}
