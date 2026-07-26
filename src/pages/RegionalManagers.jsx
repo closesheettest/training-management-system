@@ -959,7 +959,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       </colgroup>
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-                          <th className="px-3 py-1.5 text-left">Rep</th>
+                          <th className="px-3 py-1.5 text-left sticky left-0 z-20 bg-slate-50 border-r border-slate-200">Rep</th>
                           <th className="px-2 py-1.5 text-right">Harvest Apt</th>
                           <th className="px-2 py-1.5 text-right">Harvest Sold</th>
                           <th className="px-2 py-1.5 text-right">IQ Apt</th>
@@ -991,7 +991,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           return (
                           <Fragment key={rk}>
                           <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenRep(open ? null : rk)}>
-                            <td className="px-3 py-1.5"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
+                            <td className="px-3 py-1.5 sticky left-0 z-10 bg-white border-r border-slate-200"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
                             <td className="px-2 py-1.5 text-right text-emerald-700">{r.harvSl}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
@@ -1024,7 +1024,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           )
                         })}
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
-                          <td className="px-3 py-1.5">Zone total</td>
+                          <td className="px-3 py-1.5 sticky left-0 z-10 bg-slate-50 border-r border-slate-200">Zone total</td>
                           <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-700">{zt.harvSl}</td>
                           <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
