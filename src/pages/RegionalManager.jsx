@@ -491,9 +491,9 @@ function ApptConversion({ zone }) {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Tot %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (z, r) => [z, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.resitAp, r.resitSl, r.resitPct, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.resitAp, t.resitSl, t.resitPct, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Tot %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Dead', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (z, r) => [z, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.deadAp, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.deadAp, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const r of data.reps) rows.push(repRow(data.zone, r))
     rows.push(totRow(data.zone + ' TOTAL', data.totals))
@@ -518,7 +518,7 @@ function ApptConversion({ zone }) {
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const money = (n) => '$' + (Math.round(Number(n) || 0)).toLocaleString()
     const pc = (apt, v) => apt ? v + '%' : '—'
-    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Tot %', 'NSR', 'Avg $/Sale', 'RB', 'Insul']
+    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Tot %', 'NSR', 'Pending', 'Avg $/Sale', 'RB', 'Insul']
     const greenSold = new Set([2, 4, 6, 8]), greenMoney = new Set([9, 10, 11, 12])
     const colgroup = '<colgroup>' + HEAD.map((_, i) => `<col${greenSold.has(i) ? ' class="g"' : greenMoney.has(i) ? ' class="g2"' : ''}/>`).join('') + '</colgroup>'
     const headRow = '<tr>' + HEAD.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr>'
@@ -528,6 +528,7 @@ function ApptConversion({ zone }) {
       money(r.harvAmt), money(r.compAmt), money(r.btrAmt), `<b>${money(r.amt)}</b>`,
       pc(r.harvAp, r.harvPct), pc(r.compAp, r.compPct), pc(r.btrAp, r.btrPct), `<b>${pc(r.appts, r.pct)}</b>`,
       r.resitAp ? `${r.resitSl}/${r.resitAp} (${r.resitPct}%)` : '—',
+      r.pendAp || 0,
       money(r.avg), `${r.rb} (${r.rb_pct}%)`, `${r.ins} (${r.ins_pct}%)`,
     ]
     const rowHtml = (r, cls = '') => `<tr class="${cls}">` + cells(r).map((c, i) => `<td${i === 0 ? ' class="l"' : ''}>${c}</td>`).join('') + '</tr>'
@@ -678,6 +679,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                     <col />{/* BTR % */}
                     <col />{/* Tot % */}
                     <col className="bg-amber-50" />{/* NSR */}
+                    <col className="bg-sky-50" />{/* Pending */}
                     <col />{/* Avg $/Sale */}
                     <col />{/* RB */}
                     <col />{/* Insul */}
@@ -702,6 +704,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       <th className="px-2 py-1.5 text-right">BTR %</th>
                       <th className="px-2 py-1.5 text-right">Tot %</th>
                       <th className="px-2 py-1.5 text-right" title="No-sit recovery: of re-booked sits (a &quot;No Sit — Need to Reschedule&quot; that got back on the calendar), how many closed. Shown as sold / re-sat · %.">NSR</th>
+                      <th className="px-2 py-1.5 text-right" title="Unsold appointments still being worked (not sold, not a &quot;no sale&quot; / not interested). A low close % with lots of pending means the deals are still alive.">Pending</th>
                       <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
                       <th className="px-2 py-1.5 text-right">RB</th>
                       <th className="px-2 py-1.5 text-right">Insul</th>
@@ -731,12 +734,13 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         <td className="px-2 py-1.5 text-right text-slate-500">{r.btrAp ? r.btrPct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.appts ? r.pct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-amber-700" title={r.resitAp ? `${r.resitSl} of ${r.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{r.resitAp ? <>{r.resitSl}/{r.resitAp}<span className="text-[10px] text-amber-500"> ({r.resitPct}%)</span></> : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-sky-700 font-semibold" title={`${r.deadAp || 0} dead (no-sale / not interested)`}>{r.pendAp || 0}</td>
                         <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
                         <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
                         <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                       </tr>
                       {open && (
-                        <tr><td colSpan={21} className="bg-slate-50 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                        <tr><td colSpan={22} className="bg-slate-50 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
                       )}
                       </Fragment>
                       )
@@ -761,6 +765,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         <td className="px-2 py-1.5 text-right">{zt.btrAp ? zt.btrPct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-indigo-700">{zt.appts ? zt.pct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-amber-700" title={zt.resitAp ? `${zt.resitSl} of ${zt.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{zt.resitAp ? <>{zt.resitSl}/{zt.resitAp}<span className="text-[10px] text-amber-500"> ({zt.resitPct}%)</span></> : '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-sky-700">{zt.pendAp || 0}</td>
                         <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
                         <td className="px-2 py-1.5 text-right">{zt.rb}<span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></td>
                         <td className="px-2 py-1.5 text-right">{zt.ins}<span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></td>
@@ -795,6 +800,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         <span>IQ {r.compAp} apt · <b className="text-emerald-700">{r.compSl}</b> sold{r.compAp ? ` · ${r.compPct}%` : ''}</span>
                         <span>BTR {r.btrAp} apt · <b className="text-emerald-700">{r.btrSl}</b> sold{r.btrAp ? ` · ${r.btrPct}%` : ''}</span>
                         {r.resitAp ? <span className="text-amber-700">NSR {r.resitAp} re-sat · <b>{r.resitSl}</b> sold · {r.resitPct}%</span> : null}
+                        {r.pendAp ? <span className="text-sky-700">Pending <b>{r.pendAp}</b> still working</span> : null}
                       </div>
                       {open && <div className="mt-2"><ApptDetail details={r.details} /></div>}
                     </div>
@@ -812,7 +818,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                 )}
               </div>
               <div className="px-3 py-2 text-[10px] text-slate-400">
-                Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Each category shows appointments then sales (count). Harvest = harvested (DoorDispatcher map/self-gen) · IQ = company lead (Instant Quote/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — shown as sold / re-sat · %; it's an overlay, not a 4th category. Avg $/Sale = approved estimate ÷ sales.
+                Appts counted in the week they happen (inspection signings excluded); sales in the week they close. Each category shows appointments then sales (count). Harvest = harvested (DoorDispatcher map/self-gen) · IQ = company lead (Instant Quote/AI Bot/FB…) · BTR = back-to-retail (from an inspection). Each % = that bucket's sales ÷ appts. NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — shown as sold / re-sat · %; it's an overlay, not a 4th category. Pending = unsold appointments still being worked (not sold, and not a "no sale" / not-interested) — a low close % with lots of pending means the deals are still alive, not dead. Avg $/Sale = approved estimate ÷ sales.
               </div>
             </div>
           )}
