@@ -277,6 +277,58 @@ export const handler = async (event) => {
     return json(200, { ok: true, trainee: updated })
   }
 
+  // Departed reps in THIS manager's region — the "quit/fired" pile, so a
+  // manager can undo an accidental deactivation themselves (a rep who taps
+  // "Quit" by mistake, or a mis-click here) without waiting on the office.
+  if (action === 'list_departed_reps') {
+    const { data, error } = await supabase
+      .from('trainees')
+      .select('id, first_name, last_name, phone, email, rep_level, left_company_at, left_company_reason')
+      .eq('region', region)
+      .eq('is_active_sales_rep', false)
+      .not('left_company_at', 'is', null)
+      .order('left_company_at', { ascending: false })
+    if (error) return json(500, { error: error.message })
+    return json(200, { ok: true, reps: data || [] })
+  }
+
+  // Reactivate a departed rep — the exact reverse of deactivate_rep: flip the
+  // active flag back on and clear the departure stamps so they leave the
+  // cleanup-pending pile and reappear on the roster / maps. rep_level and
+  // jobnimbus_id are untouched by deactivation, so they come back intact.
+  if (action === 'reactivate_rep') {
+    const targetId = String(body.trainee_id || '').trim()
+    if (!targetId) return json(400, { error: 'Missing trainee_id' })
+
+    const { data: target } = await supabase
+      .from('trainees')
+      .select('id, first_name, last_name, region, is_active_sales_rep, rep_level')
+      .eq('id', targetId)
+      .maybeSingle()
+    if (!target) return json(404, { error: 'Rep not found.' })
+    if (target.region !== region) return json(403, { error: 'That rep is not in your region.' })
+    if (target.is_active_sales_rep) {
+      return json(200, { ok: true, trainee: target, already_active: true })
+    }
+
+    const { data: updated, error: upErr } = await supabase
+      .from('trainees')
+      .update({
+        is_active_sales_rep: true,
+        became_active_rep_at: new Date().toISOString(),
+        left_company_at: null,
+        left_company_reason: null,
+        cleanup_done_at: null,
+      })
+      .eq('id', targetId)
+      .select('id, first_name, last_name, rep_level')
+      .maybeSingle()
+    if (upErr) return json(500, { error: upErr.message })
+    // No rep_level means they'd be active but still invisible on the dashboard /
+    // maps — flag it so the manager knows to get the office to set their level.
+    return json(200, { ok: true, trainee: updated, needs_level: !updated?.rep_level })
+  }
+
   if (action === 'update_rep') {
     const targetId = String(body.trainee_id || '').trim()
     if (!targetId) return json(400, { error: 'Missing trainee_id' })

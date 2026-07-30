@@ -2962,6 +2962,48 @@ function RepsTable({ token, reps, onChanged }) {
   const [flash, setFlash] = useState(null)
   const [editing, setEditing] = useState(null) // {rep, phone, email}
   const [savingEdit, setSavingEdit] = useState(false)
+  const [departed, setDeparted] = useState(null) // null=not loaded, []=none, [...]=list
+  const [showDeparted, setShowDeparted] = useState(false)
+  const [reactivatingId, setReactivatingId] = useState(null)
+
+  const loadDeparted = useCallback(async () => {
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'list_departed_reps', token }),
+      })
+      const data = await res.json()
+      if (res.ok && data.ok) setDeparted(data.reps || [])
+    } catch { /* leave as-is; the toggle can retry */ }
+  }, [token])
+  useEffect(() => { loadDeparted() }, [loadDeparted])
+
+  async function reactivate(rep) {
+    setReactivatingId(rep.id)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivate_rep', token, trainee_id: rep.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setFlash({ kind: 'error', text: data?.error || 'Could not reactivate.' })
+      } else {
+        setFlash({
+          kind: 'success',
+          text: data.needs_level
+            ? `${rep.first_name} ${rep.last_name} reactivated — but they have no rep level set, so ask the office to set it or they won't show on the dashboard/maps.`
+            : `${rep.first_name} ${rep.last_name} is active again.`,
+        })
+        setDeparted((d) => (d || []).filter((x) => x.id !== rep.id))
+        await onChanged()
+      }
+    } catch (e) {
+      setFlash({ kind: 'error', text: e?.message || 'Network error.' })
+    } finally {
+      setReactivatingId(null)
+    }
+  }
 
   async function submitEdit() {
     if (!editing) return
@@ -3037,6 +3079,7 @@ function RepsTable({ token, reps, onChanged }) {
         })
         setConfirming(null)
         await onChanged()
+        await loadDeparted() // the just-departed rep now shows in the reactivate list
       }
     } catch (e) {
       setFlash({ kind: 'error', text: e?.message || 'Network error.' })
@@ -3290,6 +3333,53 @@ function RepsTable({ token, reps, onChanged }) {
             )
           })}
         </ul>
+      )}
+
+      {/* Departed reps — reactivate. Self-serve undo for an accidental "Quit"
+          (rep mis-tap or a mis-click above) so a manager isn't blocked waiting
+          on the office. Only shows when this region actually has departed reps. */}
+      {departed && departed.length > 0 && (
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowDeparted((v) => !v)}
+            className="flex w-full items-center justify-between rounded-md bg-white/5 px-3 py-2 text-left text-sm font-semibold text-slate-200 hover:bg-white/10"
+          >
+            <span>🔄 Reactivate a rep ({departed.length} departed)</span>
+            <span className="text-xs opacity-70">{showDeparted ? 'hide ▾' : 'show ▸'}</span>
+          </button>
+          {showDeparted && (
+            <ul className="mt-3 divide-y divide-white/10">
+              {departed.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">
+                      {r.first_name} {r.last_name}
+                      {!r.rep_level && (
+                        <span className="ml-2 rounded-full bg-amber-300/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                          no level
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-300">{r.phone || '—'}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-400">
+                      Left {r.left_company_at ? new Date(r.left_company_at).toLocaleDateString() : '—'}
+                      {r.left_company_reason ? ` · ${r.left_company_reason}` : ''}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => reactivate(r)}
+                    disabled={reactivatingId === r.id}
+                    className="rounded-md border border-emerald-300/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {reactivatingId === r.id ? 'Reactivating…' : '↩︎ Reactivate'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </section>
   )
