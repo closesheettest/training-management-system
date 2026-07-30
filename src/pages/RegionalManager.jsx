@@ -162,6 +162,7 @@ export default function RegionalManager() {
       </div>
 
       <Group title="⭐ Today's work" defaultOpen>
+        <CancelReviews zone={manager.region} />
         <AssignAppointments token={token} />
         <DealsToFix zone={manager.region} />
         <DamageNeedsRep zone={manager.region} />
@@ -1612,6 +1613,41 @@ function DamageNeedsRep({ zone }) {
             )}
           </div>
         )}
+      </div>
+    </section>
+  )
+}
+
+// Cancellation reviews the zone manager must decide — surfaced here so a missed
+// review text (CCG request-inspection-cancel) can't leave one sitting unseen.
+// Backed by CCG manager-cancel-reviews (?zone=).
+function CancelReviews({ zone }) {
+  const [reviews, setReviews] = useState(null)
+  useEffect(() => {
+    let live = true
+    fetch(LB_ORIGIN + 'manager-cancel-reviews?zone=' + encodeURIComponent(zone))
+      .then((r) => r.json()).then((j) => { if (live) setReviews(j.ok ? (j.reviews || []) : []) })
+      .catch(() => { if (live) setReviews([]) })
+    return () => { live = false }
+  }, [zone])
+  if (!reviews || !reviews.length) return null
+  const when = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '' } }
+  return (
+    <section className="mb-4 rounded-xl border-2 border-red-400/60 bg-red-500/10 p-4">
+      <div className="mb-1 text-base font-bold text-red-300">🚫 Cancellation reviews to decide ({reviews.length})</div>
+      <div className="mb-3 text-xs text-red-200/80">A homeowner cancelled during an inspection — read the note and Confirm or Keep. Do these first.</div>
+      <div className="grid gap-2">
+        {reviews.map((r) => (
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-400/40 bg-slate-900/60 p-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-white">{r.client_name || 'Homeowner'}</div>
+              <div className="text-xs text-slate-300">{[r.address, r.city].filter(Boolean).join(', ')}</div>
+              {r.note && <div className="mt-0.5 text-xs text-amber-300">📝 "{r.note}"</div>}
+              <div className="mt-0.5 text-[11px] text-slate-400">{r.by ? `Reported by ${r.by}` : ''}{r.at ? ` · ${when(r.at)}` : ''}{r.rep ? ` · rep ${r.rep}` : ''}</div>
+            </div>
+            <a href={r.link} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg bg-red-600 px-3.5 py-2 text-sm font-bold text-white no-underline">Review &amp; decide ›</a>
+          </div>
+        ))}
       </div>
     </section>
   )
