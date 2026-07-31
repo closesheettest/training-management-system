@@ -2965,6 +2965,35 @@ function RepsTable({ token, reps, onChanged }) {
   const [departed, setDeparted] = useState(null) // null=not loaded, []=none, [...]=list
   const [showDeparted, setShowDeparted] = useState(false)
   const [reactivatingId, setReactivatingId] = useState(null)
+  // "Route an area anytime" permission per rep (sales_reps.harvest_route_always in CCG).
+  // OFF = rep must Start-my-day + work the plan; ON = they can Route-an-area even with
+  // an appt/required stops. Manager grants it to reps who've earned the trust.
+  const [routeFlags, setRouteFlags] = useState({})   // jobnimbus_id -> bool
+  const [routeBusy, setRouteBusy] = useState(null)   // jobnimbus_id being toggled
+  useEffect(() => {
+    const jn = (reps || []).map((r) => r.jobnimbus_id).filter(Boolean)
+    if (!jn.length) return
+    fetch(LB_ORIGIN + 'harvest-route-always?jn_ids=' + encodeURIComponent(jn.join(',')))
+      .then((r) => r.json()).then((d) => { if (d && d.ok) setRouteFlags(d.flags || {}) })
+      .catch(() => { /* leave defaults (off) */ })
+  }, [reps])
+  const toggleRouteAlways = async (rep) => {
+    if (!rep.jobnimbus_id) { setFlash({ kind: 'error', text: `${rep.first_name} has no JobNimbus id yet — the office needs to link them before this works.` }); return }
+    const next = !routeFlags[rep.jobnimbus_id]
+    setRouteBusy(rep.jobnimbus_id)
+    try {
+      const res = await fetch(LB_ORIGIN + 'harvest-route-always', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jn_id: rep.jobnimbus_id, on: next }),
+      })
+      const d = await res.json()
+      if (res.ok && d.ok) {
+        setRouteFlags((f) => ({ ...f, [rep.jobnimbus_id]: !!d.on }))
+        setFlash({ kind: 'success', text: `${rep.first_name} ${rep.last_name} — Route-an-area anytime is now ${d.on ? 'ON' : 'OFF'}.` })
+      } else setFlash({ kind: 'error', text: d?.error || 'Could not update.' })
+    } catch (e) { setFlash({ kind: 'error', text: e?.message || 'Network error.' }) }
+    finally { setRouteBusy(null) }
+  }
 
   const loadDeparted = useCallback(async () => {
     try {
@@ -3180,6 +3209,17 @@ function RepsTable({ token, reps, onChanged }) {
                       className="rounded-md border border-red-300/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 hover:bg-red-500/20"
                     >
                       Quit / Fired
+                    </button>
+                    {/* Route-an-area permission — off by default; turn on once they've
+                        earned it (until then they must Start-my-day and work the plan). */}
+                    <button
+                      type="button"
+                      onClick={() => toggleRouteAlways(r)}
+                      disabled={routeBusy === r.jobnimbus_id}
+                      title="When ON, this rep can draw their own route (Route an area) anytime — even with an appointment or required stops. When OFF, they must Start my day and work the plan."
+                      className={`rounded-md border px-3 py-1 text-xs font-semibold disabled:opacity-50 ${routeFlags[r.jobnimbus_id] ? 'border-emerald-300/50 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25' : 'border-white/20 bg-white/5 text-slate-200 hover:bg-white/10'}`}
+                    >
+                      {routeBusy === r.jobnimbus_id ? '…' : `🗺️ Route anytime: ${routeFlags[r.jobnimbus_id] ? 'ON' : 'OFF'}`}
                     </button>
                   </div>
                 </div>
