@@ -29,6 +29,8 @@ const LEVEL_BADGE_CLS = {
   senior: 'bg-violet-100 text-violet-800',
   non_field: 'bg-slate-200 text-slate-700',
 }
+// Level sort rank — senior first, then junior, then non-field (blank levels last).
+const LEVEL_RANK = { senior: 0, junior: 1, non_field: 2 }
 
 export default function DirectoryAdmin() {
   const { regionNames } = useRegions()
@@ -37,6 +39,7 @@ export default function DirectoryAdmin() {
   const [savingId, setSavingId] = useState(null)
   const [flash, setFlash] = useState(null)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState({ key: 'name', dir: 'asc' })
   const [addOpen, setAddOpen] = useState(false)
   const [editPerson, setEditPerson] = useState(null)
   const [visibilityModal, setVisibilityModal] = useState(null)
@@ -238,6 +241,31 @@ export default function DirectoryAdmin() {
     })
   }, [people, search])
 
+  // Click a column header to sort by it; click again to flip direction. Blanks
+  // always sink to the bottom regardless of direction.
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    const { key, dir } = sort
+    arr.sort((a, b) => {
+      const av = sortValue(a, key)
+      const bv = sortValue(b, key)
+      const aEmpty = av === '' || av == null
+      const bEmpty = bv === '' || bv == null
+      if (aEmpty && bEmpty) return 0
+      if (aEmpty) return 1
+      if (bEmpty) return -1
+      const cmp =
+        typeof av === 'number' && typeof bv === 'number'
+          ? av - bv
+          : String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' })
+      return dir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [filtered, sort])
+
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -291,14 +319,14 @@ export default function DirectoryAdmin() {
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Level</th>
-              <th className="px-3 py-2 text-left">Personal phone</th>
-              <th className="px-3 py-2 text-left">Work phone</th>
-              <th className="px-3 py-2 text-left">Company email</th>
-              <th className="px-3 py-2 text-left">Territory</th>
-              <th className="px-3 py-2 text-left">Department</th>
-              <th className="px-3 py-2 text-left">Birthday</th>
+              <SortTh label="Name" colKey="name" sort={sort} onSort={toggleSort} />
+              <SortTh label="Level" colKey="level" sort={sort} onSort={toggleSort} />
+              <SortTh label="Personal phone" colKey="phone" sort={sort} onSort={toggleSort} />
+              <SortTh label="Work phone" colKey="company_phone" sort={sort} onSort={toggleSort} />
+              <SortTh label="Company email" colKey="company_email" sort={sort} onSort={toggleSort} />
+              <SortTh label="Territory" colKey="region" sort={sort} onSort={toggleSort} />
+              <SortTh label="Department" colKey="department" sort={sort} onSort={toggleSort} />
+              <SortTh label="Birthday" colKey="birthday" sort={sort} onSort={toggleSort} />
               <th className="px-3 py-2 text-left">Directory</th>
               <th className="px-3 py-2 text-left">Note</th>
               <th className="px-3 py-2 text-right">Actions</th>
@@ -312,7 +340,7 @@ export default function DirectoryAdmin() {
                 </td>
               </tr>
             )}
-            {filtered.map((p) => {
+            {sorted.map((p) => {
               const hidden = p.directory_hidden || {}
               const isSaving = savingId === p.id
               return (
@@ -623,6 +651,63 @@ function formatBirthday(s) {
   const parts = String(s).slice(0, 10).split('-').map(Number)
   if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return ''
   return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString()
+}
+
+// Birthday sort key = month/day only (year-agnostic), so "whose birthday is next"
+// ordering works across ages. Returns null for blanks so they sort last.
+function birthdaySortKey(s) {
+  if (!s) return null
+  const parts = String(s).slice(0, 10).split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null
+  return parts[1] * 100 + parts[2]
+}
+
+// The comparable value for a given column. Strings sort case-insensitively (with
+// numeric awareness so "Zone 2" < "Zone 10"); level sorts by seniority rank.
+function sortValue(p, key) {
+  switch (key) {
+    case 'name':
+      return `${(p.last_name || '').toLowerCase()} ${(p.first_name || '').toLowerCase()}`.trim()
+    case 'level':
+      return p.rep_level in LEVEL_RANK ? LEVEL_RANK[p.rep_level] : p.rep_level ? 8 : null
+    case 'phone':
+      return p.phone || ''
+    case 'company_phone':
+      return p.company_phone || ''
+    case 'company_email':
+      return (p.company_email || '').toLowerCase()
+    case 'region':
+      return p.region || ''
+    case 'department':
+      return (Array.isArray(p.departments) ? p.departments.join(', ') : '').toLowerCase()
+    case 'birthday':
+      return birthdaySortKey(p.birthday)
+    default:
+      return ''
+  }
+}
+
+// A clickable column header: shows the sort arrow when this column is active.
+function SortTh({ label, colKey, sort, onSort }) {
+  const active = sort.key === colKey
+  return (
+    <th className="px-3 py-2 text-left">
+      <button
+        type="button"
+        onClick={() => onSort(colKey)}
+        className={
+          'inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-700 ' +
+          (active ? 'text-slate-900' : '')
+        }
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <span className={'text-[9px] leading-none ' + (active ? 'text-slate-700' : 'text-slate-300')}>
+          {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  )
 }
 
 // Inline click-to-edit text cell for fields that DirectoryAdmin owns
