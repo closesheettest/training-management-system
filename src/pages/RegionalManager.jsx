@@ -180,6 +180,7 @@ export default function RegionalManager() {
           <ManagerPayReport />
         </section>
         <BackToRetailWins zone={manager.region} />
+        <HarvestActivityReport zone={manager.region} />
       </Group>
 
       <Group title="🎯 Leads to work">
@@ -451,6 +452,23 @@ function ApptDetail({ details }) {
         </table>
       </div>
     </div>
+  )
+}
+
+// Full DoorDispatcher "Rep Activity" report for THIS manager's team. Embeds the
+// CCG office report (?mode=harvestreport) — the exact same functionality the admin
+// sees (doors visited, rounds, outcomes, off-spot flags, stop-by-stop, CSV) — pinned
+// to the manager's own team via ?zone=, with ?embed=1 hiding the report's own nav.
+function HarvestActivityReport({ zone }) {
+  const src = 'https://free-roof-inspections.netlify.app/?mode=harvestreport&embed=1&zone=' + encodeURIComponent(zone || '')
+  return (
+    <section className="mb-6">
+      <h2 className="mb-1 text-lg font-semibold text-white">📊 Rep Activity — your team</h2>
+      <p className="mb-2 text-xs text-slate-200/70">Each rep's canvassing: doors visited, rounds, outcomes (appts / not-interested / sold / dead), off-spot flags, and last active. Tap a rep for their stop-by-stop.</p>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <iframe title="Rep Activity" src={src} className="w-full" style={{ height: 760, border: 0, background: '#fff' }} />
+      </div>
+    </section>
   )
 }
 
