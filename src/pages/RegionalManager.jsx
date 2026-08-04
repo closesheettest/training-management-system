@@ -180,7 +180,6 @@ export default function RegionalManager() {
           <ManagerPayReport />
         </section>
         <BackToRetailWins zone={manager.region} />
-        <HarvestActivityReport zone={manager.region} />
       </Group>
 
       <Group title="🎯 Leads to work">
@@ -2451,7 +2450,7 @@ function HarvestToolsGate({ token, region }) {
       )}
       <TeamHarvestMap zone={region} preview={preview} />
       <EnhancedPlannedDay zone={region} token={token} preview={preview} />
-      <ZoneActivityReport zone={region} />
+      <HarvestActivityReport zone={region} />
       <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
         className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
         <span className="text-2xl">🧪</span>
