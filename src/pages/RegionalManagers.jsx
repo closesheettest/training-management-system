@@ -408,7 +408,7 @@ function ResultsFollowups() {
     } catch { setErr('Network error.') }
     setLoading(false)
   }
-  const BADGE = { damage: ['Damage', 'bg-rose-100 text-rose-700'], no_damage: ['No Damage', 'bg-emerald-100 text-emerald-700'], retail: ['Retail', 'bg-amber-100 text-amber-700'] }
+  const BADGE = { damage: ['BTPA', 'bg-rose-100 text-rose-700'], no_damage: ['ND', 'bg-emerald-100 text-emerald-700'], retail: ['BTR', 'bg-amber-100 text-amber-700'] }
   const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '' } }
   return (
     <section className="mb-6">

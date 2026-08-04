@@ -1917,14 +1917,14 @@ function ActiveLeads({ zone }) {
   const [open, setOpen] = useState(null) // 'btr' | 'damage' | 'no_damage' | 'no_sits' | null
   const TILES = [
     { key: 'btr', emoji: '🏠', label: 'Back to retail', color: '#0f766e' },
-    { key: 'damage', emoji: '⚠️', label: 'Damage', color: '#b45309' },
-    { key: 'no_damage', emoji: '🚫', label: 'No damage', color: '#6d28d9' },
+    { key: 'damage', emoji: '⚠️', label: 'BTPA', color: '#b45309' },
+    { key: 'no_damage', emoji: '🚫', label: 'ND', color: '#6d28d9' },
     { key: 'no_sits', emoji: '📵', label: 'No-sits to re-book', color: '#475569' },
   ]
   const report = (k) => {
     if (k === 'btr') return <ZoneApptReport zone={zone} fn="zone-back-to-retail" emoji="🏠" title="Back to retail" unit="deal" color="#0f766e" dateLabel="Inspected" blurb="" emptyMsg="✅ Nothing back-to-retail right now." headless autoLoad />
-    if (k === 'damage') return <ZoneApptReport zone={zone} fn="zone-damage" emoji="⚠️" title="Damage" unit="deal" color="#b45309" dateLabel="Inspected" blurb="" emptyMsg="✅ No damage inspections right now." headless autoLoad />
-    if (k === 'no_damage') return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="No damage" unit="deal" color="#6d28d9" dateLabel="Inspected" blurb="" emptyMsg="✅ No no-damage inspections right now." headless autoLoad />
+    if (k === 'damage') return <ZoneApptReport zone={zone} fn="zone-damage" emoji="⚠️" title="BTPA" unit="deal" color="#b45309" dateLabel="Inspected" blurb="" emptyMsg="✅ No BTPA inspections right now." headless autoLoad />
+    if (k === 'no_damage') return <ZoneApptReport zone={zone} fn="zone-no-damage" emoji="🚫" title="ND" unit="deal" color="#6d28d9" dateLabel="Inspected" blurb="" emptyMsg="✅ No ND inspections right now." headless autoLoad />
     if (k === 'no_sits') return <ZoneApptReport zone={zone} fn="zone-no-sits" emoji="📵" title="No-sits to re-book" unit="no-sit" color="#475569" statusLabel="Status" blurb="" emptyMsg="✅ No no-sits to re-book right now." headless autoLoad />
     return null
   }
