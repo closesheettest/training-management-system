@@ -41,7 +41,13 @@ export default function OffboardingReps() {
     if (error) { setError(error.message); setPending([]); return }
     const rows = (data || []).filter((t) => !t.is_active_sales_rep)
     setPending(rows.filter((t) => !t.cleanup_done_at))
-    setDone(rows.filter((t) => t.cleanup_done_at).slice(0, 50))
+    setDone(
+      rows.filter((t) => t.cleanup_done_at)
+        .slice(0, 50) // keep the 50 most-recently-offboarded (query is left-date desc)…
+        .sort((a, b) => // …then show them alphabetically by name (Jen's ask)
+          `${a.first_name || ''} ${a.last_name || ''}`.trim().toLowerCase()
+            .localeCompare(`${b.first_name || ''} ${b.last_name || ''}`.trim().toLowerCase())),
+    )
   }
 
   // Toggle one system checkbox. If that flips the LAST box on, the rep
