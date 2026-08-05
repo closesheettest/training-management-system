@@ -50,22 +50,25 @@ function editableDraftFor(t) {
 // Collapsible wrapper for each list section. Collapsed by default so the
 // page opens as a clean stack of section headers (each showing its count) —
 // the admin expands only what they need. The heading itself is the toggle.
-function CollapsibleSection({ sectionClass, headingClass, title, defaultOpen = false, children }) {
+function CollapsibleSection({ sectionClass, headingClass, title, defaultOpen = false, forceOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
+  // forceOpen (e.g. while searching) reveals a section even if it's collapsed, so a
+  // name search surfaces people who live in a normally-hidden section (non-active reps).
+  const isOpen = open || forceOpen
   return (
     <section className={sectionClass}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-3 text-left"
-        aria-expanded={open}
+        aria-expanded={isOpen}
       >
         <h2 className={headingClass}>{title}</h2>
         <span className="shrink-0 rounded-full border border-slate-300 bg-white/70 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
-          {open ? '▾ Hide' : '▸ Show'}
+          {isOpen ? '▾ Hide' : '▸ Show'}
         </span>
       </button>
-      {open && children}
+      {isOpen && children}
     </section>
   )
 }
@@ -189,10 +192,11 @@ export default function ActiveReps() {
     setDropouts(
       all
         .filter((t) => classifyInactive(t) === 'dropout')
-        // Most recent first — newest dropouts are most actionable.
+        // Alphabetical by name — so the office can find a specific person (e.g. a
+        // graduate who was never activated) instead of scanning by date.
         .sort((a, b) =>
-          new Date(b.classes?.week_end_date || 0) -
-          new Date(a.classes?.week_end_date || 0),
+          `${a.first_name || ''} ${a.last_name || ''}`.trim()
+            .localeCompare(`${b.first_name || ''} ${b.last_name || ''}`.trim(), undefined, { sensitivity: 'base' }),
         ),
     )
     setPendingCleanup(
@@ -1288,7 +1292,7 @@ export default function ActiveReps() {
           <strong className="text-emerald-700">{active.length}</strong> active field ·{' '}
           <strong className="text-slate-500">{nonField.length}</strong> non-field ·{' '}
           <strong className="text-slate-500">{notYetActive.length}</strong> not yet active ·{' '}
-          <strong className="text-slate-500">{dropouts.length}</strong> dropouts
+          <strong className="text-slate-500">{dropouts.length}</strong> non-active
           {(regionFilter || neverUpdatedOnly || levelFilter || search) && (
             <span className="ml-2 text-xs text-amber-700">
               ⚠ filters active — counts below reflect filters, totals above are unfiltered
@@ -1597,13 +1601,14 @@ export default function ActiveReps() {
       <CollapsibleSection
         sectionClass="rounded-lg border border-slate-200 bg-slate-50 p-5"
         headingClass="text-lg font-semibold text-slate-700"
-        title={`❌ Dropouts / dead (${dropoutsFiltered.length})`}
+        title={`💤 Non-active reps (${dropoutsFiltered.length})`}
+        forceOpen={!!search}
       >
         <p className="mt-1 text-xs text-slate-500">
-          Trainees whose class week ended without them graduating — never submitted the final
-          test, or no-showed entirely. Kept here for record-keeping. If someone in this list
-          actually did make it through and should be active, click <strong>Add as active rep</strong>{' '}
-          to override.
+          People whose training class ended but who were <strong>never activated</strong> — some
+          truly dropped out or no-showed, but some <strong>graduated and just slipped through</strong>{' '}
+          the auto-activation (search a name to find them). If someone here should be on the team,
+          click <strong>Add as active rep</strong> to activate them. Sorted A–Z.
         </p>
         {loading ? (
           <p className="mt-3 text-sm text-slate-500">Loading…</p>
