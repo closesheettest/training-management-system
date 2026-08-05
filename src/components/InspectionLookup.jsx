@@ -56,13 +56,63 @@ function InspectionActions({ d, onChanged }) {
     } catch { setMsg('Network error.') }
     setBusy(false)
   }
+  // Change which pipeline the deal is in (mis-inspected, or tried-retail-then-PA).
+  const [confirmResult, setConfirmResult] = useState(null)
+  const RESULT_OPTS = [
+    { key: 'damage', label: '🏚️ Damage / Need PA', note: 'Moves the JobNimbus job to the insurance location (PA record type) and re-queues it for a Public Adjuster.' },
+    { key: 'retail', label: '🏡 Retail', note: 'Moves it to the retail lane (Lead record type, retail location).' },
+    { key: 'no_damage', label: '✅ No Damage', note: 'Marks the roof as no damage.' },
+  ]
+  const RESULT_NAME = { damage: 'Damage', retail: 'Retail', no_damage: 'No Damage' }
+  const changeResult = async (result) => {
+    setBusy(true); setMsg('')
+    try {
+      const j = await post('inspection-action', { action: 'change_result', inspection_id: d.inspection_id, result, by: 'Manager (lookup)' })
+      if (!j.ok) setMsg(j.error || 'Change failed.')
+      else {
+        const jnErr = (j.jn?.errors || []).length ? ` ⚠ JobNimbus: ${j.jn.errors.join('; ')}` : ''
+        setMsg(`✓ ${j.note || 'Changed.'}${jnErr}`)
+        setTimeout(() => onChanged && onChanged(), 1200)
+      }
+    } catch { setMsg('Network error.') }
+    setBusy(false); setConfirmResult(null); setOpen(null)
+  }
 
   return (
     <div className="mt-3 border-t border-dashed border-slate-300 pt-2.5">
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => setOpen(open === 'fix' ? null : 'fix')} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800 hover:bg-slate-50">✏️ Fix homeowner info</button>
         {canPa && <button type="button" onClick={() => (open === 'pa' ? setOpen(null) : loadSlots())} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800 hover:bg-slate-50">📅 Schedule a PA</button>}
+        <button type="button" onClick={() => { setConfirmResult(null); setOpen(open === 'result' ? null : 'result') }} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800 hover:bg-slate-50">🔄 Change result</button>
       </div>
+      {open === 'result' && (
+        <div className="mt-2.5 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="mb-2 text-[13px] text-slate-700">
+            Currently <b>{RESULT_NAME[d.result] || d.result || '—'}</b>. Change the inspection result — this moves the deal between the retail and insurance/PA pipelines in the app <i>and</i> JobNimbus.
+          </div>
+          {!confirmResult ? (
+            <div className="grid gap-1.5">
+              {RESULT_OPTS.filter((o) => o.key !== d.result).map((o) => (
+                <button key={o.key} type="button" onClick={() => setConfirmResult(o.key)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
+                  <div className="text-[13px] font-extrabold text-slate-800">{o.label}</div>
+                  <div className="mt-0.5 text-[11.5px] text-slate-500">{o.note}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <div className="text-[13.5px] font-bold text-slate-900">
+                Change {d.client_name || 'this deal'} from <b>{RESULT_NAME[d.result] || d.result}</b> → <b>{RESULT_NAME[confirmResult]}</b>?
+              </div>
+              <div className="text-[12px] text-slate-500">{RESULT_OPTS.find((o) => o.key === confirmResult)?.note}</div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => changeResult(confirmResult)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[13px] font-bold text-white disabled:opacity-60">{busy ? 'Changing…' : `Yes, change to ${RESULT_NAME[confirmResult]}`}</button>
+                <button type="button" onClick={() => setConfirmResult(null)} disabled={busy} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[13px] font-bold text-slate-800">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {open === 'fix' && (
         <div className="mt-2.5 grid gap-1.5">
           {fields.map(([k, lbl]) => (
