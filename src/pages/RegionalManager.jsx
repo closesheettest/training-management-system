@@ -3198,6 +3198,24 @@ function RepsTable({ token, reps, onChanged }) {
                     >
                       💾 Save to phone
                     </a>
+                    {r.door_dispatcher_link && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const link = r.door_dispatcher_link
+                          const done = () => setFlash({ kind: 'success', text: `Copied ${r.first_name}'s DoorDispatcher link — paste it into your text to them.` })
+                          if (navigator.clipboard?.writeText) {
+                            navigator.clipboard.writeText(link).then(done).catch(() => window.prompt('Copy this rep\'s DoorDispatcher link:', link))
+                          } else {
+                            window.prompt('Copy this rep\'s DoorDispatcher link:', link)
+                          }
+                        }}
+                        className="rounded-md border border-violet-300/40 bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-100 hover:bg-violet-500/20"
+                        title="Copy this rep's personal DoorDispatcher map link, so you can paste it into your own text to them."
+                      >
+                        📋 Copy map link
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() =>

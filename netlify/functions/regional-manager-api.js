@@ -141,6 +141,19 @@ async function ccgRecordsApi(zone, payload) {
   }
 }
 
+// jobnimbus_id → the rep's DoorDispatcher personal link, from CCG's harvest-rep-links
+// roster. Server-to-server (no CORS). Best-effort — returns {} on any hiccup.
+async function fetchDoorDispatcherLinks() {
+  try {
+    const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/harvest-rep-links`)
+    if (!r.ok) return {}
+    const d = await r.json().catch(() => ({}))
+    const map = {}
+    for (const rep of (d.reps || [])) if (rep.jobnimbus_id && rep.link) map[rep.jobnimbus_id] = rep.link
+    return map
+  } catch { return {} }
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
   if (!SB_URL || !SB_KEY) return json(500, { error: 'Missing SUPABASE env vars' })
@@ -189,6 +202,12 @@ export const handler = async (event) => {
     // Auto-resolve this manager's CCG deal-board link by zone.
     const ccgRecordsUrl = await resolveCcgRecordsUrl(region)
 
+    // Attach each rep's DoorDispatcher (harvest map) personal link so the manager can
+    // copy it and text it to the rep. The links live in CCG — fetch them server-side
+    // (no CORS) and match by jobnimbus_id. Best-effort: a hiccup just omits the links.
+    const ddLinks = await fetchDoorDispatcherLinks()
+    const repsOut = (reps || []).map((r) => ({ ...r, door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null }))
+
     return json(200, {
       ok: true,
       manager: {
@@ -199,7 +218,7 @@ export const handler = async (event) => {
         zoom_url: manager.manager_zoom_url || null,
         ccg_records_url: ccgRecordsUrl,
       },
-      reps: reps || [],
+      reps: repsOut,
     })
   }
 
