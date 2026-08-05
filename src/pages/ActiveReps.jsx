@@ -166,11 +166,15 @@ export default function ActiveReps() {
       if (t.declined_at) return null
       if (t.left_company_at) return null
       const c = t.classes
-      // attendance-only classes (meetings) don't graduate anyone, so
-      // anyone inactive with that class type isn't a "trainee" or a
-      // "dropout" — they're either a dedup'd row or just stuck there.
-      // Hide from both new sections.
-      if (c?.attendance_only) return null
+      // attendance-only classes (kickoffs / company meetings) don't graduate
+      // anyone. We USED to hide everyone inactive with that class type as
+      // bulk-import dupes — but real reps who only ever attended a meeting and
+      // were never activated live here too (e.g. the 2026-05-18 company meeting:
+      // Amanda Sutherland, Chris King, Cory Brooks, Eduardo Ramos Rodriguez,
+      // Luis Guerrero, Ronald Dunfee…). The office needs to FIND them. Surface
+      // the ones with real contact info as non-active; only the truly-empty
+      // rows (no phone AND no email) stay hidden as dupes.
+      if (c?.attendance_only) return (t.phone || t.email) ? 'dropout' : null
       if (!c?.week_end_date) {
         // No class scheduled — treat as not-yet-active.
         return 'notYet'
