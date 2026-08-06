@@ -1405,7 +1405,7 @@ function AssignAppointments({ token }) {
             <p className="text-xs text-slate-500">Setter-booked + your team's JobNimbus appointments. Set or change the Owner + Sales Rep on any row — writes both to JobNimbus.</p>
           </div>
           <div className="flex gap-1.5">
-            <Tab v="needs" label="Needs assignment" />
+            <Tab v="needs" label="Deals to assign" />
             <Tab v="today" label="Today" />
             <Tab v="tomorrow" label="Tomorrow" />
           </div>
@@ -1582,22 +1582,36 @@ function DamageNeedsRep({ zone }) {
     setBusy('')
   }
   const remaining = (data?.deals || []).filter((d) => !doneIds[d.inspection_id])
+  const maxAge = remaining.reduce((m, d) => Math.max(m, d.age_days || 0), 0) // oldest deal waiting, days
   // Auto-load so the manager sees what needs assigning without a click.
   useEffect(() => { load() }, [zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="mb-6">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        {/* BIG FLASHING alert — impossible to ignore. Red once anything has aged 30+ days
+            (this is unacceptable and the company reviews this page); amber otherwise. */}
+        {data && remaining.length > 0 && (
+          <button
+            type="button"
+            onClick={() => document.getElementById('needs-assign-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className={`mb-4 w-full rounded-xl px-5 py-4 text-center font-extrabold text-white shadow-lg animate-pulse ${maxAge >= 30 ? 'bg-red-600 ring-4 ring-red-300' : 'bg-amber-500'}`}
+            style={{ fontSize: 20, letterSpacing: '0.02em' }}
+          >
+            🚨 {remaining.length} DEAL{remaining.length > 1 ? 'S' : ''} NEED TO BE ASSIGNED
+            {maxAge > 0 && <span className="mt-1 block text-sm font-bold">{maxAge >= 30 ? '⛔ ' : ''}Oldest has been waiting {maxAge} days — assign it now.</span>}
+          </button>
+        )}
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-brand-navy">🗂️ Needs assignment{data ? ` (${remaining.length})` : ''}</h2>
+            <h2 className="text-lg font-bold text-brand-navy">🗂️ Deals that need to be assigned{data ? ` (${remaining.length})` : ''}</h2>
             <p className="text-xs text-slate-500">Inspected results (damage, no-damage &amp; retail) in your zone whose rep isn't active — they show for no one until you assign them. Oldest first, so nothing sits for months. Assign each to an active rep and it lands in their visit list.</p>
           </div>
           <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load'}</button>
         </div>
         {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
         {data && (
-          <div className="mt-3">
+          <div id="needs-assign-list" className="mt-3">
             {remaining.length === 0 ? <div className="text-sm text-slate-500">No inspected deals waiting for a rep. 🎉</div> : remaining.map((dl) => {
               const RES = { damage: { l: '🏚️ Damage', c: 'bg-rose-100 text-rose-700' }, no_damage: { l: '✅ No-Damage', c: 'bg-emerald-100 text-emerald-700' }, retail: { l: '🏠 Retail', c: 'bg-amber-100 text-amber-700' } }[dl.result] || { l: dl.result, c: 'bg-slate-100 text-slate-600' }
               const old = dl.age_days != null && dl.age_days >= 14
