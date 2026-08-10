@@ -190,6 +190,7 @@ export default function RegionalManager() {
       <Group title="📋 Roster & tools">
         <WeeklyReport token={token} />
         <RepsTable token={token} reps={reps} onChanged={reload} />
+        <RoofMeasureAccess zone={manager.region} />
         <ZoneMap reps={reps} zoneName={manager.region} token={token} />
         <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
         <MeetingIdea token={token} />
@@ -2984,6 +2985,60 @@ function ZoneMap({ reps, zoneName, token }) {
 // "Save to phone" button on each rep row.
 function vcardUrlFor(token, repId) {
   return `/.netlify/functions/regional-manager-rep-vcard?token=${encodeURIComponent(token)}&trainee_id=${encodeURIComponent(repId)}`
+}
+
+// Per-rep on/off for the satellite Roof Measurement tool. Hidden entirely until
+// the admin flips the COMPANY master switch on (in CCG Manager Settings); then the
+// manager can enable it for individual reps in their region. Reads/writes the CCG
+// roofmeasure-settings endpoint (same flags the rep map checks).
+function RoofMeasureAccess({ zone }) {
+  const [data, setData] = useState(null) // null = loading | { company_enabled, reps } | { error }
+  const [busy, setBusy] = useState('')
+  useEffect(() => {
+    let live = true
+    fetch(HARVEST_ORIGIN + 'roofmeasure-settings?zone=' + encodeURIComponent(zone || ''))
+      .then((r) => r.json())
+      .then((d) => { if (live) setData(d && d.ok ? d : { error: true }) })
+      .catch(() => { if (live) setData({ error: true }) })
+    return () => { live = false }
+  }, [zone])
+  const toggle = async (rep) => {
+    if (busy) return
+    setBusy(rep.jn_id)
+    const next = !rep.enabled
+    setData((d) => ({ ...d, reps: d.reps.map((r) => (r.jn_id === rep.jn_id ? { ...r, enabled: next } : r)) })) // optimistic
+    try {
+      const res = await fetch(HARVEST_ORIGIN + 'roofmeasure-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rep', rep_jn_id: rep.jn_id, on: next }) })
+      const d = await res.json()
+      if (!d.ok) throw new Error()
+    } catch {
+      setData((d) => ({ ...d, reps: d.reps.map((r) => (r.jn_id === rep.jn_id ? { ...r, enabled: !next } : r)) })) // revert
+    }
+    setBusy('')
+  }
+  if (!data || data.error || !data.company_enabled) return null // only appears once the company switch is on
+  const reps = data.reps || []
+  const onCount = reps.filter((r) => r.enabled).length
+  return (
+    <section className="mb-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-bold text-brand-navy">📐 Roof Measurement — rep access</h2>
+        <p className="text-xs text-slate-500">Turn the satellite roof-measure tool on for individual reps. When it's on, a rep can measure a roof right from an appointment on their map. <strong>{onCount} of {reps.length}</strong> on.</p>
+        <div className="mt-3 divide-y divide-slate-100">
+          {reps.map((r) => (
+            <div key={r.jn_id} className="flex items-center justify-between py-2">
+              <span className="text-sm font-semibold text-slate-800">{r.name}</span>
+              <button type="button" onClick={() => toggle(r)} disabled={busy === r.jn_id} aria-pressed={r.enabled}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${r.enabled ? 'bg-green-600' : 'bg-slate-300'} ${busy === r.jn_id ? 'opacity-60' : ''}`}>
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${r.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          ))}
+          {reps.length === 0 && <div className="py-2 text-sm text-slate-400">No active reps in your region.</div>}
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function RepsTable({ token, reps, onChanged }) {
