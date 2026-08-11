@@ -270,7 +270,7 @@ function ContestReport() {
                 )
               })}
               <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
-                Columns are <b>counts</b> of each attribute. Points use the daily ramp — the first 2 attributes each day are 1 pt each, every one after is 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
+                Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
               </div>
             </div>
           )}
