@@ -156,6 +156,25 @@ export default function Kiosk() {
     load()
   }
 
+  // Undo a sign-in — someone tapped the wrong name. Removes today's attendance row
+  // for that trainee so they're back to "not signed in" and can be re-selected.
+  async function undoSignIn(t) {
+    if (!confirm(`Undo sign-in for ${t.first_name} ${t.last_name}?\n\nThis removes their check-in for today — tap this only if the wrong name was picked.`)) return
+    setSigningIn(t.id)
+    const { error: err } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('trainee_id', t.id)
+      .eq('class_id', class_id)
+      .eq('attendance_date', today)
+    setSigningIn(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    load()
+  }
+
   async function closeSignIn() {
     if (
       !confirm(
@@ -287,31 +306,49 @@ export default function Kiosk() {
               {[...absent, ...present].map((t) => {
                 const checked = !!attendanceMap[t.id]?.confirmed
                 const time = attendanceMap[t.id]?.confirmed_at
+                // Signed-in: a static green tile with an Undo (in case the wrong name
+                // was tapped). Not-signed-in: the tap-to-sign-in button.
+                if (checked) {
+                  return (
+                    <div key={t.id} className="rounded-xl border-2 border-green-500 bg-green-50 p-6 text-left">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-2xl font-semibold text-slate-900 sm:text-3xl">
+                            {t.first_name} {t.last_name}
+                          </div>
+                          {time && (
+                            <div className="mt-1 text-sm text-green-700">
+                              Signed in at {new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-3xl">✅</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => undoSignIn(t)}
+                        disabled={signingIn === t.id}
+                        className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-500 hover:border-red-400 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {signingIn === t.id ? 'Undoing…' : '✕ Undo sign-in'}
+                      </button>
+                    </div>
+                  )
+                }
                 return (
                   <button
                     key={t.id}
                     onClick={() => signIn(t)}
-                    disabled={checked || signingIn === t.id}
-                    className={
-                      checked
-                        ? 'rounded-xl border-2 border-green-500 bg-green-50 p-6 text-left transition'
-                        : 'rounded-xl border-2 border-slate-200 bg-white p-6 text-left transition hover:border-brand-navy hover:shadow-lg active:scale-[0.98]'
-                    }
+                    disabled={signingIn === t.id}
+                    className="rounded-xl border-2 border-slate-200 bg-white p-6 text-left transition hover:border-brand-navy hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-2xl font-semibold text-slate-900 sm:text-3xl">
                           {t.first_name} {t.last_name}
                         </div>
-                        {checked && time && (
-                          <div className="mt-1 text-sm text-green-700">
-                            Signed in at {new Date(time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                          </div>
-                        )}
                       </div>
-                      <div className="shrink-0 text-3xl">
-                        {checked ? '✅' : signingIn === t.id ? '…' : '➜'}
-                      </div>
+                      <div className="shrink-0 text-3xl">{signingIn === t.id ? '…' : '➜'}</div>
                     </div>
                   </button>
                 )
