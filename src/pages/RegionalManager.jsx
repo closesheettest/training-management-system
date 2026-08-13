@@ -163,6 +163,7 @@ export default function RegionalManager() {
 
       <Group title="⭐ Today's work" defaultOpen>
         <CancelReviews zone={manager.region} />
+        <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
         <AssignAppointments token={token} />
         <DealsToFix zone={manager.region} />
         <DamageNeedsRep zone={manager.region} />
@@ -1652,6 +1653,57 @@ function DamageNeedsRep({ zone }) {
 // Cancellation reviews the zone manager must decide — surfaced here so a missed
 // review text (CCG request-inspection-cancel) can't leave one sitting unseen.
 // Backed by CCG manager-cancel-reviews (?zone=).
+// 🌟 Reviews to verify — the contest's manual Google-review check. A rep sent a
+// homeowner the review link today (a PENDING contest point); the manager checks
+// Google and approves it SAME DAY to make the point permanent, or rejects it.
+// Zone-scoped read + action against the CCG review-verify endpoint.
+function ReviewsToVerify({ zone, by }) {
+  const [reviews, setReviews] = useState(null)
+  const [busy, setBusy] = useState('')
+  useEffect(() => {
+    let live = true
+    fetch(LB_ORIGIN + 'review-verify?zone=' + encodeURIComponent(zone))
+      .then((r) => r.json()).then((j) => { if (live) setReviews(j.ok ? (j.reviews || []) : []) })
+      .catch(() => { if (live) setReviews([]) })
+    return () => { live = false }
+  }, [zone])
+  if (!reviews || !reviews.length) return null
+  const when = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) } catch { return '' } }
+  const act = async (id, action) => {
+    setBusy(id + action)
+    try {
+      const r = await fetch(LB_ORIGIN + 'review-verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, id, zone, verified_by: by || 'Regional Manager' }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (j.ok) setReviews((rs) => rs.filter((x) => x.id !== id))
+    } catch { /* leave it in the list to retry */ }
+    setBusy('')
+  }
+  return (
+    <section className="mb-4 rounded-xl border-2 border-emerald-400/60 bg-emerald-500/10 p-4">
+      <div className="mb-1 text-base font-bold text-emerald-300">🌟 Reviews to verify ({reviews.length})</div>
+      <div className="mb-3 text-xs text-emerald-200/80">A rep sent a homeowner the Google-review link today. Check Google — <strong>only tap "Review is there" if it was posted TODAY</strong>; that awards the contest point. If it isn't there, tap "Not there." Unverified by end of day, the point falls off on its own.</div>
+      <div className="grid gap-2">
+        {reviews.map((r) => (
+          <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-400/40 bg-slate-900/60 p-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-white">{r.homeowner_name || 'Homeowner'}</div>
+              <div className="text-xs text-slate-300">{r.homeowner_phone || ''}</div>
+              <div className="mt-0.5 text-[11px] text-slate-400">{r.rep_name ? `rep ${r.rep_name}` : ''}{r.sent_at ? ` · sent ${when(r.sent_at)}` : ''}</div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button disabled={!!busy} onClick={() => act(r.id, 'approve')} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">✓ Review is there</button>
+              <button disabled={!!busy} onClick={() => act(r.id, 'reject')} className="rounded-lg border border-slate-500 px-3 py-2 text-sm font-bold text-slate-200 disabled:opacity-50">✗ Not there</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function CancelReviews({ zone }) {
   const [reviews, setReviews] = useState(null)
   useEffect(() => {
