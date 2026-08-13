@@ -1321,7 +1321,18 @@ export default function ClassDetail() {
             </button>
           ) : null,
         }] : []),
-        { title: 'Registered', emoji: '✅', color: 'green', items: registeredAttending, empty: 'No trainees have completed registration yet.', showResend: true },
+        { title: 'Registered', emoji: '✅', color: 'green', items: registeredAttending, empty: 'No trainees have completed registration yet.', showResend: true,
+          headerAction: registeredAttending.length > 0 ? (
+            <Link
+              to="/group-messages"
+              onClick={() => { try { sessionStorage.setItem('gm_preset', JSON.stringify({ ids: registeredAttending.map((t) => t.id), label: `Registered · ${formatDateRange(cls.week_start_date, cls.week_end_date)}` })) } catch { /* private mode */ } }}
+              className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
+              title="Open Group Messages pre-loaded with these registered trainees — pick SMS / email / both and send."
+            >
+              📣 Text / email this group
+            </Link>
+          ) : null,
+        },
         ...(registeredNoShow.length ? [{ title: 'Didn’t return (missed the last class day)', emoji: '🚫', color: 'slate', items: registeredNoShow, empty: '' }] : []),
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },

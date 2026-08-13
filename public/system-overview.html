@@ -629,7 +629,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 
 <div class="flow">
   <ol>
-    <li><strong>Pick recipients:</strong> every active sales rep (the durable list) OR a single class week (the cohort, useful for day-of training reminders). The page shows a live count and warns when some recipients are missing a phone or email.</li>
+    <li><strong>Pick recipients:</strong> every active sales rep (the durable list) OR a single class week (the cohort, useful for day-of training reminders). The page shows a live count and warns when some recipients are missing a phone or email. <em>Shortcut:</em> the class-detail page's <strong>Registered</strong> section has a <strong>"📣 Text / email this group"</strong> button that opens this composer pre-loaded with exactly that week's registered trainees — one tap to message the group without picking recipients by hand.</li>
     <li><strong>Pick channels:</strong> SMS, email, or both. Each channel has its own body editor.</li>
     <li><strong>Pick a saved template</strong> (optional): pre-fills the body and email subject. Three are seeded — <em>Update info request — SMS</em>, <em>Update info request — email</em>, and <em>Company meeting reminder — SMS</em>. All editable on <code>/message-templates</code>.</li>
     <li><strong>Preview:</strong> a live preview substitutes <code>{firstName}</code> and a per-recipient <code>{link}</code> (pointing to <code>/update-info/&lt;their token&gt;</code>) so you see exactly what the first recipient will get before clicking Send. The preview also shows the exact email address it'll route to and labels it as <em>(company)</em> or <em>(personal)</em> — see routing rule below.</li>

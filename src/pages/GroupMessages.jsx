@@ -31,7 +31,22 @@ import { useRegions } from '../lib/RegionsContext.jsx'
 export default function GroupMessages() {
   const { regionNames } = useRegions()
   // Recipient picker
-  const [scope, setScope] = useState('all_active_reps') // 'class' | 'all_active_reps'
+  // Preset recipients handed off from another page (the ClassDetail "Registered"
+  // section's "Text / email this group" button stashes the exact trainee ids). We
+  // message those people directly, bypassing the scope picker. Read once from
+  // sessionStorage — and clear it — so a refresh doesn't re-trigger the preset.
+  const [preset] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('gm_preset')
+      if (raw) {
+        sessionStorage.removeItem('gm_preset')
+        const p = JSON.parse(raw)
+        if (p && Array.isArray(p.ids) && p.ids.length) return p
+      }
+    } catch { /* private mode / bad json */ }
+    return null
+  })
+  const [scope, setScope] = useState(preset ? 'explicit' : 'all_active_reps') // 'explicit' | 'class' | 'class_attended_today' | 'all_active_reps'
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   // When scope === 'class' and this is on, recipients are narrowed to
@@ -106,6 +121,19 @@ export default function GroupMessages() {
 
   async function loadRecipients() {
     setLoadingRecipients(true)
+    // Explicit preset: message exactly the handed-off ids (e.g. this week's
+    // registered trainees), ignoring the scope picker entirely.
+    if (scope === 'explicit') {
+      if (!preset || !preset.ids.length) { setRecipients([]); setLoadingRecipients(false); return }
+      const { data } = await supabase
+        .from('trainees')
+        .select('id, first_name, last_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep, region')
+        .in('id', preset.ids)
+        .order('last_name', { ascending: true })
+      setRecipients(data || [])
+      setLoadingRecipients(false)
+      return
+    }
     let q = supabase
       .from('trainees')
       .select('id, first_name, last_name, phone, email, company_email, registration_token, enrolled, declined_at, is_active_sales_rep, region')
@@ -317,7 +345,10 @@ export default function GroupMessages() {
     setConfirmOpen(false)
 
     const basePayload = {
-      scope, // 'class' | 'class_attended_today' | 'all_active_reps'
+      // trainee_ids overrides scope on the server, so for the explicit preset we
+      // send a valid scope value + the exact id list (same shape the email-fallback uses).
+      scope: scope === 'explicit' ? 'all_active_reps' : scope, // 'class' | 'class_attended_today' | 'all_active_reps'
+      ...(scope === 'explicit' ? { trainee_ids: preset.ids } : {}),
       ...((scope === 'class' || scope === 'class_attended_today') ? { class_id: selectedClassId } : {}),
       ...(scope === 'class' && attendedEveryDayOnly ? { attended_every_day: true } : {}),
       ...(scope === 'all_active_reps' && regionFilter ? { region: regionFilter } : {}),
@@ -392,6 +423,17 @@ export default function GroupMessages() {
       {/* Step 1 — Recipients */}
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">1. Who gets it</h2>
+        {scope === 'explicit' && (
+          <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-3">
+            <div className="text-sm font-semibold text-emerald-900">
+              📣 Messaging {preset?.ids.length || 0} selected trainee{(preset?.ids.length || 0) === 1 ? '' : 's'}{preset?.label ? ` — ${preset.label}` : ''}
+            </div>
+            <p className="mt-1 text-xs text-emerald-800">These exact people get the message. Pick a channel and write it below, then send.</p>
+            <button type="button" onClick={() => setScope('all_active_reps')} className="mt-2 text-xs font-semibold text-emerald-800 underline">
+              Choose recipients a different way →
+            </button>
+          </div>
+        )}
         <div className="mt-3 space-y-3">
           <label className="flex items-start gap-3">
             <input
