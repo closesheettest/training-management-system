@@ -1684,7 +1684,7 @@ function ReviewsToVerify({ zone, by }) {
   return (
     <section className="mb-4 rounded-xl border-2 border-emerald-400/60 bg-emerald-500/10 p-4">
       <div className="mb-1 text-base font-bold text-emerald-300">🌟 Reviews to verify ({reviews.length})</div>
-      <div className="mb-3 text-xs text-emerald-200/80">A rep sent a homeowner the Google-review link today. Check Google — <strong>only tap "Review is there" if it was posted TODAY</strong>; that awards the contest point. If it isn't there, tap "Not there." Unverified by end of day, the point falls off on its own.</div>
+      <div className="mb-3 text-xs text-emerald-200/80">A rep sent a homeowner the Google-review link today. Check Google — <strong>only tap "Review is there" if it was posted TODAY</strong>. <strong>No point is awarded until you confirm</strong>, so clear these before end of day. If it isn't there, tap "Not there."</div>
       <div className="grid gap-2">
         {reviews.map((r) => (
           <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-400/40 bg-slate-900/60 p-3">
