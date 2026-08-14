@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { US_STATES } from '../lib/locations.js'
 
@@ -22,10 +22,11 @@ import { US_STATES } from '../lib/locations.js'
 
 export default function Hotels() {
   const [classes, setClasses] = useState([])
-  // 'ALL' = the default unified view: everyone who needs a room across every
-  // active/upcoming week (so HR never has to cipher class-by-class). A specific
-  // class id narrows to just that week.
-  const [selectedClassId, setSelectedClassId] = useState('ALL')
+  // The screen shows ONE training week at a time (the Monday that week starts on,
+  // YYYY-MM-DD). Prev/Next arrows step weeks. Each week splits into Week A (a
+  // cohort in week 1 — 2 nights, Mon–Wed) and Week B (a cohort in week 2 — 4
+  // nights, Mon–Fri). '' until classes load, then the nearest upcoming week.
+  const [weekMon, setWeekMon] = useState('')
   const [trainees, setTrainees] = useState([])
   const [stays, setStays] = useState([])
   const [editingStayId, setEditingStayId] = useState(null) // id of stay being edited inline (or 'new-<trainee_id>')
@@ -52,33 +53,42 @@ export default function Hotels() {
     setClasses(data || [])
   }
 
+  // Once classes load, default the cursor to the nearest upcoming training week.
+  useEffect(() => {
+    if (weekMon || classes.length === 0) return
+    setWeekMon(defaultWeekMon(classes))
+  }, [classes, weekMon])
+
   const loadForClass = useCallback(async () => {
-    if (!selectedClassId || classes.length === 0) {
+    if (!weekMon || classes.length === 0) {
       setTrainees([])
       setStays([])
       return
     }
     setLoadingTrainees(true)
-    // Scope = every active/upcoming week (ALL), or just the one picked. Past
-    // classes drop off the unified view so it only shows rooms still to book.
-    const todayIso = todayISO()
-    const scopeClasses =
-      selectedClassId === 'ALL'
-        ? classes.filter((c) => (c.week_end_date || c.week_start_date || '') >= todayIso)
-        : classes.filter((c) => c.id === selectedClassId)
-    const ids = scopeClasses.map((c) => c.id)
+    // For the selected Monday, a class is in its WEEK A if it starts that Monday,
+    // or its WEEK B if it started the Monday before (start + 7 days). One class
+    // (one cohort) is only ever in ONE phase for a given week.
+    const weekBStart = addDaysISO(weekMon, -7)
+    const phaseByClass = {}
+    const clsById = {}
+    for (const c of classes) {
+      if (c.cancelled_at) continue
+      const start = mondayOf(c.week_start_date)
+      if (start === weekMon) { phaseByClass[c.id] = 'A'; clsById[c.id] = c }
+      else if (start === weekBStart) { phaseByClass[c.id] = 'B'; clsById[c.id] = c }
+    }
+    const ids = Object.keys(clsById)
     if (ids.length === 0) {
       setTrainees([])
       setStays([])
       setLoadingTrainees(false)
       return
     }
-    const clsById = {}
-    for (const c of scopeClasses) clsById[c.id] = c
     const [tRes, sRes] = await Promise.all([
       supabase
         .from('trainees')
-        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
+        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, confirmation_status, attendance(attendance_date, confirmed)')
         .in('class_id', ids)
         .eq('needs_hotel', true),
       supabase
@@ -91,42 +101,50 @@ export default function Hotels() {
       setLoadingTrainees(false)
       return
     }
-    // Attach each trainee's OWN class + meeting venue so booking works across
-    // weeks in one list (each row books against its own class's venue).
+    // Tag each trainee with its phase for THIS week + the default room dates:
+    //   Week A → check-in Mon, checkout Wed (2 nights)
+    //   Week B → check-in Mon, checkout Fri (4 nights)
     const rows = (tRes.data || [])
       .filter((t) => t.enrolled !== false && !t.declined_at)
-      .map((t) => ({ ...t, _cls: clsById[t.class_id] || null, _venue: clsById[t.class_id]?.locations || null }))
-    rows.sort(
-      (a, b) =>
-        (a._cls?.week_start_date || '').localeCompare(b._cls?.week_start_date || '') ||
-        (a.last_name || '').localeCompare(b.last_name || ''),
-    )
+      .map((t) => {
+        const phase = phaseByClass[t.class_id]
+        const cls = clsById[t.class_id]
+        const checkedIn = (t.attendance || []).some((a) => a.confirmed && a.attendance_date === weekMon)
+        return {
+          ...t,
+          _cls: cls || null,
+          _venue: cls?.locations || null,
+          _phase: phase,
+          _checkIn: weekMon,
+          _checkOut: addDaysISO(weekMon, phase === 'B' ? 4 : 2),
+          _checkedIn: checkedIn,
+        }
+      })
+    rows.sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
     setTrainees(rows)
     setStays(sRes.data || [])
     setLoadingTrainees(false)
-  }, [selectedClassId, classes])
+  }, [weekMon, classes])
 
   useEffect(() => {
     loadForClass()
   }, [loadForClass])
 
-  const selectedClass = useMemo(
-    () => classes.find((c) => c.id === selectedClassId) || null,
-    [classes, selectedClassId],
+  // Rooms are now per (trainee, phase) so a trainee can hold an A room AND a B
+  // room. Legacy rows (phase null) count as 'A'.
+  const stayFor = useCallback(
+    (t) => stays.find((s) => s.trainee_id === t.id && (s.phase || 'A') === (t._phase || 'A')) || null,
+    [stays],
   )
-  const meetingVenue = selectedClass?.locations || null
-  const stayByTraineeId = useMemo(() => {
-    const m = {}
-    for (const s of stays) m[s.trainee_id] = s
-    return m
-  }, [stays])
+  const meetingVenue = null
+  const selectedClass = null
 
   // One-click "Booked" — creates a stay with hotel info copied from the
   // class's meeting venue and guest_name from the trainee. Defaults the
   // common case to zero friction.
   async function quickBook(trainee) {
-    const venue = trainee._venue || meetingVenue
-    const cid = trainee._cls?.id || (selectedClassId !== 'ALL' ? selectedClassId : null)
+    const venue = trainee._venue
+    const cid = trainee._cls?.id
     if (!venue) {
       setFlash({
         kind: 'error',
@@ -143,6 +161,9 @@ export default function Hotels() {
     const payload = {
       trainee_id: trainee.id,
       class_id: cid,
+      phase: trainee._phase || 'A',
+      check_in_date: trainee._checkIn || null,
+      check_out_date: trainee._checkOut || null,
       hotel_name: venue.name || '',
       hotel_street_address: venue.street_address || null,
       hotel_city: venue.city || null,
@@ -165,24 +186,25 @@ export default function Hotels() {
   // defaults but everything is editable. HR overrides whatever's
   // different, hits Save.
   function startCustomBooking(trainee) {
-    const existing = stayByTraineeId[trainee.id]
+    const existing = stayFor(trainee)
     if (existing) {
       setDraft({ ...existing })
       setEditingStayId(existing.id)
     } else {
       // Brand-new "different hotel" stay — start with EMPTY hotel fields
-      // (HR is entering a non-default), but keep the guest defaults.
+      // (HR is entering a non-default), but keep the guest + phase/date defaults.
       setDraft({
         trainee_id: trainee.id,
-        class_id: trainee._cls?.id || (selectedClassId !== 'ALL' ? selectedClassId : null),
+        class_id: trainee._cls?.id || null,
+        phase: trainee._phase || 'A',
         hotel_name: '',
         hotel_street_address: '',
         hotel_city: '',
         hotel_state: '',
         hotel_zip: '',
         hotel_phone: '',
-        check_in_date: '',
-        check_out_date: '',
+        check_in_date: trainee._checkIn || '',
+        check_out_date: trainee._checkOut || '',
         confirmation_number: '',
         guest_name: `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim(),
         room_number: '',
@@ -349,38 +371,49 @@ export default function Hotels() {
   const totalBookings = stays.filter((s) => !s.cancelled_at).length
   const unsentCount = stays.filter((s) => !s.info_sent_at && !s.cancelled_at).length
   const sentCount = stays.filter((s) => s.info_sent_at && !s.cancelled_at).length
-  const unbookedCount = trainees.filter((t) => !stayByTraineeId[t.id]).length
+  const unbookedCount = trainees.filter((t) => !stayFor(t)).length
+
+  // The two cohorts sharing this week — Week A (2 nights) then Week B (4 nights).
+  const weekA = trainees.filter((t) => t._phase === 'A')
+  const weekB = trainees.filter((t) => t._phase === 'B')
+  const orderedTrainees = [...weekA, ...weekB]
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Hotel rooms</h1>
         <p className="mt-2 text-slate-600">
-          Everyone who needs a room — across every active and upcoming week — in one list.
-          Book each room (one click uses their class's meeting venue), then hit{' '}
-          <strong>Send hotel info to everyone</strong> and they all get their room details in
-          one shot. When sign-in closes each day, you'll get a text listing anyone who checked
-          in and still needs a room.
+          One training week at a time, split into <strong>Week A</strong> (a cohort in week 1 —
+          Mon &amp; Tue nights, checkout Wed) and <strong>Week B</strong> (a cohort in week 2 —
+          Mon–Thu nights, checkout Fri). Book each room (one click uses their meeting venue and
+          the right dates), then <strong>Send hotel info to everyone</strong> in one shot.
         </p>
       </header>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <label className="block text-sm font-medium text-slate-700">
-          Show
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="ALL">🏨 All weeks — everyone who needs a room</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {formatDate(c.week_start_date)} — {c.region || 'Region TBD'}
-                {c.locations?.name ? ` · ${c.locations.name}` : ' · Location TBD'}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Week navigator */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setWeekMon((w) => addDaysISO(w, -7))}
+          disabled={!weekMon}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+        >
+          ◀ Prev week
+        </button>
+        <div className="text-center">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Week of</div>
+          <div className="text-sm font-semibold text-slate-800">
+            {weekMon ? `${formatDate(weekMon)} – ${formatDate(addDaysISO(weekMon, 4))}` : '—'}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setWeekMon((w) => addDaysISO(w, 7))}
+          disabled={!weekMon}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+        >
+          Next week ▶
+        </button>
       </div>
 
       {flash && (
@@ -398,40 +431,7 @@ export default function Hotels() {
         </div>
       )}
 
-      {selectedClassId && meetingVenue && (
-        <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm">
-          <div className="text-xs font-semibold uppercase tracking-wide text-sky-900">
-            Meeting venue (default hotel for "Booked")
-          </div>
-          <div className="mt-1 text-slate-800">
-            <strong>{meetingVenue.name}</strong>
-            {(meetingVenue.street_address || meetingVenue.city) && (
-              <span className="ml-2 text-slate-600">
-                {[
-                  meetingVenue.street_address,
-                  [meetingVenue.city, [meetingVenue.state, meetingVenue.zip].filter(Boolean).join(' ')]
-                    .filter(Boolean)
-                    .join(', '),
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-              </span>
-            )}
-            {meetingVenue.phone && (
-              <span className="ml-2 text-slate-500">· {meetingVenue.phone}</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {selectedClassId && selectedClassId !== 'ALL' && !meetingVenue && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          ⚠ This class doesn't have a meeting venue assigned yet. Add one on the Schedule
-          page before booking rooms — "Hotel Booked" needs a venue to default from.
-        </div>
-      )}
-
-      {selectedClassId && (
+      {weekMon && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
             <div className="text-slate-700">
@@ -453,33 +453,42 @@ export default function Hotels() {
 
           {loadingTrainees ? (
             <p className="text-sm text-slate-500">Loading trainees…</p>
-          ) : trainees.length === 0 ? (
+          ) : orderedTrainees.length === 0 ? (
             <div className="rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">
-              <p>
-                {selectedClassId === 'ALL'
-                  ? 'Nobody in any active or upcoming week needs a hotel right now.'
-                  : 'No trainees in this class are flagged as needing a hotel.'}
-              </p>
+              <p>Nobody needs a hotel for this week.</p>
               <p className="mt-1 text-xs text-slate-500">
-                Trainees only appear here when the hiring manager answered "Yes" to "Needs hotel"
-                during enrollment.
+                Trainees appear here when the hiring manager answered "Yes" to "Needs hotel," in
+                the week their cohort is on-site. Use ◀ / ▶ to check another week.
               </p>
             </div>
           ) : (
             <ul className="space-y-3">
-              {trainees.map((t) => {
-                const stay = stayByTraineeId[t.id]
+              {orderedTrainees.map((t, i) => {
+                const stay = stayFor(t)
                 const editing =
                   editingStayId === t.id ||
                   editingStayId === `new-${t.id}` ||
                   (stay && editingStayId === stay.id)
-                // Each row books against ITS OWN class's venue (unified view
-                // spans multiple weeks); fall back to the single-class venue.
-                const rowVenue = t._venue || meetingVenue
-                const rowClass = t._cls || selectedClass
+                const rowVenue = t._venue
+                const rowClass = t._cls
+                // Phase section header before the first card of each group.
+                const showHeader = i === 0 || orderedTrainees[i - 1]._phase !== t._phase
+                const isB = t._phase === 'B'
                 return (
+                  <Fragment key={t.id}>
+                  {showHeader && (
+                    <li className="list-none border-0 bg-transparent p-0 shadow-none">
+                      <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
+                        <span className="text-sm font-bold uppercase tracking-wide">Week {isB ? 'B' : 'A'}</span>
+                        <span className="text-xs font-medium">
+                          {isB ? 'Mon–Thu nights · checkout Fri · 4 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
+                          {' · '}{formatDate(t._checkIn)} → {formatDate(t._checkOut)}
+                        </span>
+                        <span className="text-xs opacity-70">({isB ? weekB.length : weekA.length})</span>
+                      </div>
+                    </li>
+                  )}
                   <li
-                    key={t.id}
                     className={
                       'rounded-lg border p-4 shadow-sm ' +
                       (stay
@@ -495,10 +504,19 @@ export default function Hotels() {
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-slate-900">
                           {t.first_name} {t.last_name}
+                          {t._phase === 'A' && t._checkedIn && (
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✓ checked in</span>
+                          )}
+                          {t._phase === 'B' && t.confirmation_status === 'confirmed' && (
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✓ confirmed</span>
+                          )}
+                          {t._phase === 'B' && t.confirmation_status !== 'confirmed' && (
+                            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">awaiting Fri confirm</span>
+                          )}
                         </div>
-                        {selectedClassId === 'ALL' && t._cls && (
+                        {t._cls && (
                           <div className="mt-0.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
-                            {formatDate(t._cls.week_start_date)} · {t._cls.region || 'Region TBD'}
+                            {t._cls.region || 'Region TBD'}
                             {t._cls.locations?.name ? ` · ${t._cls.locations.name}` : ''}
                           </div>
                         )}
@@ -671,6 +689,7 @@ export default function Hotels() {
                       />
                     )}
                   </li>
+                  </Fragment>
                 )
               })}
             </ul>
@@ -884,14 +903,48 @@ function isHotelNoShow(trainee, cls) {
   return !checkedIn
 }
 
-// Today (America/New_York) as YYYY-MM-DD — for filtering the unified view to
-// active/upcoming weeks only.
+// Today (America/New_York) as YYYY-MM-DD.
 function todayISO() {
   const p = {}
   for (const part of new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(new Date())) p[part.type] = part.value
   return `${p.year}-${p.month}-${p.day}`
+}
+
+// Add n days to a YYYY-MM-DD (UTC math — no TZ drift on date-only values).
+function addDaysISO(iso, n) {
+  if (!iso) return iso
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
+
+// The Monday of the week containing a YYYY-MM-DD (training weeks start Monday).
+function mondayOf(iso) {
+  if (!iso) return iso
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  const dow = dt.getUTCDay() // 0=Sun..6=Sat
+  const back = dow === 0 ? 6 : dow - 1
+  return addDaysISO(iso, -back)
+}
+
+// Default the week cursor to the nearest upcoming training week: the smallest
+// class-start Monday (or the following-week Monday for a class in its Week B)
+// that is >= this week's Monday. Falls back to this week's Monday.
+function defaultWeekMon(classes) {
+  const thisMon = mondayOf(todayISO())
+  const mondays = new Set()
+  for (const c of classes || []) {
+    if (c.cancelled_at || !c.week_start_date) continue
+    const a = mondayOf(c.week_start_date)
+    mondays.add(a)
+    mondays.add(addDaysISO(a, 7)) // that cohort's Week B
+  }
+  const upcoming = [...mondays].filter((m) => m >= thisMon).sort()
+  return upcoming[0] || thisMon
 }
 
 function formatDate(iso) {
