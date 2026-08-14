@@ -83,7 +83,7 @@ export const handler = async (event) => {
 async function loadClass(supabase, classId) {
   const { data } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at)')
+    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at, attendance(attendance_date, confirmed))')
     .eq('id', classId)
     .maybeSingle()
   return data || null
@@ -91,15 +91,19 @@ async function loadClass(supabase, classId) {
 
 // Send the Week B confirmation to every eligible trainee of one class.
 async function sendForClass(supabase, cls, siteUrl, { force }) {
-  const weekBMonday = addDaysISO(mondayOfISO(cls.week_start_date), 7)
+  const waStart = mondayOfISO(cls.week_start_date)
+  const waEnd = addDaysISO(waStart, 6)
+  const attendedWeekA = (t) =>
+    (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd)
+  const weekBMonday = addDaysISO(waStart, 7)
   const niceDate = formatNice(weekBMonday)
   const loc = cls.locations?.name || 'your training location'
   let sent = 0, skipped = 0
   const errors = []
   for (const t of cls.trainees || []) {
-    // Only people who actually completed Week A get the Week B confirmation —
-    // registered = they went through registration (skip never-registered no-shows).
-    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !t.registered) { skipped++; continue }
+    // Only people who ACTUALLY ATTENDED Week A get the Week B confirmation — if they
+    // never showed for Week A there's no reason to send them Week B.
+    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !attendedWeekA(t)) { skipped++; continue }
     if (!force && t.week_b_confirm_sent_at) { skipped++; continue } // cron dedupe
     if (!t.phone && !t.email) { skipped++; continue }
     const link = `${siteUrl ? siteUrl : ''}/confirm/${t.registration_token}?week=B`

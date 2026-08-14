@@ -1304,14 +1304,34 @@ export default function ClassDetail() {
           )}
         </div>
         {!cls.attendance_only && (
-          <button
-            onClick={sendWeekBConfirmation}
-            disabled={sending === 'weekb'}
-            title="Fired on the Friday ending Week A: texts + emails everyone the 'confirm your Monday attendance for Week B' link. Whoever confirms shows on the Hotels page for Week B booking."
-            className="rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
-          >
-            {sending === 'weekb' ? 'Sending…' : '📅 Send Week B confirmation'}
-          </button>
+          <>
+            <a
+              href="/confirm/preview?week=A"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="See exactly what a trainee gets for Week A — the itinerary, address & Get Directions."
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              👀 Preview Week A
+            </a>
+            <a
+              href="/confirm/preview?week=B"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="See exactly what a trainee gets for Week B."
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              👀 Preview Week B
+            </a>
+            <button
+              onClick={sendWeekBConfirmation}
+              disabled={sending === 'weekb'}
+              title="Fired on the Friday ending Week A: texts + emails everyone who attended Week A the 'confirm your Monday attendance for Week B' itinerary link. Whoever confirms shows on the Hotels page for Week B booking."
+              className="rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
+            >
+              {sending === 'weekb' ? 'Sending…' : '📅 Send Week B confirmation'}
+            </button>
+          </>
         )}
         <button
           onClick={startAddTrainee}
