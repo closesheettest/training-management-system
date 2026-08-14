@@ -191,6 +191,14 @@ export default function Kiosk() {
       setError(err.message)
       return
     }
+    // "Everyone who's coming is here" → notify HR (Jen) of everyone who checked
+    // in today and still needs a hotel room, so she can book them all at once.
+    // Fire-and-forget: the function no-ops when nobody unbooked needs a room.
+    fetch('/.netlify/functions/notify-hotel-bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ class_id, attendance_date: today }),
+    }).catch((e) => console.warn('notify-hotel-bookings failed (non-fatal):', e))
     load()
   }
 

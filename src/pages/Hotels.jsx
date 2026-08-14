@@ -22,7 +22,10 @@ import { US_STATES } from '../lib/locations.js'
 
 export default function Hotels() {
   const [classes, setClasses] = useState([])
-  const [selectedClassId, setSelectedClassId] = useState('')
+  // 'ALL' = the default unified view: everyone who needs a room across every
+  // active/upcoming week (so HR never has to cipher class-by-class). A specific
+  // class id narrows to just that week.
+  const [selectedClassId, setSelectedClassId] = useState('ALL')
   const [trainees, setTrainees] = useState([])
   const [stays, setStays] = useState([])
   const [editingStayId, setEditingStayId] = useState(null) // id of stay being edited inline (or 'new-<trainee_id>')
@@ -50,33 +53,58 @@ export default function Hotels() {
   }
 
   const loadForClass = useCallback(async () => {
-    if (!selectedClassId) {
+    if (!selectedClassId || classes.length === 0) {
       setTrainees([])
       setStays([])
       return
     }
     setLoadingTrainees(true)
+    // Scope = every active/upcoming week (ALL), or just the one picked. Past
+    // classes drop off the unified view so it only shows rooms still to book.
+    const todayIso = todayISO()
+    const scopeClasses =
+      selectedClassId === 'ALL'
+        ? classes.filter((c) => (c.week_end_date || c.week_start_date || '') >= todayIso)
+        : classes.filter((c) => c.id === selectedClassId)
+    const ids = scopeClasses.map((c) => c.id)
+    if (ids.length === 0) {
+      setTrainees([])
+      setStays([])
+      setLoadingTrainees(false)
+      return
+    }
+    const clsById = {}
+    for (const c of scopeClasses) clsById[c.id] = c
     const [tRes, sRes] = await Promise.all([
       supabase
         .from('trainees')
-        .select('id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
-        .eq('class_id', selectedClassId)
-        .eq('needs_hotel', true)
-        .order('last_name', { ascending: true }),
+        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
+        .in('class_id', ids)
+        .eq('needs_hotel', true),
       supabase
         .from('trainee_hotel_stays')
         .select('*')
-        .eq('class_id', selectedClassId),
+        .in('class_id', ids),
     ])
     if (tRes.error || sRes.error) {
       setFlash({ kind: 'error', text: (tRes.error || sRes.error).message })
       setLoadingTrainees(false)
       return
     }
-    setTrainees((tRes.data || []).filter((t) => t.enrolled !== false && !t.declined_at))
+    // Attach each trainee's OWN class + meeting venue so booking works across
+    // weeks in one list (each row books against its own class's venue).
+    const rows = (tRes.data || [])
+      .filter((t) => t.enrolled !== false && !t.declined_at)
+      .map((t) => ({ ...t, _cls: clsById[t.class_id] || null, _venue: clsById[t.class_id]?.locations || null }))
+    rows.sort(
+      (a, b) =>
+        (a._cls?.week_start_date || '').localeCompare(b._cls?.week_start_date || '') ||
+        (a.last_name || '').localeCompare(b.last_name || ''),
+    )
+    setTrainees(rows)
     setStays(sRes.data || [])
     setLoadingTrainees(false)
-  }, [selectedClassId])
+  }, [selectedClassId, classes])
 
   useEffect(() => {
     loadForClass()
@@ -97,24 +125,30 @@ export default function Hotels() {
   // class's meeting venue and guest_name from the trainee. Defaults the
   // common case to zero friction.
   async function quickBook(trainee) {
-    if (!meetingVenue) {
+    const venue = trainee._venue || meetingVenue
+    const cid = trainee._cls?.id || (selectedClassId !== 'ALL' ? selectedClassId : null)
+    if (!venue) {
       setFlash({
         kind: 'error',
-        text: 'This class doesn\'t have a meeting venue set yet — pick one on the Schedule page first, then come back.',
+        text: 'This trainee\'s class doesn\'t have a meeting venue set yet — set it on the Schedule page, or use "Different hotel".',
       })
+      return
+    }
+    if (!cid) {
+      setFlash({ kind: 'error', text: 'Could not tell which class this trainee belongs to.' })
       return
     }
     setBusyTraineeId(trainee.id)
     setFlash(null)
     const payload = {
       trainee_id: trainee.id,
-      class_id: selectedClassId,
-      hotel_name: meetingVenue.name || '',
-      hotel_street_address: meetingVenue.street_address || null,
-      hotel_city: meetingVenue.city || null,
-      hotel_state: meetingVenue.state || null,
-      hotel_zip: meetingVenue.zip || null,
-      hotel_phone: meetingVenue.phone || null,
+      class_id: cid,
+      hotel_name: venue.name || '',
+      hotel_street_address: venue.street_address || null,
+      hotel_city: venue.city || null,
+      hotel_state: venue.state || null,
+      hotel_zip: venue.zip || null,
+      hotel_phone: venue.phone || null,
       guest_name: `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim(),
     }
     const { error } = await supabase.from('trainee_hotel_stays').insert(payload)
@@ -140,7 +174,7 @@ export default function Hotels() {
       // (HR is entering a non-default), but keep the guest defaults.
       setDraft({
         trainee_id: trainee.id,
-        class_id: selectedClassId,
+        class_id: trainee._cls?.id || (selectedClassId !== 'ALL' ? selectedClassId : null),
         hotel_name: '',
         hotel_street_address: '',
         hotel_city: '',
@@ -273,9 +307,11 @@ export default function Hotels() {
   }
 
   async function sendAllUnsent() {
-    const unsent = stays.filter((s) => !s.info_sent_at)
+    // Every booked-but-unsent room across the whole view (all weeks in ALL
+    // mode). Send by explicit stay_ids so one click covers every class at once.
+    const unsent = stays.filter((s) => !s.info_sent_at && !s.cancelled_at)
     if (unsent.length === 0) {
-      setFlash({ kind: 'info', text: 'Nothing to send — every booking has already been sent.' })
+      setFlash({ kind: 'info', text: 'Nothing to send — every booked room has already been sent.' })
       return
     }
     if (!confirm(`Send hotel info to ${unsent.length} trainee${unsent.length === 1 ? '' : 's'} now?`)) return
@@ -285,7 +321,7 @@ export default function Hotels() {
       const res = await fetch('/.netlify/functions/send-hotel-info-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_id: selectedClassId, unsent_only: true }),
+        body: JSON.stringify({ stay_ids: unsent.map((s) => s.id) }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -310,9 +346,9 @@ export default function Hotels() {
     return t ? `${t.first_name} ${t.last_name}` : 'this trainee'
   }
 
-  const totalBookings = stays.length
-  const unsentCount = stays.filter((s) => !s.info_sent_at).length
-  const sentCount = totalBookings - unsentCount
+  const totalBookings = stays.filter((s) => !s.cancelled_at).length
+  const unsentCount = stays.filter((s) => !s.info_sent_at && !s.cancelled_at).length
+  const sentCount = stays.filter((s) => s.info_sent_at && !s.cancelled_at).length
   const unbookedCount = trainees.filter((t) => !stayByTraineeId[t.id]).length
 
   return (
@@ -320,23 +356,23 @@ export default function Hotels() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Hotel rooms</h1>
         <p className="mt-2 text-slate-600">
-          For trainees flagged "needs hotel" during enrollment, mark each one booked once
-          you've reserved their room. Most rooms default to the same hotel as the meeting
-          venue and are booked under the trainee's name — that's one click. Use{' '}
-          <strong>Different hotel</strong> only when the sleeping hotel is different from
-          the meeting venue.
+          Everyone who needs a room — across every active and upcoming week — in one list.
+          Book each room (one click uses their class's meeting venue), then hit{' '}
+          <strong>Send hotel info to everyone</strong> and they all get their room details in
+          one shot. When sign-in closes each day, you'll get a text listing anyone who checked
+          in and still needs a room.
         </p>
       </header>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <label className="block text-sm font-medium text-slate-700">
-          Week of training
+          Show
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           >
-            <option value="">— Pick a class week —</option>
+            <option value="ALL">🏨 All weeks — everyone who needs a room</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
                 {formatDate(c.week_start_date)} — {c.region || 'Region TBD'}
@@ -388,7 +424,7 @@ export default function Hotels() {
         </div>
       )}
 
-      {selectedClassId && !meetingVenue && (
+      {selectedClassId && selectedClassId !== 'ALL' && !meetingVenue && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           ⚠ This class doesn't have a meeting venue assigned yet. Add one on the Schedule
           page before booking rooms — "Hotel Booked" needs a venue to default from.
@@ -411,7 +447,7 @@ export default function Hotels() {
               disabled={sending || unsentCount === 0}
               className="rounded-md bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
             >
-              {sending ? 'Sending…' : `Send notifications (${unsentCount})`}
+              {sending ? 'Sending…' : `🏨 Send hotel info to everyone (${unsentCount})`}
             </button>
           </div>
 
@@ -419,7 +455,11 @@ export default function Hotels() {
             <p className="text-sm text-slate-500">Loading trainees…</p>
           ) : trainees.length === 0 ? (
             <div className="rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">
-              <p>No trainees in this class are flagged as needing a hotel.</p>
+              <p>
+                {selectedClassId === 'ALL'
+                  ? 'Nobody in any active or upcoming week needs a hotel right now.'
+                  : 'No trainees in this class are flagged as needing a hotel.'}
+              </p>
               <p className="mt-1 text-xs text-slate-500">
                 Trainees only appear here when the hiring manager answered "Yes" to "Needs hotel"
                 during enrollment.
@@ -433,6 +473,10 @@ export default function Hotels() {
                   editingStayId === t.id ||
                   editingStayId === `new-${t.id}` ||
                   (stay && editingStayId === stay.id)
+                // Each row books against ITS OWN class's venue (unified view
+                // spans multiple weeks); fall back to the single-class venue.
+                const rowVenue = t._venue || meetingVenue
+                const rowClass = t._cls || selectedClass
                 return (
                   <li
                     key={t.id}
@@ -452,6 +496,12 @@ export default function Hotels() {
                         <div className="font-semibold text-slate-900">
                           {t.first_name} {t.last_name}
                         </div>
+                        {selectedClassId === 'ALL' && t._cls && (
+                          <div className="mt-0.5 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                            {formatDate(t._cls.week_start_date)} · {t._cls.region || 'Region TBD'}
+                            {t._cls.locations?.name ? ` · ${t._cls.locations.name}` : ''}
+                          </div>
+                        )}
                         <div className="text-xs text-slate-500">
                           {t.phone || '— no phone —'}
                           {t.email && ` · ${t.email}`}
@@ -468,12 +518,12 @@ export default function Hotels() {
                             <button
                               type="button"
                               onClick={() => quickBook(t)}
-                              disabled={busyTraineeId === t.id || !meetingVenue}
+                              disabled={busyTraineeId === t.id || !rowVenue}
                               className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
                               title={
-                                meetingVenue
-                                  ? 'One-click: book this trainee at the meeting venue under their own name'
-                                  : 'Add a meeting venue to the class first'
+                                rowVenue
+                                  ? 'One-click: book this trainee at their class\'s meeting venue under their own name'
+                                  : 'Add a meeting venue to this trainee\'s class first'
                               }
                             >
                               {busyTraineeId === t.id ? 'Saving…' : '🏨 Book Hotel'}
@@ -528,7 +578,7 @@ export default function Hotels() {
                               Edit
                             </button>
                             {(() => {
-                              const noShow = isHotelNoShow(t, selectedClass)
+                              const noShow = isHotelNoShow(t, rowClass)
                               return (
                                 <button
                                   type="button"
@@ -596,17 +646,17 @@ export default function Hotels() {
                       <HotelForm
                         draft={draft}
                         setDraft={setDraft}
-                        meetingVenue={meetingVenue}
+                        meetingVenue={rowVenue}
                         onCopyVenue={() => {
-                          if (!meetingVenue) return
+                          if (!rowVenue) return
                           setDraft({
                             ...draft,
-                            hotel_name: meetingVenue.name || '',
-                            hotel_street_address: meetingVenue.street_address || '',
-                            hotel_city: meetingVenue.city || '',
-                            hotel_state: meetingVenue.state || '',
-                            hotel_zip: meetingVenue.zip || '',
-                            hotel_phone: meetingVenue.phone || '',
+                            hotel_name: rowVenue.name || '',
+                            hotel_street_address: rowVenue.street_address || '',
+                            hotel_city: rowVenue.city || '',
+                            hotel_state: rowVenue.state || '',
+                            hotel_zip: rowVenue.zip || '',
+                            hotel_phone: rowVenue.phone || '',
                           })
                         }}
                         onUseName={() => {
@@ -832,6 +882,16 @@ function isHotelNoShow(trainee, cls) {
     (a) => a.attendance_date === today && a.confirmed,
   )
   return !checkedIn
+}
+
+// Today (America/New_York) as YYYY-MM-DD — for filtering the unified view to
+// active/upcoming weeks only.
+function todayISO() {
+  const p = {}
+  for (const part of new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())) p[part.type] = part.value
+  return `${p.year}-${p.month}-${p.day}`
 }
 
 function formatDate(iso) {
