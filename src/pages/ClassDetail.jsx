@@ -18,6 +18,7 @@ export default function ClassDetail() {
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
   const [sending, setSending] = useState(null) // null | 'all' | trainee_id
+  const [weekBResult, setWeekBResult] = useState(null) // audit of the last Week B send
   const [editingLocation, setEditingLocation] = useState(false)
   const [locationDraft, setLocationDraft] = useState('')
   const [editingWeek, setEditingWeek] = useState(false)
@@ -832,8 +833,9 @@ export default function ClassDetail() {
   // email (fired on the Friday ending Week A). Whoever confirms becomes HR's
   // Week B hotel-booking list on the Hotels page.
   async function sendWeekBConfirmation() {
-    if (!confirm('Send the "confirm your Monday attendance for Week B" text + email to everyone in this class?')) return
+    if (!confirm('Send the "confirm your Monday attendance for Week B" text + email to everyone who attended Week A?')) return
     setMessage(null)
+    setWeekBResult(null)
     setSending('weekb')
     try {
       const res = await fetch('/.netlify/functions/send-week-b-confirmation', {
@@ -843,11 +845,16 @@ export default function ClassDetail() {
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok || !body.ok) {
-        setMessage({ type: 'error', text: res.status === 404 ? 'This only works on the deployed site.' : (body.error || `Failed: ${res.status}`) })
+        const text = res.status === 404 ? 'This only works on the deployed site.' : (body.error || `Failed: ${res.status}`)
+        setWeekBResult({ error: text, at: new Date().toISOString() })
+        setMessage({ type: 'error', text })
       } else {
-        setMessage({ type: 'success', text: `📅 Week B confirmation sent to ${body.sent} trainee${body.sent === 1 ? '' : 's'}${body.skipped ? ` (${body.skipped} skipped)` : ''}. They now show on the Hotels page once they confirm.` })
+        setWeekBResult({ ...body, at: new Date().toISOString() })
+        setMessage({ type: 'success', text: `📅 Week B confirmation sent to ${body.sent} trainee${body.sent === 1 ? '' : 's'}${body.skipped ? ` (${body.skipped} skipped)` : ''}. See the receipt below.` })
+        load() // refresh rows so the per-trainee "Week B sent" badges appear
       }
     } catch (err) {
+      setWeekBResult({ error: err.message || 'Network error', at: new Date().toISOString() })
       setMessage({ type: 'error', text: err.message || 'Network error' })
     } finally {
       setSending(null)
@@ -985,7 +992,19 @@ export default function ClassDetail() {
   // a trainee who misses today simply isn't in this list, and reappears when they
   // sign in again. Only shown on a day that falls within the class week.
   const todayLocal = todayLocalIso()
-  const todayIsClassDay = todayLocal >= cls.week_start_date && todayLocal <= cls.week_end_date
+  // Classroom days only. In the two-week schedule trainees are physically in the
+  // Training Suite Week A Mon–Wed and Week B Mon–Thu; Thu–Sat of Week A and Fri+
+  // are field/home days, so nobody signs in — don't show an empty "Signed in
+  // today" list on those. Offsets are days since the Week A Monday.
+  const CLASSROOM_OFFSETS = new Set([0, 1, 2, 7, 8, 9, 10]) // Wk A Mon–Wed, Wk B Mon–Thu
+  const dayOffset = Math.round(
+    (Date.parse(todayLocal + 'T00:00:00Z') - Date.parse(cls.week_start_date + 'T00:00:00Z')) / 86400000
+  )
+  const isTwoWeek = !cls.attendance_only && (
+    Math.round((Date.parse(cls.week_end_date + 'T00:00:00Z') - Date.parse(cls.week_start_date + 'T00:00:00Z')) / 86400000) >= 9
+  )
+  const inClassSpan = todayLocal >= cls.week_start_date && todayLocal <= cls.week_end_date
+  const todayIsClassDay = inClassSpan && (!isTwoWeek || CLASSROOM_OFFSETS.has(dayOffset))
   const signedInToday = todayIsClassDay
     ? enrolled.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === todayLocal))
     : []
@@ -1353,6 +1372,79 @@ export default function ClassDetail() {
           </button>
         )}
       </div>
+
+      {/* Week B send receipt — a persistent audit so you never send blind.
+          Shows exactly who got it, on which channels, and who was skipped + why. */}
+      {weekBResult && (
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-base font-semibold text-indigo-900">
+              📅 Week B confirmation — send receipt
+            </h2>
+            <button
+              onClick={() => setWeekBResult(null)}
+              className="text-xs font-medium text-indigo-700 hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="mt-1 text-xs text-indigo-700">
+            {new Date(weekBResult.at).toLocaleString()}
+          </div>
+
+          {weekBResult.error ? (
+            <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800">
+              ❌ Did not send: {weekBResult.error}
+            </div>
+          ) : (
+            <>
+              <div className="mt-3 text-sm font-semibold text-indigo-900">
+                ✅ Sent to {weekBResult.sent} {weekBResult.sent === 1 ? 'person' : 'people'}
+                {weekBResult.skipped ? ` · ${weekBResult.skipped} skipped` : ''}
+              </div>
+
+              {(weekBResult.recipients || []).length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {weekBResult.recipients.map((r, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-slate-700">
+                      <span className="text-green-600">✓</span>
+                      <span className="font-medium">{r.name}</span>
+                      <span className="text-xs text-slate-500">
+                        {(r.channels || []).map((c) => (c === 'sms' ? 'text' : c)).join(' + ') || 'sent'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {(weekBResult.skipped_list || []).length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Skipped</div>
+                  <ul className="mt-1 space-y-1">
+                    {weekBResult.skipped_list.map((s, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-slate-500">
+                        <span>–</span>
+                        <span className="font-medium text-slate-600">{s.name}</span>
+                        <span className="text-xs">{s.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(weekBResult.errors || []).length > 0 && (
+                <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                  ⚠️ {weekBResult.errors.join(' · ')}
+                </div>
+              )}
+
+              <div className="mt-3 text-xs text-indigo-700">
+                Whoever confirms shows up on the Hotels page for Week B booking. Confirmations appear as green badges on each trainee below.
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       {addingTrainee && (
         <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 shadow-sm">
@@ -1774,9 +1866,14 @@ function TraineeGroup({
                           Registered: {new Date(t.registered_at).toLocaleString()}
                         </div>
                       )}
+                      {t.week_b_confirm_sent_at && (
+                        <div className="mt-0.5 text-xs text-indigo-700">
+                          📅 Week B confirmation sent: {new Date(t.week_b_confirm_sent_at).toLocaleString()}
+                        </div>
+                      )}
                       {t.confirmation_status === 'confirmed' && (
                         <div className="mt-0.5 text-xs font-semibold text-green-700">
-                          ✅ Confirmed for tomorrow
+                          ✅ Confirmed — coming Monday
                         </div>
                       )}
                       {t.confirmation_status === 'declined' && (
@@ -1784,7 +1881,12 @@ function TraineeGroup({
                           ❌ Declined — can't make it
                         </div>
                       )}
-                      {!t.confirmation_status && t.last_reminder_sent_at && (
+                      {!t.confirmation_status && t.week_b_confirm_sent_at && (
+                        <div className="mt-0.5 text-xs font-semibold text-amber-700">
+                          ⏳ Awaiting their Week B reply
+                        </div>
+                      )}
+                      {!t.confirmation_status && !t.week_b_confirm_sent_at && t.last_reminder_sent_at && (
                         <div className="mt-0.5 text-xs font-semibold text-amber-700">
                           ⏳ Confirmation reminder sent, awaiting reply
                         </div>

@@ -101,12 +101,19 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
   const loc = cls.locations?.name || 'your training location'
   let sent = 0, skipped = 0
   const errors = []
+  const recipients = []   // { name, channels:[...] } — everyone we actually texted/emailed
+  const skippedList = []  // { name, reason } — everyone we intentionally left out
+  const nameOf = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim() || 'Trainee'
   for (const t of cls.trainees || []) {
     // Only people who ACTUALLY ATTENDED Week A get the Week B confirmation — if they
     // never showed for Week A there's no reason to send them Week B.
-    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !attendedWeekA(t)) { skipped++; continue }
-    if (!force && t.week_b_confirm_sent_at) { skipped++; continue } // cron dedupe
-    if (!t.phone && !t.email) { skipped++; continue }
+    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !attendedWeekA(t)) {
+      skipped++
+      skippedList.push({ name: nameOf(t), reason: t.dropped_out_at ? 'dropped out' : t.declined_at ? 'declined' : t.enrolled === false ? 'not enrolled' : "didn't attend Week A" })
+      continue
+    }
+    if (!force && t.week_b_confirm_sent_at) { skipped++; skippedList.push({ name: nameOf(t), reason: 'already sent' }); continue } // cron dedupe
+    if (!t.phone && !t.email) { skipped++; skippedList.push({ name: nameOf(t), reason: 'no phone or email' }); continue }
     const link = `${siteUrl ? siteUrl : ''}/confirm/${t.registration_token}?week=B`
     const msg =
       `U.S. Shingle & Metal — great job finishing Week A! Your Week B schedule, address & directions are here 👉 ${link}  ` +
@@ -134,11 +141,13 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
         await supabase.from('trainees').update(patch).eq('id', t.id)
       }
       sent++
+      recipients.push({ name: nameOf(t), channels })
     } else {
       errors.push(`no channel for ${t.first_name} ${t.last_name}`)
+      skippedList.push({ name: nameOf(t), reason: 'send failed (no channel delivered)' })
     }
   }
-  return { sent, skipped, week_b_monday: weekBMonday, ...(errors.length ? { errors } : {}) }
+  return { sent, skipped, week_b_monday: weekBMonday, recipients, skipped_list: skippedList, ...(errors.length ? { errors } : {}) }
 }
 
 // ---- date helpers (ET) ------------------------------------------------------

@@ -61,7 +61,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, managed_region, latitude, longitude')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, is_field_trainee, managed_region, latitude, longitude')
     // Exclude only EXPLICIT non-field reps. A plain `.neq('rep_level','non_field')`
     // drops rows where rep_level IS NULL (SQL: null <> x → null → excluded), which
     // hid active reps activated manually without a rep_level set (e.g. Danny
@@ -70,27 +70,35 @@ export const handler = async (event) => {
     // report can identify each zone's manager even if they're marked non_field.
     .or('rep_level.is.null,rep_level.neq.non_field,managed_region.not.is.null')
     .order('last_name', { ascending: true })
-  if (!includeInactive) q = q.eq('is_active_sales_rep', true)
+  // Default set = ACTIVE reps PLUS PRE-GRAD field trainees (is_field_trainee, still in
+  // field training before graduation) so the manager can work with them in their zone.
+  // Pre-grads come back active:false + pregrad:true → the contest divisor + Managers Pay
+  // (which use active only) skip them, while the team map + dashboard opt them in.
+  if (!includeInactive) q = q.or('is_active_sales_rep.eq.true,is_field_trainee.eq.true')
   const { data, error } = await q
 
   if (error) {
     return cors(500, JSON.stringify({ ok: false, error: error.message }))
   }
 
-  const reps = (data || []).map((t) => ({
-    name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
-    first_name: t.first_name || '',
-    last_name: t.last_name || '',
-    jobnimbus_id: t.jobnimbus_id || null,
-    zone: t.region || null,
-    county: t.county || null,
-    phone: t.phone || null,
-    rep_level: t.rep_level || null,   // 'junior' | 'senior'
-    active: t.is_active_sales_rep !== false,
-    managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
-    latitude: t.latitude != null ? Number(t.latitude) : null,    // rep home (for the setter's mile-radius match)
-    longitude: t.longitude != null ? Number(t.longitude) : null,
-  }))
+  const reps = (data || []).map((t) => {
+    const pregrad = t.is_field_trainee === true && t.is_active_sales_rep !== true
+    return {
+      name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
+      first_name: t.first_name || '',
+      last_name: t.last_name || '',
+      jobnimbus_id: t.jobnimbus_id || null,
+      zone: t.region || null,
+      county: t.county || null,
+      phone: t.phone || null,
+      rep_level: pregrad ? 'pregrad' : (t.rep_level || null),   // 'pregrad' | 'junior' | 'senior'
+      pregrad,                                                  // still in field training, not graduated
+      active: pregrad ? false : (t.is_active_sales_rep !== false), // pregrads active:false → contest/pay skip them
+      managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
+      latitude: t.latitude != null ? Number(t.latitude) : null,    // rep home (for the setter's mile-radius match)
+      longitude: t.longitude != null ? Number(t.longitude) : null,
+    }
+  })
 
   return cors(
     200,
