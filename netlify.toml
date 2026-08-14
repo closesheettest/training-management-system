@@ -44,6 +44,15 @@
 [functions."send-hotel-noshow-alert"]
   schedule = "0 14-23 * * *"
 
+# Scheduled function: the Friday "confirm your Monday attendance for Week B" send.
+# On the Friday ending a cohort's Week A, texts + emails each trainee the /confirm
+# link; whoever confirms becomes HR's Week B hotel-booking list. Fires Fri 18:00
+# UTC (2 PM EDT / 1 PM EST); the function's ET-Friday guard is belt-and-suspenders.
+# Also callable manually (POST {class_id}) from the class page. MUST stay in sync
+# with export config.schedule in the function file — Netlify reads THIS value.
+[functions."send-week-b-confirmation"]
+  schedule = "0 18 * * 5"
+
 # Scheduled function: Thursday-evening reminder texting each regional manager
 # to complete their Weekly Rep Report (due Friday morning), with a deep link to
 # their dashboard. Fires Thu 22:00 & 23:00 UTC; the function's ET-hour==18 guard

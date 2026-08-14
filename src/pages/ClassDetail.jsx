@@ -828,6 +828,32 @@ export default function ClassDetail() {
     }
   }
 
+  // Send the whole class the "confirm your Monday attendance for Week B" text +
+  // email (fired on the Friday ending Week A). Whoever confirms becomes HR's
+  // Week B hotel-booking list on the Hotels page.
+  async function sendWeekBConfirmation() {
+    if (!confirm('Send the "confirm your Monday attendance for Week B" text + email to everyone in this class?')) return
+    setMessage(null)
+    setSending('weekb')
+    try {
+      const res = await fetch('/.netlify/functions/send-week-b-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body.ok) {
+        setMessage({ type: 'error', text: res.status === 404 ? 'This only works on the deployed site.' : (body.error || `Failed: ${res.status}`) })
+      } else {
+        setMessage({ type: 'success', text: `📅 Week B confirmation sent to ${body.sent} trainee${body.sent === 1 ? '' : 's'}${body.skipped ? ` (${body.skipped} skipped)` : ''}. They now show on the Hotels page once they confirm.` })
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || 'Network error' })
+    } finally {
+      setSending(null)
+    }
+  }
+
   // Flag a trainee as a field trainee (e.g. when cancelling a class). They then
   // appear on the Field Trainee page to assign a manager + run provisioning.
   async function makeFieldTrainee(t) {
@@ -1277,6 +1303,16 @@ export default function ClassDetail() {
             'All trainees have registered.'
           )}
         </div>
+        {!cls.attendance_only && (
+          <button
+            onClick={sendWeekBConfirmation}
+            disabled={sending === 'weekb'}
+            title="Fired on the Friday ending Week A: texts + emails everyone the 'confirm your Monday attendance for Week B' link. Whoever confirms shows on the Hotels page for Week B booking."
+            className="rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            {sending === 'weekb' ? 'Sending…' : '📅 Send Week B confirmation'}
+          </button>
+        )}
         <button
           onClick={startAddTrainee}
           disabled={addingTrainee}

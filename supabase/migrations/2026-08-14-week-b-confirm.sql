@@ -1,0 +1,12 @@
+-- Friday "confirm Monday attendance for Week B" send.
+--
+-- On the Friday that ends a cohort's Week A, we text/email each trainee a link
+-- to confirm they'll be back Monday for Week B. Whoever confirms becomes HR's
+-- Week B hotel-booking list (they arrive Monday afternoon, so the rooms have to
+-- be bookable Monday morning before they show up).
+--
+-- Reuses the existing confirmation_status ('confirmed'/'declined') + /confirm
+-- flow; this column just dedupes the Friday send so the cron can fire safely.
+--
+-- Safe to run more than once.
+alter table trainees add column if not exists week_b_confirm_sent_at timestamptz;
