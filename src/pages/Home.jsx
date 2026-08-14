@@ -53,7 +53,7 @@ function HotelAlert() {
       const [tRes, sRes] = await Promise.all([
         supabase
           .from('trainees')
-          .select('id, class_id, enrolled, declined_at, dropped_out_at, needs_hotel')
+          .select('id, class_id, enrolled, declined_at, dropped_out_at, needs_hotel, attendance(attendance_date, confirmed)')
           .in('class_id', ids)
           .eq('needs_hotel', true),
         supabase
@@ -66,11 +66,17 @@ function HotelAlert() {
           .filter((s) => !s.cancelled_at)
           .map((s) => `${s.trainee_id}:${s.phase || 'A'}`),
       )
+      // Week B only counts people who actually attended Week A (the prior week).
+      const waStart = addDaysISO(weekMon, -7)
+      const waEnd = addDaysISO(weekMon, -1)
+      const attendedWeekA = (t) =>
+        (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd)
       const count = (tRes.data || []).filter(
         (t) =>
           t.enrolled !== false &&
           !t.declined_at &&
           !t.dropped_out_at &&
+          (phaseByClass[t.class_id] !== 'B' || attendedWeekA(t)) &&
           !bookedKeys.has(`${t.id}:${phaseByClass[t.class_id]}`),
       ).length
       if (!cancelled) setNeed({ count, weekMon })

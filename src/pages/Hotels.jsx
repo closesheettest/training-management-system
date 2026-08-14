@@ -88,7 +88,7 @@ export default function Hotels() {
     const [tRes, sRes] = await Promise.all([
       supabase
         .from('trainees')
-        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, needs_hotel, confirmation_status, attendance(attendance_date, confirmed)')
+        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, dropped_out_at, needs_hotel, confirmation_status, attendance(attendance_date, confirmed)')
         .in('class_id', ids)
         .eq('needs_hotel', true),
       supabase
@@ -101,11 +101,21 @@ export default function Hotels() {
       setLoadingTrainees(false)
       return
     }
+    // Week B trainees must have ACTUALLY ATTENDED their Week A (the prior week).
+    // Someone enrolled who never showed up for Week A (a no-show) doesn't get a
+    // Week B room — they're not continuing. Week A = the 7 days before weekMon.
+    const waStart = addDaysISO(weekMon, -7)
+    const waEnd = addDaysISO(weekMon, -1)
+    const attendedWeekA = (t) =>
+      (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd)
+
     // Tag each trainee with its phase for THIS week + the default room dates:
     //   Week A → check-in Mon, checkout Wed (2 nights)
     //   Week B → check-in Mon, checkout Fri (4 nights)
     const rows = (tRes.data || [])
-      .filter((t) => t.enrolled !== false && !t.declined_at)
+      .filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+      // Drop Week-B-phase no-shows: only people who did Week A continue.
+      .filter((t) => phaseByClass[t.class_id] !== 'B' || attendedWeekA(t))
       .map((t) => {
         const phase = phaseByClass[t.class_id]
         const cls = clsById[t.class_id]
