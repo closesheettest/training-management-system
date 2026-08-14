@@ -176,6 +176,13 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
   function update(field, value) {
     setForm((prev) => {
       const next = { ...prev, [field]: value }
+      // A cohort runs TWO weeks (Week A then Week B). The hiring manager only
+      // picks the Week A start Monday — Week B is the next week, so the class end
+      // is Week A start + 11 days (Week B Friday). Auto-set it (unless it's an
+      // attendance-only one-off).
+      if (field === 'week_start_date' && value && !prev.attendance_only) {
+        next.week_end_date = addDaysIso(value, 11)
+      }
       // When region changes, clear training location if it doesn't belong to that region
       if (field === 'region') {
         const currentLoc = locations.find((l) => l.id === prev.location_id)
@@ -236,7 +243,7 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium text-slate-700">
-          Week start date
+          {form.attendance_only ? 'Start date' : 'Week A start (Monday)'}
           <input
             type="date"
             required
@@ -244,17 +251,38 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
             onChange={(e) => update('week_start_date', e.target.value)}
             className={inputCls}
           />
+          <span className="mt-1 block text-xs text-slate-500">
+            {form.attendance_only
+              ? 'One-off meeting date.'
+              : 'New hires start here. Week B is auto-set to the following week.'}
+          </span>
         </label>
-        <label className="block text-sm font-medium text-slate-700">
-          Week end date
-          <input
-            type="date"
-            required
-            value={form.week_end_date}
-            onChange={(e) => update('week_end_date', e.target.value)}
-            className={inputCls}
-          />
-        </label>
+        {form.attendance_only ? (
+          <label className="block text-sm font-medium text-slate-700">
+            End date
+            <input
+              type="date"
+              required
+              value={form.week_end_date}
+              onChange={(e) => update('week_end_date', e.target.value)}
+              className={inputCls}
+            />
+          </label>
+        ) : (
+          <div className="block text-sm font-medium text-slate-700">
+            This cohort's two weeks
+            <div className="mt-1 space-y-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal">
+              {form.week_start_date ? (
+                <>
+                  <div><span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Week A</span> <span className="text-slate-600">{formatDateRange(form.week_start_date, addDaysIso(form.week_start_date, 4))}</span></div>
+                  <div><span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800">Week B</span> <span className="text-slate-600">{formatDateRange(addDaysIso(form.week_start_date, 7), addDaysIso(form.week_start_date, 11))}</span></div>
+                </>
+              ) : (
+                <span className="text-slate-400">Pick a Week A start date above.</span>
+              )}
+            </div>
+          </div>
+        )}
         <label className="block text-sm font-medium text-slate-700">
           Region
           <select
@@ -423,9 +451,23 @@ function ClassRow({ cls, isPast = false, onDelete }) {
               </span>
             )}
           </div>
-          <div className="mt-1 text-sm text-slate-500">
-            {formatDateRange(cls.week_start_date, cls.week_end_date)}
-          </div>
+          {isTwoWeekClass(cls) ? (
+            <div className="mt-1 space-y-0.5 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Week A</span>
+                <span className="text-slate-600">{formatDateRange(cls.week_start_date, addDaysIso(cls.week_start_date, 4))}</span>
+                <span className="text-[11px] text-slate-400">· hiring / intake</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800">Week B</span>
+                <span className="text-slate-600">{formatDateRange(addDaysIso(cls.week_start_date, 7), addDaysIso(cls.week_start_date, 11))}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-1 text-sm text-slate-500">
+              {formatDateRange(cls.week_start_date, cls.week_end_date)}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-end">
           {isPast ? (
@@ -462,6 +504,25 @@ function ClassRow({ cls, isPast = false, onDelete }) {
       )}
     </li>
   )
+}
+
+// A cohort now runs TWO weeks back-to-back (Week A then Week B). Detect it by a
+// span of ~2 weeks; attendance-only one-offs and legacy single-week classes show
+// a plain date range instead.
+function isTwoWeekClass(cls) {
+  if (cls.attendance_only) return false
+  const a = parseLocalDate(cls.week_start_date)
+  const b = parseLocalDate(cls.week_end_date)
+  if (!a || !b) return false
+  const days = Math.round((b.getTime() - a.getTime()) / 86400000)
+  return days >= 9 // Week A Mon → Week B Fri ≈ 11 days
+}
+function addDaysIso(iso, n) {
+  if (!iso) return iso
+  const [y, m, d] = String(iso).split('T')[0].split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
 }
 
 function Badge({ color, label, hide }) {
