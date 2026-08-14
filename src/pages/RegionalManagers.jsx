@@ -40,6 +40,9 @@ const CONFIG_TOOLS = TOOLS.filter((t) => t.field)
 
 // CCG functions origin (same one the per-manager dashboard uses).
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
+// Weekly contest prize for the winning team, split among its reps (the manager
+// gets none) by each rep's share of the team's rep-only points.
+const PRIZE_POOL = 2000
 
 // "Go back" label for review_availability. When the homeowner is open to
 // MULTIPLE days, collapse to the FIRST AVAILABLE upcoming day at that hour (ET) —
@@ -215,6 +218,13 @@ function ContestReport() {
             <div className="space-y-3">
               {data.teams.map((t) => {
                 const tOpen = openTeam === t.zone
+                // The top team (highest avg pts/rep) wins the $2,000. The manager
+                // gets none; it's split among the reps by their share of the
+                // team's REP-only points.
+                const isWinner = data.teams[0] && t.zone === data.teams[0].zone
+                const repPts = t.reps.filter((r) => !r.isManager).reduce((s, r) => s + (r.points || 0), 0)
+                const prizeFor = (r) => (isWinner && !r.isManager && repPts > 0 ? (r.points / repPts) * PRIZE_POOL : 0)
+                const pctFor = (r) => (isWinner && !r.isManager && repPts > 0 ? (r.points / repPts) * 100 : 0)
                 return (
                   <div key={t.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                     <button type="button" onClick={() => { setOpenTeam(tOpen ? null : t.zone); setOpenRep(null) }}
@@ -223,6 +233,9 @@ function ContestReport() {
                       <span className="flex items-center gap-2">
                         <span className="font-bold" style={{ color: (ZONE_COLORS[t.zone]?.deep) || '#0f172a' }}>{t.team}</span>
                         <span className="text-xs text-slate-500">{t.zone}</span>
+                        {isWinner && (
+                          <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-extrabold text-amber-950">🏆 Winner · ${PRIZE_POOL.toLocaleString()}</span>
+                        )}
                       </span>
                       <span className="text-sm text-slate-700"><span className="font-bold">{t.avg}</span> pts/rep · {t.points} total · {t.activeReps} reps {tOpen ? '▾' : '▸'}</span>
                     </button>
@@ -246,7 +259,17 @@ function ContestReport() {
                                 <Fragment key={rk}>
                                   <tr className={'border-t border-slate-100 ' + (has ? 'cursor-pointer hover:bg-amber-50' : 'text-slate-300')}
                                     onClick={() => has && setOpenRep(rOpen ? null : rk)}>
-                                    <td className="p-2 font-semibold text-slate-800">{r.name}{has ? <span className="ml-1 text-slate-400">{rOpen ? '▾' : '▸'}</span> : null}</td>
+                                    <td className="p-2 font-semibold text-slate-800">
+                                      {r.name}{has ? <span className="ml-1 text-slate-400">{rOpen ? '▾' : '▸'}</span> : null}
+                                      {isWinner && r.isManager && (
+                                        <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">manager · not eligible</span>
+                                      )}
+                                      {isWinner && !r.isManager && (
+                                        <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800" title={`${pctFor(r).toFixed(1)}% of the team's rep points`}>
+                                          ${Math.round(prizeFor(r)).toLocaleString()} <span className="font-normal text-emerald-600">({pctFor(r).toFixed(0)}%)</span>
+                                        </span>
+                                      )}
+                                    </td>
                                     {attrs.map((a) => <td key={a.key} className="p-2 text-center tabular-nums">{r.totals[a.key] || <span className="text-slate-300">·</span>}</td>)}
                                     <td className="p-2 text-center tabular-nums">{r.sales || <span className="text-slate-300">·</span>}</td>
                                     <td className="p-2 text-center font-bold tabular-nums text-brand-navy">{r.points}</td>
