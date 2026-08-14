@@ -100,10 +100,10 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
     if (t.enrolled === false || t.declined_at || t.dropped_out_at) { skipped++; continue }
     if (!force && t.week_b_confirm_sent_at) { skipped++; continue } // cron dedupe
     if (!t.phone && !t.email) { skipped++; continue }
-    const link = siteUrl ? `${siteUrl}/confirm/${t.registration_token}` : `/confirm/${t.registration_token}`
+    const link = `${siteUrl ? siteUrl : ''}/confirm/${t.registration_token}?week=B`
     const msg =
-      `U.S. Shingle & Metal Training — you're completing Week A. Week B begins Monday, ${niceDate} at ${loc}. ` +
-      `Please tap to confirm your Monday attendance: ${link}  Confirming holds your seat and your hotel room.`
+      `U.S. Shingle & Metal — great job finishing Week A! Your Week B schedule, address & directions are here 👉 ${link}  ` +
+      `Tap to confirm you'll be there Monday, ${niceDate}. Confirming holds your seat and your hotel room.`
     const channels = []
     if (t.email) {
       try {
