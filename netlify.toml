@@ -44,13 +44,11 @@
 [functions."send-hotel-noshow-alert"]
   schedule = "0 14-23 * * *"
 
-# Scheduled function: the Friday "confirm your Monday attendance for Week B" send.
-# On the Friday ending a cohort's Week A, texts + emails each trainee the /confirm
-# link; whoever confirms becomes HR's Week B hotel-booking list. Fires Fri 18:00
-# UTC (2 PM EDT / 1 PM EST); the function's ET-Friday guard is belt-and-suspenders.
-# Also callable manually (POST {class_id}) from the class page. MUST stay in sync
-# with export config.schedule in the function file — Netlify reads THIS value.
-[functions."send-week-b-confirmation"]
+# Scheduled WRAPPER for the Friday "confirm Monday for Week B" send. The actual
+# send lives in send-week-b-confirmation.js as an HTTP function (so the class-page
+# button works — Netlify 403s HTTP calls to scheduled functions). This tiny cron
+# fires Fri 18:00 UTC and hits that endpoint's secured GET path.
+[functions."cron-week-b-confirmation"]
   schedule = "0 18 * * 5"
 
 # Scheduled function: Thursday-evening reminder texting each regional manager

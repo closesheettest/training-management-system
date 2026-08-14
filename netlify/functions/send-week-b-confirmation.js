@@ -23,10 +23,11 @@ import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
-// Native Netlify scheduled function — fires Fridays 18:00 UTC (2 PM EDT /
-// 1 PM EST). The handler's ET-Friday guard is belt-and-suspenders. MUST stay in
-// sync with the schedule in netlify.toml (Netlify reads that one).
-export const config = { schedule: '0 18 * * 5' }
+// HTTP function: manual send (POST { class_id }) from the class page, or a
+// secured GET (?secret=CRON_SECRET) for the Friday run. NOTE: this is deliberately
+// NOT a native scheduled function — Netlify blocks HTTP calls to scheduled
+// functions with a 403, which would break the manual button. The Friday auto-run
+// lives in cron-week-b-confirmation.js, which hits this endpoint's GET path.
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
