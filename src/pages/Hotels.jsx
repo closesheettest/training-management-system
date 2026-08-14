@@ -343,7 +343,7 @@ export default function Hotels() {
       const res = await fetch('/.netlify/functions/send-hotel-info-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stay_ids: unsent.map((s) => s.id) }),
+        body: JSON.stringify({ stay_ids: unsent.map((s) => s.id), notify_admin: true }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {

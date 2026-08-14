@@ -121,10 +121,22 @@ export const handler = async (event) => {
     results.push({ stay_id: s.id, ok: true, channels, errors: errors.length ? errors : undefined })
   }
 
+  const sentCount = results.filter((r) => r.ok).length
+  const failCount = results.filter((r) => !r.ok).length
+
+  // Ping Neal that the batch is out — his "load gen finished, reps are good to
+  // go" signal. Only on the send-all (notify_admin), not per-trainee re-sends.
+  if (body.notify_admin && sentCount > 0) {
+    const adminPhone = process.env.ADMIN_ALERT_PHONE || '7275037017'
+    const weekDate = formatDate(stays[0]?.classes?.week_start_date)
+    const msg = `✅ All hotel info sent — ${sentCount} trainee${sentCount === 1 ? '' : 's'}${weekDate ? ` (week of ${weekDate})` : ''}${failCount ? ` · ${failCount} failed` : ''}. Reps are good to go.`
+    try { await sendSmsViaGhl(adminPhone, msg, { firstName: 'Neal', lastName: 'Scoppettuolo' }) } catch { /* non-fatal */ }
+  }
+
   return json(200, {
     ok: true,
-    sent_count: results.filter((r) => r.ok).length,
-    fail_count: results.filter((r) => !r.ok).length,
+    sent_count: sentCount,
+    fail_count: failCount,
     results,
   })
 }
