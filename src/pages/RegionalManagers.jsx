@@ -269,6 +269,17 @@ function ContestReport() {
                   </div>
                 )
               })}
+              {(() => {
+                const cPts = data.teams.reduce((s, t) => s + (t.points || 0), 0)
+                const cReps = data.teams.reduce((s, t) => s + (t.activeReps || 0), 0)
+                const cAvg = cReps ? Math.round((cPts / cReps) * 10) / 10 : 0
+                return (
+                  <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-900 px-4 py-3 text-white">
+                    <span className="font-extrabold uppercase tracking-wide">🏢 Company total</span>
+                    <span className="text-sm"><span className="font-bold">{cAvg}</span> pts/rep · {cPts} total · {cReps} reps</span>
+                  </div>
+                )
+              })()}
               <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
                 Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
               </div>
