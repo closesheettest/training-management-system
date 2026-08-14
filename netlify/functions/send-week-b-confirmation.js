@@ -83,7 +83,7 @@ export const handler = async (event) => {
 async function loadClass(supabase, classId) {
   const { data } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at)')
+    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at)')
     .eq('id', classId)
     .maybeSingle()
   return data || null
@@ -97,7 +97,9 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
   let sent = 0, skipped = 0
   const errors = []
   for (const t of cls.trainees || []) {
-    if (t.enrolled === false || t.declined_at || t.dropped_out_at) { skipped++; continue }
+    // Only people who actually completed Week A get the Week B confirmation —
+    // registered = they went through registration (skip never-registered no-shows).
+    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !t.registered) { skipped++; continue }
     if (!force && t.week_b_confirm_sent_at) { skipped++; continue } // cron dedupe
     if (!t.phone && !t.email) { skipped++; continue }
     const link = `${siteUrl ? siteUrl : ''}/confirm/${t.registration_token}?week=B`
