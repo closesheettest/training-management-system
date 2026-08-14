@@ -475,9 +475,46 @@ export default function ClassDetail() {
     load()
   }
 
+  // Mark a trainee as a DROPOUT — the Week A / Week B weed-out. Distinct from
+  // Unenroll: it stamps its own dropped_out_at/reason (so we can report on
+  // dropouts) AND flips enrolled / is_active_sales_rep / is_field_trainee to
+  // false so they immediately fall off the active roster, the manager team
+  // dashboard, and the harvest map. Reversible via Re-enroll in the Dropped-out
+  // section.
+  async function dropoutTrainee(t) {
+    const reason = prompt(
+      `Mark ${t.first_name} ${t.last_name} as a DROPOUT?\n\nThey're removed from this class and the active roster, pulled off the manager team dashboard + harvest map, and logged as a dropout for your weed-out tracking. You can Re-enroll them later if it was a mistake.\n\nReason (optional):`,
+      '',
+    )
+    if (reason === null) return // cancelled
+    setMessage(null)
+    const now = new Date().toISOString()
+    const { error: err } = await supabase
+      .from('trainees')
+      .update({
+        dropped_out_at: now,
+        dropped_out_reason: reason.trim() || null,
+        enrolled: false,
+        unenrolled_at: now,
+        unenrolled_reason: reason.trim() ? `Dropout: ${reason.trim()}` : 'Dropout',
+        is_active_sales_rep: false,
+        is_field_trainee: false,
+      })
+      .eq('id', t.id)
+    if (err) {
+      setMessage({ type: 'error', text: err.message })
+      return
+    }
+    setMessage({ type: 'success', text: `${t.first_name} ${t.last_name} marked as a dropout.` })
+    load()
+  }
+
   async function reenrollTrainee(t) {
     const wasDeclined = !!t.declined_at
-    const confirmMsg = wasDeclined
+    const wasDropout = !!t.dropped_out_at
+    const confirmMsg = wasDropout
+      ? `${t.first_name} ${t.last_name} was marked as a dropout. Re-enroll them and clear the dropout?`
+      : wasDeclined
       ? `${t.first_name} ${t.last_name} previously declined this training. Re-enroll them and clear the decline?`
       : `Re-enroll ${t.first_name} ${t.last_name}?`
     if (!confirm(confirmMsg)) return
@@ -492,6 +529,8 @@ export default function ClassDetail() {
         // wipe these if the row was actually declined — otherwise leave
         // historical data alone.
         ...(wasDeclined ? { declined_at: null, declined_reason: null } : {}),
+        // Reviving a dropout clears the dropout stamps too.
+        ...(wasDropout ? { dropped_out_at: null, dropped_out_reason: null } : {}),
       })
       .eq('id', t.id)
     if (err) {
@@ -884,9 +923,10 @@ export default function ClassDetail() {
   // so they naturally fall out of the "enrolled" list. We pull them into
   // their own "declined" bucket below so HR can see them separately from
   // ordinary unenrollments.
-  const declined = trainees.filter((t) => t.declined_at)
-  const enrolled = trainees.filter((t) => t.enrolled !== false)
-  const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at)
+  const droppedOut = trainees.filter((t) => t.dropped_out_at)
+  const declined = trainees.filter((t) => t.declined_at && !t.dropped_out_at)
+  const enrolled = trainees.filter((t) => t.enrolled !== false && !t.dropped_out_at)
+  const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at && !t.dropped_out_at)
   // Holding bucket — trainees rescheduled INTO this class who haven't
   // been admitted to the active roster yet. They keep their existing
   // registration status (registered, sent-no-response, or not-sent),
@@ -1300,6 +1340,7 @@ export default function ClassDetail() {
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
+          onDropout={dropoutTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
             setUpcomingClasses(list)
@@ -1364,6 +1405,7 @@ export default function ClassDetail() {
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
+          onDropout={dropoutTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
             setUpcomingClasses(list)
@@ -1399,6 +1441,7 @@ export default function ClassDetail() {
           onBookHotel={bookHotel}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
+          onDropout={dropoutTrainee}
           onReschedule={async (t) => {
             const list = await loadUpcomingClasses()
             setUpcomingClasses(list)
@@ -1514,6 +1557,56 @@ export default function ClassDetail() {
         </section>
       )}
 
+      {droppedOut.length > 0 && (
+        <section className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-red-800">
+            ⛔ Dropped out <span className="font-normal text-red-500">({droppedOut.length})</span>
+          </h2>
+          <p className="mt-1 text-xs text-red-700">
+            Washed out of training (Week A / Week B weed-out). Off the active roster, the team
+            dashboard, and the harvest map. Re-enroll if it was a mistake.
+          </p>
+          <ul className="mt-4 divide-y divide-red-100 rounded-md border border-red-200 bg-white">
+            {droppedOut.map((t) => (
+              <li key={t.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-900 line-through opacity-70">
+                    {t.first_name} {t.last_name}
+                  </div>
+                  <div className="text-slate-500">
+                    {t.phone}
+                    {t.email && ` · ${t.email}`}
+                  </div>
+                  {t.dropped_out_reason && (
+                    <div className="mt-0.5 text-xs text-slate-600">Reason: {t.dropped_out_reason}</div>
+                  )}
+                  {t.dropped_out_at && (
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      Dropped out: {new Date(t.dropped_out_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => reenrollTrainee(t)}
+                    className="rounded-md border border-green-300 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                    title="Bring this dropout back into the class"
+                  >
+                    Re-enroll
+                  </button>
+                  <button
+                    onClick={() => deleteTrainee(t)}
+                    className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {reschedulingTrainee && (
         <RescheduleModal
           trainee={reschedulingTrainee}
@@ -1556,6 +1649,7 @@ function TraineeGroup({
   onDraftChange,
   onDelete,
   onUnenroll,
+  onDropout,
   onReschedule,
   onHomework,
   onClearDnd,
@@ -1756,6 +1850,16 @@ function TraineeGroup({
                       >
                         Unenroll
                       </button>
+                      {onDropout && (
+                        <button
+                          onClick={() => onDropout(t)}
+                          disabled={editingTraineeId !== null}
+                          className="rounded-md border border-red-400 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
+                          title="Washed out of training — remove from the class, active roster, team dashboard + harvest map and log as a dropout"
+                        >
+                          ⛔ Dropout
+                        </button>
+                      )}
                       {onReschedule && (
                         <button
                           onClick={() => onReschedule(t)}
