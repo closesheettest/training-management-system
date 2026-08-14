@@ -136,55 +136,10 @@ export default function Hotels() {
     (t) => stays.find((s) => s.trainee_id === t.id && (s.phase || 'A') === (t._phase || 'A')) || null,
     [stays],
   )
-  const meetingVenue = null
-  const selectedClass = null
 
-  // One-click "Booked" — creates a stay with hotel info copied from the
-  // class's meeting venue and guest_name from the trainee. Defaults the
-  // common case to zero friction.
-  async function quickBook(trainee) {
-    const venue = trainee._venue
-    const cid = trainee._cls?.id
-    if (!venue) {
-      setFlash({
-        kind: 'error',
-        text: 'This trainee\'s class doesn\'t have a meeting venue set yet — set it on the Schedule page, or use "Different hotel".',
-      })
-      return
-    }
-    if (!cid) {
-      setFlash({ kind: 'error', text: 'Could not tell which class this trainee belongs to.' })
-      return
-    }
-    setBusyTraineeId(trainee.id)
-    setFlash(null)
-    const payload = {
-      trainee_id: trainee.id,
-      class_id: cid,
-      phase: trainee._phase || 'A',
-      check_in_date: trainee._checkIn || null,
-      check_out_date: trainee._checkOut || null,
-      hotel_name: venue.name || '',
-      hotel_street_address: venue.street_address || null,
-      hotel_city: venue.city || null,
-      hotel_state: venue.state || null,
-      hotel_zip: venue.zip || null,
-      hotel_phone: venue.phone || null,
-      guest_name: `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim(),
-    }
-    const { error } = await supabase.from('trainee_hotel_stays').insert(payload)
-    setBusyTraineeId(null)
-    if (error) {
-      setFlash({ kind: 'error', text: error.message })
-      return
-    }
-    setFlash({ kind: 'success', text: `Marked booked: ${trainee.first_name} ${trainee.last_name}` })
-    await loadForClass()
-  }
-
-  // "Different hotel" — opens the inline form pre-filled with the same
-  // defaults but everything is editable. HR overrides whatever's
-  // different, hits Save.
+  // "Book Hotel" — opens the inline form with the hotel fields BLANK (HR types
+  // the hotel they actually reserved) but the phase, week dates, and guest name
+  // pre-filled. Training is at a fixed office now, so there's no venue to copy.
   function startCustomBooking(trainee) {
     const existing = stayFor(trainee)
     if (existing) {
@@ -469,7 +424,6 @@ export default function Hotels() {
                   editingStayId === t.id ||
                   editingStayId === `new-${t.id}` ||
                   (stay && editingStayId === stay.id)
-                const rowVenue = t._venue
                 const rowClass = t._cls
                 // Phase section header before the first card of each group.
                 const showHeader = i === 0 || orderedTrainees[i - 1]._phase !== t._phase
@@ -532,28 +486,14 @@ export default function Hotels() {
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
                         {!stay ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => quickBook(t)}
-                              disabled={busyTraineeId === t.id || !rowVenue}
-                              className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
-                              title={
-                                rowVenue
-                                  ? 'One-click: book this trainee at their class\'s meeting venue under their own name'
-                                  : 'Add a meeting venue to this trainee\'s class first'
-                              }
-                            >
-                              {busyTraineeId === t.id ? 'Saving…' : '🏨 Book Hotel'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startCustomBooking(t)}
-                              className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            >
-                              Different hotel
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={() => startCustomBooking(t)}
+                            className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                            title="Enter the hotel you booked (name, address, phone). Dates are pre-filled for this week."
+                          >
+                            🏨 Book Hotel
+                          </button>
                         ) : stay.cancelled_at ? (
                           <button
                             type="button"
@@ -664,19 +604,6 @@ export default function Hotels() {
                       <HotelForm
                         draft={draft}
                         setDraft={setDraft}
-                        meetingVenue={rowVenue}
-                        onCopyVenue={() => {
-                          if (!rowVenue) return
-                          setDraft({
-                            ...draft,
-                            hotel_name: rowVenue.name || '',
-                            hotel_street_address: rowVenue.street_address || '',
-                            hotel_city: rowVenue.city || '',
-                            hotel_state: rowVenue.state || '',
-                            hotel_zip: rowVenue.zip || '',
-                            hotel_phone: rowVenue.phone || '',
-                          })
-                        }}
                         onUseName={() => {
                           setDraft({
                             ...draft,
@@ -708,7 +635,7 @@ export default function Hotels() {
   )
 }
 
-function HotelForm({ draft, setDraft, meetingVenue, onCopyVenue, onUseName, onCancel, onSave, saving }) {
+function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
   const update = (field, value) => setDraft({ ...draft, [field]: value })
   return (
     <form
@@ -719,15 +646,6 @@ function HotelForm({ draft, setDraft, meetingVenue, onCopyVenue, onUseName, onCa
       className="mt-4 rounded-md border border-slate-300 bg-white p-4 space-y-3"
     >
       <div className="flex flex-wrap gap-2">
-        {meetingVenue && (
-          <button
-            type="button"
-            onClick={onCopyVenue}
-            className="rounded-md border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800 hover:bg-sky-100"
-          >
-            🏨 Copy meeting venue
-          </button>
-        )}
         <button
           type="button"
           onClick={onUseName}
@@ -935,7 +853,10 @@ function mondayOf(iso) {
 // class-start Monday (or the following-week Monday for a class in its Week B)
 // that is >= this week's Monday. Falls back to this week's Monday.
 function defaultWeekMon(classes) {
-  const thisMon = mondayOf(todayISO())
+  // Open on the COMING training week — the nearest week whose Monday is today or
+  // later. Once a week is underway (mid-week), it's already booked, so we skip to
+  // the next one; the ◀ arrow still goes back. On a Monday it shows that week.
+  const today = todayISO()
   const mondays = new Set()
   for (const c of classes || []) {
     if (c.cancelled_at || !c.week_start_date) continue
@@ -943,8 +864,8 @@ function defaultWeekMon(classes) {
     mondays.add(a)
     mondays.add(addDaysISO(a, 7)) // that cohort's Week B
   }
-  const upcoming = [...mondays].filter((m) => m >= thisMon).sort()
-  return upcoming[0] || thisMon
+  const upcoming = [...mondays].filter((m) => m >= today).sort()
+  return upcoming[0] || mondayOf(today)
 }
 
 function formatDate(iso) {

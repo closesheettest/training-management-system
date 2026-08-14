@@ -124,7 +124,9 @@ function todayISO() {
   return `${p.year}-${p.month}-${p.day}`
 }
 function defaultWeekMon(classes) {
-  const thisMon = mondayOf(todayISO())
+  // The COMING week — nearest week whose Monday is today or later (a week already
+  // underway is already booked, so skip to the next).
+  const today = todayISO()
   const mondays = new Set()
   for (const c of classes || []) {
     if (c.cancelled_at || !c.week_start_date) continue
@@ -132,8 +134,8 @@ function defaultWeekMon(classes) {
     mondays.add(a)
     mondays.add(addDaysISO(a, 7))
   }
-  const upcoming = [...mondays].filter((m) => m >= thisMon).sort()
-  return upcoming[0] || thisMon
+  const upcoming = [...mondays].filter((m) => m >= today).sort()
+  return upcoming[0] || mondayOf(today)
 }
 function formatDate(iso) {
   if (!iso) return ''
