@@ -36,10 +36,22 @@ export default function Hotels() {
   const [busyTraineeId, setBusyTraineeId] = useState(null)
   const [sending, setSending] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [hotels, setHotels] = useState([]) // the bookable-hotel directory
+  const [showHotelMgr, setShowHotelMgr] = useState(false)
 
   useEffect(() => {
     loadClasses()
+    loadHotels()
   }, [])
+
+  async function loadHotels() {
+    const { data } = await supabase
+      .from('hotels')
+      .select('*')
+      .eq('active', true)
+      .order('name', { ascending: true })
+    setHotels(data || [])
+  }
 
   async function loadClasses() {
     const { data, error } = await supabase
@@ -294,9 +306,8 @@ export default function Hotels() {
   }
 
   async function sendAllUnsent() {
-    // Every booked-but-unsent room across the whole view (all weeks in ALL
-    // mode). Send by explicit stay_ids so one click covers every class at once.
-    const unsent = stays.filter((s) => !s.info_sent_at && !s.cancelled_at)
+    // Every booked-but-unsent room for THIS week's displayed trainees.
+    const unsent = trainees.map((t) => stayFor(t)).filter((s) => s && !s.info_sent_at && !s.cancelled_at)
     if (unsent.length === 0) {
       setFlash({ kind: 'info', text: 'Nothing to send — every booked room has already been sent.' })
       return
@@ -333,15 +344,59 @@ export default function Hotels() {
     return t ? `${t.first_name} ${t.last_name}` : 'this trainee'
   }
 
-  const totalBookings = stays.filter((s) => !s.cancelled_at).length
-  const unsentCount = stays.filter((s) => !s.info_sent_at && !s.cancelled_at).length
-  const sentCount = stays.filter((s) => s.info_sent_at && !s.cancelled_at).length
+  // Only THIS week's rooms — each displayed trainee's current-phase stay. Keeps
+  // a trainee's leftover prior-week room (same class) from leaking into counts.
+  const weekStays = trainees.map((t) => stayFor(t)).filter(Boolean)
+  const totalBookings = weekStays.filter((s) => !s.cancelled_at).length
+  const unsentCount = weekStays.filter((s) => !s.info_sent_at && !s.cancelled_at).length
+  const sentCount = weekStays.filter((s) => s.info_sent_at && !s.cancelled_at).length
   const unbookedCount = trainees.filter((t) => !stayFor(t)).length
 
   // The two cohorts sharing this week — Week A (2 nights) then Week B (4 nights).
   const weekA = trainees.filter((t) => t._phase === 'A')
   const weekB = trainees.filter((t) => t._phase === 'B')
   const orderedTrainees = [...weekA, ...weekB]
+
+  // Group this week's booked rooms by hotel → one rooming list per hotel.
+  const roomingByHotel = (() => {
+    const m = {}
+    for (const s of weekStays) {
+      if (s.cancelled_at || !s.hotel_name) continue
+      const key = s.hotel_name.trim().toLowerCase()
+      if (!m[key]) m[key] = { hotel_name: s.hotel_name, contact_email: '', stays: [] }
+      m[key].stays.push(s)
+      if (!m[key].contact_email && s.hotel_contact_email) m[key].contact_email = s.hotel_contact_email
+    }
+    return Object.values(m).sort((a, b) => a.hotel_name.localeCompare(b.hotel_name))
+  })()
+
+  async function emailRoomingList(group) {
+    let to = group.contact_email
+    if (!to) {
+      to = prompt(`Email the rooming list for ${group.hotel_name} to which address?`, '')
+      if (!to) return
+    }
+    if (!confirm(`Email ${group.stays.length} name${group.stays.length === 1 ? '' : 's'} to ${to} for ${group.hotel_name}?`)) return
+    setSending(true)
+    setFlash(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-hotel-rooming-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stay_ids: group.stays.map((s) => s.id), contact_email: to, hotel_name: group.hotel_name }),
+      })
+      const j = await res.json().catch(() => ({}))
+      setFlash(
+        !res.ok || !j.ok
+          ? { kind: 'error', text: j.error || (res.status === 404 ? 'Only works on the deployed site.' : 'Send failed.') }
+          : { kind: 'success', text: `📧 Rooming list (${j.sent}) emailed to ${j.to}.` },
+      )
+    } catch (err) {
+      setFlash({ kind: 'error', text: err.message })
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -381,6 +436,23 @@ export default function Hotels() {
         </button>
       </div>
 
+      {/* Hotel directory — the list Jen books from (dropdown source). */}
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowHotelMgr((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <span>🏨 Hotel list <span className="text-slate-400">({hotels.length})</span> — the hotels you book from</span>
+          <span className="text-slate-400">{showHotelMgr ? '▲ Hide' : '▼ Manage'}</span>
+        </button>
+        {showHotelMgr && (
+          <div className="border-t border-slate-100 p-4">
+            <HotelDirectory hotels={hotels} onReload={loadHotels} setFlash={setFlash} />
+          </div>
+        )}
+      </div>
+
       {flash && (
         <div
           className={
@@ -415,6 +487,33 @@ export default function Hotels() {
               {sending ? 'Sending…' : `🏨 Send hotel info to everyone (${unsentCount})`}
             </button>
           </div>
+
+          {/* Per-hotel rooming lists — email each hotel their guest names + dates. */}
+          {roomingByHotel.length > 0 && (
+            <div className="rounded-md border border-indigo-200 bg-indigo-50/50 p-3">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-900">
+                Rooming lists — email each hotel the names &amp; dates
+              </div>
+              <ul className="space-y-2">
+                {roomingByHotel.map((g) => (
+                  <li key={g.hotel_name} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="text-slate-700">
+                      <strong>{g.hotel_name}</strong> · {g.stays.length} room{g.stays.length === 1 ? '' : 's'}
+                      {g.contact_email ? <span className="text-slate-500"> · {g.contact_email}</span> : <span className="text-amber-700"> · no contact email yet</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => emailRoomingList(g)}
+                      disabled={sending}
+                      className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-40"
+                    >
+                      📧 Email rooming list
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {loadingTrainees ? (
             <p className="text-sm text-slate-500">Loading trainees…</p>
@@ -614,6 +713,7 @@ export default function Hotels() {
                       <HotelForm
                         draft={draft}
                         setDraft={setDraft}
+                        hotels={hotels}
                         onUseName={() => {
                           setDraft({
                             ...draft,
@@ -645,8 +745,25 @@ export default function Hotels() {
   )
 }
 
-function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
+function HotelForm({ draft, setDraft, hotels = [], onUseName, onCancel, onSave, saving }) {
   const update = (field, value) => setDraft({ ...draft, [field]: value })
+  // Pick a hotel from the directory → auto-fill everything. "Other" leaves the
+  // fields as-is for a manual entry.
+  const pickHotel = (id) => {
+    if (!id) return
+    const h = hotels.find((x) => x.id === id)
+    if (!h) return
+    setDraft({
+      ...draft,
+      hotel_name: h.name || '',
+      hotel_street_address: h.street_address || '',
+      hotel_city: h.city || '',
+      hotel_state: h.state || '',
+      hotel_zip: h.zip || '',
+      hotel_phone: h.phone || '',
+      hotel_contact_email: h.contact_email || draft.hotel_contact_email || '',
+    })
+  }
   return (
     <form
       onSubmit={(e) => {
@@ -655,6 +772,23 @@ function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
       }}
       className="mt-4 rounded-md border border-slate-300 bg-white p-4 space-y-3"
     >
+      {hotels.length > 0 && (
+        <Field label="Pick a hotel from your list">
+          <select
+            value=""
+            onChange={(e) => pickHotel(e.target.value)}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">— Choose a hotel (auto-fills below) —</option>
+            {hotels.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}{h.city ? ` — ${h.city}, ${h.state || ''}` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -672,7 +806,7 @@ function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
           value={draft.hotel_name}
           onChange={(e) => update('hotel_name', e.target.value)}
           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          placeholder="Hilton Garden Inn Orlando Airport"
+          placeholder="Pick from the list above, or type a hotel"
         />
       </Field>
       <div className="grid gap-3 sm:grid-cols-6">
@@ -718,6 +852,15 @@ function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
             value={draft.hotel_phone}
             onChange={(e) => update('hotel_phone', e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+        </Field>
+        <Field label="Hotel contact email" className="sm:col-span-3" hint="Who you're dealing with — the rooming list emails here">
+          <input
+            type="email"
+            value={draft.hotel_contact_email || ''}
+            onChange={(e) => update('hotel_contact_email', e.target.value)}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            placeholder="reservations@hotel.com"
           />
         </Field>
         <Field label="Confirmation #" className="sm:col-span-3">
@@ -791,10 +934,90 @@ function HotelForm({ draft, setDraft, onUseName, onCancel, onSave, saving }) {
   )
 }
 
-function Field({ label, children, className = '' }) {
+// Manage the directory of hotels HR books from. Add once, then pick from the
+// dropdown when booking. Remove = soft-delete (active=false).
+function HotelDirectory({ hotels, onReload, setFlash }) {
+  const BLANK = { name: '', street_address: '', city: '', state: '', zip: '', phone: '', contact_name: '', contact_email: '' }
+  const [draft, setDraft] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const set = (f) => (e) => setDraft({ ...draft, [f]: e.target.value })
+
+  async function save() {
+    if (!draft.name.trim()) { setFlash({ kind: 'error', text: 'Hotel name is required.' }); return }
+    setBusy(true)
+    const payload = { ...draft, updated_at: new Date().toISOString() }
+    const res = draft.id
+      ? await supabase.from('hotels').update(payload).eq('id', draft.id)
+      : await supabase.from('hotels').insert(payload)
+    setBusy(false)
+    if (res.error) { setFlash({ kind: 'error', text: res.error.message }); return }
+    setDraft(null)
+    await onReload()
+    setFlash({ kind: 'success', text: 'Hotel saved.' })
+  }
+  async function remove(h) {
+    if (!confirm(`Remove ${h.name} from your hotel list?`)) return
+    const { error } = await supabase.from('hotels').update({ active: false }).eq('id', h.id)
+    if (error) { setFlash({ kind: 'error', text: error.message }); return }
+    await onReload()
+    setFlash({ kind: 'success', text: 'Hotel removed.' })
+  }
+
+  const inputCls = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm'
+  return (
+    <div className="space-y-3">
+      {hotels.length > 0 && (
+        <ul className="divide-y divide-slate-100">
+          {hotels.map((h) => (
+            <li key={h.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <div className="min-w-0">
+                <span className="font-medium text-slate-800">{h.name}</span>
+                <span className="text-slate-500">
+                  {h.city ? ` — ${h.city}, ${h.state || ''}` : ''}
+                  {h.phone ? ` · ${h.phone}` : ''}
+                  {h.contact_email ? ` · ${h.contact_email}` : ''}
+                </span>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" onClick={() => setDraft({ ...h })} className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>
+                <button type="button" onClick={() => remove(h)} className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50">Remove</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {draft ? (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+          <div className="grid gap-2 sm:grid-cols-6">
+            <input value={draft.name} onChange={set('name')} placeholder="Hotel name *" className={`${inputCls} sm:col-span-6`} />
+            <input value={draft.street_address} onChange={set('street_address')} placeholder="Street address" className={`${inputCls} sm:col-span-6`} />
+            <input value={draft.city} onChange={set('city')} placeholder="City" className={`${inputCls} sm:col-span-3`} />
+            <input value={draft.state} onChange={set('state')} placeholder="State" className={`${inputCls} sm:col-span-1`} />
+            <input value={draft.zip} onChange={set('zip')} placeholder="Zip" className={`${inputCls} sm:col-span-2`} />
+            <input value={draft.phone} onChange={set('phone')} placeholder="Hotel phone" className={`${inputCls} sm:col-span-3`} />
+            <input value={draft.contact_name} onChange={set('contact_name')} placeholder="Contact name" className={`${inputCls} sm:col-span-3`} />
+            <input value={draft.contact_email} onChange={set('contact_email')} placeholder="Contact email (rooming list goes here)" className={`${inputCls} sm:col-span-6`} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDraft(null)} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={save} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark disabled:opacity-50">{busy ? 'Saving…' : 'Save hotel'}</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setDraft({ ...BLANK })} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          + Add a hotel
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, children, className = '', hint }) {
   return (
     <label className={`block text-sm font-medium text-slate-700 ${className}`}>
       {label}
+      {hint && <span className="ml-1 text-xs font-normal text-slate-400">— {hint}</span>}
       <div className="mt-1">{children}</div>
     </label>
   )
