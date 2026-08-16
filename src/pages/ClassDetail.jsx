@@ -1002,7 +1002,26 @@ export default function ClassDetail() {
   // ordinary unenrollments.
   const droppedOut = trainees.filter((t) => t.dropped_out_at)
   const declined = trainees.filter((t) => t.declined_at && !t.dropped_out_at)
-  const enrolled = trainees.filter((t) => t.enrolled !== false && !t.dropped_out_at)
+  // On a WEEK B page the roster is the people CONTINUING — those present on the
+  // last day their Week A recorded attendance. Showing the whole class record
+  // meant names like James Marcil and Patryk Plewa turning up under "Sent, no
+  // response" on a week they were never part of. Same rule as _week-a.js, the
+  // Schedule page, hotels and the paperwork gate.
+  const continuingIds = useMemo(() => {
+    if (viewWeek !== 'B' || !cls?.week_start_date || cls?.attendance_only) return null
+    const start = cls.week_start_date
+    const end = addDaysIso(start, 6)
+    const inWeekA = (a) => a.confirmed && a.attendance_date >= start && a.attendance_date <= end
+    let lastDay = null
+    for (const t of trainees) for (const a of t.attendance || []) {
+      if (inWeekA(a) && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
+    }
+    if (!lastDay) return null   // Week A hasn't run yet — show everyone
+    return new Set(trainees.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
+  }, [viewWeek, cls, trainees])
+
+  const enrolled = trainees.filter((t) =>
+    t.enrolled !== false && !t.dropped_out_at && (!continuingIds || continuingIds.has(t.id)))
   const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at && !t.dropped_out_at)
   // Holding bucket — trainees rescheduled INTO this class who haven't
   // been admitted to the active roster yet. They keep their existing
