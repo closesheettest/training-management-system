@@ -20,6 +20,30 @@ import { US_STATES } from '../lib/locations.js'
 //   5. "Send notifications" at the top fires SMS to every booked-but-
 //      not-yet-notified trainee in one click.
 
+
+// A phase header with no one under it. Without this an empty Week B simply
+// vanished from the page, and the reader is left wondering whether it was
+// forgotten or genuinely empty.
+function EmptyPhase({ phase }) {
+  const isB = phase === 'B'
+  return (
+    <li className="list-none border-0 bg-transparent p-0 shadow-none">
+      <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
+        <span className="text-sm font-bold uppercase tracking-wide">Week {phase}</span>
+        <span className="text-xs font-medium">
+          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
+        </span>
+        <span className="text-xs opacity-70">(0)</span>
+      </div>
+      <p className="px-3 py-2 text-sm text-slate-500">
+        {isB
+          ? 'No Week B rooms to book this week — nobody continuing needs one.'
+          : 'No Week A rooms to book this week — nobody arriving needs one.'}
+      </p>
+    </li>
+  )
+}
+
 export default function Hotels() {
   const [classes, setClasses] = useState([])
   // The screen shows ONE training week at a time (the Monday that week starts on,
@@ -417,7 +441,7 @@ export default function Hotels() {
         <p className="mt-2 text-slate-600">
           One training week at a time, split into <strong>Week A</strong> (a cohort in week 1 —
           Mon &amp; Tue nights, checkout Wed) and <strong>Week B</strong> (a cohort in week 2 —
-          Mon–Thu nights, checkout Fri). Book each room (one click uses their meeting venue and
+          Mon–Wed nights, checkout Thu). Book each room (one click uses their meeting venue and
           the right dates), then <strong>Send hotel info to everyone</strong> in one shot.
         </p>
       </header>
@@ -539,6 +563,7 @@ export default function Hotels() {
             </div>
           ) : (
             <ul className="space-y-3">
+              {weekA.length === 0 && <EmptyPhase phase="A" />}
               {orderedTrainees.map((t, i) => {
                 const stay = stayFor(t)
                 const editing =
@@ -556,7 +581,7 @@ export default function Hotels() {
                       <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
                         <span className="text-sm font-bold uppercase tracking-wide">Week {isB ? 'B' : 'A'}</span>
                         <span className="text-xs font-medium">
-                          {isB ? 'Mon–Thu nights · checkout Fri · 4 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
+                          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
                           {' · '}{formatDate(t._checkIn)} → {formatDate(t._checkOut)}
                         </span>
                         <span className="text-xs opacity-70">({isB ? weekB.length : weekA.length})</span>
@@ -741,6 +766,7 @@ export default function Hotels() {
                   </Fragment>
                 )
               })}
+              {weekB.length === 0 && <EmptyPhase phase="B" />}
             </ul>
           )}
 
