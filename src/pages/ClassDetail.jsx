@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 import { ZONE_TEAMS, teamLabel, zoneForCounty } from '../lib/zones.js'
-import { formatDateRange, formatDateLong } from '../lib/dates.js'
+import { formatDateRange, formatDateLong, addDaysIso } from '../lib/dates.js'
+import { SCHEDULES, weekWindow } from '../lib/schedule.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
 
 export default function ClassDetail() {
   const { id } = useParams()
+  // Which half of the cohort is being looked at. The Schedule page links in with
+  // ?week=A|B; the header, dates and hours all follow it, instead of showing the
+  // whole 3-week cohort span regardless of what you clicked.
+  const [searchParams] = useSearchParams()
+  const viewWeek = (searchParams.get('week') || '').toUpperCase() === 'B' ? 'B' : 'A'
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
@@ -1074,9 +1080,16 @@ export default function ClassDetail() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header — scoped to the week you clicked in from, with that week's real
+          dates + hours. Also carries the address and the schedule line, so the
+          separate "Class week" and "Location" cards below stop repeating them. */}
       <header>
         <div className="flex flex-wrap items-center gap-2">
+          <span className={`rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
+            viewWeek === 'B' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
+          }`}>
+            {SCHEDULES[viewWeek].label}
+          </span>
           <h1 className="text-3xl font-semibold tracking-tight">
             {cls.locations?.name || `${cls.region || 'Region'} — TBD`}
           </h1>
@@ -1090,11 +1103,27 @@ export default function ClassDetail() {
               Location TBD
             </span>
           )}
+          {!cls.attendance_only && (
+            <Link
+              to={`/class/${cls.id}?week=${viewWeek === 'B' ? 'A' : 'B'}`}
+              className="text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-800"
+            >
+              see {viewWeek === 'B' ? 'Week A' : 'Week B'} ›
+            </Link>
+          )}
         </div>
         <p className="mt-2 text-slate-600">
-          {formatDateRange(cls.week_start_date, cls.week_end_date)}
+          {cls.attendance_only
+            ? formatDateRange(cls.week_start_date, cls.week_end_date)
+            : formatDateRange(
+                weekWindow(cls.week_start_date, viewWeek, addDaysIso).start,
+                weekWindow(cls.week_start_date, viewWeek, addDaysIso).end,
+              )}
           {cls.locations?.street_address && <> · {formatAddress(cls.locations)}</>}
         </p>
+        {!cls.attendance_only && (
+          <p className="mt-1 text-sm text-slate-500">{SCHEDULES[viewWeek].short}</p>
+        )}
       </header>
 
       {message && (
@@ -1126,14 +1155,6 @@ export default function ClassDetail() {
         </div>
       )}
 
-      {!cls.attendance_only && (
-        <ProvisioningWorkflowCard
-          cls={cls}
-          onSendDay2={sendDay2ItReminder}
-          onSendCredentials={sendCredentialsToTrainees}
-        />
-      )}
-
       <RosterSummary summary={summary} />
 
       {cls.attendance_only && (
@@ -1160,7 +1181,7 @@ export default function ClassDetail() {
       {/* Class week (dates + schedule) — editable inline */}
       <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">Class week</h2>
+          <h2 className="text-lg font-semibold">Week &amp; location</h2>
           {!editingWeek && (
             <button
               type="button"
@@ -1219,25 +1240,25 @@ export default function ClassDetail() {
             </div>
           </div>
         ) : (
-          <div className="space-y-2 text-sm text-slate-700">
-            <p className="font-medium">{formatDateRange(cls.week_start_date, cls.week_end_date)}</p>
-            {cls.schedule_details ? (
-              <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-xs text-slate-600">
-                {cls.schedule_details}
-              </pre>
-            ) : (
-              <p className="text-xs text-slate-500 italic">
-                No schedule details yet. Click "Change dates / schedule" to add hotel info, daily
-                agenda, etc.
-              </p>
-            )}
-          </div>
+          /* Dates already lead the header — don't say them a second time. Only
+             a class-specific schedule override is worth showing here; the
+             standard Week A/B hours are on the header line. */
+          cls.schedule_details ? (
+            <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-xs text-slate-600">
+              {cls.schedule_details}
+            </pre>
+          ) : (
+            <p className="text-xs text-slate-500 italic">
+              Standard {SCHEDULES[viewWeek].label} hours. Use "Change dates / schedule" to add a
+              class-specific agenda or hotel note.
+            </p>
+          )
         )}
-      </section>
 
-      {/* Region + training location controls */}
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold">Location</h2>
+        {/* Location lives in the same card — the header already states the venue
+            and address, so this is just the place to CHANGE them, not to repeat
+            them in a section of its own. */}
+        <div className="border-t border-slate-100 pt-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-sm font-medium text-slate-700">Region</label>
@@ -1308,6 +1329,7 @@ export default function ClassDetail() {
               </p>
             )}
           </div>
+        </div>
         </div>
       </section>
 
@@ -1656,6 +1678,16 @@ export default function ClassDetail() {
         </section>
       )}
 
+      {/* Provisioning sits BELOW the roster now — a genuine workflow, but the
+          roster is what the page is opened for and this was pushing it off-screen. */}
+      {!cls.attendance_only && (
+        <ProvisioningWorkflowCard
+          cls={cls}
+          onSendDay2={sendDay2ItReminder}
+          onSendCredentials={sendCredentialsToTrainees}
+        />
+      )}
+
       {unenrolled.length > 0 && (
         <section className="rounded-lg border border-slate-200 bg-slate-50 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-700">
@@ -1911,14 +1943,6 @@ function TraineeGroup({
                       })()}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <a
-                        href={`${window.location.origin}/register/${t.registration_token}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
-                      >
-                        Preview
-                      </a>
                       {t.needs_hotel && onBookHotel && (() => {
                         const stay = stayByTraineeId[t.id]
                         // Not booked yet → the action button.
@@ -1963,71 +1987,6 @@ function TraineeGroup({
                           </>
                         )
                       })()}
-                      <button
-                        onClick={() => onStartEdit(t)}
-                        disabled={editingTraineeId !== null}
-                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        Edit
-                      </button>
-                      {onHomework && (
-                        <button
-                          onClick={() => onHomework(t.id)}
-                          disabled={editingTraineeId !== null || sending === 'hw:' + t.id}
-                          className="rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-                          title="Send this trainee today's homework by email + SMS now"
-                        >
-                          {sending === 'hw:' + t.id ? 'Sending…' : '📚 Homework'}
-                        </button>
-                      )}
-                      {onClearDnd && (
-                        <button
-                          onClick={() => onClearDnd(t.id)}
-                          disabled={editingTraineeId !== null || sending === 'dnd:' + t.id}
-                          className="rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                          title="Not getting our texts? Clear their SMS opt-out (DND) in GoHighLevel so texts deliver again"
-                        >
-                          {sending === 'dnd:' + t.id ? 'Fixing…' : '📲 Fix texts'}
-                        </button>
-                      )}
-                      {onMakeFieldTrainee && (
-                        <button
-                          onClick={() => onMakeFieldTrainee(t)}
-                          disabled={editingTraineeId !== null || sending === 'ft:' + t.id}
-                          className="rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                          title="Flag this person as a field trainee (e.g. when cancelling the class) — then run their provisioning on the Field Trainee page"
-                        >
-                          {sending === 'ft:' + t.id ? 'Flagging…' : '🎓 Make field trainee'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onUnenroll(t)}
-                        disabled={editingTraineeId !== null}
-                        className="rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                        title="Remove from active roster"
-                      >
-                        Unenroll
-                      </button>
-                      {onDropout && (
-                        <button
-                          onClick={() => onDropout(t)}
-                          disabled={editingTraineeId !== null}
-                          className="rounded-md border border-red-400 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
-                          title="Washed out of training — remove from the class, active roster, team dashboard + harvest map and log as a dropout"
-                        >
-                          ⛔ Dropout
-                        </button>
-                      )}
-                      {onReschedule && (
-                        <button
-                          onClick={() => onReschedule(t)}
-                          disabled={editingTraineeId !== null}
-                          className="rounded-md border border-sky-300 bg-white px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-50"
-                          title="Move this trainee to a different class or to the general holding pool"
-                        >
-                          🔄 Reschedule
-                        </button>
-                      )}
                       {isHolding && onAdmit && (
                         <button
                           onClick={() => onAdmit(t)}
@@ -2038,13 +1997,24 @@ function TraineeGroup({
                           ✓ Admit to class
                         </button>
                       )}
-                      <button
-                        onClick={() => onDelete(t)}
+                      {/* Everything that isn't the action actually due goes behind one
+                          menu. Ten buttons a row — with Delete and Dropout sitting
+                          beside Edit — is what made this page hard to read, and put
+                          two irreversible actions a slip of the mouse away. */}
+                      <RowMenu
                         disabled={editingTraineeId !== null}
-                        className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
+                        items={[
+                          { label: 'Preview registration', href: `${window.location.origin}/register/${t.registration_token}` },
+                          { label: 'Edit details', onClick: () => onStartEdit(t) },
+                          onHomework && { label: sending === 'hw:' + t.id ? 'Sending…' : '📚 Send homework', onClick: () => onHomework(t.id) },
+                          onClearDnd && { label: sending === 'dnd:' + t.id ? 'Fixing…' : '📲 Fix texts (clear DND)', onClick: () => onClearDnd(t.id) },
+                          onMakeFieldTrainee && { label: sending === 'ft:' + t.id ? 'Flagging…' : '🎓 Make field trainee', onClick: () => onMakeFieldTrainee(t) },
+                          onReschedule && { label: '🔄 Reschedule', onClick: () => onReschedule(t) },
+                          { label: 'Unenroll', onClick: () => onUnenroll(t), tone: 'warn', divide: true },
+                          onDropout && { label: '⛔ Dropout', onClick: () => onDropout(t), tone: 'danger' },
+                          { label: 'Delete', onClick: () => onDelete(t), tone: 'danger' },
+                        ].filter(Boolean)}
+                      />
                       {!hideSend && (
                       <button
                         onClick={() => onSend(t.id)}
@@ -2455,25 +2425,23 @@ function RosterSummary({ summary }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold">Roster summary</h2>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Scheduled" value={summary.total} />
-        <Stat
-          label="Registered"
-          value={summary.registered}
-          pct={pct(summary.registered, summary.total)}
-          tone="green"
-        />
-        <Stat
-          label="Confirmed"
-          value={summary.confirmed}
-          pct={pct(summary.confirmed, summary.total)}
-          tone="green"
-        />
-        <Stat
-          label="Declined"
-          value={summary.declined}
-          tone={summary.declined > 0 ? 'red' : 'slate'}
-        />
+      {/* One line, not four boxes. Three of them usually read 0 and were taking a
+          third of the screen above the roster you actually came to look at. */}
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
+        <span><strong className="text-lg font-semibold">{summary.total}</strong> <span className="text-slate-500">scheduled</span></span>
+        <span className={summary.registered ? 'text-green-800' : 'text-slate-500'}>
+          <strong className="text-lg font-semibold">{summary.registered}</strong> registered
+          {summary.total > 0 && <span className="ml-1 text-xs text-slate-400">({pct(summary.registered, summary.total)}%)</span>}
+        </span>
+        <span className={summary.confirmed ? 'text-green-800' : 'text-slate-500'}>
+          <strong className="text-lg font-semibold">{summary.confirmed}</strong> confirmed
+        </span>
+        {summary.declined > 0 && (
+          <span className="text-red-800"><strong className="text-lg font-semibold">{summary.declined}</strong> declined</span>
+        )}
+        {summary.needsHotel > 0 && (
+          <span className="text-sky-900">🏨 <strong className="text-lg font-semibold">{summary.needsHotel}</strong> need hotels</span>
+        )}
       </div>
       {summary.reminderSentNoResponse > 0 && (
         <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -2482,12 +2450,7 @@ function RosterSummary({ summary }) {
           but hasn't tapped it yet.
         </p>
       )}
-      {summary.needsHotel > 0 && (
-        <p className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-          🏨 <strong>{summary.needsHotel}</strong> of {summary.total} trainee{summary.needsHotel === 1 ? '' : 's'}{' '}
-          need{summary.needsHotel === 1 ? 's' : ''} hotel accommodation — book that many rooms.
-        </p>
-      )}
+
       {summary.testSubmitted > 0 && (
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Stat
@@ -2503,6 +2466,51 @@ function RosterSummary({ summary }) {
         </div>
       )}
     </section>
+  )
+}
+
+
+// One "…" per row instead of a wall of buttons. Native <details> so keyboard and
+// screen readers work for free. Destructive items are separated and red — they
+// used to sit inline, immediately beside Edit.
+function RowMenu({ items, disabled }) {
+  if (!items?.length) return null
+  return (
+    <details className="relative" onMouseLeave={(e) => { e.currentTarget.open = false }}>
+      <summary
+        className={`flex h-7 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 ${disabled ? 'pointer-events-none opacity-50' : ''}`}
+        title="More actions"
+        aria-label="More actions"
+      >
+        ⋯
+      </summary>
+      <div className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+        {items.map((it, i) => {
+          const tone =
+            it.tone === 'danger' ? 'text-red-700 hover:bg-red-50'
+            : it.tone === 'warn' ? 'text-amber-700 hover:bg-amber-50'
+            : 'text-slate-700 hover:bg-slate-50'
+          const cls = `block w-full px-3 py-1.5 text-left text-xs font-medium ${tone} ${it.divide ? 'mt-1 border-t border-slate-100 pt-2' : ''}`
+          if (it.href) {
+            return (
+              <a key={i} href={it.href} target="_blank" rel="noopener noreferrer" className={cls}>
+                {it.label}
+              </a>
+            )
+          }
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => { e.currentTarget.closest('details').open = false; it.onClick() }}
+              className={cls}
+            >
+              {it.label}
+            </button>
+          )
+        })}
+      </div>
+    </details>
   )
 }
 

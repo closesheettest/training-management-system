@@ -495,7 +495,7 @@ function PhaseRow({ phase, cls, monday, todayIso }) {
       : 'bg-emerald-100 text-emerald-800'
   return (
     <Link
-      to={`/class/${cls.id}`}
+      to={`/class/${cls.id}?week=${isB ? 'B' : 'A'}`}
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 px-4 py-2.5 text-sm transition hover:bg-slate-50"
     >
       <span className={`w-16 shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-bold uppercase tracking-wide ${chip}`}>

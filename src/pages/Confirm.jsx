@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateLong } from '../lib/dates.js'
+import { SCHEDULES } from '../lib/schedule.js'
 
 // All training now happens here — one fixed venue.
 const VENUE = {
@@ -10,29 +11,7 @@ const VENUE = {
 }
 const DIRECTIONS = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(VENUE.address)}`
 
-// The two-week (A / B) schedule. A trainee sees only the week they're heading into.
-const SCHEDULES = {
-  A: {
-    label: 'Week A',
-    signoff: { name: 'Brent Davidson', title: 'Hiring Manager' },
-    days: [
-      { day: 'Monday', blocks: ['2:00 – 4:00 PM · Classroom'] },
-      { day: 'Tuesday', blocks: ['2:00 – 4:00 PM · Classroom', '5:00 – 8:00 PM · Field'] },
-      { day: 'Wednesday', blocks: ['10:00 AM – 12:00 PM · Classroom', 'Field continues until 8:00 PM · in your home market'] },
-      { day: 'Thursday – Saturday', blocks: ['Working in the field from home'] },
-    ],
-  },
-  B: {
-    label: 'Week B',
-    signoff: { name: 'U.S. Shingle & Metal Training', title: '' },
-    days: [
-      { day: 'Monday', blocks: ['11:00 AM – 1:00 PM · Classroom'] },
-      { day: 'Tuesday', blocks: ['10:00 AM – 1:00 PM · Classroom'] },
-      { day: 'Wednesday', blocks: ['1:00 – 4:00 PM · Classroom'] },
-      { day: 'Thursday', blocks: ['10:00 AM – 1:00 PM · Classroom'] },
-    ],
-  },
-}
+// Timetable lives in src/lib/schedule.js — shared with the class page.
 
 export default function Confirm() {
   const { token } = useParams()

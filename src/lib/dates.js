@@ -67,3 +67,12 @@ export function groupByMonth(items, dateField = 'week_start_date') {
   }
   return [...groups.entries()]
 }
+
+// Shift an ISO date by N days, staying in local time (no UTC drift).
+export function addDaysIso(iso, n) {
+  const d = parseLocalDate(iso)
+  if (!d) return iso
+  d.setDate(d.getDate() + n)
+  const p = (x) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
