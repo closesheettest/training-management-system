@@ -1197,6 +1197,30 @@ export default function ClassDetail() {
 
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
 
+      {/* People who stopped turning up are no longer part of this class's roster.
+          Neal: "I don't care about these people, they're dead to me — I don't
+          want to see them on this page." They're kept behind one collapsed line
+          rather than deleted, because they're exactly the list worth re-working
+          later. */}
+      {registeredNoShow.length > 0 && (
+        <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+          <summary className="cursor-pointer text-sm font-medium text-slate-500">
+            {registeredNoShow.length} stopped attending and aren't part of this class any more — show
+          </summary>
+          <ul className="mt-3 space-y-1 text-sm">
+            {registeredNoShow.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-2 text-slate-600">
+                <span className="font-medium">{t.first_name} {t.last_name}</span>
+                <span className="text-xs text-slate-400">{t.phone}{t.email ? ` · ${t.email}` : ''}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-400">
+            Kept for re-working later. They get no texts, no hotel, and don't count toward the class.
+          </p>
+        </details>
+      )}
+
       {cls.attendance_only && (
         <MeetingReportCard cls={cls} enrolled={enrolled} onReload={load} />
       )}
@@ -1594,7 +1618,6 @@ export default function ClassDetail() {
             </Link>
           ) : null,
         },
-        ...(registeredNoShow.length ? [{ title: 'Didn’t return (missed the last class day)', emoji: '🚫', color: 'slate', items: registeredNoShow, empty: '' }] : []),
         { title: 'Sent, no response', emoji: '⚠️', color: 'amber', items: sentNoResponse, empty: 'No trainees in this state.' },
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
       ].map((group) => (
