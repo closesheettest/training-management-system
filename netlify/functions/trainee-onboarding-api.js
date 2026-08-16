@@ -113,6 +113,32 @@ export const handler = async (event) => {
     })
   }
 
+  // ── docs: short-lived links to a trainee's signed PDFs ────────────────────
+  // The bucket is private, so the office can't just open a URL. This mints
+  // signed links that expire in 10 minutes — long enough to read or download,
+  // short enough that a copied link is worthless tomorrow.
+  if (action === 'docs') {
+    const traineeId = String(body.trainee_id || '')
+    if (!traineeId) return cors(400, { ok: false, error: 'trainee_id required' })
+    const { data: row } = await supabase
+      .from('trainee_onboarding')
+      .select('w9_pdf_path, agreement_pdf_path, signed_at, sign_name, sign_ip, pdf_error')
+      .eq('trainee_id', traineeId).maybeSingle()
+    if (!row) return cors(404, { ok: false, error: 'No paperwork on file for that person.' })
+    const sign = async (path) => {
+      if (!path) return null
+      const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 600)
+      return data?.signedUrl || null
+    }
+    return cors(200, {
+      ok: true,
+      signed_at: row.signed_at, sign_name: row.sign_name, sign_ip: row.sign_ip,
+      pdf_error: row.pdf_error || null,
+      agreement_url: await sign(row.agreement_pdf_path),
+      w9_url: await sign(row.w9_pdf_path),
+    })
+  }
+
   // ── chase: re-send the paperwork link to people who haven't signed ────────
   // Built for the Aug-10 cohort, who started Week B without ever doing Day-1
   // paperwork, but it's reusable: any class, any time, only the unsigned.

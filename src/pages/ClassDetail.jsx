@@ -2509,6 +2509,31 @@ function RosterSummary({ summary }) {
 // Day-1 paperwork gate. Neal's rule: the class doesn't start until everyone has
 // signed. Banking is shown separately and NEVER blocks — people turn up without
 // their account numbers and a daily chaser handles it.
+// Open the stored PDFs. The bucket is private, so the link is minted on demand
+// and expires in 10 minutes.
+function ViewDocs({ traineeId }) {
+  const [busy, setBusy] = useState(false)
+  async function open() {
+    setBusy(true)
+    const r = await fetch('/.netlify/functions/trainee-onboarding-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'docs', trainee_id: traineeId }),
+    })
+    const b = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!b.ok) { alert(b.error || 'Could not load the documents.'); return }
+    if (b.agreement_url) window.open(b.agreement_url, '_blank', 'noopener')
+    if (b.w9_url) window.open(b.w9_url, '_blank', 'noopener')
+    if (!b.agreement_url && !b.w9_url) alert(`No PDFs stored${b.pdf_error ? ` — ${b.pdf_error}` : ''}.`)
+  }
+  return (
+    <button type="button" onClick={open} disabled={busy}
+      className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+      {busy ? 'opening…' : 'view documents'}
+    </button>
+  )
+}
+
 function PaperworkGate({ classId, week }) {
   const [data, setData] = useState(null)
   const load = () => fetch('/.netlify/functions/trainee-onboarding-api', {
@@ -2536,6 +2561,7 @@ function PaperworkGate({ classId, week }) {
             <span className={p.signed ? 'text-emerald-700' : 'text-amber-800'}>{p.signed ? '✓' : '○'}</span>
             <span className={`flex-1 ${p.signed ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>{p.name}</span>
             {!p.signed && <span className="text-xs text-slate-500">{p.phone || p.email || 'no contact'}</span>}
+            {p.signed && <ViewDocs traineeId={p.trainee_id} />}
             {p.signed && !p.banking_done && (
               <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">bank details pending</span>
             )}
