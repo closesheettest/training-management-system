@@ -35,11 +35,19 @@ function EmptyPhase({ phase }) {
         </span>
         <span className="text-xs opacity-70">(0)</span>
       </div>
-      <p className="px-3 py-2 text-sm text-slate-500">
-        {isB
-          ? 'No Week B rooms to book this week — nobody continuing needs one.'
-          : 'No Week A rooms to book this week — nobody arriving needs one.'}
-      </p>
+      <div className="mt-2 flex items-center gap-3 rounded-lg border-2 border-emerald-300 bg-emerald-50 px-4 py-4">
+        <span className="text-2xl leading-none">✅</span>
+        <div>
+          <div className="text-base font-bold text-emerald-900">
+            Nothing to book for Week {phase} this week
+          </div>
+          <div className="text-sm text-emerald-800">
+            {isB
+              ? 'None of the trainees continuing into Week B needs a room.'
+              : 'None of the trainees arriving for Week A needs a room.'}
+          </div>
+        </div>
+      </div>
     </li>
   )
 }
@@ -168,8 +176,14 @@ export default function Hotels() {
         const phase = phaseByClass[t.class_id]
         const cls = clsById[t.class_id]
         const checkedIn = (t.attendance || []).some((a) => a.confirmed && a.attendance_date === weekMon)
+        // Neal's rule: for HOTEL purposes only, someone who hasn't confirmed by
+        // Friday is treated as not coming — we don't hold a room on a maybe, and
+        // Jenn shouldn't have to chase it. It has NO bearing on training: they're
+        // still welcome to turn up, they just won't have a room reserved.
+        const unconfirmedB = phase === 'B' && !/^(yes|confirmed|attending)$/i.test(t.confirmation_status || '')
         return {
           ...t,
+          _unconfirmedB: unconfirmedB,
           _cls: cls || null,
           _venue: cls?.locations || null,
           _phase: phase,
@@ -392,6 +406,9 @@ export default function Hotels() {
   const weekA = trainees.filter((t) => t._phase === 'A')
   const weekB = trainees.filter((t) => t._phase === 'B')
   const orderedTrainees = [...weekA, ...weekB]
+  // Everyone we'd actually reserve a room for — unconfirmed Week B people are
+  // listed (so nobody wonders where they went) but not counted or booked.
+  const bookable = trainees.filter((t) => !t._unconfirmedB)
 
   // Group this week's booked rooms by hotel → one rooming list per hotel.
   const roomingByHotel = (() => {
@@ -508,7 +525,7 @@ export default function Hotels() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
             <div className="text-slate-700">
-              <strong>{trainees.length}</strong> trainee{trainees.length === 1 ? '' : 's'} need
+              <strong>{bookable.length}</strong> trainee{bookable.length === 1 ? '' : 's'} need
               hotel ·{' '}
               <strong>{totalBookings}</strong> booked ·{' '}
               <strong>{unsentCount}</strong> ready to send ·{' '}
@@ -610,8 +627,10 @@ export default function Hotels() {
                           {t._phase === 'B' && t.confirmation_status === 'confirmed' && (
                             <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✓ confirmed</span>
                           )}
-                          {t._phase === 'B' && t.confirmation_status !== 'confirmed' && (
-                            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">awaiting Fri confirm</span>
+                          {t._unconfirmedB && (
+                            <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                              didn't confirm — no room needed
+                            </span>
                           )}
                         </div>
                         {t._cls && (
@@ -631,7 +650,11 @@ export default function Hotels() {
                         )}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
-                        {!stay ? (
+                        {t._unconfirmedB ? (
+                          <span className="rounded-md border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+                            No room — not confirmed
+                          </span>
+                        ) : !stay ? (
                           <button
                             type="button"
                             onClick={() => startCustomBooking(t)}
