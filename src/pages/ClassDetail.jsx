@@ -1161,6 +1161,8 @@ export default function ClassDetail() {
 
       <RosterSummary summary={summary} />
 
+      {!cls.attendance_only && <PaperworkGate classId={id} />}
+
       {cls.attendance_only && (
         <MeetingReportCard cls={cls} enrolled={enrolled} onReload={load} />
       )}
@@ -2485,6 +2487,55 @@ function RosterSummary({ summary }) {
 // One "…" per row instead of a wall of buttons. Native <details> so keyboard and
 // screen readers work for free. Destructive items are separated and red — they
 // used to sit inline, immediately beside Edit.
+
+// Day-1 paperwork gate. Neal's rule: the class doesn't start until everyone has
+// signed. Banking is shown separately and NEVER blocks — people turn up without
+// their account numbers and a daily chaser handles it.
+function PaperworkGate({ classId }) {
+  const [data, setData] = useState(null)
+  const load = () => fetch('/.netlify/functions/trainee-onboarding-api', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'roster', class_id: classId }),
+  }).then((r) => r.json()).then((b) => b.ok && setData(b)).catch(() => {})
+  useEffect(() => { load(); const id = setInterval(load, 20000); return () => clearInterval(id) }, [classId])
+  if (!data || data.total === 0) return null
+
+  const clear = data.outstanding === 0
+  return (
+    <section className={`rounded-lg border-2 p-5 shadow-sm ${clear ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className={`text-lg font-bold ${clear ? 'text-emerald-900' : 'text-amber-900'}`}>
+          {clear ? '✅ Everyone has signed — you can start' : `⏳ Waiting on ${data.outstanding} of ${data.total} to sign`}
+        </h2>
+        <button onClick={load} className="text-xs font-medium text-slate-600 underline hover:text-slate-900">Refresh</button>
+      </div>
+      <p className={`mt-1 text-sm ${clear ? 'text-emerald-800' : 'text-amber-800'}`}>
+        W-9 + Independent Contractor Agreement. Texted and emailed to each person when they sign in at the kiosk.
+      </p>
+      <ul className="mt-3 space-y-1">
+        {data.people.map((p) => (
+          <li key={p.trainee_id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className={p.signed ? 'text-emerald-700' : 'text-amber-800'}>{p.signed ? '✓' : '○'}</span>
+            <span className={`flex-1 ${p.signed ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>{p.name}</span>
+            {!p.signed && <span className="text-xs text-slate-500">{p.phone || p.email || 'no contact'}</span>}
+            {p.signed && !p.banking_done && (
+              <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">bank details pending</span>
+            )}
+            {p.signed && p.banking_done && (
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">complete</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {data.banking_outstanding > 0 && (
+        <p className="mt-3 text-xs text-slate-600">
+          {data.banking_outstanding} still owe direct-deposit details — they're reminded automatically every day, and it does not hold up the class.
+        </p>
+      )}
+    </section>
+  )
+}
+
 function RowMenu({ items, disabled }) {
   if (!items?.length) return null
   return (

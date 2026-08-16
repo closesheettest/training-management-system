@@ -18,11 +18,7 @@
 //   { ok: false, error: '...' }                          — failure
 //
 // Env vars:
-//   ONBOARDING_SMS_LINK    The HomeMaxx funnel URL. Defaults to the
-//                          current one (8m3EQIb89AZIpWR97rrg) so a
-//                          fresh deploy works without env tweaking.
-//                          Override in Netlify when the funnel URL
-//                          changes — no code redeploy needed.
+//   (ONBOARDING_SMS_LINK is retired — see the note by linkFor below.)
 //   SUPABASE_URL, SUPABASE_SECRET_KEY — standard.
 //   GHL_PIT_TOKEN, GHL_LOCATION_ID — used by sendSmsViaGhl helper.
 
@@ -32,9 +28,16 @@ import { sendEmail } from './_email.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
-const ONBOARDING_LINK =
-  process.env.ONBOARDING_SMS_LINK ||
-  'https://app.homemaxxusa.com/v2/preview/8m3EQIb89AZIpWR97rrg'
+// The paperwork now lives in this app, ONE LINK PER TRAINEE, so the W-9 and the
+// Independent Contractor Agreement pre-fill from what we already know and the
+// signed PDFs land back in trainee_onboarding.
+//
+// The old ONBOARDING_SMS_LINK env var is deliberately NOT read any more: it holds
+// the retired HomeMaxx funnel URL, and a single static link cannot carry a
+// trainee's token — honouring it would silently send everyone to the old form.
+// Delete it from Netlify when convenient; it's inert either way.
+const SITE = process.env.URL || process.env.DEPLOY_PRIME_URL || 'https://trainingmanagementsys.netlify.app'
+const linkFor = (t) => `${SITE}/onboarding/${t.registration_token}`
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Method Not Allowed' })
@@ -52,7 +55,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data: t, error } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, email, onboarding_sms_sent_at')
+    .select('id, first_name, last_name, phone, email, registration_token, onboarding_sms_sent_at')
     .eq('id', traineeId)
     .maybeSingle()
   if (error) return json(500, { ok: false, error: error.message })
@@ -71,8 +74,9 @@ export const handler = async (event) => {
   const firstName = t.first_name || 'there'
   const message =
     `Hi ${firstName}, welcome to your first day at U.S. Shingle! ` +
-    `Tap to complete your onboarding:\n\n${ONBOARDING_LINK}\n\n` +
-    `Get this done before we start.`
+    `Tap here to sign your W-9 and Independent Contractor Agreement:\n\n${linkFor(t)}\n\n` +
+    `Class doesn't start until everyone has finished, so please do it now. ` +
+    `Takes about 5 minutes. Don't have your bank details on you? Skip that part — you can add it later.`
 
   // Send by BOTH email and SMS — email reaches trainees whose SMS is
   // blocked/opted-out (DND) in GHL. Success = at least one channel goes out.
@@ -80,7 +84,7 @@ export const handler = async (event) => {
   const errors = []
   if (t.email) {
     try {
-      const r = await sendEmail(t.email, 'Welcome to U.S. Shingle — complete your onboarding', message)
+      const r = await sendEmail(t.email, 'Sign your W-9 and Contractor Agreement — U.S. Shingle', message)
       if (r && r.ok !== false) channels.push('email')
       else errors.push('email: ' + (r?.error || 'failed'))
     } catch (e) {

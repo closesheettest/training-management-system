@@ -16,6 +16,7 @@ import Credentials from './pages/Credentials.jsx'
 import AppDownloads from './pages/AppDownloads.jsx'
 import Setup from './pages/Setup.jsx'
 import Timetable from './pages/Timetable.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import Questions from './pages/Questions.jsx'
 import TakeTest from './pages/TakeTest.jsx'
 import TestDone from './pages/TestDone.jsx'
@@ -62,6 +63,7 @@ export default function App() {
 
         {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
         <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
+        <Route path="/onboarding/:token" element={<MinimalLayout><Onboarding /></MinimalLayout>} />
 
         {/* Public credentials: trainee taps the link from the day-2 SMS */}
         <Route path="/credentials/:token" element={<MinimalLayout><Credentials /></MinimalLayout>} />

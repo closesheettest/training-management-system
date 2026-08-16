@@ -117,3 +117,10 @@
 # pending. Mirrors export config.schedule in the function file.
 [functions."cron-offboarding-reminder"]
   schedule = "0 14 * * *"
+
+# Daily chase for direct-deposit details. Banking is the one part of Day-1
+# paperwork people can't do on the spot (they don't have account numbers on
+# them), so the class isn't held for it -- this nags by text + email once a day
+# until it's filled. Mirrors export config.schedule in the function file.
+[functions."cron-onboarding-banking"]
+  schedule = "30 14 * * *"
