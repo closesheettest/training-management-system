@@ -1511,20 +1511,33 @@ export default function ClassDetail() {
                 </ul>
               )}
 
-              {(weekBResult.skipped_list || []).length > 0 && (
-                <div className="mt-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Skipped</div>
-                  <ul className="mt-1 space-y-1">
-                    {weekBResult.skipped_list.map((s, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm text-slate-500">
-                        <span>–</span>
-                        <span className="font-medium text-slate-600">{s.name}</span>
-                        <span className="text-xs">{s.reason}</span>
-                      </li>
+              {/* Skips are SUMMARISED, not listed. Naming all 23 meant a wall of
+                  people who stopped coming weeks ago — Neal: "they're dead to me,
+                  I don't want to be kept being reminded of them." Only the skips
+                  that mean something get names: already-confirmed people are
+                  coming on Monday, so they're worth seeing. */}
+              {(weekBResult.skipped_list || []).length > 0 && (() => {
+                const by = {}
+                for (const s of weekBResult.skipped_list) (by[s.reason] ||= []).push(s.name)
+                const WORTH_NAMING = ['already confirmed', 'already sent']
+                const named = Object.entries(by).filter(([r]) => WORTH_NAMING.includes(r))
+                const counted = Object.entries(by).filter(([r]) => !WORTH_NAMING.includes(r))
+                return (
+                  <div className="mt-3">
+                    {named.map(([reason, names]) => (
+                      <div key={reason} className="text-sm text-slate-600">
+                        <span className="text-xs uppercase tracking-wide text-slate-400">{reason}: </span>
+                        {names.join(', ')}
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
+                    {counted.length > 0 && (
+                      <div className="mt-1 text-xs text-slate-400">
+                        Also skipped: {counted.map(([reason, names]) => `${names.length} ${reason}`).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {(weekBResult.errors || []).length > 0 && (
                 <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">

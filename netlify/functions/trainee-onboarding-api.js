@@ -194,7 +194,17 @@ export const handler = async (event) => {
       if (t.phone) { try { const r = await sendSms(t.phone, msg); if (r?.ok !== false) channels.push('sms') } catch { /* email may have landed */ } }
       sent.push({ name: `${t.first_name} ${t.last_name}`, channels })
     }
-    return cors(200, { ok: true, dry_run: !!body.dry_run, count: sent.length, sent })
+    // Report who we skipped as counts by reason, not a roster of people who
+    // stopped coming — the same wall of dead names the Week B receipt grew.
+    const skipped = {}
+    for (const t of (trainees || [])) {
+      if (targets.some((x) => x.id === t.id)) continue
+      const why = t.declined_at ? 'declined' : t.dropped_out_at ? 'dropped out'
+        : t.enrolled === false ? 'not enrolled' : signed.has(t.id) ? 'already signed'
+        : (!t.phone && !t.email) ? 'no phone or email' : 'not in this send'
+      skipped[why] = (skipped[why] || 0) + 1
+    }
+    return cors(200, { ok: true, dry_run: !!body.dry_run, count: sent.length, sent, skipped_summary: skipped })
   }
 
   // ── everything else is trainee-facing and keyed by their token ─────────────
