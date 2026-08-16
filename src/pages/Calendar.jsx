@@ -23,7 +23,7 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, attendance_only, location_id, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
+        'id, region, week_start_date, week_end_date, attendance_only, location_id, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, declined_at, dropped_out_at, confirmation_status, attendance(attendance_date, confirmed), test_attempts(submitted_at))',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)
@@ -82,6 +82,37 @@ export default function Calendar() {
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  // ── Weeks, not cohorts ────────────────────────────────────────────────────
+  // Every Monday TWO cohorts are in the building: one starting Week A, and last
+  // week's cohort starting Week B. The old list was one card per cohort showing
+  // its two future dates, so answering "who's here this week" meant reading one
+  // row's Week B against the next row's Week A — and a cohort's Week B was
+  // effectively invisible. This flips it: one card per calendar week, listing
+  // the cohorts actually in the room.
+  const weeksUpcoming = useMemo(() => {
+    const byMonday = {}
+    const put = (monday, phase, cls) => {
+      if (!byMonday[monday]) byMonday[monday] = { monday, A: null, B: null }
+      byMonday[monday][phase] = cls
+    }
+    for (const c of classes) {
+      if (c.attendance_only) { put(c.week_start_date, 'A', c); continue }
+      put(c.week_start_date, 'A', c)
+      if (isTwoWeekClass(c)) put(addDaysIso(c.week_start_date, 7), 'B', c)
+    }
+    return Object.values(byMonday)
+      .filter((w) => {
+        const fri = parseLocalDate(addDaysIso(w.monday, 4))
+        return fri ? fri >= today : true
+      })
+      .sort((a, b) => (a.monday < b.monday ? -1 : 1))
+  }, [classes, today])
+
+  const todayIso = toIsoDate(today)
+  // On a Sunday the week that just ended is gone from this list, so point
+  // "This week" at the Monday about to start — that's what a Sunday reader means.
+  const thisMonday = today.getDay() === 0 ? addDaysIso(todayIso, 1) : mondayOfIso(todayIso)
+
   const upcoming = classes.filter((c) => {
     const end = parseLocalDate(c.week_end_date)
     return end ? end >= today : true
@@ -97,7 +128,7 @@ export default function Calendar() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Schedule</h1>
           <p className="mt-2 text-slate-600">
-            All training weeks, grouped by month. Click any week to see who's coming and manage texts.
+            Each week shows the cohorts actually in the room — Week A starting, Week B continuing. Click a row to open that cohort.
           </p>
         </div>
         {!adding && (
@@ -159,7 +190,7 @@ export default function Calendar() {
         <EmptyState />
       ) : (
         <>
-          <Section title="Upcoming" classes={upcoming} emptyText="No upcoming weeks scheduled." onDelete={deleteWeek} />
+          <WeekSections weeks={weeksUpcoming} thisMonday={thisMonday} onDelete={deleteWeek} todayIso={todayIso} />
           {past.length > 0 && (
             <Section
               title={`Past weeks (${past.length})`}
@@ -398,6 +429,182 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
       </div>
     </form>
   )
+}
+
+
+// ── Week-centric rendering ──────────────────────────────────────────────────
+function toIsoDate(d) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+function mondayOfIso(iso) {
+  const d = parseLocalDate(iso)
+  if (!d) return iso
+  const dow = d.getDay() // 0 Sun … 1 Mon
+  d.setDate(d.getDate() - ((dow + 6) % 7))
+  return toIsoDate(d)
+}
+
+// Who is ACTUALLY in the room for a Week B? Only trainees who attended their
+// Week A — the 7 days before this Monday. Someone who enrolled and never showed
+// isn't continuing, and counting them made a roster of 22 read as 22 when 7 were
+// coming. Same rule the Hotels page and the Week B confirmation already use.
+function liveTrainees(cls) {
+  return (cls?.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+}
+// Trust attendance from the moment their Week A STARTS (the Monday 7 days
+// before), not after it ends — otherwise the week about to begin still reports
+// its full roster. On Sun 8/16 the 8/17 Week B must already read 7 continuing,
+// not 20 expected: their Week A ran 8/10–8/14 and 15 never showed.
+function weekAHasHappened(monday, todayIso) {
+  return todayIso >= addDaysIso(monday, -7)
+}
+function continuingForWeekB(cls, monday, todayIso) {
+  const live = liveTrainees(cls)
+  // Week A still to come → nobody could have attended yet; show who's expected.
+  if (!weekAHasHappened(monday, todayIso)) return live.filter((t) => t.registered)
+  const waStart = addDaysIso(monday, -7)
+  const waEnd = addDaysIso(monday, -1)
+  return live.filter((t) =>
+    (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd),
+  )
+}
+
+function PhaseRow({ phase, cls, monday, todayIso }) {
+  if (!cls) return null
+  const isB = phase === 'B'
+  const settled = isB && weekAHasHappened(monday, todayIso)
+  const people = isB ? continuingForWeekB(cls, monday, todayIso) : liveTrainees(cls)
+  const registered = people.filter((t) => t.registered).length
+  const pending = people.filter((t) => !t.registered && t.last_sms_sent_at).length
+  const confirmed = people.filter((t) => /^(yes|confirmed|attending)$/i.test(t.confirmation_status || '')).length
+  const chip = isB
+    ? 'bg-indigo-100 text-indigo-800'
+    : cls.attendance_only
+      ? 'bg-amber-200 text-amber-900'
+      : 'bg-emerald-100 text-emerald-800'
+  return (
+    <Link
+      to={`/class/${cls.id}`}
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 px-4 py-2.5 text-sm transition hover:bg-slate-50"
+    >
+      <span className={`w-16 shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-bold uppercase tracking-wide ${chip}`}>
+        {cls.attendance_only ? 'One-off' : isB ? 'Week B' : 'Week A'}
+      </span>
+      <span className="flex-1 text-slate-700">
+        {cls.attendance_only ? 'Attendance only' : isB ? 'Continuing' : 'New intake'}
+        <span className="ml-1.5 text-xs text-slate-400">
+          {isB ? `· from ${formatShort(cls.week_start_date)}` : '· hiring / intake'}
+        </span>
+      </span>
+      {isB ? (
+        <span className="text-xs text-slate-600">
+          {people.length} {settled ? 'continuing' : 'expected'}
+        </span>
+      ) : (
+        <span className="text-xs text-slate-600">{registered} registered</span>
+      )}
+      {isB && confirmed > 0 && <Badge color="green" label={`${confirmed} confirmed`} />}
+      {!isB && pending > 0 && <Badge color="amber" label={`${pending} pending`} />}
+      {people.length === 0 && <Badge color="slate" label="nobody yet" />}
+    </Link>
+  )
+}
+
+function WeekCard({ week, isThisWeek, onDelete, todayIso }) {
+  const { monday, A, B } = week
+  const venue = A?.locations?.name || B?.locations?.name
+  const region = A?.region || B?.region
+  const headcount = liveTrainees(A).length + continuingForWeekB(B, monday, todayIso).length
+  const tbd = !venue
+  return (
+    <div className={`overflow-hidden rounded-lg border bg-white ${isThisWeek ? 'border-brand-navy shadow-sm' : 'border-slate-200'}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="font-semibold text-slate-900">{formatDateRange(monday, addDaysIso(monday, 4))}</span>
+          <span className="text-sm text-slate-500">{venue || `${region || 'Region'} — TBD`}</span>
+          {region && (
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{region}</span>
+          )}
+          {tbd && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Location TBD</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">
+            {headcount} {headcount === 1 ? 'person' : 'people'}
+          </span>
+          {onDelete && A && (
+            <button
+              type="button"
+              onClick={() => onDelete(A)}
+              title="Delete this training week"
+              className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+            >
+              🗑
+            </button>
+          )}
+        </div>
+      </div>
+      <PhaseRow phase="A" cls={A} monday={monday} todayIso={todayIso} />
+      <PhaseRow phase="B" cls={B} monday={monday} todayIso={todayIso} />
+    </div>
+  )
+}
+
+function WeekSections({ weeks, thisMonday, onDelete, todayIso }) {
+  if (weeks.length === 0) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold">Upcoming</h2>
+        <p className="mt-2 text-sm text-slate-500">No upcoming weeks scheduled.</p>
+      </section>
+    )
+  }
+  const current = weeks.filter((w) => w.monday === thisMonday)
+  const later = weeks.filter((w) => w.monday !== thisMonday)
+  return (
+    <div className="space-y-8">
+      {current.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">This week</h2>
+          {current.map((w) => (
+            <WeekCard key={w.monday} week={w} isThisWeek onDelete={onDelete} todayIso={todayIso} />
+          ))}
+        </section>
+      )}
+      {later.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold">{current.length > 0 ? 'Coming up' : 'Upcoming'}</h2>
+          {groupWeeksByMonth(later).map(([key, items]) => (
+            <div key={key} className="space-y-3">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                {formatMonth(key)}
+              </h3>
+              {items.map((w) => (
+                <WeekCard key={w.monday} week={w} onDelete={onDelete} todayIso={todayIso} />
+              ))}
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  )
+}
+
+function groupWeeksByMonth(weeks) {
+  const out = {}
+  for (const w of weeks) {
+    const key = (w.monday || '').slice(0, 7)
+    if (!out[key]) out[key] = []
+    out[key].push(w)
+  }
+  return Object.entries(out).sort(([a], [b]) => (a < b ? -1 : 1))
+}
+
+function formatShort(iso) {
+  const d = parseLocalDate(iso)
+  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : iso
 }
 
 function Section({ title, classes, emptyText, subtitle, isPast = false, onDelete }) {
