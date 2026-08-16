@@ -1007,7 +1007,7 @@ export default function ClassDetail() {
   // meant names like James Marcil and Patryk Plewa turning up under "Sent, no
   // response" on a week they were never part of. Same rule as _week-a.js, the
   // Schedule page, hotels and the paperwork gate.
-  const continuingIds = useMemo(() => {
+  const continuingIds = (() => {
     if (viewWeek !== 'B' || !cls?.week_start_date || cls?.attendance_only) return null
     const start = cls.week_start_date
     const end = addDaysIso(start, 6)
@@ -1018,7 +1018,7 @@ export default function ClassDetail() {
     }
     if (!lastDay) return null   // Week A hasn't run yet — show everyone
     return new Set(trainees.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
-  }, [viewWeek, cls, trainees])
+  })()
 
   const enrolled = trainees.filter((t) =>
     t.enrolled !== false && !t.dropped_out_at && (!continuingIds || continuingIds.has(t.id)))
