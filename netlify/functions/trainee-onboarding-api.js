@@ -59,11 +59,31 @@ export const handler = async (event) => {
   if (action === 'roster') {
     const classId = String(body.class_id || '')
     if (!classId) return cors(400, { ok: false, error: 'class_id required' })
+    const week = String(body.week || 'A').toUpperCase() === 'B' ? 'B' : 'A'
     const { data: trainees } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, enrolled, declined_at, dropped_out_at')
+      .select('id, first_name, last_name, phone, email, enrolled, declined_at, dropped_out_at, attendance(attendance_date, confirmed)')
       .eq('class_id', classId)
-    const live = (trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+    let live = (trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+    // A WEEK B page is about the people continuing — those present on the last
+    // day their Week A recorded attendance. Listing the whole roster meant 22
+    // names when 4 are coming, which reads as 18 people owing paperwork they
+    // will never owe. Same rule as _week-a.js and the Schedule page.
+    if (week === 'B') {
+      const { data: cls } = await supabase.from('classes').select('week_start_date').eq('id', classId).maybeSingle()
+      const start = cls?.week_start_date
+      if (start) {
+        const end = new Date(new Date(`${start}T12:00:00Z`).getTime() + 6 * 86400000).toISOString().slice(0, 10)
+        const inWeekA = (a) => a.confirmed && a.attendance_date >= start && a.attendance_date <= end
+        let lastDay = null
+        for (const t of live) for (const a of t.attendance || []) {
+          if (inWeekA(a) && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
+        }
+        live = lastDay
+          ? live.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay))
+          : []
+      }
+    }
     const { data: rows } = await supabase
       .from('trainee_onboarding')
       .select('trainee_id, signed_at, banking_completed_at, w9_pdf_path, agreement_pdf_path')

@@ -22,11 +22,11 @@ export default function ClassDetail() {
     if (!id) return
     fetch('/.netlify/functions/trainee-onboarding-api', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'roster', class_id: id }),
+      body: JSON.stringify({ action: 'roster', class_id: id, week: viewWeek }),
     }).then((r) => r.json())
       .then((b) => { if (b.ok) setPaperwork(Object.fromEntries(b.people.map((p) => [p.trainee_id, p]))) })
       .catch(() => {})
-  }, [id])
+  }, [id, viewWeek])
   useEffect(() => { loadPaperwork(); const t = setInterval(loadPaperwork, 20000); return () => clearInterval(t) }, [loadPaperwork])
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
@@ -1174,7 +1174,7 @@ export default function ClassDetail() {
 
       <RosterSummary summary={summary} />
 
-      {!cls.attendance_only && <PaperworkGate classId={id} />}
+      {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
 
       {cls.attendance_only && (
         <MeetingReportCard cls={cls} enrolled={enrolled} onReload={load} />
@@ -2509,13 +2509,13 @@ function RosterSummary({ summary }) {
 // Day-1 paperwork gate. Neal's rule: the class doesn't start until everyone has
 // signed. Banking is shown separately and NEVER blocks — people turn up without
 // their account numbers and a daily chaser handles it.
-function PaperworkGate({ classId }) {
+function PaperworkGate({ classId, week }) {
   const [data, setData] = useState(null)
   const load = () => fetch('/.netlify/functions/trainee-onboarding-api', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'roster', class_id: classId }),
+    body: JSON.stringify({ action: 'roster', class_id: classId, week }),
   }).then((r) => r.json()).then((b) => b.ok && setData(b)).catch(() => {})
-  useEffect(() => { load(); const id = setInterval(load, 20000); return () => clearInterval(id) }, [classId])
+  useEffect(() => { load(); const id = setInterval(load, 20000); return () => clearInterval(id) }, [classId, week])
   if (!data || data.total === 0) return null
 
   const clear = data.outstanding === 0
