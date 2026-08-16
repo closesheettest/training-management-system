@@ -9,7 +9,11 @@
 //   - email is set
 //   - itinerary_email_sent_at IS NULL (dedup — never re-send)
 //   - class.location_id is not null (training location has been picked)
-//   - class.week_start_date >= today (no point emailing for past classes)
+//   - class.week_start_date is between today and today + ITINERARY_LEAD_DAYS
+//     (default 7). An itinerary is "here's where to be on Monday" — sending it
+//     three weeks out means they've forgotten it by the time it matters, and
+//     because it only ever sends ONCE there is no later reminder. Registering in
+//     August used to trigger the September cohort's itinerary immediately.
 //
 // Body + subject come from the editable message_templates row with
 // key='itinerary_email'. The admin can change wording from the
@@ -90,9 +94,16 @@ export const handler = async (event) => {
   const hm = await loadHiringManager(supabase)
 
   const results = []
+  // How far ahead of a class we're willing to send its itinerary.
+  const leadDays = Number(process.env.ITINERARY_LEAD_DAYS || 7)
+  const horizon = new Date(`${todayIso}T12:00:00Z`)
+  horizon.setUTCDate(horizon.getUTCDate() + leadDays)
+  const horizonIso = horizon.toISOString().slice(0, 10)
+
   for (const t of trainees || []) {
     const weekStart = t.classes?.week_start_date
-    if (!weekStart || weekStart < todayIso) continue // class already happened
+    if (!weekStart || weekStart < todayIso) continue        // class already happened
+    if (weekStart > horizonIso) continue                    // too far out — send closer to the day
 
     const loc = t.classes?.locations
     const locationName = loc?.name || 'TBD'

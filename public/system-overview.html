@@ -367,7 +367,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><strong>Training itinerary email</strong><br><em>Welcome + schedule + address + hiring manager signature</em></td>
       <td>Each registered trainee whose class has a location set</td>
       <td>✉️ Email</td>
-      <td><span class="pill pill-cron">Daily cron at 10 AM Eastern</span> Auto-fires once a trainee is <strong>registered</strong> AND their class's <strong>location is no longer TBD</strong> (new weeks now pre-fill the region's usual venue, so TBD should be rare). Pulls the schedule from the location's saved schedule template (or class-specific override), the address from the location record, and the signature from whichever Hiring Manager is set on /notifications. Body + subject editable on /message-templates. One email per trainee (dedup via itinerary_email_sent_at).</td>
+      <td><span class="pill pill-cron">Daily cron at 10 AM Eastern</span> Auto-fires once a trainee is <strong>registered</strong>, their class's <strong>location is no longer TBD</strong>, and their class starts <strong>within the next 7 days</strong> (<code>ITINERARY_LEAD_DAYS</code>) (new weeks now pre-fill the region's usual venue, so TBD should be rare). Pulls the schedule from the location's saved schedule template (or class-specific override), the address from the location record, and the signature from whichever Hiring Manager is set on /notifications. Body + subject editable on /message-templates. One email per trainee (dedup via itinerary_email_sent_at).</td>
     </tr>
     <tr>
       <td><strong>Hotel room info text</strong><br><em>Where they're staying, check-in/out, confirmation #, who it's booked under</em></td>
