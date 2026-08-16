@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
@@ -15,6 +15,19 @@ export default function ClassDetail() {
   const [searchParams] = useSearchParams()
   const viewWeek = (searchParams.get('week') || '').toUpperCase() === 'B' ? 'B' : 'A'
   const timetable = useTimetable()
+  // Paperwork status per trainee, so it shows against every name on the roster
+  // instead of only in the gate panel. Neal: "it's always been blind to me."
+  const [paperwork, setPaperwork] = useState({})
+  const loadPaperwork = useCallback(() => {
+    if (!id) return
+    fetch('/.netlify/functions/trainee-onboarding-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'roster', class_id: id }),
+    }).then((r) => r.json())
+      .then((b) => { if (b.ok) setPaperwork(Object.fromEntries(b.people.map((p) => [p.trainee_id, p]))) })
+      .catch(() => {})
+  }, [id])
+  useEffect(() => { loadPaperwork(); const t = setInterval(loadPaperwork, 20000); return () => clearInterval(t) }, [loadPaperwork])
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
@@ -1500,6 +1513,7 @@ export default function ClassDetail() {
           the normal 3-bucket grouping by registration status. */}
       {cls.attendance_only ? (
         <TraineeGroup
+          paperworkById={paperwork}
           title="Attendees"
           emoji="👥"
           color="slate"
@@ -1563,6 +1577,7 @@ export default function ClassDetail() {
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
       ].map((group) => (
         <TraineeGroup
+          paperworkById={paperwork}
           key={group.title}
           title={group.title}
           emoji={group.emoji}
@@ -1604,6 +1619,7 @@ export default function ClassDetail() {
           renders when there's at least one. */}
       {holdingHere.length > 0 && (
         <TraineeGroup
+          paperworkById={paperwork}
           title="Holding (rescheduled in)"
           emoji="🅿️"
           color="purple"
@@ -1823,6 +1839,7 @@ export default function ClassDetail() {
 }
 
 function TraineeGroup({
+  paperworkById,
   title,
   emoji,
   color,
@@ -1892,6 +1909,7 @@ function TraineeGroup({
                     <div className="min-w-0">
                       <div className="font-medium text-slate-900">
                         {t.first_name} {t.last_name}
+                        <PaperworkBadge st={paperworkById?.[t.id]} />
                       </div>
                       <div className="text-slate-500">
                         {t.phone}
@@ -2534,6 +2552,26 @@ function PaperworkGate({ classId }) {
       )}
     </section>
   )
+}
+
+
+// Paperwork state against a name. Three states only, because that's the whole
+// question: have we got their signed W-9 + agreement, and do we have their bank
+// details? Banking is shown but never gates anything.
+function PaperworkBadge({ st }) {
+  if (!st) return null
+  if (!st.signed) {
+    return <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">📄 paperwork not signed</span>
+  }
+  if (!st.banking_done) {
+    return (
+      <>
+        <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">📄 paperwork received</span>
+        <span className="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-semibold text-sky-800">bank details pending</span>
+      </>
+    )
+  }
+  return <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">📄 paperwork complete</span>
 }
 
 function RowMenu({ items, disabled }) {

@@ -24,6 +24,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib'
 import W9_B64 from './assets/w9-template-b64.js'
 import { renderAgreementPdf } from './_ic-agreement.js'
 import { sendEmail } from './_email.js'
+import { sendSmsViaGhl as sendSms } from './_ghl.js'
 
 const BUCKET = 'trainee-docs'
 
@@ -90,6 +91,42 @@ export const handler = async (event) => {
       banking_outstanding: people.filter((p) => p.signed && !p.banking_done).length,
       people,
     })
+  }
+
+  // ── chase: re-send the paperwork link to people who haven't signed ────────
+  // Built for the Aug-10 cohort, who started Week B without ever doing Day-1
+  // paperwork, but it's reusable: any class, any time, only the unsigned.
+  if (action === 'chase') {
+    const classId = String(body.class_id || '')
+    if (!classId) return cors(400, { ok: false, error: 'class_id required' })
+    const onlyIds = Array.isArray(body.trainee_ids) && body.trainee_ids.length ? body.trainee_ids : null
+    const { data: trainees } = await supabase
+      .from('trainees')
+      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, dropped_out_at')
+      .eq('class_id', classId)
+    const { data: rows } = await supabase
+      .from('trainee_onboarding').select('trainee_id, signed_at').eq('class_id', classId)
+    const signed = new Set((rows || []).filter((r) => r.signed_at).map((r) => r.trainee_id))
+    const targets = (trainees || []).filter((t) =>
+      t.enrolled !== false && !t.declined_at && !t.dropped_out_at &&
+      !signed.has(t.id) && (t.phone || t.email) &&
+      (!onlyIds || onlyIds.includes(t.id)))
+
+    const site = process.env.URL || 'https://trainingmanagementsys.netlify.app'
+    const note = String(body.message || '').trim()
+    const sent = []
+    for (const t of targets) {
+      const link = `${site}/onboarding/${t.registration_token}`
+      const msg = (note
+        ? `Hi ${t.first_name || 'there'}, ${note}`
+        : `Hi ${t.first_name || 'there'}, we still need your paperwork.`) + `\n\n${link}`
+      if (body.dry_run) { sent.push({ name: `${t.first_name} ${t.last_name}`, preview: msg }); continue }
+      const channels = []
+      if (t.email) { try { const r = await sendEmail(t.email, 'We still need your U.S. Shingle paperwork', msg); if (r?.ok !== false) channels.push('email') } catch { /* sms may land */ } }
+      if (t.phone) { try { const r = await sendSms(t.phone, msg); if (r?.ok !== false) channels.push('sms') } catch { /* email may have landed */ } }
+      sent.push({ name: `${t.first_name} ${t.last_name}`, channels })
+    }
+    return cors(200, { ok: true, dry_run: !!body.dry_run, count: sent.length, sent })
   }
 
   // ── everything else is trainee-facing and keyed by their token ─────────────
