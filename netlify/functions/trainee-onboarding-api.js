@@ -142,6 +142,14 @@ export const handler = async (event) => {
   const { data: existing } = await supabase
     .from('trainee_onboarding').select('*').eq('trainee_id', trainee.id).maybeSingle()
 
+  // "See you tomorrow" only if that's true. Week A starts on the class's own
+  // Monday; Week B a week later. Anything else and we name the day instead of
+  // guessing.
+  const { data: cls } = trainee.class_id
+    ? await supabase.from('classes').select('week_start_date').eq('id', trainee.class_id).maybeSingle()
+    : { data: null }
+  const nextSession = nextSessionLabel(cls?.week_start_date)
+
   if (action === 'load') {
     const safe = { ...(existing || {}) }
     for (const k of SECRET) if (safe[k]) safe[k] = '' // never send these back down
@@ -153,6 +161,7 @@ export const handler = async (event) => {
         street_address: trainee.street_address, city: trainee.city, state: trainee.state, zip: trainee.zip,
       },
       saved: safe,
+      next_session: nextSession,
       signed: !!existing?.signed_at,
       banking_done: !!existing?.banking_completed_at,
       secrets_on_file: Object.fromEntries(SECRET.map((k) => [k, !!existing?.[k]])),
@@ -179,7 +188,7 @@ export const handler = async (event) => {
   if (action === 'save') {
     const { error } = await supabase.from('trainee_onboarding').upsert(patch, { onConflict: 'trainee_id' })
     if (error) return cors(500, { ok: false, error: error.message })
-    return cors(200, { ok: true, saved: true })
+    return cors(200, { ok: true, saved: true, next_session: nextSession })
   }
 
   if (action === 'submit') {
@@ -214,11 +223,27 @@ export const handler = async (event) => {
     }, { onConflict: 'trainee_id' })
     if (error) return cors(500, { ok: false, error: error.message })
 
-    await deliver(supabase, trainee, merged, { w9Path, agreementPath }).catch(() => {})
-    return cors(200, { ok: true, signed: true, pdf_error: pdfError })
+    await deliver(supabase, trainee, { ...merged, _next_session: nextSession }, { w9Path, agreementPath }).catch(() => {})
+    return cors(200, { ok: true, signed: true, pdf_error: pdfError, next_session: nextSession })
   }
 
   return cors(400, { ok: false, error: `Unknown action: ${action}` })
+}
+
+// Friendly sentence about when they're next due in — "See you tomorrow" when
+// that's literally true, otherwise the day, so a confirmation is never wrong.
+function nextSessionLabel(weekStartDate) {
+  if (!weekStartDate) return 'See you in class.'
+  const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  const today = new Date(Date.UTC(et.getFullYear(), et.getMonth(), et.getDate()))
+  const weekA = new Date(`${weekStartDate}T00:00:00Z`)
+  const weekB = new Date(weekA.getTime() + 7 * 86400000)
+  const next = [weekA, weekB].find((d) => d >= today)
+  if (!next) return 'See you in class.'
+  const days = Math.round((next - today) / 86400000)
+  if (days === 0) return 'See you today.'
+  if (days === 1) return 'See you tomorrow.'
+  return `See you ${next.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })}.`
 }
 
 // Banking counts as done only with the pieces payroll actually needs.
@@ -247,7 +272,8 @@ async function deliver(supabase, trainee, d, { w9Path, agreementPath }) {
 
   if (trainee.email) {
     await sendEmail(trainee.email, 'Your signed U.S. Shingle paperwork',
-      `Hi ${trainee.first_name || 'there'},\n\nAttached are the documents you just signed — your W-9 and your Independent Contractor Agreement. Keep them for your records.\n\n` +
+      `Hi ${trainee.first_name || 'there'},\n\nThank you — we've got everything. ${d._next_session || 'See you in class.'}\n\n` +
+      `Attached are the documents you just signed — your W-9 and your Independent Contractor Agreement. Keep them for your records.\n\n` +
       (d.banking_completed_at ? '' : 'One thing still outstanding: we don\'t have your direct deposit details yet. You can add them any time using the same link — we\'ll send a reminder each day until they\'re in, so you get paid on time.\n\n') +
       '— U.S. Shingle & Metal Training', { attachments }).catch(() => {})
     await supabase.from('trainee_onboarding').update({ emailed_rep_at: nowIso }).eq('trainee_id', trainee.id)

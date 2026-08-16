@@ -22,6 +22,7 @@ export default function Onboarding() {
   const [onFile, setOnFile] = useState({})
   const [saving, setSaving] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [nextSession, setNextSession] = useState('')
   const pad = useRef(null)
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }))
@@ -35,6 +36,7 @@ export default function Onboarding() {
         if (b.signed && b.banking_done) { setState('done'); return }
         const t = b.trainee || {}
         setOnFile(b.secrets_on_file || {})
+        setNextSession(b.next_session || '')
         setF({
           first_name: t.first_name || '', last_name: t.last_name || '',
           agent_phone: t.phone || '', agent_email: t.email || '',
@@ -67,6 +69,7 @@ export default function Onboarding() {
     const b = await r.json().catch(() => ({}))
     setSaving(false)
     if (!b.ok) { setErr(b.error || 'Something went wrong — try again.'); return }
+    if (b.next_session) setNextSession(b.next_session)
     setState('done')
   }
 
@@ -83,8 +86,9 @@ export default function Onboarding() {
     <Shell>
       <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-6 text-center">
         <div className="text-4xl">✅</div>
-        <h2 className="mt-2 text-xl font-bold text-emerald-900">You're all set</h2>
-        <p className="mt-1 text-emerald-800">
+        <h2 className="mt-2 text-xl font-bold text-emerald-900">Thank you — you're all set</h2>
+        {nextSession && <p className="mt-1 text-lg font-semibold text-emerald-900">{nextSession}</p>}
+        <p className="mt-2 text-emerald-800">
           Your signed W-9 and Independent Contractor Agreement have been emailed to you. Keep them for your records.
         </p>
       </div>
