@@ -1846,54 +1846,31 @@ export default function ClassDetail() {
         </section>
       )}
 
+      {/* Dropped out — collapsed. Same reason as the didn't-return list: these
+          people aren't part of the class any more, and a red panel restating why
+          on every page load is noise. Reasons and re-enroll are one click away. */}
       {droppedOut.length > 0 && (
-        <section className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-red-800">
-            ⛔ Dropped out <span className="font-normal text-red-500">({droppedOut.length})</span>
-          </h2>
-          <p className="mt-1 text-xs text-red-700">
-            Washed out of training (Week A / Week B weed-out). Off the active roster, the team
-            dashboard, and the harvest map. Re-enroll if it was a mistake.
-          </p>
-          <ul className="mt-4 divide-y divide-red-100 rounded-md border border-red-200 bg-white">
+        <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+          <summary className="cursor-pointer text-sm font-medium text-slate-500">
+            {droppedOut.length} dropped out of training — show
+          </summary>
+          <ul className="mt-3 space-y-2 text-sm">
             {droppedOut.map((t) => (
-              <li key={t.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="font-medium text-slate-900 line-through opacity-70">
-                    {t.first_name} {t.last_name}
-                  </div>
-                  <div className="text-slate-500">
-                    {t.phone}
-                    {t.email && ` · ${t.email}`}
-                  </div>
-                  {t.dropped_out_reason && (
-                    <div className="mt-0.5 text-xs text-slate-600">Reason: {t.dropped_out_reason}</div>
-                  )}
-                  {t.dropped_out_at && (
-                    <div className="mt-0.5 text-xs text-slate-400">
-                      Dropped out: {new Date(t.dropped_out_at).toLocaleString()}
-                    </div>
-                  )}
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    onClick={() => reenrollTrainee(t)}
-                    className="rounded-md border border-green-300 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
-                    title="Bring this dropout back into the class"
-                  >
-                    Re-enroll
-                  </button>
-                  <button
-                    onClick={() => deleteTrainee(t)}
-                    className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
+              <li key={t.id} className="flex flex-wrap items-center gap-2 text-slate-600">
+                <span className="font-medium line-through">{t.first_name} {t.last_name}</span>
+                <span className="text-xs text-slate-400">{t.phone}</span>
+                {t.dropped_out_reason && <span className="text-xs text-slate-500">— {t.dropped_out_reason}</span>}
+                <button
+                  type="button"
+                  onClick={() => reenrollTrainee(t)}
+                  className="ml-auto rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                >
+                  Re-enroll
+                </button>
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
 
       {reschedulingTrainee && (
