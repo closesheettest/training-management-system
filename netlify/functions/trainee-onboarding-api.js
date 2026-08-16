@@ -113,6 +113,28 @@ export const handler = async (event) => {
     })
   }
 
+  // ── regenerate: rebuild the PDFs from the stored fields + signature ───────
+  // The drawn signature is kept precisely so a document can be rebuilt without
+  // asking anyone to sign again — after a data correction, or if a render ever
+  // failed and left pdf_error set. Signed_at and the signature are untouched, so
+  // the rebuilt document attests to the same act of signing.
+  if (action === 'regenerate') {
+    const traineeId = String(body.trainee_id || '')
+    if (!traineeId) return cors(400, { ok: false, error: 'trainee_id required' })
+    const { data: row } = await supabase.from('trainee_onboarding').select('*').eq('trainee_id', traineeId).maybeSingle()
+    if (!row) return cors(404, { ok: false, error: 'No paperwork on file.' })
+    if (!row.signed_at) return cors(400, { ok: false, error: "That person hasn't signed yet." })
+    let w9Path = row.w9_pdf_path, agPath = row.agreement_pdf_path, err = null
+    try { w9Path = await storeFile(supabase, `${traineeId}/w9_${Date.now()}.pdf`, await fillW9Pdf(row)) }
+    catch (e) { err = `w9: ${e.message}` }
+    try { agPath = await storeFile(supabase, `${traineeId}/agreement_${Date.now()}.pdf`, await renderAgreementPdf(row)) }
+    catch (e) { err = `${err ? err + '; ' : ''}agreement: ${e.message}` }
+    await supabase.from('trainee_onboarding')
+      .update({ w9_pdf_path: w9Path, agreement_pdf_path: agPath, pdf_error: err })
+      .eq('trainee_id', traineeId)
+    return cors(200, { ok: true, regenerated: true, pdf_error: err })
+  }
+
   // ── docs: short-lived links to a trainee's signed PDFs ────────────────────
   // The bucket is private, so the office can't just open a URL. This mints
   // signed links that expire in 10 minutes — long enough to read or download,

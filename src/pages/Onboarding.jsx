@@ -41,6 +41,12 @@ export default function Onboarding() {
           first_name: t.first_name || '', last_name: t.last_name || '',
           agent_phone: t.phone || '', agent_email: t.email || '',
           agent_address: [t.street_address, t.city, t.state, t.zip].filter(Boolean).join(', '),
+          // The IRS wants these on two lines: street on one, "City, ST ZIP" on
+          // the other. Left to type it themselves, the first person split it
+          // wrongly and filed a W-9 with no city or state — so pre-fill both
+          // from the parts we already hold.
+          w9_address: t.street_address || '',
+          w9_city_state_zip: [t.city, t.state].filter(Boolean).join(', ') + (t.zip ? ` ${t.zip}` : ''),
           w9_tax_classification: 'individual', w9_tin_type: 'ssn',
           sign_title: 'Independent Contractor',
           ...Object.fromEntries(Object.entries(b.saved || {}).filter(([, v]) => v != null && v !== '')),
@@ -155,8 +161,8 @@ export default function Onboarding() {
                   <option value="llc">Limited liability company</option>
                 </select>
               </L>
-              <L t="Address *"><input className={input} value={f.w9_address || ''} onChange={set('w9_address')} /></L>
-              <L t="City, state, ZIP *"><input className={input} value={f.w9_city_state_zip || ''} onChange={set('w9_city_state_zip')} /></L>
+              <L t="Street address *"><input className={input} placeholder="5236 46th Street Ct E" value={f.w9_address || ''} onChange={set('w9_address')} /></L>
+              <L t="City, state, ZIP *"><input className={input} placeholder="Bradenton, FL 34203" value={f.w9_city_state_zip || ''} onChange={set('w9_city_state_zip')} /></L>
               <L t="SSN or EIN? *">
                 <select className={input} value={f.w9_tin_type || 'ssn'} onChange={set('w9_tin_type')}>
                   <option value="ssn">Social Security Number</option>
