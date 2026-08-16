@@ -367,7 +367,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
       <td><strong>Training itinerary email</strong><br><em>Welcome + schedule + address + hiring manager signature</em></td>
       <td>Each registered trainee whose class has a location set</td>
       <td>✉️ Email</td>
-      <td><span class="pill pill-cron">Daily cron at 10 AM Eastern</span> Auto-fires once a trainee is <strong>registered</strong> AND their class's <strong>location is no longer TBD</strong>. Pulls the schedule from the location's saved schedule template (or class-specific override), the address from the location record, and the signature from whichever Hiring Manager is set on /notifications. Body + subject editable on /message-templates. One email per trainee (dedup via itinerary_email_sent_at).</td>
+      <td><span class="pill pill-cron">Daily cron at 10 AM Eastern</span> Auto-fires once a trainee is <strong>registered</strong> AND their class's <strong>location is no longer TBD</strong> (new weeks now pre-fill the region's usual venue, so TBD should be rare). Pulls the schedule from the location's saved schedule template (or class-specific override), the address from the location record, and the signature from whichever Hiring Manager is set on /notifications. Body + subject editable on /message-templates. One email per trainee (dedup via itinerary_email_sent_at).</td>
     </tr>
     <tr>
       <td><strong>Hotel room info text</strong><br><em>Where they're staying, check-in/out, confirmation #, who it's booked under</em></td>
@@ -683,5 +683,17 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </footer>
 
 </div>
+<h2>Two-week schedule &amp; the no-show automations</h2>
+<p>Training runs as <strong>Week A</strong> then <strong>Week B</strong>, and the automations follow the real timetable
+(<code>netlify/functions/_schedule.js</code>, mirroring the trainee confirm page):</p>
+<ul>
+  <li><strong>Week A</strong> — Mon 2–4pm classroom · Tue 2–4pm classroom then 5–8pm field · Wed 10am–12pm classroom then field to 8pm ·
+      <strong>Thu–Sat working the field from home</strong> (no kiosk sign-in).</li>
+  <li><strong>Week B</strong> — Mon 11–1 · Tue 10–1 · Wed 1–4 · <strong>Thu 10–1, and the week ends there</strong> (no Friday).</li>
+</ul>
+<p>No-show alerts only fire on real <em>classroom</em> days, from that day's start time plus 30 minutes' grace. Field days, the
+weekend between the weeks and Week B Friday are never policed — a false no-show unenrols the trainee, has IT delete their Google
+account and cancels their hotel room. Hotels follow the same shape: <strong>Week A 2 nights</strong> (out Wed),
+<strong>Week B 3 nights</strong> (out Thu).</p>
 </body>
 </html>

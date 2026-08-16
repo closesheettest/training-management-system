@@ -24,8 +24,8 @@ export default function Hotels() {
   const [classes, setClasses] = useState([])
   // The screen shows ONE training week at a time (the Monday that week starts on,
   // YYYY-MM-DD). Prev/Next arrows step weeks. Each week splits into Week A (a
-  // cohort in week 1 — 2 nights, Mon–Wed) and Week B (a cohort in week 2 — 4
-  // nights, Mon–Fri). '' until classes load, then the nearest upcoming week.
+  // cohort in week 1 — 2 nights, Mon–Wed) and Week B (a cohort in week 2 — 3
+  // nights, Mon–Thu). '' until classes load, then the nearest upcoming week.
   const [weekMon, setWeekMon] = useState('')
   const [trainees, setTrainees] = useState([])
   const [stays, setStays] = useState([])
@@ -131,8 +131,11 @@ export default function Hotels() {
       !!lastWeekADay && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastWeekADay)
 
     // Tag each trainee with its phase for THIS week + the default room dates:
-    //   Week A → check-in Mon, checkout Wed (2 nights)
-    //   Week B → check-in Mon, checkout Fri (4 nights)
+    //   Week A → check-in Mon, checkout Wed (2 nights) — classroom ends Wed,
+    //            then Thu–Sat they work the field from home
+    //   Week B → check-in Mon, checkout Thu (3 nights) — Week B ends Thursday.
+    //            This was booking to Friday, one paid night per person per
+    //            cohort that nobody was there for.
     const rows = (tRes.data || [])
       .filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
       // Drop Week-B-phase no-shows: only people who did Week A continue.
@@ -147,7 +150,7 @@ export default function Hotels() {
           _venue: cls?.locations || null,
           _phase: phase,
           _checkIn: weekMon,
-          _checkOut: addDaysISO(weekMon, phase === 'B' ? 4 : 2),
+          _checkOut: addDaysISO(weekMon, phase === 'B' ? 3 : 2),
           _checkedIn: checkedIn,
         }
       })
@@ -361,7 +364,7 @@ export default function Hotels() {
   const sentCount = weekStays.filter((s) => s.info_sent_at && !s.cancelled_at).length
   const unbookedCount = trainees.filter((t) => !stayFor(t)).length
 
-  // The two cohorts sharing this week — Week A (2 nights) then Week B (4 nights).
+  // The two cohorts sharing this week — Week A (2 nights) then Week B (3 nights).
   const weekA = trainees.filter((t) => t._phase === 'A')
   const weekB = trainees.filter((t) => t._phase === 'B')
   const orderedTrainees = [...weekA, ...weekB]

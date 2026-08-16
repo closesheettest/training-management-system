@@ -31,7 +31,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-import { isNoonStartDay } from './_late-start.js'
+import { alertHourET } from './_schedule.js'
 
 // Don't re-text the same booking more than once an hour. 55 min (not 60)
 // so a cron that fires a hair early on the next hour still passes the gate.
@@ -106,11 +106,14 @@ export const handler = async (event) => {
     if (!start || !end) continue
     if (today < start || today > end) continue
 
-    // Class-start-aware grace: a noon-start day alerts from 12:30 PM ET, a
-    // normal 10 AM day from 10:30. Noon-start = Day 1, ANY Monday (Week A's and
-    // Week B's — every venue runs Mon 12:00–4:00), or a LATE_START_DATES entry.
-    const earliestAlertHour = isNoonStartDay(today, start) ? 12.5 : 10.5
-    if (!force && !params.date && nowEtHour < earliestAlertHour) continue
+    // Alert only on real classroom days, from that day's start + 30 min — see
+    // _schedule.js. On a field day / the middle weekend / Week B Friday there is
+    // no sign-in to miss, so nagging HR to cancel the room would be wrong.
+    const earliestAlertHour = alertHourET(start, today)
+    if (!force && !params.date) {
+      if (earliestAlertHour == null) continue
+      if (nowEtHour < earliestAlertHour) continue
+    }
 
     const checkedIn = (t.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,

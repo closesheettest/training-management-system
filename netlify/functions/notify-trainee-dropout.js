@@ -51,7 +51,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-import { isNoonStartDay } from './_late-start.js'
+import { isClassDay, alertHourET } from './_schedule.js'
 
 export const handler = async (event) => {
   const isPost = event.httpMethod === 'POST'
@@ -302,18 +302,18 @@ export const handler = async (event) => {
   // (Mon-start AND Tue-start both have noon-Day-1). The 30-min grace
   // matches the hotel-noshow alert gate for consistency.
   const nowEt = currentEtHour()
-  const noonGraceEndEt = 12.5 // 12:30 PM ET
-  const beforeNoonGrace = nowEt < noonGraceEndEt
 
   const dropouts = (trainees || []).filter((t) => {
     const c = t.classes
     if (!c) return false
     if (today < c.week_start_date || today > c.week_end_date) return false
-    // Noon-start days (Day 1, ANY Monday incl. a cohort's WEEK B Monday, or a
-    // LATE_START_DATES entry) don't start until 12:00 — see _late-start.js.
-    // dayNumberFor() counts from week_start_date, so Week B Monday is day 8 and
-    // the old `dayN === 1` test missed it entirely.
-    if (isNoonStartDay(today, c.week_start_date) && beforeNoonGrace) return false
+    // Only police actual CLASSROOM days, and only once that day's class has
+    // started (+30 min grace) — see _schedule.js. Week A's Thu–Sat field days,
+    // the middle weekend and Week B's Friday have no kiosk sign-in at all, so
+    // treating silence there as a no-show would unenrol the whole cohort.
+    const alertAt = alertHourET(c.week_start_date, today)
+    if (alertAt == null) return false        // not a classroom day → nothing is due
+    if (nowEt < alertAt) return false        // class hasn't started (or just has)
     const attendedToday = (t.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,
     )
