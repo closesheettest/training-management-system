@@ -15,6 +15,7 @@ import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
 import AppDownloads from './pages/AppDownloads.jsx'
 import Setup from './pages/Setup.jsx'
+import Timetable from './pages/Timetable.jsx'
 import Questions from './pages/Questions.jsx'
 import TakeTest from './pages/TakeTest.jsx'
 import TestDone from './pages/TestDone.jsx'
@@ -138,6 +139,7 @@ export default function App() {
           <Route path="/provisioning" element={<RouteGate pageKey="provisioning"><ProvisioningHub /></RouteGate>} />
           <Route path="/provision/:class_id" element={<Provision />} />
           <Route path="/setup/:class_id" element={<Setup />} />
+          <Route path="/timetable" element={<Timetable />} />
           <Route path="/questions" element={<RouteGate pageKey="setup.questions"><Questions /></RouteGate>} />
           <Route path="/testimonials" element={<RouteGate pageKey="setup.testimonials"><Testimonials /></RouteGate>} />
           <Route path="/notifications" element={<RouteGate pageKey="settings.notifications"><Notifications /></RouteGate>} />
@@ -217,6 +219,7 @@ function AdminLayout() {
     { key: 'settings.messages', to: '/messages', label: 'Messages' },
     { key: 'settings.notifications', to: '/notifications', label: 'Notifications' },
     { key: 'settings.templates', to: '/message-templates', label: 'Message templates' },
+    { key: 'settings.templates', to: '/timetable', label: 'Training timetable' },
     { key: 'settings.handoff', to: '/handoff-contacts', label: 'Handoff contacts' },
     { key: 'settings.personas', to: '/personas', label: 'Personas' },
     { key: 'settings.hosted_pages', to: '/hosted-pages', label: 'Hosted pages' },

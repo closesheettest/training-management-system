@@ -51,7 +51,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-import { isClassDay, alertHourET } from './_schedule.js'
+import { alertHourET, loadStartHours } from './_schedule.js'
 
 export const handler = async (event) => {
   const isPost = event.httpMethod === 'POST'
@@ -302,6 +302,7 @@ export const handler = async (event) => {
   // (Mon-start AND Tue-start both have noon-Day-1). The 30-min grace
   // matches the hotel-noshow alert gate for consistency.
   const nowEt = currentEtHour()
+  const startHours = await loadStartHours(supabase)   // live timetable, fallback baked in
 
   const dropouts = (trainees || []).filter((t) => {
     const c = t.classes
@@ -311,7 +312,7 @@ export const handler = async (event) => {
     // started (+30 min grace) — see _schedule.js. Week A's Thu–Sat field days,
     // the middle weekend and Week B's Friday have no kiosk sign-in at all, so
     // treating silence there as a no-show would unenrol the whole cohort.
-    const alertAt = alertHourET(c.week_start_date, today)
+    const alertAt = alertHourET(c.week_start_date, today, startHours)
     if (alertAt == null) return false        // not a classroom day → nothing is due
     if (nowEt < alertAt) return false        // class hasn't started (or just has)
     const attendedToday = (t.attendance || []).some(

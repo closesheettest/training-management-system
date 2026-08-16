@@ -685,7 +685,7 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </div>
 <h2>Two-week schedule &amp; the no-show automations</h2>
 <p>Training runs as <strong>Week A</strong> then <strong>Week B</strong>, and the automations follow the real timetable
-(<code>netlify/functions/_schedule.js</code>, mirroring the trainee confirm page):</p>
+(one editable row, <strong>Settings &rarr; Training timetable</strong>):</p>
 <ul>
   <li><strong>Week A</strong> — Mon 2–4pm classroom · Tue 2–4pm classroom then 5–8pm field · Wed 10am–12pm classroom then field to 8pm ·
       <strong>Thu–Sat working the field from home</strong> (no kiosk sign-in).</li>
@@ -702,5 +702,16 @@ Each trainee row shows only the action that's actually due (Book hotel, Admit, S
 make field trainee, reschedule, unenroll, dropout and delete sit behind a <strong>&hellip;</strong> menu — so the two
 irreversible ones no longer sit a slip of the mouse from Edit. The roster summary is one line, week and location share a card,
 and the provisioning workflow sits below the roster instead of above it.</p>
+<h2>Training timetable — one row, three consumers</h2>
+<p>The two-week schedule lives in <code>app_settings.training_timetable</code> and is edited at
+<strong>Settings &rarr; Training timetable</strong>. Everything reads that one row:</p>
+<ul>
+  <li>what trainees are told — confirm page, itinerary email, class page header</li>
+  <li>the hour the <strong>no-show automations</strong> wait for before flagging anyone</li>
+</ul>
+<p>It used to live in three separate places, so changing the hours meant remembering all three — and missing the cron copy
+left it waiting on the old start time, flagging people who were present but not yet due (which unenrols them, has IT delete
+their Google account and cancels their hotel room). Setting a day to <em>No classroom that day</em> means nobody is
+expected, so nobody is flagged. Each consumer falls back to the built-in hours if the row can't be read.</p>
 </body>
 </html>

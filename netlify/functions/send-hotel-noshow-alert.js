@@ -31,7 +31,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-import { alertHourET } from './_schedule.js'
+import { alertHourET, loadStartHours } from './_schedule.js'
 
 // Don't re-text the same booking more than once an hour. 55 min (not 60)
 // so a cron that fires a hair early on the next hour still passes the gate.
@@ -65,6 +65,7 @@ export const handler = async (event) => {
   const nowMs = Date.now()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  const startHours = await loadStartHours(supabase)   // live timetable, fallback baked in
 
   // 1. All hotel-needing, enrolled, registered trainees + their class +
   //    today's attendance. (We filter to "booked" + "absent" in code.)
@@ -109,7 +110,7 @@ export const handler = async (event) => {
     // Alert only on real classroom days, from that day's start + 30 min — see
     // _schedule.js. On a field day / the middle weekend / Week B Friday there is
     // no sign-in to miss, so nagging HR to cancel the room would be wrong.
-    const earliestAlertHour = alertHourET(start, today)
+    const earliestAlertHour = alertHourET(start, today, startHours)
     if (!force && !params.date) {
       if (earliestAlertHour == null) continue
       if (nowEtHour < earliestAlertHour) continue

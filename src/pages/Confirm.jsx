@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateLong } from '../lib/dates.js'
-import { SCHEDULES } from '../lib/schedule.js'
+import { useTimetable, SIGNOFF } from '../lib/schedule.js'
 
 // All training now happens here — one fixed venue.
 const VENUE = {
@@ -29,7 +29,8 @@ export default function Confirm() {
     if (weekParam === 'A' || weekParam === 'B') return weekParam
     return 'A'
   }, [weekParam])
-  const sched = SCHEDULES[week] || SCHEDULES.A
+  const timetable = useTimetable()
+  const sched = { ...(timetable[week] || timetable.A), signoff: SIGNOFF[week] || SIGNOFF.A }
 
   useEffect(() => {
     if (isPreview) {

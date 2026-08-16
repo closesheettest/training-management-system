@@ -56,12 +56,23 @@ export const handler = async (event) => {
   const params = event.queryStringParameters || {}
   const dryRun = params.dry_run === '1' || params.dry_run === 'true'
 
+  // The itinerary is the WEEK A intake email, so it renders Week A's days.
+  let weekAText = ''
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
   const todayIso = computeFloridaToday()
 
   // Find every candidate. The class join filters out trainees whose
   // class has no location yet (the whole point of this email — wait
   // until location is set).
+  try {
+    const { data: ttRow } = await supabase
+      .from('app_settings').select('value').eq('key', 'training_timetable').maybeSingle()
+    const tt = ttRow?.value ? JSON.parse(ttRow.value) : null
+    weekAText = (tt?.A?.days || [])
+      .map((d) => `${d.day}: ${(d.blocks || []).join(', ')}`)
+      .join('\n')
+  } catch { /* fall through to the venue template */ }
+
   const { data: trainees, error } = await supabase
     .from('trainees')
     .select(
@@ -86,8 +97,15 @@ export const handler = async (event) => {
     const loc = t.classes?.locations
     const locationName = loc?.name || 'TBD'
     const locationAddress = formatAddress(loc)
+    // Week A hours come from the ONE timetable (app_settings.training_timetable),
+    // the same row the confirm page and the no-show crons read — this email used
+    // to render locations.schedule_template, a separate copy that silently went
+    // stale when the two-week schedule came in. A class-specific override still
+    // wins; the venue template is the last resort.
     const schedule =
-      (t.classes?.schedule_details || loc?.schedule_template || '').trim() ||
+      (t.classes?.schedule_details || '').trim() ||
+      weekAText ||
+      (loc?.schedule_template || '').trim() ||
       'Schedule will be confirmed shortly.'
     const weekDate = formatDate(weekStart)
     const weekDayWord = formatDayWord(weekStart)

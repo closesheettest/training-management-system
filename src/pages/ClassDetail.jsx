@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 import { ZONE_TEAMS, teamLabel, zoneForCounty } from '../lib/zones.js'
 import { formatDateRange, formatDateLong, addDaysIso } from '../lib/dates.js'
-import { SCHEDULES, weekWindow } from '../lib/schedule.js'
+import { useTimetable, shortLine, weekWindow } from '../lib/schedule.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
 
 export default function ClassDetail() {
@@ -14,6 +14,7 @@ export default function ClassDetail() {
   // whole 3-week cohort span regardless of what you clicked.
   const [searchParams] = useSearchParams()
   const viewWeek = (searchParams.get('week') || '').toUpperCase() === 'B' ? 'B' : 'A'
+  const timetable = useTimetable()
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
@@ -1088,7 +1089,7 @@ export default function ClassDetail() {
           <span className={`rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
             viewWeek === 'B' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
           }`}>
-            {SCHEDULES[viewWeek].label}
+            {timetable[viewWeek].label}
           </span>
           <h1 className="text-3xl font-semibold tracking-tight">
             {cls.locations?.name || `${cls.region || 'Region'} — TBD`}
@@ -1122,7 +1123,7 @@ export default function ClassDetail() {
           {cls.locations?.street_address && <> · {formatAddress(cls.locations)}</>}
         </p>
         {!cls.attendance_only && (
-          <p className="mt-1 text-sm text-slate-500">{SCHEDULES[viewWeek].short}</p>
+          <p className="mt-1 text-sm text-slate-500">{shortLine(viewWeek, timetable)}</p>
         )}
       </header>
 
@@ -1249,7 +1250,7 @@ export default function ClassDetail() {
             </pre>
           ) : (
             <p className="text-xs text-slate-500 italic">
-              Standard {SCHEDULES[viewWeek].label} hours. Use "Change dates / schedule" to add a
+              Standard {timetable[viewWeek].label} hours. Use "Change dates / schedule" to add a
               class-specific agenda or hotel note.
             </p>
           )
