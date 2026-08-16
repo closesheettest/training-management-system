@@ -913,9 +913,9 @@ function AllApptConversion() {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.satAp, r.satPct, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.satAp, t.satPct, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const z of data.zones) {
       for (const r of z.reps) rows.push(repRow(z.zone, r))
@@ -944,13 +944,13 @@ function AllApptConversion() {
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const money = (n) => '$' + (Math.round(Number(n) || 0)).toLocaleString()
     const pc = (apt, v) => apt ? v + '%' : '—'
-    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Avg $/Sale', 'RB', 'Insul']
+    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Avg $/Sale', 'RB', 'Insul']
     const greenSold = new Set([2, 4, 6, 8]), greenMoney = new Set([9, 10, 11, 12])
     const colgroup = '<colgroup>' + HEAD.map((_, i) => `<col${greenSold.has(i) ? ' class="g"' : greenMoney.has(i) ? ' class="g2"' : ''}/>`).join('') + '</colgroup>'
     const headRow = '<tr>' + HEAD.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr>'
     const cells = (r) => [
       esc(r.rep) + (r.level ? ` <span class="lvl">${esc(r.level)}</span>` : ''),
-      r.harvAp, `<span class="s">${r.harvSl}</span>`, r.compAp, `<span class="s">${r.compSl}</span>`, r.btrAp, `<span class="s">${r.btrSl}</span>`, `<b>${r.appts}</b>`, `<span class="s"><b>${r.sales}</b></span>`,
+      r.harvAp, `<span class="s">${r.harvSl}</span>`, r.compAp, `<span class="s">${r.compSl}</span>`, r.btrAp, `<span class="s">${r.btrSl}</span>`, `<b>${r.appts}</b>`, r.satAp, pc(r.appts, r.satPct), `<span class="s"><b>${r.sales}</b></span>`,
       money(r.harvAmt), money(r.compAmt), money(r.btrAmt), `<b>${money(r.amt)}</b>`,
       pc(r.harvAp, r.harvPct), pc(r.compAp, r.compPct), pc(r.btrAp, r.btrPct), `<b>${pc(r.appts, r.pct)}</b>`,
       pc(r.appts, r.grossPct),
@@ -1248,6 +1248,12 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 border-t border-white/15 pt-1.5">
                   <span className="w-12 font-extrabold">TOTAL</span>
                   <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals.appts}</b></span>
+                  {/* Sit rate — of the appointments that came due, how many actually
+                      got in front of the homeowner. A no-show / no-sit / refused
+                      appointment came due but never became a sit, so a low close %
+                      caused by nobody sitting reads differently from a low close %
+                      on sits that happened. */}
+                  <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals.satAp}</b> <span className="text-[11px] opacity-70">({data.totals.satPct}%)</span></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Net</span> <b className="text-base">{data.totals.pct}%</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Gross</span> <b className="text-base text-emerald-200">{data.totals.grossPct}%</b></span>
