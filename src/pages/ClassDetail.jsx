@@ -927,6 +927,27 @@ export default function ClassDetail() {
     }
   }
 
+  // Their Day-1 paperwork link — the W-9 + Independent Contractor Agreement.
+  // Distinct from the registration link, which is the sign-up form.
+  async function sendPaperworkLink(t) {
+    if (!confirm(`Text and email ${t.first_name} ${t.last_name} their W-9 + Independent Contractor Agreement link?`)) return
+    setMessage(null)
+    const res = await fetch('/.netlify/functions/trainee-onboarding-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'chase', class_id: id, trainee_ids: [t.id],
+        message: 'here is your paperwork link — please fill out your W-9 and Independent Contractor Agreement.',
+      }),
+    })
+    const b = await res.json().catch(() => ({}))
+    if (!b.ok) { setMessage({ type: 'error', text: b.error || 'Could not send.' }); return }
+    const sent = (b.sent || [])[0]
+    setMessage(sent?.channels?.length
+      ? { type: 'success', text: `Paperwork link sent to ${sent.name} by ${sent.channels.join(' and ')}.` }
+      : { type: 'error', text: `Nothing sent — ${t.first_name} may already have signed, or has no phone/email.` })
+    loadPaperwork()
+  }
+
   async function sendSms(traineeIds, label) {
     setMessage(null)
     setSending(label)
@@ -1417,7 +1438,7 @@ export default function ClassDetail() {
             disabled={sending !== null}
             className="rounded-md bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-navy-dark disabled:opacity-50"
           >
-            {sending === 'all' ? 'Sending…' : `Send / resend to all ${unsentIds.length}`}
+            {sending === 'all' ? 'Sending…' : `Send registration link to ${unsentIds.length}`}
           </button>
         )}
       </div>
@@ -1513,6 +1534,7 @@ export default function ClassDetail() {
           the normal 3-bucket grouping by registration status. */}
       {cls.attendance_only ? (
         <TraineeGroup
+          onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           title="Attendees"
           emoji="👥"
@@ -1568,7 +1590,7 @@ export default function ClassDetail() {
               className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-navy-dark"
               title="Open Group Messages pre-loaded with these registered trainees — pick SMS / email / both and send."
             >
-              📣 Text / email this group
+              📣 Write a message to this group
             </Link>
           ) : null,
         },
@@ -1577,6 +1599,7 @@ export default function ClassDetail() {
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
       ].map((group) => (
         <TraineeGroup
+          onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           key={group.title}
           title={group.title}
@@ -1619,6 +1642,7 @@ export default function ClassDetail() {
           renders when there's at least one. */}
       {holdingHere.length > 0 && (
         <TraineeGroup
+          onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           title="Holding (rescheduled in)"
           emoji="🅿️"
@@ -1840,6 +1864,7 @@ export default function ClassDetail() {
 
 function TraineeGroup({
   paperworkById,
+  onSendPaperwork,
   title,
   emoji,
   color,
@@ -2036,7 +2061,8 @@ function TraineeGroup({
                       <RowMenu
                         disabled={editingTraineeId !== null}
                         items={[
-                          { label: 'Preview registration', href: `${window.location.origin}/register/${t.registration_token}` },
+                          { label: '📄 Send W-9 + agreement link', onClick: () => onSendPaperwork(t) },
+                          { label: 'Preview registration form', href: `${window.location.origin}/register/${t.registration_token}` },
                           { label: 'Edit details', onClick: () => onStartEdit(t) },
                           onHomework && { label: sending === 'hw:' + t.id ? 'Sending…' : '📚 Send homework', onClick: () => onHomework(t.id) },
                           onClearDnd && { label: sending === 'dnd:' + t.id ? 'Fixing…' : '📲 Fix texts (clear DND)', onClick: () => onClearDnd(t.id) },
@@ -2051,10 +2077,10 @@ function TraineeGroup({
                       <button
                         onClick={() => onSend(t.id)}
                         disabled={sending !== null || editingTraineeId !== null}
-                        title="Sends the link by text and email"
+                        title="Sends their REGISTRATION link (the sign-up form) by text and email. Not the paperwork link — that one is in the ⋯ menu."
                         className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-navy-dark disabled:opacity-50"
                       >
-                        {sending === t.id ? 'Sending…' : showResend ? 'Resend link (text + email)' : 'Send link (text + email)'}
+                        {sending === t.id ? 'Sending…' : showResend ? 'Resend registration link' : 'Send registration link'}
                       </button>
                       )}
                     </div>
