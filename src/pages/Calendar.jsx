@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateRange, formatMonth, groupByMonth, parseLocalDate } from '../lib/dates.js'
@@ -23,13 +23,27 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, attendance_only, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
+        'id, region, week_start_date, week_end_date, attendance_only, location_id, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, test_attempts(submitted_at))',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)
     else setClasses(data || [])
     setLoading(false)
   }
+
+  // Each region's USUAL training venue = the location its most recent class used.
+  // Neal: "training is always the training center unless manually changed", and a
+  // class with no location silently blocks itinerary emails — so a new week should
+  // arrive pre-filled rather than TBD. Derived from real usage, not hardcoded, so
+  // if a region moves venue the next class inherits the new one.
+  const defaultLocationByRegion = useMemo(() => {
+    const byRegion = {}
+    for (const c of [...classes].sort((a, b) => (a.week_start_date < b.week_start_date ? 1 : -1))) {
+      if (!c.region || !c.location_id || c.attendance_only) continue
+      if (!byRegion[c.region]) byRegion[c.region] = c.location_id
+    }
+    return byRegion
+  }, [classes])
 
   async function loadLocations() {
     const { data } = await supabase
@@ -119,6 +133,7 @@ export default function Calendar() {
       {adding && (
         <AddWeekForm
           locations={locations}
+          defaultLocationByRegion={defaultLocationByRegion}
           onCancel={() => setAdding(false)}
           onSaved={(newClass) => {
             setAdding(false)
@@ -161,7 +176,7 @@ export default function Calendar() {
   )
 }
 
-function AddWeekForm({ locations, onCancel, onSaved }) {
+function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSaved }) {
   const [form, setForm] = useState({
     week_start_date: '',
     week_end_date: '',
@@ -183,10 +198,18 @@ function AddWeekForm({ locations, onCancel, onSaved }) {
       if (field === 'week_start_date' && value && !prev.attendance_only) {
         next.week_end_date = addDaysIso(value, 11)
       }
-      // When region changes, clear training location if it doesn't belong to that region
+      // When region changes, drop a location that doesn't belong to it, then
+      // pre-fill that region's usual venue so a new week is never created as TBD
+      // (a TBD class sends no itinerary emails at all — trainees never learn
+      // where to go). Still a plain dropdown, so it's one click to change.
       if (field === 'region') {
         const currentLoc = locations.find((l) => l.id === prev.location_id)
         if (currentLoc && currentLoc.region !== value) next.location_id = ''
+        if (!next.location_id) next.location_id = defaultLocationByRegion[value] || ''
+        const picked = locations.find((l) => l.id === next.location_id)
+        if (picked?.schedule_template && !prev.schedule_details) {
+          next.schedule_details = picked.schedule_template
+        }
       }
       // When location is picked, prefill schedule from its template (only if empty)
       if (field === 'location_id' && value && !prev.schedule_details) {
