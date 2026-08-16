@@ -839,16 +839,19 @@ export default function ClassDetail() {
   // Send the whole class the "confirm your Monday attendance for Week B" text +
   // email (fired on the Friday ending Week A). Whoever confirms becomes HR's
   // Week B hotel-booking list on the Hotels page.
-  async function sendWeekBConfirmation() {
-    if (!confirm('Send the "confirm your Monday attendance for Week B" text + email to everyone who attended Week A?')) return
+  async function sendWeekBConfirmation({ onlyUnconfirmed = false } = {}) {
+    const ask = onlyUnconfirmed
+      ? 'Send a REMINDER to the Week B people who finished Week A but still haven\'t confirmed? Anyone who already confirmed is skipped.'
+      : 'Send the "confirm your Monday attendance for Week B" text + email to everyone who finished Week A?'
+    if (!confirm(ask)) return
     setMessage(null)
     setWeekBResult(null)
-    setSending('weekb')
+    setSending(onlyUnconfirmed ? 'weekb-remind' : 'weekb')
     try {
       const res = await fetch('/.netlify/functions/send-week-b-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ class_id: id }),
+        body: JSON.stringify({ class_id: id, only_unconfirmed: onlyUnconfirmed }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok || !body.ok) {
@@ -1372,6 +1375,14 @@ export default function ClassDetail() {
               className="rounded-md border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
             >
               {sending === 'weekb' ? 'Sending…' : '📅 Send Week B confirmation'}
+            </button>
+            <button
+              onClick={() => sendWeekBConfirmation({ onlyUnconfirmed: true })}
+              disabled={sending === 'weekb-remind'}
+              title="Chase ONLY the people who finished Week A and still haven't tapped the link. Anyone who already confirmed is left alone."
+              className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {sending === 'weekb-remind' ? 'Sending…' : '🔔 Remind unconfirmed'}
             </button>
           </>
         )}

@@ -43,12 +43,19 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body || '{}') } catch { /* scheduled invokes may have no/other body */ }
   const classId = String(body.class_id || '').trim()
 
-  // ---- MANUAL: POST { class_id } (in-app button) ----------------------------
+  // ---- MANUAL: POST { class_id, only_unconfirmed?, dry_run? } ---------------
+  // only_unconfirmed = the CHASER. Same message, but only to people who finished
+  // Week A and still haven't tapped the link — so a reminder never lands on
+  // someone who already confirmed.
   if (classId) {
     const cls = await loadClass(supabase, classId)
     if (!cls) return json(404, { ok: false, error: 'Class not found' })
-    const r = await sendForClass(supabase, cls, siteUrl, { force: true })
-    return json(200, { ok: true, mode: 'manual', class_id: classId, ...r })
+    const r = await sendForClass(supabase, cls, siteUrl, {
+      force: true,
+      onlyUnconfirmed: !!body.only_unconfirmed,
+      dryRun: !!body.dry_run,
+    })
+    return json(200, { ok: true, mode: body.only_unconfirmed ? 'remind-unconfirmed' : 'manual', class_id: classId, ...r })
   }
 
   // ---- CRON: the Friday scheduled run (native) or a secured external GET -----
@@ -85,14 +92,14 @@ export const handler = async (event) => {
 async function loadClass(supabase, classId) {
   const { data } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at, attendance(attendance_date, confirmed))')
+    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at, confirmation_status, attendance(attendance_date, confirmed))')
     .eq('id', classId)
     .maybeSingle()
   return data || null
 }
 
 // Send the Week B confirmation to every eligible trainee of one class.
-async function sendForClass(supabase, cls, siteUrl, { force }) {
+async function sendForClass(supabase, cls, siteUrl, { force, onlyUnconfirmed = false, dryRun = false }) {
   const waStart = mondayOfISO(cls.week_start_date)
   const waEnd = addDaysISO(waStart, 6)
   // "Finished Week A", not "showed up once" — see _week-a.js. Someone who came
@@ -116,7 +123,12 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
       continue
     }
     if (!force && t.week_b_confirm_sent_at) { skipped++; skippedList.push({ name: nameOf(t), reason: 'already sent' }); continue } // cron dedupe
+    // Chaser mode: leave the people who already said yes alone.
+    if (onlyUnconfirmed && /^(yes|confirmed|attending)$/i.test(t.confirmation_status || '')) {
+      skipped++; skippedList.push({ name: nameOf(t), reason: 'already confirmed' }); continue
+    }
     if (!t.phone && !t.email) { skipped++; skippedList.push({ name: nameOf(t), reason: 'no phone or email' }); continue }
+    if (dryRun) { recipients.push({ name: nameOf(t), channels: ['(dry run)'] }); sent++; continue }
     const link = `${siteUrl ? siteUrl : ''}/confirm/${t.registration_token}?week=B`
     const msg =
       `U.S. Shingle & Metal — great job finishing Week A! Your Week B schedule, address & directions are here 👉 ${link}  ` +
