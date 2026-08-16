@@ -459,15 +459,25 @@ function liveTrainees(cls) {
 function weekAHasHappened(monday, todayIso) {
   return todayIso >= addDaysIso(monday, -7)
 }
+// Continuing = still there at the END of Week A, not "showed up once". Of the
+// Aug-10 cohort 7 attended a day but 3 came Monday and vanished — Neal: "the
+// others are dead to us". The final day is read from the data (a Week A doesn't
+// always record a Friday), so it self-calibrates. Mirrors _week-a.js.
 function continuingForWeekB(cls, monday, todayIso) {
   const live = liveTrainees(cls)
   // Week A still to come → nobody could have attended yet; show who's expected.
   if (!weekAHasHappened(monday, todayIso)) return live.filter((t) => t.registered)
   const waStart = addDaysIso(monday, -7)
   const waEnd = addDaysIso(monday, -1)
-  return live.filter((t) =>
-    (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd),
-  )
+  const inWeekA = (a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd
+  let lastDay = null
+  for (const t of live) {
+    for (const a of t.attendance || []) {
+      if (inWeekA(a) && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
+    }
+  }
+  if (!lastDay) return []
+  return live.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay))
 }
 
 function PhaseRow({ phase, cls, monday, todayIso }) {

@@ -118,8 +118,17 @@ export default function Hotels() {
     // Week B room — they're not continuing. Week A = the 7 days before weekMon.
     const waStart = addDaysISO(weekMon, -7)
     const waEnd = addDaysISO(weekMon, -1)
+    // FINISHED Week A, not "attended a day of it". Someone who turned up Monday
+    // and vanished isn't continuing and doesn't need a Week B room — booking one
+    // for them is a cancellation nag nobody should have to chase. The final day
+    // is read from the data (a Week A doesn't always record a Friday). Same rule
+    // as netlify/functions/_week-a.js and the Schedule page.
+    const weekARows = (tRes.data || []).flatMap((t) =>
+      (t.attendance || []).filter((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd),
+    )
+    const lastWeekADay = weekARows.reduce((m, a) => (!m || a.attendance_date > m ? a.attendance_date : m), null)
     const attendedWeekA = (t) =>
-      (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd)
+      !!lastWeekADay && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastWeekADay)
 
     // Tag each trainee with its phase for THIS week + the default room dates:
     //   Week A → check-in Mon, checkout Wed (2 nights)

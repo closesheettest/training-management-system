@@ -20,6 +20,7 @@
 //      CRON_SECRET (cron path only), optional PUBLIC_SITE_URL.
 
 import { createClient } from '@supabase/supabase-js'
+import { lastWeekADay, finishedWeekA } from './_week-a.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
@@ -94,8 +95,10 @@ async function loadClass(supabase, classId) {
 async function sendForClass(supabase, cls, siteUrl, { force }) {
   const waStart = mondayOfISO(cls.week_start_date)
   const waEnd = addDaysISO(waStart, 6)
-  const attendedWeekA = (t) =>
-    (t.attendance || []).some((a) => a.confirmed && a.attendance_date >= waStart && a.attendance_date <= waEnd)
+  // "Finished Week A", not "showed up once" — see _week-a.js. Someone who came
+  // Monday and vanished isn't continuing, and shouldn't get a Week B text.
+  const lastDay = lastWeekADay(cls.trainees, waStart, waEnd)
+  const attendedWeekA = (t) => finishedWeekA(t, lastDay)
   const weekBMonday = addDaysISO(waStart, 7)
   const niceDate = formatNice(weekBMonday)
   const loc = cls.locations?.name || 'your training location'
@@ -109,7 +112,7 @@ async function sendForClass(supabase, cls, siteUrl, { force }) {
     // never showed for Week A there's no reason to send them Week B.
     if (t.enrolled === false || t.declined_at || t.dropped_out_at || !attendedWeekA(t)) {
       skipped++
-      skippedList.push({ name: nameOf(t), reason: t.dropped_out_at ? 'dropped out' : t.declined_at ? 'declined' : t.enrolled === false ? 'not enrolled' : "didn't attend Week A" })
+      skippedList.push({ name: nameOf(t), reason: t.dropped_out_at ? 'dropped out' : t.declined_at ? 'declined' : t.enrolled === false ? 'not enrolled' : "didn't finish Week A" })
       continue
     }
     if (!force && t.week_b_confirm_sent_at) { skipped++; skippedList.push({ name: nameOf(t), reason: 'already sent' }); continue } // cron dedupe
