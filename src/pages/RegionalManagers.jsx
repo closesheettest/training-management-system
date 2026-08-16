@@ -1222,13 +1222,17 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
               <div className="mb-2 text-sm font-extrabold uppercase tracking-wide">🏢 Company total</div>
               <div className="grid gap-1 text-sm">
                 {/* Per-bucket: every column header (Apt · Sold · % · $) for Harvest, IQ, BTR */}
-                {[['Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt']].map(([lbl, ap, sl, pc, amt]) => (
+                {[['Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt', 'harvAvg'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt', 'compAvg'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt', 'btrAvg']].map(([lbl, ap, sl, pc, amt, av]) => (
                   <div key={lbl} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                     <span className="w-16 font-bold">{lbl}</span>
                     <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals[ap]}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals[sl]}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals[pc]}%</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals[amt] || 0).toLocaleString()}</b></span>
+                    {/* What ONE sale from this source is worth — total $ says which
+                        source brings the most money, this says where an hour is
+                        best spent. */}
+                    <span><span className="text-[10px] uppercase opacity-70">Avg/sale</span> <b>${(data.totals[av] || 0).toLocaleString()}</b></span>
                   </div>
                 ))}
                 {/* No-Sit recovery — an overlay (re-booked sits that closed), not a 4th bucket. */}
@@ -1237,6 +1241,8 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                   <span><span className="text-[10px] uppercase opacity-70">Re-sat</span> <b>{data.totals.resitAp}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.resitSl}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals.resitPct}%</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals.resitAmt || 0).toLocaleString()}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Avg/sale</span> <b>${(data.totals.resitAvg || 0).toLocaleString()}</b></span>
                 </div>
                 {/* Pending — open deals still being worked (Sit - Pending), with pending %. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sky-200">
