@@ -51,7 +51,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-import { isLateStartDate } from './_late-start.js'
+import { isNoonStartDay } from './_late-start.js'
 
 export const handler = async (event) => {
   const isPost = event.httpMethod === 'POST'
@@ -302,19 +302,18 @@ export const handler = async (event) => {
   // (Mon-start AND Tue-start both have noon-Day-1). The 30-min grace
   // matches the hotel-noshow alert gate for consistency.
   const nowEt = currentEtHour()
-  const day1GraceEndEt = 12.5 // 12:30 PM ET
-  const tooEarlyForDay1 = nowEt < day1GraceEndEt
-  // On a LATE_START_DATES day the whole class starts at noon (not just Day 1),
-  // so EVERY day gets the same 12:30 PM grace — don't flag noon-arrivers as
-  // no-shows before they're even due. See _late-start.js.
-  const lateStartToday = isLateStartDate(today)
+  const noonGraceEndEt = 12.5 // 12:30 PM ET
+  const beforeNoonGrace = nowEt < noonGraceEndEt
 
   const dropouts = (trainees || []).filter((t) => {
     const c = t.classes
     if (!c) return false
     if (today < c.week_start_date || today > c.week_end_date) return false
-    const dayN = dayNumberFor(t)
-    if ((dayN === 1 || lateStartToday) && tooEarlyForDay1) return false  // noon-class grace
+    // Noon-start days (Day 1, ANY Monday incl. a cohort's WEEK B Monday, or a
+    // LATE_START_DATES entry) don't start until 12:00 — see _late-start.js.
+    // dayNumberFor() counts from week_start_date, so Week B Monday is day 8 and
+    // the old `dayN === 1` test missed it entirely.
+    if (isNoonStartDay(today, c.week_start_date) && beforeNoonGrace) return false
     const attendedToday = (t.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,
     )
