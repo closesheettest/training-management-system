@@ -211,6 +211,9 @@ function AdminLayout() {
     { key: 'setup.testimonials', to: '/testimonials', label: 'Testimonials' },
     { key: 'setup.training_week', to: '/training-week', label: 'Training Week' },
     { key: 'setup.training_days', to: '/ongoing-training', label: 'Ongoing Training' },
+    // Same permission as Ongoing Training — it edits the same rows, just the
+    // points, all slides at once.
+    { key: 'setup.training_days', to: '/slide-points', label: 'Slide Points' },
     { key: 'setup.field_trainee', to: '/field-trainee', label: 'Field Trainee' },
   ].filter((it) => show(it.key))
   const teamItems = [
