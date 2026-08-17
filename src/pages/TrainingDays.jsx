@@ -26,6 +26,25 @@ function scriptToText(script) {
   return (Array.isArray(script) ? script : []).map((s) => s.t).join('\n')
 }
 
+
+// The points live in `on_slide` as a " · "-separated line (the shape that column
+// already used), so the editor can offer one box per point without a migration.
+// Older rows that wrote them as a comma list after an em dash are split too, so
+// nothing that already had points loses them.
+function splitPoints(raw) {
+  const s = String(raw || '').trim().replace(/\.$/, '')
+  if (!s) return ['']
+  let parts = s.split(/·|;/).map((x) => x.trim()).filter(Boolean)
+  if (parts.length === 1 && s.includes('—')) {
+    const commas = s.split('—').slice(1).join('—').split(',').map((x) => x.trim()).filter(Boolean)
+    if (commas.length > 1) parts = commas
+  }
+  return parts.length ? parts : ['']
+}
+function joinPoints(list) {
+  return (list || []).map((x) => String(x || '').trim()).filter(Boolean).join(' · ')
+}
+
 const blankDraft = () => ({ title: '', subject: '', on_slide: '', point: '', scriptText: '', coach: '', drill: '' })
 
 const STATUS_BADGE = {
@@ -344,10 +363,46 @@ export default function TrainingDays() {
                 placeholder="Objection Handling"
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
             </Field>
-            <Field label="Overview (short description)" className="sm:col-span-6">
-              <input type="text" value={draft.on_slide} onChange={(e) => setDraft({ ...draft, on_slide: e.target.value })}
-                placeholder="What it covers, in a few words"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+            {/* THE POINTS. Stored in on_slide as a " · "-separated line — the shape
+                that field already had — so this needs no migration and every slide
+                that already listed its points keeps them. One box per point, add
+                and remove as needed. These are what the trainee sees as the
+                checklist on their homework, and what the daily test will draw
+                from. */}
+            <Field label="The points to cover" className="sm:col-span-6">
+              <div className="space-y-2">
+                {splitPoints(draft.on_slide).map((pt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[11px] font-bold text-white">{i + 1}</span>
+                    <input
+                      type="text"
+                      value={pt}
+                      onChange={(e) => {
+                        const next = splitPoints(draft.on_slide)
+                        next[i] = e.target.value
+                        setDraft({ ...draft, on_slide: joinPoints(next) })
+                      }}
+                      placeholder={`Point ${i + 1}`}
+                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                    <button type="button" title="Remove this point"
+                      onClick={() => {
+                        const next = splitPoints(draft.on_slide).filter((_, k) => k !== i)
+                        setDraft({ ...draft, on_slide: joinPoints(next) })
+                      }}
+                      className="shrink-0 rounded-md border border-slate-300 px-2 py-1.5 text-xs font-bold text-slate-500 hover:border-red-300 hover:text-red-600">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button"
+                  onClick={() => setDraft({ ...draft, on_slide: joinPoints([...splitPoints(draft.on_slide), '']) })}
+                  className="rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-brand-navy">
+                  + Add a point
+                </button>
+                <p className="text-[11px] text-slate-400">
+                  Three is the target. These show on the trainee&rsquo;s homework as the checklist for that slide.
+                </p>
+              </div>
             </Field>
             <Field label="The point *" className="sm:col-span-6">
               <textarea rows={2} value={draft.point} onChange={(e) => setDraft({ ...draft, point: e.target.value })}

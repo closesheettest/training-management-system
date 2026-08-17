@@ -21,6 +21,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
+
+// The points already on a slide. `on_slide` is a dot-separated list ("Skydiving ·
+// Experience Matters · Peace of Mind"); some rows instead put them after an em
+// dash as a comma list ("The credibility list — 15 years, veteran-owned, …").
+// Handles both, and falls back to the whole line rather than showing nothing.
+function pointsOf(d) {
+  const raw = String(d.on_slide || '').trim().replace(/\.$/, '')
+  if (!raw) return []
+  let parts = raw.split(/·|;/).map((x) => x.trim()).filter(Boolean)
+  if (parts.length === 1 && raw.includes('—')) {
+    const after = raw.split('—').slice(1).join('—')
+    const commas = after.split(',').map((x) => x.trim()).filter(Boolean)
+    if (commas.length > 1) parts = commas
+  }
+  return parts.length > 1 ? parts : [raw]
+}
+
 export default function HomeworkSlides() {
   const [params] = useSearchParams()
   const from = Number(params.get('from') || 1)
@@ -72,7 +89,11 @@ export default function HomeworkSlides() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-bold leading-tight text-slate-900">{d.title}</span>
-                  {d.on_slide && <span className="mt-0.5 block truncate text-[12px] text-slate-500">{d.on_slide}</span>}
+                  {pointsOf(d).length > 0 && (
+                    <span className="mt-0.5 block truncate text-[12px] text-slate-500">
+                      {pointsOf(d).length > 1 ? `${pointsOf(d).length} points · ` : ''}{pointsOf(d).join(' · ')}
+                    </span>
+                  )}
                 </span>
                 {d.subject && <span className="shrink-0 text-[11.5px] font-semibold text-slate-400">{d.subject}</span>}
                 <span className="shrink-0 text-slate-400">{isOpen ? '▾' : '▸'}</span>
@@ -80,6 +101,26 @@ export default function HomeworkSlides() {
 
               {isOpen && (
                 <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                  {/* The points already carried on each slide (`on_slide` is a
+                      dot-separated list). Shown as a checklist because that's how a
+                      rep uses it — the things they must not walk off the slide
+                      without saying. Not authored yet as a clean three per slide,
+                      so the count varies; whatever exists is what shows. */}
+                  {pointsOf(d).length > 0 && (
+                    <div className="mb-3">
+                      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                        Cover these {pointsOf(d).length === 3 ? '3 points' : `${pointsOf(d).length} points`}
+                      </p>
+                      <ul className="space-y-1">
+                        {pointsOf(d).map((pt, k) => (
+                          <li key={k} className="flex gap-2 text-[14px] leading-relaxed text-slate-800">
+                            <span className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[10px] font-bold text-white">{k + 1}</span>
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {d.point && (
                     <div className="mb-3">
                       <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">The point</p>
