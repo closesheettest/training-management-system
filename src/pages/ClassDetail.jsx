@@ -1009,14 +1009,22 @@ export default function ClassDetail() {
   // Schedule page, hotels and the paperwork gate.
   const continuingIds = (() => {
     if (viewWeek !== 'B' || !cls?.week_start_date || cls?.attendance_only) return null
-    const start = cls.week_start_date
-    const end = addDaysIso(start, 6)
-    const inWeekA = (a) => a.confirmed && a.attendance_date >= start && a.attendance_date <= end
+    // Whoever was there on the LAST DAY ANYONE CHECKED IN — full stop.
+    //
+    // This used to look only at the last Week A day, which was right until Week B
+    // actually started: six finished Week A, four turned up on Monday, and the
+    // two who didn't sat on the roster all week. Neal: "they can be [called] —
+    // but I don't wanna see them."
+    //
+    // Reading the latest recorded day instead means the page always answers "who
+    // is here", and it self-corrects: before anyone checks in on a Week B morning
+    // the last recorded day is still Week A, so the expected group shows rather
+    // than an empty roster.
     let lastDay = null
     for (const t of trainees) for (const a of t.attendance || []) {
-      if (inWeekA(a) && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
+      if (a.confirmed && a.attendance_date && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
     }
-    if (!lastDay) return null   // Week A hasn't run yet — show everyone
+    if (!lastDay) return null   // nobody has ever checked in — show everyone
     return new Set(trainees.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
   })()
 
