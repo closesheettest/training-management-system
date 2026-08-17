@@ -776,10 +776,13 @@ function mergeDeals(details) {
   const byDeal = new Map()
   for (const d of (details || [])) {
     const k = (d.customer || '') + '|' + (d.address || '')
-    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, result: d.result, location: d.location, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, isReset: d.isReset, jnids: new Set(), appt: false, sale: false, amt: 0 }
+    const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, result: d.result, location: d.location, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, isReset: d.isReset, jnids: new Set(), appt: false, sale: false, unstatused: false, amt: 0 }
     e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.source = d.source || e.source; e.result = d.result || e.result; e.location = (d.location != null ? d.location : e.location); e.fromAssigned = e.fromAssigned || d.fromAssigned; e.isReset = e.isReset || d.isReset
     if (d.jnid) e.jnids.add(d.jnid)
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
+    // 'unstatused' = the appointment date passed with nobody recording what
+    // happened. It is NOT a counted appointment, so don't badge it as one.
+    else if (d.kind === 'unstatused') { e.unstatused = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
   }
@@ -838,7 +841,7 @@ function ApptDetail({ details }) {
               return (
                 <Fragment key={i}>
                 <tr className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
-                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
+                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.unstatused && <span className="mr-1 rounded bg-red-100 px-1 font-bold text-red-700" title="Appointment date passed, nobody recorded what happened — not counted as an appointment, a sit or a no-sit.">UNSTATUSED</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
                   <td className={TD + ' text-slate-500'}>{e.cat === 'comp' ? 'IQ' : (e.cat || '').toUpperCase()}</td>
                   <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
@@ -924,7 +927,7 @@ function AllApptConversion() {
     rows.push(totRow('COMPANY TOTAL', data.totals))
     // Per-deal DETAIL — every appointment + sale behind the totals.
     const cat3 = (c) => c === 'comp' ? 'IQ' : (c || '').toUpperCase()
-    const detailRow = (z, rep, d) => [z, rep, d.kind === 'sale' ? 'SALE' : 'APPT', cat3(d.cat), d.customer || '', d.address || '', d.source || '', d.status || '', d.apptDate || '', d.sold || '', d.start || '', d.kind === 'sale' ? (d.amt || 0) : '', d.pitch || '', d.rb ? 'Y' : '', d.ins ? 'Y' : '']
+    const detailRow = (z, rep, d) => [z, rep, d.kind === 'sale' ? 'SALE' : d.kind === 'unstatused' ? 'UNSTATUSED' : 'APPT', cat3(d.cat), d.customer || '', d.address || '', d.source || '', d.status || '', d.apptDate || '', d.sold || '', d.start || '', d.kind === 'sale' ? (d.amt || 0) : '', d.pitch || '', d.rb ? 'Y' : '', d.ins ? 'Y' : '']
     rows.push([])
     rows.push(['DETAIL — every appointment & sale behind the totals'])
     rows.push(['Zone', 'Rep', 'Type', 'Bucket', 'Customer', 'Address', 'Source', 'Status', 'Appt', 'Sold', 'Start', '$', 'Pitch', 'RB', 'Insul'])
@@ -971,7 +974,7 @@ function AllApptConversion() {
     const detailRow = (e) => {
       const rs = fixReasonsFor(e)
       return `<tr${rs.length ? ' style="background:#fef9c3"' : ''}>`
-        + `<td>${e.appt ? '<b>APPT</b>' : ''}${e.sale ? ' <b style="color:#047857">SALE</b>' : ''}</td>`
+        + `<td>${e.appt ? '<b>APPT</b>' : ''}${e.unstatused ? '<b style="color:#b91c1c">UNSTATUSED</b>' : ''}${e.sale ? ' <b style="color:#047857">SALE</b>' : ''}</td>`
         + `<td>${e.cat === 'comp' ? 'IQ' : esc((e.cat || '').toUpperCase())}</td>`
         + `<td>${esc(e.customer || '')}${e.dupCount > 1 ? ` <b style="color:#b91c1c">(${e.dupCount} jobs)</b>` : ''}</td>`
         + `<td>${esc(e.address || '')}</td><td>${esc(e.source || '')}</td>`
