@@ -45,6 +45,7 @@ import TrainingWeek from './pages/TrainingWeek.jsx'
 import TrainingDays from './pages/TrainingDays.jsx'
 import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
+import HomeworkSlides from './pages/HomeworkSlides.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
@@ -104,6 +105,11 @@ export default function App() {
             The manager_access_token is the credential; loads the live
             curriculum and logs time-on-page (ongoing-training-view-api). */}
         <Route path="/ongoing-training/view/:token" element={<OngoingTrainingView />} />
+
+        {/* Slide-by-slide homework — trainee-facing, no manager notes. Reads the
+            same manual-sourced slides as the slide-a-day curriculum, so the
+            homework can never drift from the script again. */}
+        <Route path="/homework/slides" element={<HomeworkSlides />} />
 
         {/* Public training-day review page — DeWayne & Neal tap the link
             from the "new training day submitted" SMS/email. The review
