@@ -2607,7 +2607,14 @@ function ViewDocs({ traineeId }) {
 //
 // Goes quiet once everyone has a zone — one green line instead of a panel.
 function ZoneAssignments({ trainees, cls, onSaved }) {
-  const people = (trainees || []).filter((t) => !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+  // Only people who have actually CHECKED IN. Not the enrolled roster — that
+  // still holds everyone who was ever scheduled, including no-shows and people
+  // from earlier weeks, which is why this listed a dozen names for a class of
+  // four. Zoning a no-show puts a ghost on a manager's team, and Neal's rule is
+  // to assign off who signed in.
+  const people = (trainees || []).filter((t) =>
+    !t.dropped_out_at && !t.declined_at && t.enrolled !== false &&
+    (t.attendance || []).some((a) => a && a.confirmed))
   // Not before TUESDAY (Day 2). Neal assigns zones off who actually SIGNED IN,
   // not off who registered — Monday's roster still includes people who never
   // turn up, and zoning a no-show puts a ghost on a manager's team. Day 2 is
@@ -2673,11 +2680,11 @@ function ZoneAssignments({ trainees, cls, onSaved }) {
     <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-slate-900">
-          🗺️ Assign zones — {unassigned.length} of {people.length} still need one
+          🗺️ Assign zones — {unassigned.length} of {people.length} checked in still need one
         </h2>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-slate-600">
-        Assign from whoever <b>signed in today</b>. Field training starts <b>tomorrow</b>, and a trainee with no zone never shows up on their regional
+        These are the people who have <b>checked in</b>. Field training starts <b>tomorrow</b>, and a trainee with no zone never shows up on their regional
         manager&rsquo;s team or map, so nobody works with them. The suggestion is based on their home address —
         change it if you want them somewhere else.
       </p>
