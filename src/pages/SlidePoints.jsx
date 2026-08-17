@@ -16,6 +16,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
+
+// A presentation slide carries a real slide reference in `subject` ("Slide 1",
+// "Slides 17–21"). The manager-curriculum rows carry a sentence instead. Same
+// rule the track column encodes, so this page labels them the same way the
+// homework page filters them.
+const isPresentation = (d) => /^Slides?\s*\d/.test(String(d.subject || '').trim())
 const TARGET = 3
 
 export function splitPoints(raw) {
@@ -73,7 +79,8 @@ export default function SlidePoints() {
   if (err) return <Wrap><p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{err}</p></Wrap>
   if (!rows) return <Wrap><p className="py-10 text-center text-sm text-slate-500">Loading…</p></Wrap>
 
-  const done = rows.filter((r) => (draft[r.id] || []).filter(Boolean).length === TARGET).length
+  const pres = rows.filter(isPresentation)
+  const done = pres.filter((r) => (draft[r.id] || []).filter(Boolean).length === TARGET).length
 
   return (
     <Wrap>
@@ -84,7 +91,7 @@ export default function SlidePoints() {
           homework, and they&rsquo;re what the daily sign-in test will ask for.
         </p>
         <p className="mt-2 text-[13px] font-semibold text-slate-500">
-          <span className={done === rows.length ? 'text-emerald-700' : 'text-amber-700'}>{done} of {rows.length}</span> slides
+          <span className={done === pres.length ? 'text-emerald-700' : 'text-amber-700'}>{done} of {pres.length}</span> presentation slides
           have a clean {TARGET}. · <Link to="/homework/slides" className="text-brand-navy underline">see what the trainee sees</Link>
         </p>
       </div>
@@ -97,6 +104,12 @@ export default function SlidePoints() {
           return (
             <div key={r.id} className={'rounded-xl border bg-white p-4 ' + (ok ? 'border-emerald-200' : 'border-slate-200')}>
               <div className="mb-3 flex flex-wrap items-center gap-2">
+                {!isPresentation(r) && (
+                  <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700"
+                        title="Manager curriculum — not part of the in-home presentation, and never shown in trainee homework.">
+                    Manager
+                  </span>
+                )}
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[12px] font-bold text-slate-600">{r.position}</span>
                 <span className="text-[15px] font-bold text-slate-900">{r.title}</span>
                 {r.subject && <span className="text-[11.5px] font-semibold text-slate-400">{r.subject}</span>}

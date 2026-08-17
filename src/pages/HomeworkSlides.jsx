@@ -46,13 +46,35 @@ export default function HomeworkSlides() {
   const [err, setErr] = useState('')
   const [openId, setOpenId] = useState(null)
 
+  // PRESENTATION ONLY. `training_days` also holds manager-curriculum material
+  // (free roof inspection sign-ups, the door approach, back-to-retail) that has
+  // nothing to do with the in-home presentation and must never appear in a
+  // trainee's homework.
+  //
+  // Prefers the `track` column (sql/training_days_track.sql). If that hasn't been
+  // run yet the whole query would fail on an unknown column and the page would
+  // show nothing, so it retries without it and falls back to the rule the track
+  // encodes: a presentation slide carries a real slide reference in `subject`
+  // ("Slide 1", "Slides 17–21"); the manager items carry a sentence.
   useEffect(() => {
+    const COLS = 'id, position, title, subject, on_slide, theme, point, script'
+    const isPresentation = (d) => /^Slides?\s*\d/.test(String(d.subject || '').trim())
     supabase
       .from('training_days')
-      .select('id, position, title, subject, on_slide, theme, point, script')
+      .select(COLS)
       .eq('status', 'active')
+      .eq('track', 'presentation')
       .order('position', { ascending: true })
-      .then(({ data, error }) => (error ? setErr(error.message) : setDays(data || [])))
+      .then(({ data, error }) => {
+        if (!error) return setDays(data || [])
+        supabase
+          .from('training_days')
+          .select(COLS)
+          .eq('status', 'active')
+          .order('position', { ascending: true })
+          .then(({ data: d2, error: e2 }) =>
+            e2 ? setErr(e2.message) : setDays((d2 || []).filter(isPresentation)))
+      })
   }, [])
 
   const rows = useMemo(
