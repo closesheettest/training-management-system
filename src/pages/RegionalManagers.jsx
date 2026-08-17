@@ -781,8 +781,9 @@ function mergeDeals(details) {
     if (d.jnid) e.jnids.add(d.jnid)
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     // 'unstatused' = the appointment date passed with nobody recording what
-    // happened. It is NOT a counted appointment, so don't badge it as one.
-    else if (d.kind === 'unstatused') { e.unstatused = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
+    // happened. It IS an appointment and shows as one here — it just doesn't
+    // count in the totals until the rep statuses it. The ⚠ flag marks it.
+    else if (d.kind === 'unstatused') { e.appt = true; e.unstatused = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     else { e.appt = true; if (!e.sale) { e.status = d.status; e.cat = d.cat } }
     byDeal.set(k, e)
   }
@@ -841,7 +842,7 @@ function ApptDetail({ details }) {
               return (
                 <Fragment key={i}>
                 <tr className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
-                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.unstatused && <span className="mr-1 rounded bg-red-100 px-1 font-bold text-red-700" title="Appointment date passed, nobody recorded what happened — not counted as an appointment, a sit or a no-sit.">UNSTATUSED</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
+                  <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
                   <td className={TD + ' text-slate-500'}>{e.cat === 'comp' ? 'IQ' : (e.cat || '').toUpperCase()}</td>
                   <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
@@ -927,7 +928,7 @@ function AllApptConversion() {
     rows.push(totRow('COMPANY TOTAL', data.totals))
     // Per-deal DETAIL — every appointment + sale behind the totals.
     const cat3 = (c) => c === 'comp' ? 'IQ' : (c || '').toUpperCase()
-    const detailRow = (z, rep, d) => [z, rep, d.kind === 'sale' ? 'SALE' : d.kind === 'unstatused' ? 'UNSTATUSED' : 'APPT', cat3(d.cat), d.customer || '', d.address || '', d.source || '', d.status || '', d.apptDate || '', d.sold || '', d.start || '', d.kind === 'sale' ? (d.amt || 0) : '', d.pitch || '', d.rb ? 'Y' : '', d.ins ? 'Y' : '']
+    const detailRow = (z, rep, d) => [z, rep, d.kind === 'sale' ? 'SALE' : 'APPT', cat3(d.cat), d.customer || '', d.address || '', d.source || '', d.status || '', d.apptDate || '', d.sold || '', d.start || '', d.kind === 'sale' ? (d.amt || 0) : '', d.pitch || '', d.rb ? 'Y' : '', d.ins ? 'Y' : '']
     rows.push([])
     rows.push(['DETAIL — every appointment & sale behind the totals'])
     rows.push(['Zone', 'Rep', 'Type', 'Bucket', 'Customer', 'Address', 'Source', 'Status', 'Appt', 'Sold', 'Start', '$', 'Pitch', 'RB', 'Insul'])
@@ -974,7 +975,7 @@ function AllApptConversion() {
     const detailRow = (e) => {
       const rs = fixReasonsFor(e)
       return `<tr${rs.length ? ' style="background:#fef9c3"' : ''}>`
-        + `<td>${e.appt ? '<b>APPT</b>' : ''}${e.unstatused ? '<b style="color:#b91c1c">UNSTATUSED</b>' : ''}${e.sale ? ' <b style="color:#047857">SALE</b>' : ''}</td>`
+        + `<td>${e.appt ? '<b>APPT</b>' : ''}${e.sale ? ' <b style="color:#047857">SALE</b>' : ''}</td>`
         + `<td>${e.cat === 'comp' ? 'IQ' : esc((e.cat || '').toUpperCase())}</td>`
         + `<td>${esc(e.customer || '')}${e.dupCount > 1 ? ` <b style="color:#b91c1c">(${e.dupCount} jobs)</b>` : ''}</td>`
         + `<td>${esc(e.address || '')}</td><td>${esc(e.source || '')}</td>`
@@ -1285,7 +1286,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
               </div>
             </div>
           )}
-          <div className="text-[11px] text-slate-500">An appointment is counted by the date of the actual sit — the day they went — and only once that date has passed (a sit booked for a future date isn't counted until it happens); free-inspection signings are excluded. Sales are counted in the week they close. Each category shows appointments then sales (count). Buckets: Harvest = harvested (Sales Rep Harvested = Yes) · IQ = company lead (Instant Quote / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ that bucket's SITS (can top 100% when a prior-week sit closes this week). NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — sold / re-sat · %; an overlay, not a 4th bucket. Sit % = sits ÷ appointments that came due — an appointment in a no-show / no-sit / refused status came due but never became a sit. Net % = funded sales ÷ SITS: a rep never had a chance to sell if it didn't sit, so no-shows don't count against their close rate. Gross % = funded sales + credit denials ÷ sits (a credit denial is a sale they couldn't finance). Pending = open deals still being worked (status Sit - Pending) with pending % of sits — a high pending % flags a rep slow to close. UNSTATUSED (red) = the appointment date passed and nobody recorded what happened — the job is still sitting at “Appointment Scheduled”. These are NOT counted as an appointment, a sit or a no-sit; they don’t exist in the numbers. Status them in JobNimbus and they drop straight in. Avg $/Sale = approved estimate ÷ sales.</div>
+          <div className="text-[11px] text-slate-500">An appointment is counted by the date of the actual sit — the day they went — and only once that date has passed (a sit booked for a future date isn't counted until it happens); free-inspection signings are excluded. Sales are counted in the week they close. Each category shows appointments then sales (count). Buckets: Harvest = harvested (Sales Rep Harvested = Yes) · IQ = company lead (Instant Quote / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ that bucket's SITS (can top 100% when a prior-week sit closes this week). NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — sold / re-sat · %; an overlay, not a 4th bucket. Sit % = sits ÷ appointments that came due — an appointment in a no-show / no-sit / refused status came due but never became a sit. Net % = funded sales ÷ SITS: a rep never had a chance to sell if it didn't sit, so no-shows don't count against their close rate. Gross % = funded sales + credit denials ÷ sits (a credit denial is a sale they couldn't finance). Pending = open deals still being worked (status Sit - Pending) with pending % of sits — a high pending % flags a rep slow to close. UNSTATUSED (red) = the appointment date passed and nobody recorded what happened — the job is still sitting at “Appointment Scheduled”. They ARE appointments and still show in the drill-down — they're just held OUT of the totals (not counted as an appointment, a sit or a no-sit) until the rep statuses the job. Status it in JobNimbus and it drops straight into the numbers. Avg $/Sale = approved estimate ÷ sales.</div>
         </div>
       )}
     </section>
