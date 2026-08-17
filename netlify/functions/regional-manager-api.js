@@ -154,6 +154,27 @@ async function fetchDoorDispatcherLinks() {
   } catch { return {} }
 }
 
+
+// A "visit" = the manager came back to the dashboard after being away for at
+// least VISIT_GAP_MIN. Anything inside that window is the same sitting.
+const VISIT_GAP_MIN = 30
+async function logDashboardVisit(supabase, managerId) {
+  if (!managerId) return
+  const now = new Date()
+  const { data: last } = await supabase
+    .from('manager_dashboard_visits')
+    .select('visited_at')
+    .eq('manager_id', managerId)
+    .order('visited_at', { ascending: false })
+    .limit(1)
+  const prev = last && last[0] && last[0].visited_at ? new Date(last[0].visited_at) : null
+  if (prev && now - prev < VISIT_GAP_MIN * 60000) return    // same sitting
+  const etDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now)
+  await supabase.from('manager_dashboard_visits').insert({
+    manager_id: managerId, visited_at: now.toISOString(), et_day: etDay,
+  })
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method Not Allowed' })
   if (!SB_URL || !SB_KEY) return json(500, { error: 'Missing SUPABASE env vars' })
@@ -185,6 +206,12 @@ export const handler = async (event) => {
   const region = manager.managed_region
 
   if (action === 'whoami') {
+    // Log that the manager opened their dashboard — a SESSION, not a page load.
+    // whoami fires on mount and again after most actions, so raw calls would
+    // read as 20 visits for one morning's work. Best-effort: a failure here must
+    // never stop the dashboard loading. Table: sql/manager_dashboard_visits.sql.
+    logDashboardVisit(supabase, manager.id).catch(() => {})
+
     // Active field reps in this region — same filter the admin page uses.
     // Includes non-active flags so the UI can render badges (info-updated,
     // unconfirmed rep level, etc.) without re-querying.

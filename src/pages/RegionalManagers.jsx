@@ -84,6 +84,8 @@ export default function RegionalManagers() {
   const [managers, setManagers] = useState(null)
   const [error, setError] = useState(null)
 
+  const [visits, setVisits] = useState({})
+
   useEffect(() => {
     load()
   }, [])
@@ -101,6 +103,30 @@ export default function RegionalManagers() {
       return
     }
     setManagers(data || [])
+    loadVisits()
+  }
+
+  // Dashboard usage — are they actually opening it? One row per SESSION (see
+  // sql/manager_dashboard_visits.sql); regional-manager-api won't log a second
+  // visit inside 30 minutes, so this is "times they came back", not page loads.
+  async function loadVisits() {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const { data, error } = await supabase
+      .from('manager_dashboard_visits')
+      .select('manager_id, et_day, visited_at')
+      .gte('et_day', since)
+    if (error) return                       // table not created yet → just don't show it
+    const etToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+    const d7 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+    const by = {}
+    for (const r of (data || [])) {
+      const v = (by[r.manager_id] = by[r.manager_id] || { today: 0, week: 0, month: 0, days7: new Set(), last: null })
+      v.month++
+      if (r.et_day === etToday) v.today++
+      if (r.et_day >= d7) { v.week++; v.days7.add(r.et_day) }
+      if (!v.last || r.visited_at > v.last) v.last = r.visited_at
+    }
+    setVisits(by)
   }
 
   return (
@@ -149,7 +175,7 @@ export default function RegionalManagers() {
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {managers.map((m) => (
-            <ManagerCard key={m.id} m={m} />
+            <ManagerCard key={m.id} m={m} usage={visits[m.id]} />
           ))}
         </div>
       )}
@@ -1586,7 +1612,7 @@ function ToolsetReference() {
   )
 }
 
-function ManagerCard({ m }) {
+function ManagerCard({ m, usage }) {
   const colors = ZONE_COLORS[m.managed_region] || { deep: '#64748b', light: '#f1f5f9' }
   const dashUrl = `${window.location.origin}/regional-manager/${m.manager_access_token}`
 
@@ -1606,6 +1632,38 @@ function ManagerCard({ m }) {
           {teamLabel(m.managed_region)}
         </span>
       </div>
+
+      {/* Are they actually using it? A dashboard nobody opens is a dashboard that
+          isn't doing its job — and the fix is a conversation, not more features.
+          A "visit" = they came back after 30+ minutes away, so this counts
+          sittings rather than page loads. */}
+      {usage && (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Dashboard usage
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-[13px] text-slate-700">
+              <b className={usage.today ? 'text-emerald-700' : 'text-red-600'}>{usage.today}</b> today
+            </span>
+            <span className="text-[13px] text-slate-700">
+              <b>{usage.week}</b> in 7 days
+              <span className="text-slate-400"> · {usage.days7.size}/7 days</span>
+            </span>
+            <span className="text-[13px] text-slate-700"><b>{usage.month}</b> in 30 days</span>
+            {usage.last && (
+              <span className="text-[11.5px] text-slate-500">
+                last: {new Date(usage.last).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {!usage && (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-700">
+          Hasn't opened their dashboard in the last 30 days.
+        </div>
+      )}
 
       {/* Private dashboard link — the "where do I go again?" answer. */}
       <div className="mt-4">

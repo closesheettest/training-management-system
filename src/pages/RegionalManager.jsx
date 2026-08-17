@@ -162,6 +162,7 @@ export default function RegionalManager() {
       </div>
 
       <Group title="⭐ Today's work" defaultOpen>
+        <NewTrainees reps={reps} />
         <CancelReviews zone={manager.region} />
         <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
         <AssignAppointments token={token} />
@@ -1546,6 +1547,65 @@ function DamageRestore({ zone }) {
             )}
           </div>
         )}
+      </div>
+    </section>
+  )
+}
+
+// ── Pre-graduation trainees in this zone ────────────────────────────────────
+// From Wednesday of Week A a trainee is in the field, and they are THIS
+// manager's to work with — but they aren't a rep yet. They come back from
+// regional-manager-api with pregrad:true (is_field_trainee, not yet an active
+// sales rep) and are deliberately excluded from the contest divisor and
+// Managers Pay, so they can sit in Today's work without distorting any number.
+//
+// Placed first: a person waiting to hear from you outranks paperwork.
+function NewTrainees({ reps }) {
+  const pregrads = (reps || []).filter((r) => r.pregrad)
+  if (!pregrads.length) return null
+  const tel = (p) => String(p || '').replace(/[^\d+]/g, '')
+  return (
+    <section className="mb-6">
+      <h2 className="mb-1 text-lg font-semibold text-white">
+        🎓 New trainees in your zone <span className="text-amber-300">({pregrads.length})</span>
+      </h2>
+      <p className="mb-2 text-xs leading-relaxed text-slate-200/75">
+        They're in field training right now — still in class, not graduated. <strong>Reach out and get them
+        working with you.</strong> They don't count in the contest or your pay yet; they will the day they graduate.
+      </p>
+      <div className="space-y-2">
+        {pregrads.map((r) => (
+          <div key={r.id} className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-[15px] font-bold text-white">{r.first_name} {r.last_name}</span>
+              <span className="rounded bg-amber-400/25 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-amber-100">
+                In training
+              </span>
+            </div>
+            {(r.city || r.state) && (
+              <div className="mt-0.5 text-[11.5px] text-slate-200/70">
+                {[r.city, r.state].filter(Boolean).join(', ')}{r.zip ? ` ${r.zip}` : ''}
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {r.phone && (
+                <>
+                  <a href={`tel:${tel(r.phone)}`}
+                     className="rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-bold text-white">📞 Call</a>
+                  <a href={`sms:${tel(r.phone)}`}
+                     className="rounded-md bg-sky-500 px-2.5 py-1 text-[12px] font-bold text-white">💬 Text</a>
+                </>
+              )}
+              {r.door_dispatcher_link && (
+                <a href={r.door_dispatcher_link} target="_blank" rel="noreferrer"
+                   className="rounded-md border border-slate-400/50 px-2.5 py-1 text-[12px] font-bold text-slate-100">
+                  🗺️ Their map
+                </a>
+              )}
+              {!r.phone && <span className="text-[12px] font-semibold text-red-300">No phone on file</span>}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )
