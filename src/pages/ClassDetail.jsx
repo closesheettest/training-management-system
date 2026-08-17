@@ -1216,7 +1216,7 @@ export default function ClassDetail() {
 
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
 
-      {!cls.attendance_only && <ZoneAssignments trainees={trainees} onSaved={load} />}
+      {!cls.attendance_only && <ZoneAssignments trainees={trainees} cls={cls} onSaved={load} />}
 
       {/* People who stopped turning up are no longer part of this class's roster.
           Neal: "I don't care about these people, they're dead to me — I don't
@@ -2606,8 +2606,16 @@ function ViewDocs({ traineeId }) {
 // Wednesday. Neal assigns; the suggestion is only ever a default.
 //
 // Goes quiet once everyone has a zone — one green line instead of a panel.
-function ZoneAssignments({ trainees, onSaved }) {
+function ZoneAssignments({ trainees, cls, onSaved }) {
   const people = (trainees || []).filter((t) => !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+  // Not before TUESDAY (Day 2). Neal assigns zones off who actually SIGNED IN,
+  // not off who registered — Monday's roster still includes people who never
+  // turn up, and zoning a no-show puts a ghost on a manager's team. Day 2 is
+  // also when provisioning fires, so it's one sitting: emails + zones together,
+  // a day before field training starts Wednesday.
+  const day2 = cls && cls.week_start_date ? addDaysIso(cls.week_start_date, 1) : null
+  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+  const openYet = !!day2 && todayIso >= day2
   const [suggested, setSuggested] = useState({})   // trainee id -> { zone, county, split }
   const [saving, setSaving] = useState(null)
   const [err, setErr] = useState('')
@@ -2615,6 +2623,7 @@ function ZoneAssignments({ trainees, onSaved }) {
   // Suggest a zone for anyone who hasn't got one. County first (already on the
   // record for some), otherwise geocode the home address to find it.
   useEffect(() => {
+    if (!openYet) return
     let live = true
     const need = people.filter((t) => !t.region)
     for (const t of need) {
@@ -2636,7 +2645,7 @@ function ZoneAssignments({ trainees, onSaved }) {
         .catch(() => { if (live) setSuggested((m) => ({ ...m, [t.id]: { zone: null } })) })
     }
     return () => { live = false }
-  }, [people.map((t) => t.id + ':' + (t.region || '')).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [openYet, people.map((t) => t.id + ':' + (t.region || '')).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const assign = async (t, zone) => {
     setSaving(t.id); setErr('')
@@ -2649,7 +2658,7 @@ function ZoneAssignments({ trainees, onSaved }) {
     setSaving(null)
   }
 
-  if (!people.length) return null
+  if (!people.length || !openYet) return null
   const unassigned = people.filter((t) => !t.region)
 
   if (!unassigned.length) {
@@ -2668,7 +2677,7 @@ function ZoneAssignments({ trainees, onSaved }) {
         </h2>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-slate-600">
-        Field training starts <b>Wednesday</b>. A trainee with no zone never shows up on their regional
+        Assign from whoever <b>signed in today</b>. Field training starts <b>tomorrow</b>, and a trainee with no zone never shows up on their regional
         manager&rsquo;s team or map, so nobody works with them. The suggestion is based on their home address —
         change it if you want them somewhere else.
       </p>
