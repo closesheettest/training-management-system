@@ -43,6 +43,7 @@ import RegionalManagers from './pages/RegionalManagers.jsx'
 import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import TrainingDays from './pages/TrainingDays.jsx'
+import SlidePoints from './pages/SlidePoints.jsx'
 import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
 import HomeworkSlides from './pages/HomeworkSlides.jsx'
@@ -169,6 +170,9 @@ export default function App() {
           <Route path="/hosted-pages" element={<RouteGate pageKey="settings.hosted_pages"><HostedPages /></RouteGate>} />
           <Route path="/training-week" element={<RouteGate pageKey="setup.training_week"><TrainingWeek /></RouteGate>} />
           <Route path="/ongoing-training" element={<RouteGate pageKey="setup.training_days"><TrainingDays /></RouteGate>} />
+          {/* Bulk editor for the points on every slide — the checklist trainees
+              see and the source of the daily sign-in test. */}
+          <Route path="/slide-points" element={<RouteGate pageKey="setup.training_days"><SlidePoints /></RouteGate>} />
           <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
         </Route>
       </Routes>
