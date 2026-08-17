@@ -1267,11 +1267,22 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                   <span><span className="text-[10px] uppercase opacity-70">Avg/Sale</span> <b>${(data.totals.avg || 0).toLocaleString()}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">RB</span> <b>{data.totals.rb}</b> <span className="text-[11px] opacity-70">({data.totals.rb_pct}%)</span></span>
                   <span><span className="text-[10px] uppercase opacity-70">Insul</span> <b>{data.totals.ins}</b> <span className="text-[11px] opacity-70">({data.totals.ins_pct}%)</span></span>
+                  {/* UNSTATUSED — appointments whose date passed with nobody recording
+                      what happened. Deliberately OUTSIDE every number to its left: not
+                      an appointment, not a sit, not a no-sit. Red so it reads as work
+                      owed, not a stat. It clears itself the moment someone statuses
+                      the job, and then the deal joins the numbers normally. */}
+                  {data.totals.unstatused > 0 && (
+                    <span className="ml-auto rounded bg-red-500/15 px-2 py-0.5" title="Past appointments still sitting at “Appointment Scheduled” — nobody recorded what happened. Not counted as an appointment, a sit, or a no-sit. Status them in JobNimbus and they'll drop into the numbers.">
+                      <span className="text-[10px] font-bold uppercase text-red-300">Unstatused</span>{' '}
+                      <b className="text-base text-red-300">{data.totals.unstatused}</b>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
           )}
-          <div className="text-[11px] text-slate-500">An appointment is counted by the date of the actual sit — the day they went — and only once that date has passed (a sit booked for a future date isn't counted until it happens); free-inspection signings are excluded. Sales are counted in the week they close. Each category shows appointments then sales (count). Buckets: Harvest = harvested (Sales Rep Harvested = Yes) · IQ = company lead (Instant Quote / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ that bucket's SITS (can top 100% when a prior-week sit closes this week). NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — sold / re-sat · %; an overlay, not a 4th bucket. Sit % = sits ÷ appointments that came due — an appointment in a no-show / no-sit / refused status came due but never became a sit. Net % = funded sales ÷ SITS: a rep never had a chance to sell if it didn't sit, so no-shows don't count against their close rate. Gross % = funded sales + credit denials ÷ sits (a credit denial is a sale they couldn't finance). Pending = open deals still being worked (status Sit - Pending) with pending % of sits — a high pending % flags a rep slow to close. Avg $/Sale = approved estimate ÷ sales.</div>
+          <div className="text-[11px] text-slate-500">An appointment is counted by the date of the actual sit — the day they went — and only once that date has passed (a sit booked for a future date isn't counted until it happens); free-inspection signings are excluded. Sales are counted in the week they close. Each category shows appointments then sales (count). Buckets: Harvest = harvested (Sales Rep Harvested = Yes) · IQ = company lead (Instant Quote / AI Bot / FB…) · BTR = back-to-retail (from an inspection). Each %  = that bucket's sales ÷ that bucket's SITS (can top 100% when a prior-week sit closes this week). NSR = no-sit recovery: of re-booked sits (a "No Sit — Need to Reschedule" that got back on the calendar and re-sat), how many closed — sold / re-sat · %; an overlay, not a 4th bucket. Sit % = sits ÷ appointments that came due — an appointment in a no-show / no-sit / refused status came due but never became a sit. Net % = funded sales ÷ SITS: a rep never had a chance to sell if it didn't sit, so no-shows don't count against their close rate. Gross % = funded sales + credit denials ÷ sits (a credit denial is a sale they couldn't finance). Pending = open deals still being worked (status Sit - Pending) with pending % of sits — a high pending % flags a rep slow to close. UNSTATUSED (red) = the appointment date passed and nobody recorded what happened — the job is still sitting at “Appointment Scheduled”. These are NOT counted as an appointment, a sit or a no-sit; they don’t exist in the numbers. Status them in JobNimbus and they drop straight in. Avg $/Sale = approved estimate ÷ sales.</div>
         </div>
       )}
     </section>
