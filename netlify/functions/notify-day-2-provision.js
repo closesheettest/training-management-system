@@ -47,7 +47,7 @@ export const handler = async (event) => {
 
   const { data: candidates, error: clsErr } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, week_end_date, day_2_it_notified_at, locations(name), attendance(attendance_date, confirmed)')
+    .select('id, region, week_start_date, week_end_date, day_2_it_notified_at, locations(name), attendance(attendance_date, confirmed), trainees!class_id(first_name, last_name, region, enrolled, declined_at, dropped_out_at)')
     .is('day_2_it_notified_at', null)
     .is('cancelled_at', null)
     .eq('attendance_only', false)
@@ -82,14 +82,33 @@ export const handler = async (event) => {
     const triggerLabel =
       hasSignIn ? 'Day 2 trainees have started checking in.' : 'Day 2 is underway.'
 
+    // ZONES. Field training starts WEDNESDAY, and a regional manager only sees a
+    // trainee once they have a zone (rep-zones places pre-grads by their region).
+    // Day 2 is the moment to settle it, so the provisioning notice carries the
+    // state of play and nags only when someone is still unassigned.
+    const roster = (cls.trainees || []).filter(
+      (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at,
+    )
+    const noZone = roster.filter((t) => !t.region)
+    const zoneLine = roster.length === 0
+      ? ''
+      : noZone.length === 0
+        ? `Zones: all ${roster.length} assigned.`
+        : `Zones: ${noZone.length} of ${roster.length} NOT assigned yet — ` +
+          `${noZone.map((t) => `${t.first_name} ${t.last_name}`.trim()).join(', ')}. ` +
+          `They won't show up for their manager on Wednesday until they have one.`
+    const classLink = siteUrl ? `${siteUrl}/classes/${cls.id}` : `/classes/${cls.id}`
+
     const smsBody =
       `[Training] ${triggerLabel} Time to create company emails for ${cls.region} · ${locationName}. ` +
-      `Open the Provision page and click "Mark provisioning complete" when done: ${link}`
+      `Open the Provision page and click "Mark provisioning complete" when done: ${link}` +
+      (zoneLine ? ` — ${zoneLine}` : '')
     const emailSubject = `Create company emails for ${cls.region} (week of ${cls.week_start_date})`
     const emailBody =
       `${triggerLabel}\n\n` +
       `Time to create company emails for ${cls.region} · ${locationName} (week of ${cls.week_start_date}).\n\n` +
       `Open the Provision page and click "Mark provisioning complete" when done:\n${link}\n\n` +
+      (zoneLine ? `${zoneLine}\nAssign zones on the class page:\n${classLink}\n\n` : '') +
       `— Training System`
 
     const { recipients, source } = await recipientsForEvent(supabase, 'day_2_provision_due', {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
-import { ZONE_TEAMS, teamLabel, zoneForCounty } from '../lib/zones.js'
+import { ZONE_TEAMS, ZONE_COUNTIES, teamLabel, zoneForCounty } from '../lib/zones.js'
 import { formatDateRange, formatDateLong, addDaysIso } from '../lib/dates.js'
 import { useTimetable, shortLine, weekWindow } from '../lib/schedule.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
@@ -1215,6 +1215,8 @@ export default function ClassDetail() {
       <RosterSummary summary={summary} />
 
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
+
+      {!cls.attendance_only && <ZoneAssignments trainees={trainees} onSaved={load} />}
 
       {/* People who stopped turning up are no longer part of this class's roster.
           Neal: "I don't care about these people, they're dead to me — I don't
@@ -2589,6 +2591,131 @@ function ViewDocs({ traineeId }) {
       className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
       {busy ? 'opening…' : 'view documents'}
     </button>
+  )
+}
+
+// ── Zone assignments ────────────────────────────────────────────────────────
+// Field training starts WEDNESDAY of Week A, and a regional manager can only
+// work with a trainee who is in their zone. `rep-zones` reads a trainee's
+// `region` to place pre-grads on the manager's team dashboard and the harvest
+// map — so no zone means the manager never sees them turn up.
+//
+// The suggestion machinery already existed but was buried inside the Edit
+// trainee modal, firing once, only when a trainee had no zone. Here it's on the
+// class page where the whole cohort can be assigned in one pass, before
+// Wednesday. Neal assigns; the suggestion is only ever a default.
+//
+// Goes quiet once everyone has a zone — one green line instead of a panel.
+function ZoneAssignments({ trainees, onSaved }) {
+  const people = (trainees || []).filter((t) => !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+  const [suggested, setSuggested] = useState({})   // trainee id -> { zone, county, split }
+  const [saving, setSaving] = useState(null)
+  const [err, setErr] = useState('')
+
+  // Suggest a zone for anyone who hasn't got one. County first (already on the
+  // record for some), otherwise geocode the home address to find it.
+  useEffect(() => {
+    let live = true
+    const need = people.filter((t) => !t.region)
+    for (const t of need) {
+      if (suggested[t.id]) continue
+      const fromCounty = (c) => {
+        const hit = c ? zoneForCounty(c) : null
+        if (!hit) return null
+        return { zone: hit.zones[0], county: c, split: hit.split }
+      }
+      const local = fromCounty(t.county)
+      if (local) { setSuggested((m) => ({ ...m, [t.id]: local })); continue }
+      if (!t.street_address && !t.city && !t.zip) { setSuggested((m) => ({ ...m, [t.id]: { zone: null } })); continue }
+      fetch('/.netlify/functions/suggest-zone', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ street_address: t.street_address, city: t.city, state: t.state, zip: t.zip }),
+      })
+        .then((r) => r.json())
+        .then((j) => { if (live) setSuggested((m) => ({ ...m, [t.id]: fromCounty(j && j.county) || { zone: null, county: (j && j.county) || null } })) })
+        .catch(() => { if (live) setSuggested((m) => ({ ...m, [t.id]: { zone: null } })) })
+    }
+    return () => { live = false }
+  }, [people.map((t) => t.id + ':' + (t.region || '')).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const assign = async (t, zone) => {
+    setSaving(t.id); setErr('')
+    const patch = { region: zone || null }
+    const c = suggested[t.id] && suggested[t.id].county
+    if (zone && c && !t.county) patch.county = c        // keep the county we looked up
+    const { error } = await supabase.from('trainees').update(patch).eq('id', t.id)
+    if (error) setErr(error.message)
+    else if (onSaved) await onSaved()
+    setSaving(null)
+  }
+
+  if (!people.length) return null
+  const unassigned = people.filter((t) => !t.region)
+
+  if (!unassigned.length) {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-semibold text-emerald-800">
+        ✅ Everyone has a zone — their managers will see them when field training starts Wednesday.
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-slate-900">
+          🗺️ Assign zones — {unassigned.length} of {people.length} still need one
+        </h2>
+      </div>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-slate-600">
+        Field training starts <b>Wednesday</b>. A trainee with no zone never shows up on their regional
+        manager&rsquo;s team or map, so nobody works with them. The suggestion is based on their home address —
+        change it if you want them somewhere else.
+      </p>
+      {err && <p className="mt-2 text-[12.5px] font-semibold text-red-700">{err}</p>}
+      <div className="mt-3 space-y-2">
+        {people.map((t) => {
+          const sug = suggested[t.id]
+          const where = [t.city, t.state].filter(Boolean).join(', ')
+          return (
+            <div key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-slate-200 bg-white px-3 py-2">
+              <div className="min-w-[150px] flex-1">
+                <div className="text-[13.5px] font-semibold text-slate-900">{t.first_name} {t.last_name}</div>
+                <div className="text-[11.5px] text-slate-500">
+                  {where || 'no address on file'}{t.zip ? ` ${t.zip}` : ''}
+                  {sug && sug.county ? ` · ${sug.county} County` : ''}
+                </div>
+              </div>
+              {!t.region && sug && sug.zone && (
+                <button
+                  type="button"
+                  disabled={saving === t.id}
+                  onClick={() => assign(t, sug.zone)}
+                  className="rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-[12px] font-bold text-indigo-700 disabled:opacity-50"
+                  title={sug.split ? 'This county is split between two zones — check before accepting' : ''}
+                >
+                  Use {teamLabel(sug.zone)}{sug.split ? ' ⚠' : ''}
+                </button>
+              )}
+              {!t.region && sug && !sug.zone && (
+                <span className="text-[11.5px] font-semibold text-amber-700">no suggestion — pick one</span>
+              )}
+              <select
+                value={t.region || ''}
+                disabled={saving === t.id}
+                onChange={(e) => assign(t, e.target.value)}
+                className="rounded-md border border-slate-300 px-2 py-1 text-[12.5px]"
+              >
+                <option value="">— no zone —</option>
+                {Object.keys(ZONE_COUNTIES).map((z) => (
+                  <option key={z} value={z}>{teamLabel(z)}</option>
+                ))}
+              </select>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
