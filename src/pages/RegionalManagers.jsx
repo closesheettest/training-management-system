@@ -1651,15 +1651,15 @@ function ManagerCard({ m, usage }) {
             <div>
               Today:{' '}
               <b className={usage.today ? 'text-emerald-700' : 'text-red-600'}>
-                {usage.today ? `opened ${usage.today}\u00d7` : 'not opened'}
+                {usage.today ? `opened ${usage.today} ${usage.today === 1 ? 'time' : 'times'}` : 'not opened'}
               </b>
             </div>
             <div>
-              Last 7 days: <b>opened {usage.week}\u00d7</b>
+              Last 7 days: <b>opened {usage.week} {usage.week === 1 ? 'time' : 'times'}</b>
               <span className="text-slate-500"> on {usage.days7.size} of 7 days</span>
             </div>
             <div>
-              Last 30 days: <b>opened {usage.month}\u00d7</b>
+              Last 30 days: <b>opened {usage.month} {usage.month === 1 ? 'time' : 'times'}</b>
             </div>
             {usage.last && (
               <div className="text-slate-500">
