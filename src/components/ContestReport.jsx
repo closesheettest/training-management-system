@@ -86,6 +86,12 @@ export default function ContestReport() {
             <span className="self-center text-xs text-slate-500">
               {loading ? 'Loading…' : data ? `${data.window.label}${data.window.range ? ' · ' + data.window.range : ''} · Wed + Thu only, Eastern` : ''}
             </span>
+            {data && data.frozen && (
+              <span className="self-center rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white"
+                    title={`Final — snapshotted ${new Date(data.frozen_at).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET. Roster changes after the week closed cannot move it.`}>
+                🔒 Final
+              </span>
+            )}
           </div>
           {err && <div className="mb-2 text-xs text-red-600">{err}</div>}
 
@@ -179,7 +185,10 @@ export default function ContestReport() {
                 )
               })()}
               <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
-                Points are earned on <b>Wednesday and Thursday only</b>{data.window.range ? <> — this window is <b>{data.window.range}</b>, Eastern</> : null}. Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
+                Points are earned on <b>Wednesday and Thursday only</b>{data.window.range ? <> — this window is <b>{data.window.range}</b>, Eastern</> : null}.
+                {data.frozen
+                  ? <> This week is <b>final</b> — it was snapshotted when it closed, so changing a rep&rsquo;s status today can&rsquo;t move it.</>
+                  : <> This week is <b>still live</b> — roster changes affect it until it closes.</>} Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
               </div>
             </div>
           )}
