@@ -4,7 +4,8 @@
 //   - Computes day 2 = week_start_date + 1
 //   - If today is day 2 and day_2_it_notified_at IS NULL:
 //       * If any trainee has signed in today, fire NOW.
-//       * Else if Florida-local hour >= 11, fire as fallback.
+//       * Else if we're past the cohort's own class start + 30 min, fire as
+//         fallback (see the note on the gate below — NOT a fixed hour).
 //       * Else skip.
 //   - On fire: notify subscribers of event 'day_2_provision_due', stamp
 //     day_2_it_notified_at to dedup.
@@ -19,8 +20,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { recipientsForEvent } from './_recipients.js'
 import { notifyAll } from './_notify.js'
-
-const FALLBACK_HOUR = 11
+import { loadStartHours, alertHourET } from './_schedule.js'
 
 export const handler = async (event) => {
   const provided =
@@ -43,6 +43,7 @@ export const handler = async (event) => {
   const currentHour = params.hour !== undefined ? Number(params.hour) : computeFloridaHour()
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  const startHours = await loadStartHours(supabase)
   const siteUrl = (process.env.PUBLIC_SITE_URL || process.env.URL || process.env.DEPLOY_URL || '').replace(/\/$/, '')
 
   const { data: candidates, error: clsErr } = await supabase
@@ -64,7 +65,20 @@ export const handler = async (event) => {
     const hasSignIn = (cls.attendance || []).some(
       (a) => a.attendance_date === today && a.confirmed,
     )
-    const pastFallback = currentHour >= FALLBACK_HOUR
+    // The fallback was a hardcoded 11 AM, written when training was one week
+    // that started at 10. Under the two-week schedule Week A's TUESDAY — which
+    // is day 2 — doesn't start until 2 PM, so 11 AM fired three hours before
+    // the cohort it's about had walked in the door. The only people signing in
+    // at that hour were the WEEK B cohort, which is exactly what it looked
+    // like it was reacting to (Neal, 2026-08-18).
+    //
+    // Use the cohort's own start hour plus the same 30-minute grace the
+    // no-show crons use, read from the live timetable — so this can't drift
+    // from the hours trainees are actually told, and a noon LATE_START_DATES
+    // day holds it back too. No class day for this cohort → no fallback at
+    // all; only a real sign-in fires it.
+    const fallbackHour = alertHourET(cls.week_start_date, today, startHours)
+    const pastFallback = fallbackHour != null && currentHour >= fallbackHour
     const shouldFire = hasSignIn || pastFallback
     if (!shouldFire) {
       results.push({
@@ -72,7 +86,9 @@ export const handler = async (event) => {
         region: cls.region,
         location: cls.locations?.name || null,
         fired: false,
-        reason: `Waiting for first sign-in or ${FALLBACK_HOUR}:00 fallback (current hour: ${currentHour})`,
+        reason: fallbackHour == null
+          ? `No classroom day for this cohort — waiting for a real sign-in (current hour: ${currentHour})`
+          : `Waiting for first sign-in or the ${fallbackHour}:00 fallback (current hour: ${currentHour})`,
       })
       continue
     }
@@ -188,9 +204,10 @@ function computeFloridaToday() {
 function computeFloridaHour() {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
-    hour: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', hour12: false,
   })
-  return Number(fmt.format(new Date()))
+  const [h, m] = fmt.format(new Date()).split(':').map(Number)
+  return (h === 24 ? 0 : h) + (m || 0) / 60
 }
 
 function addDaysIso(iso, days) {
