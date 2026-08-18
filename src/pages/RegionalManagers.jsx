@@ -1642,19 +1642,29 @@ function ManagerCard({ m, usage }) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Dashboard usage
           </div>
-          <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <span className="text-[13px] text-slate-700">
-              <b className={usage.today ? 'text-emerald-700' : 'text-red-600'}>{usage.today}</b> today
-            </span>
-            <span className="text-[13px] text-slate-700">
-              <b>{usage.week}</b> in 7 days
-              <span className="text-slate-400"> · {usage.days7.size}/7 days</span>
-            </span>
-            <span className="text-[13px] text-slate-700"><b>{usage.month}</b> in 30 days</span>
+          {/* Spelled out. "2 in 7 days · 1/7 days" read as a contradiction — two
+              different measures side by side with no words between them. Times
+              opened and days shown up are both worth knowing (10 visits on one
+              Monday is not the same as 10 across the week), so say which is
+              which. */}
+          <div className="mt-1 space-y-0.5 text-[13px] text-slate-700">
+            <div>
+              Today:{' '}
+              <b className={usage.today ? 'text-emerald-700' : 'text-red-600'}>
+                {usage.today ? `opened ${usage.today}\u00d7` : 'not opened'}
+              </b>
+            </div>
+            <div>
+              Last 7 days: <b>opened {usage.week}\u00d7</b>
+              <span className="text-slate-500"> on {usage.days7.size} of 7 days</span>
+            </div>
+            <div>
+              Last 30 days: <b>opened {usage.month}\u00d7</b>
+            </div>
             {usage.last && (
-              <span className="text-[11.5px] text-slate-500">
-                last: {new Date(usage.last).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-              </span>
+              <div className="text-slate-500">
+                Last opened {new Date(usage.last).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </div>
             )}
           </div>
         </div>
