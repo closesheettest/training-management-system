@@ -48,7 +48,7 @@ export const handler = async (event) => {
 
   const { data: candidates, error: clsErr } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, week_end_date, day_2_it_notified_at, locations(name), attendance(attendance_date, confirmed), trainees!class_id(first_name, last_name, region, enrolled, declined_at, dropped_out_at)')
+    .select('id, region, week_start_date, week_end_date, day_2_it_notified_at, locations(name), attendance(attendance_date, confirmed), trainees!class_id(first_name, last_name, region, enrolled, declined_at, dropped_out_at, attendance(attendance_date, confirmed))')
     .is('day_2_it_notified_at', null)
     .is('cancelled_at', null)
     .eq('attendance_only', false)
@@ -106,6 +106,19 @@ export const handler = async (event) => {
       (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at,
     )
     const noZone = roster.filter((t) => !t.region)
+    // WHO to provision. Two cohorts are in the building in any given week —
+    // Week A here for day 2, and last week's cohort back for Week B — and Week
+    // B already got their emails last week. Naming the people who actually
+    // signed in today is the difference between IT knowing exactly who to set
+    // up and IT guessing which class this is about (Neal, 2026-08-18).
+    const presentToday = roster.filter((t) =>
+      (t.attendance || []).some((a) => a.attendance_date === today && a.confirmed),
+    )
+    const nameOf = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
+    const whoLine = presentToday.length
+      ? `Signed in today (${presentToday.length} of ${roster.length}): ${presentToday.map(nameOf).join(', ')}.`
+      : `Nobody has signed in yet — set up the ${roster.length} enrolled, or wait for the sign-in list on the Provision page.`
+
     const zoneLine = roster.length === 0
       ? ''
       : noZone.length === 0
@@ -117,12 +130,16 @@ export const handler = async (event) => {
 
     const smsBody =
       `[Training] ${triggerLabel} Time to create company emails for ${cls.region} · ${locationName}. ` +
+      `${whoLine} ` +
       `Open the Provision page and click "Mark provisioning complete" when done: ${link}` +
       (zoneLine ? ` — ${zoneLine}` : '')
-    const emailSubject = `Create company emails for ${cls.region} (week of ${cls.week_start_date})`
+    const emailSubject =
+      `Create company emails for ${cls.region} — Week A, ${presentToday.length || roster.length} trainee` +
+      `${(presentToday.length || roster.length) === 1 ? '' : 's'} (week of ${cls.week_start_date})`
     const emailBody =
       `${triggerLabel}\n\n` +
       `Time to create company emails for ${cls.region} · ${locationName} (week of ${cls.week_start_date}).\n\n` +
+      `${whoLine}\n\n` +
       `Open the Provision page and click "Mark provisioning complete" when done:\n${link}\n\n` +
       (zoneLine ? `${zoneLine}\nAssign zones on the class page:\n${classLink}\n\n` : '') +
       `— Training System`
