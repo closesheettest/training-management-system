@@ -45,6 +45,11 @@ export default function ContestReport() {
   const pick = (w) => { setWin(w); load(w) }
   const fmtDay = (s) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) } catch { return s } }
 
+  // Dates on the pills, straight from the feed's own week list, so which days a
+  // week covers is never a guess. Falls back to plain "Wk N" before first load.
+  const weeks = (data && data.weeks) || []
+  const wkRange = (n) => (weeks.find((w) => w.no === Number(n)) || {}).range || ''
+  const notStarted = (n) => weeks.length > 0 && (weeks.find((w) => w.no === Number(n)) || {}).started === false
   const WINDOWS = [
     { k: 'active', label: 'Current week' }, { k: '7', label: 'Last 7 days' },
     { k: '1', label: 'Wk 1' }, { k: '2', label: 'Wk 2' }, { k: '3', label: 'Wk 3' }, { k: '4', label: 'Wk 4' },
@@ -64,13 +69,23 @@ export default function ContestReport() {
       {open && (
         <div className="mt-3">
           <div className="mb-3 flex flex-wrap gap-2">
-            {WINDOWS.map((w) => (
-              <button key={w.k} type="button" onClick={() => pick(w.k)}
-                className={'rounded-full px-3 py-1 text-xs font-semibold ' + (win === w.k ? 'bg-[#b45309] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-300')}>
-                {w.label}
-              </button>
-            ))}
-            <span className="self-center text-xs text-slate-500">{loading ? 'Loading…' : data ? data.window.label : ''}</span>
+            {WINDOWS.map((w) => {
+              const range = wkRange(w.k)
+              const future = notStarted(w.k)
+              return (
+                <button key={w.k} type="button" onClick={() => pick(w.k)} disabled={future}
+                  title={future ? "Hasn't happened yet" : range ? `${w.label} · ${range} ET` : ''}
+                  className={'rounded-full px-3 py-1 text-xs font-semibold ' + (win === w.k
+                    ? 'bg-[#b45309] text-white'
+                    : future ? 'bg-slate-50 text-slate-300 ring-1 ring-slate-200'
+                             : 'bg-white text-slate-600 ring-1 ring-slate-300')}>
+                  {w.label}{range ? <span className="ml-1 font-normal opacity-70">{range}</span> : null}
+                </button>
+              )
+            })}
+            <span className="self-center text-xs text-slate-500">
+              {loading ? 'Loading…' : data ? `${data.window.label}${data.window.range ? ' · ' + data.window.range : ''} · Wed + Thu only, Eastern` : ''}
+            </span>
           </div>
           {err && <div className="mb-2 text-xs text-red-600">{err}</div>}
 
@@ -164,7 +179,7 @@ export default function ContestReport() {
                 )
               })()}
               <div className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-500">
-                Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
+                Points are earned on <b>Wednesday and Thursday only</b>{data.window.range ? <> — this window is <b>{data.window.range}</b>, Eastern</> : null}. Columns are <b>counts</b> of each attribute. The ramp runs <b>per attribute type</b>: the first 2 of a type each day are 1 pt each, the 3rd and on of that type are 2 pts — plus <b>6 per roof sold</b>. Tap a rep to see the per-day math.
               </div>
             </div>
           )}
