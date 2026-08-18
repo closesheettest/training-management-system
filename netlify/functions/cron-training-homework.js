@@ -222,6 +222,7 @@ export const handler = async (event) => {
       // Compose message. Link gets appended on its own line so phones
       // render it as a tappable preview card.
       const firstName = t.first_name || 'there'
+      const lastName = t.last_name || ''
       const personalBody = body.replace(/\{firstName\}/g, firstName)
       const link = (lesson.homework_link_url || '').trim()
       const absoluteLink = link
@@ -238,7 +239,7 @@ export const handler = async (event) => {
         try { const er = await sendEmail(t.email, `Your Day ${dayNumber} homework — U.S. Shingle & Metal`, message + loginBlock(t)); if (er && er.ok !== false) { channels.push('email'); emailId = er.id || null } } catch { /* best-effort */ }
       }
       if (t.phone) {
-        const smsRes = await sendSmsViaGhl(t.phone, message, { firstName, lastName: 'Homework' })
+        const smsRes = await sendSmsViaGhl(t.phone, message, { firstName, lastName })
         if (smsRes.ok) { channels.push('sms'); smsMessageId = smsRes.messageId || null }
         else errors.push({ trainee_id: t.id, error: smsRes.error })
       }

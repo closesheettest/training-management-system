@@ -58,6 +58,7 @@ export const handler = async (event) => {
   // 4. Compose + send by BOTH email and SMS (email reaches trainees whose SMS
   //    is blocked/opted-out in GHL — the Lisa case).
   const firstName = trainee.first_name || 'there'
+  const lastName = trainee.last_name || ''
   const personal = homeworkBody.replace(/\{firstName\}/g, firstName)
   const link = (lesson.homework_link_url || '').trim()
   const absLink = link ? (link.startsWith('http') ? link : siteUrl + (link.startsWith('/') ? link : '/' + link)) : ''
@@ -74,7 +75,7 @@ export const handler = async (event) => {
     } catch (e) { errors.push('email: ' + (e.message || 'error')) }
   }
   if (trainee.phone) {
-    const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName: 'Homework' })
+    const smsRes = await sendSmsViaGhl(trainee.phone, message, { firstName, lastName })
     if (smsRes.ok) { channels.push('sms'); messageId = smsRes.messageId || null }
     else errors.push('sms: ' + (smsRes.error || 'failed'))
   }
