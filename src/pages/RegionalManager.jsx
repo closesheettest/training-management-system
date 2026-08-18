@@ -908,6 +908,11 @@ function HarvestDetail({ z }) {
 // Teams rank by AVERAGE points per rep, not raw points — a big team can't win
 // on headcount alone.
 //
+// Week 1–4 tabs, the same four contest weeks the admin audit report exposes via
+// ?week= — a manager can look back at a finished week instead of only whichever
+// one is current (Neal, 2026-08-18). Weeks that haven't happened yet are shown
+// but not selectable.
+//
 // ALWAYS asks for preview=1. app_settings.contest_enabled is the switch that
 // keeps the board off the REPS' dashboard between contests — it was never meant
 // to blind the managers, but it did: with the toggle off the feed returns no
@@ -918,24 +923,29 @@ function HarvestDetail({ z }) {
 // standings to look at, and reps still see nothing until the toggle flips.
 function ContestBoard({ myZone }) {
   const [data, setData] = useState(null)
+  const [week, setWeek] = useState(null)   // 1..4, or null = whichever week is current
   const [open, setOpen] = useState(null)   // zone string | null
 
   useEffect(() => {
     let cancelled = false
+    setOpen(null)
     const load = () =>
-      fetch(LB_ORIGIN + 'zone-contest-leaderboard?preview=1')
+      fetch(LB_ORIGIN + 'zone-contest-leaderboard?preview=1' + (week ? '&week=' + week : ''))
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (!cancelled && d && d.ok) setData(d) })
         .catch(() => {})
     load()
     const t = setInterval(load, 120000)
     return () => { cancelled = true; clearInterval(t) }
-  }, [])
+  }, [week])
 
-  // Only truly empty (feed down, or nobody scored at all) hides the board.
-  const zones = data?.zones || []
-  if (!zones.length) return null
-  const liveForReps = data?.enabled === true
+  if (!data) return null
+  const zones = data.zones || []
+  const weeks = data.weeks || []
+  const shown = data.weekNo || null
+  const notYet = data.started === false
+  if (!zones.length && !notYet) return null
+  const liveForReps = data.enabled === true
 
   const openZ = zones.find((z) => z.zone === open)
 
@@ -943,16 +953,37 @@ function ContestBoard({ myZone }) {
     <section className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/5 p-3">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">🏆 {data.contest || 'Team Contest'}</h2>
-        <div className="text-xs font-semibold text-amber-200/90">{data.week || ''}</div>
+        <div className="text-xs font-semibold text-amber-200/90">
+          {data.week || ''}{data.live ? ' · LIVE NOW' : ''}
+        </div>
       </div>
+
+      {weeks.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {weeks.map((w) => {
+            const on = w.no === shown
+            return (
+              <button type="button" key={w.no} disabled={!w.started}
+                onClick={() => setWeek(w.no)}
+                title={w.started ? '' : "Hasn't happened yet"}
+                className={'rounded-md px-2.5 py-1 text-[11px] font-bold transition '
+                  + (on ? 'bg-amber-400 text-black'
+                        : w.started ? 'border border-white/20 text-slate-200 hover:bg-white/10'
+                                    : 'border border-white/10 text-slate-500')}>
+                {w.label}<span className="ml-1 font-semibold opacity-70">{w.range}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div className="mb-2 text-xs text-slate-200/70">
-        Ranked by <strong>average points per rep</strong> — a bigger team doesn't win on headcount. Tap a team for its reps.
-        {!liveForReps && (
-          <span className="ml-1 text-amber-200/80">
-            The contest isn't switched on for the reps yet, so this is the <strong>last 7 days</strong> — your view only.
-          </span>
-        )}
+        Scored on <strong>Wednesday and Thursday only</strong>, ranked by <strong>average points per rep</strong> —
+        a bigger team doesn't win on headcount. Tap a team for its reps.
+        {!liveForReps && <span className="ml-1 text-amber-200/80">Not switched on for the reps yet — your view only.</span>}
       </div>
+
+      {notYet && <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-slate-300/80">This week hasn't started yet.</div>}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {zones.map((z) => {
