@@ -906,19 +906,24 @@ function HarvestDetail({ z }) {
 // (Neal, 2026-08-18).
 //
 // Teams rank by AVERAGE points per rep, not raw points — a big team can't win
-// on headcount alone. The feed stays empty until app_settings.contest_enabled
-// is on, and this whole section hides itself when it is, so nothing appears
-// between contests. Add ?contestpreview=1 to the manager URL to look at it
-// while it's still off.
+// on headcount alone.
+//
+// ALWAYS asks for preview=1. app_settings.contest_enabled is the switch that
+// keeps the board off the REPS' dashboard between contests — it was never meant
+// to blind the managers, but it did: with the toggle off the feed returns no
+// zones and the board hid itself, so a manager opening this page saw nothing at
+// all (Neal, 2026-08-18). preview=1 computes either way, and the function
+// already does the right thing with it — the real contest window once the
+// contest is live, a trailing 7 days when it isn't. So a manager always has
+// standings to look at, and reps still see nothing until the toggle flips.
 function ContestBoard({ myZone }) {
   const [data, setData] = useState(null)
   const [open, setOpen] = useState(null)   // zone string | null
 
   useEffect(() => {
     let cancelled = false
-    const preview = /[?&]contestpreview=1/.test(window.location.search)
     const load = () =>
-      fetch(LB_ORIGIN + 'zone-contest-leaderboard' + (preview ? '?preview=1' : ''))
+      fetch(LB_ORIGIN + 'zone-contest-leaderboard?preview=1')
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (!cancelled && d && d.ok) setData(d) })
         .catch(() => {})
@@ -927,10 +932,10 @@ function ContestBoard({ myZone }) {
     return () => { cancelled = true; clearInterval(t) }
   }, [])
 
-  // No contest running (or the feed is down) → show nothing at all rather than
-  // an empty board a manager has to wonder about.
+  // Only truly empty (feed down, or nobody scored at all) hides the board.
   const zones = data?.zones || []
   if (!zones.length) return null
+  const liveForReps = data?.enabled === true
 
   const openZ = zones.find((z) => z.zone === open)
 
@@ -942,6 +947,11 @@ function ContestBoard({ myZone }) {
       </div>
       <div className="mb-2 text-xs text-slate-200/70">
         Ranked by <strong>average points per rep</strong> — a bigger team doesn't win on headcount. Tap a team for its reps.
+        {!liveForReps && (
+          <span className="ml-1 text-amber-200/80">
+            The contest isn't switched on for the reps yet, so this is the <strong>last 7 days</strong> — your view only.
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
