@@ -155,6 +155,8 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      <ContestBoard myZone={manager.region} />
+
       <Leaderboard myZone={manager.region} />
 
       {/* Appointments → Sales — pinned just under the leaderboard, set apart. */}
@@ -894,6 +896,94 @@ function HarvestDetail({ z }) {
         )
       })}
     </div>
+  )
+}
+
+// ── Team Contest ───────────────────────────────────────────────────
+// The running Positive-Effort contest, same board the reps see on their own
+// dashboard — every regional manager gets it, not just the owner, so a manager
+// can see where their team actually stands while the week is still winnable
+// (Neal, 2026-08-18).
+//
+// Teams rank by AVERAGE points per rep, not raw points — a big team can't win
+// on headcount alone. The feed stays empty until app_settings.contest_enabled
+// is on, and this whole section hides itself when it is, so nothing appears
+// between contests. Add ?contestpreview=1 to the manager URL to look at it
+// while it's still off.
+function ContestBoard({ myZone }) {
+  const [data, setData] = useState(null)
+  const [open, setOpen] = useState(null)   // zone string | null
+
+  useEffect(() => {
+    let cancelled = false
+    const preview = /[?&]contestpreview=1/.test(window.location.search)
+    const load = () =>
+      fetch(LB_ORIGIN + 'zone-contest-leaderboard' + (preview ? '?preview=1' : ''))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled && d && d.ok) setData(d) })
+        .catch(() => {})
+    load()
+    const t = setInterval(load, 120000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [])
+
+  // No contest running (or the feed is down) → show nothing at all rather than
+  // an empty board a manager has to wonder about.
+  const zones = data?.zones || []
+  if (!zones.length) return null
+
+  const openZ = zones.find((z) => z.zone === open)
+
+  return (
+    <section className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/5 p-3">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">🏆 {data.contest || 'Team Contest'}</h2>
+        <div className="text-xs font-semibold text-amber-200/90">{data.week || ''}</div>
+      </div>
+      <div className="mb-2 text-xs text-slate-200/70">
+        Ranked by <strong>average points per rep</strong> — a bigger team doesn't win on headcount. Tap a team for its reps.
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {zones.map((z) => {
+          const mine = z.zone === myZone
+          const isOpen = open === z.zone
+          const medal = LB_MEDALS[(z.rank || 0) - 1] || ''
+          return (
+            <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
+              className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
+              style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
+              <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{lbOrdinal(z.rank || 0)} Place</div>
+              <div className="text-base font-extrabold leading-tight">{z.team}</div>
+              <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
+              <div className="mt-1 text-xs font-bold">
+                <span className="text-lg font-extrabold">{z.count}</span> pts/rep
+              </div>
+              <div className="text-[10px] opacity-90">{z.points} pts · {z.activeReps} rep{z.activeReps === 1 ? '' : 's'}{z.sales ? ` · ${z.sales} sold` : ''}</div>
+              <div className="mt-1 text-[10px] underline opacity-90">{isOpen ? '▾ Hide' : '▸ Details'}</div>
+            </button>
+          )
+        })}
+      </div>
+
+      {openZ && (
+        <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
+          <div className="mb-1 text-xs font-bold text-amber-200">{openZ.team} · {openZ.zone} — {openZ.points} pts over {openZ.activeReps} rep{openZ.activeReps === 1 ? '' : 's'}</div>
+          {(openZ.reps || []).length === 0
+            ? <div className="text-xs text-slate-300/70">Nobody has scored yet this week.</div>
+            : (
+              <div className="divide-y divide-white/10">
+                {(openZ.reps || []).map((r) => (
+                  <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="truncate">{r.name}</span>
+                    <span className="font-bold">{r.count}{r.sales ? <span className="ml-2 text-[11px] font-semibold text-emerald-300">{r.sales} sold</span> : null}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      )}
+    </section>
   )
 }
 
