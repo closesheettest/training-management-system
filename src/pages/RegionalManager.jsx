@@ -104,7 +104,9 @@ export default function RegionalManager() {
       const res = await fetch('/.netlify/functions/regional-manager-api', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'whoami', token }),
+        // ?preview=1 → admin looking at a manager's dashboard. Load it normally,
+        // just don't record it as the manager having used it.
+        body: JSON.stringify({ action: 'whoami', token, preview: new URLSearchParams(window.location.search).get('preview') === '1' }),
       })
       const data = await res.json()
       if (!res.ok || !data.ok) {

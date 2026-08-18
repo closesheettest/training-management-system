@@ -207,10 +207,12 @@ export const handler = async (event) => {
 
   if (action === 'whoami') {
     // Log that the manager opened their dashboard — a SESSION, not a page load.
+    // Skipped for admin previews (?preview=1 from the Regional Managers page):
+    // us looking at their dashboard is not them using it.
     // whoami fires on mount and again after most actions, so raw calls would
     // read as 20 visits for one morning's work. Best-effort: a failure here must
     // never stop the dashboard loading. Table: sql/manager_dashboard_visits.sql.
-    logDashboardVisit(supabase, manager.id).catch(() => {})
+    if (!body.preview) logDashboardVisit(supabase, manager.id).catch(() => {})
 
     // Active field reps in this region — same filter the admin page uses.
     // Includes non-active flags so the UI can render badges (info-updated,

@@ -1615,6 +1615,11 @@ function ToolsetReference() {
 function ManagerCard({ m, usage }) {
   const colors = ZONE_COLORS[m.managed_region] || { deep: '#64748b', light: '#f1f5f9' }
   const dashUrl = `${window.location.origin}/regional-manager/${m.manager_access_token}`
+  // Opening a manager's dashboard from here is US looking, not them working — it
+  // was logging as a visit and inflating their usage (Neal spotted his own click
+  // showing as Richard Barnett's "opened 1 time"). The marker rides on the admin
+  // link only; the link we copy and text to the manager stays clean.
+  const previewUrl = `${dashUrl}?preview=1`
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5">
@@ -1687,7 +1692,7 @@ function ManagerCard({ m, usage }) {
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               <a
-                href={dashUrl}
+                href={previewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
