@@ -92,6 +92,7 @@ export const handler = async (event) => {
       county: t.county || null,
       phone: t.phone || null,
       rep_level: pregrad ? 'pregrad' : (t.rep_level || null),   // 'pregrad' | 'junior' | 'senior'
+      in_training: t.is_field_trainee === true,   // still in field training, whatever else is set
       pregrad,                                                  // still in field training, not graduated
       active: pregrad ? false : (t.is_active_sales_rep !== false), // pregrads active:false → contest/pay skip them
       managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
