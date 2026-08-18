@@ -6,6 +6,7 @@ import L from 'leaflet'
 import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
+import ContestReport from '../components/ContestReport.jsx'
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -155,7 +156,11 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      <ContestBoard myZone={manager.region} />
+      {/* The contest, exactly as the company admin sees it — same component,
+          same numbers, Wed/Thu only, with the Wk 1-4 window pills. */}
+      <div className="mt-6 rounded-xl bg-white p-3 text-slate-800">
+        <ContestReport />
+      </div>
 
       <Leaderboard myZone={manager.region} />
 
@@ -896,135 +901,6 @@ function HarvestDetail({ z }) {
         )
       })}
     </div>
-  )
-}
-
-// ── Team Contest ───────────────────────────────────────────────────
-// The running Positive-Effort contest, same board the reps see on their own
-// dashboard — every regional manager gets it, not just the owner, so a manager
-// can see where their team actually stands while the week is still winnable
-// (Neal, 2026-08-18).
-//
-// Teams rank by AVERAGE points per rep, not raw points — a big team can't win
-// on headcount alone.
-//
-// Week 1–4 tabs, the same four contest weeks the admin audit report exposes via
-// ?week= — a manager can look back at a finished week instead of only whichever
-// one is current (Neal, 2026-08-18). Weeks that haven't happened yet are shown
-// but not selectable.
-//
-// ALWAYS asks for preview=1. app_settings.contest_enabled is the switch that
-// keeps the board off the REPS' dashboard between contests — it was never meant
-// to blind the managers, but it did: with the toggle off the feed returns no
-// zones and the board hid itself, so a manager opening this page saw nothing at
-// all (Neal, 2026-08-18). preview=1 computes either way, and the function
-// already does the right thing with it — the real contest window once the
-// contest is live, a trailing 7 days when it isn't. So a manager always has
-// standings to look at, and reps still see nothing until the toggle flips.
-function ContestBoard({ myZone }) {
-  const [data, setData] = useState(null)
-  const [week, setWeek] = useState(null)   // 1..4, or null = whichever week is current
-  const [open, setOpen] = useState(null)   // zone string | null
-
-  useEffect(() => {
-    let cancelled = false
-    setOpen(null)
-    const load = () =>
-      fetch(LB_ORIGIN + 'zone-contest-leaderboard?preview=1' + (week ? '&week=' + week : ''))
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (!cancelled && d && d.ok) setData(d) })
-        .catch(() => {})
-    load()
-    const t = setInterval(load, 120000)
-    return () => { cancelled = true; clearInterval(t) }
-  }, [week])
-
-  if (!data) return null
-  const zones = data.zones || []
-  const weeks = data.weeks || []
-  const shown = data.weekNo || null
-  const notYet = data.started === false
-  if (!zones.length && !notYet) return null
-  const liveForReps = data.enabled === true
-
-  const openZ = zones.find((z) => z.zone === open)
-
-  return (
-    <section className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/5 p-3">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">🏆 {data.contest || 'Team Contest'}</h2>
-        <div className="text-xs font-semibold text-amber-200/90">
-          {data.week || ''}{data.live ? ' · LIVE NOW' : ''}
-        </div>
-      </div>
-
-      {weeks.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {weeks.map((w) => {
-            const on = w.no === shown
-            return (
-              <button type="button" key={w.no} disabled={!w.started}
-                onClick={() => setWeek(w.no)}
-                title={w.started ? '' : "Hasn't happened yet"}
-                className={'rounded-md px-2.5 py-1 text-[11px] font-bold transition '
-                  + (on ? 'bg-amber-400 text-black'
-                        : w.started ? 'border border-white/20 text-slate-200 hover:bg-white/10'
-                                    : 'border border-white/10 text-slate-500')}>
-                {w.label}<span className="ml-1 font-semibold opacity-70">{w.range}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      <div className="mb-2 text-xs text-slate-200/70">
-        Scored on <strong>Wednesday and Thursday only</strong>, ranked by <strong>average points per rep</strong> —
-        a bigger team doesn't win on headcount. Tap a team for its reps.
-        {!liveForReps && <span className="ml-1 text-amber-200/80">Not switched on for the reps yet — your view only.</span>}
-      </div>
-
-      {notYet && <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-slate-300/80">This week hasn't started yet.</div>}
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {zones.map((z) => {
-          const mine = z.zone === myZone
-          const isOpen = open === z.zone
-          const medal = LB_MEDALS[(z.rank || 0) - 1] || ''
-          return (
-            <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
-              className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
-              style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
-              <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{lbOrdinal(z.rank || 0)} Place</div>
-              <div className="text-base font-extrabold leading-tight">{z.team}</div>
-              <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
-              <div className="mt-1 text-xs font-bold">
-                <span className="text-lg font-extrabold">{z.count}</span> pts/rep
-              </div>
-              <div className="text-[10px] opacity-90">{z.points} pts · {z.activeReps} rep{z.activeReps === 1 ? '' : 's'}{z.sales ? ` · ${z.sales} sold` : ''}</div>
-              <div className="mt-1 text-[10px] underline opacity-90">{isOpen ? '▾ Hide' : '▸ Details'}</div>
-            </button>
-          )
-        })}
-      </div>
-
-      {openZ && (
-        <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
-          <div className="mb-1 text-xs font-bold text-amber-200">{openZ.team} · {openZ.zone} — {openZ.points} pts over {openZ.activeReps} rep{openZ.activeReps === 1 ? '' : 's'}</div>
-          {(openZ.reps || []).length === 0
-            ? <div className="text-xs text-slate-300/70">Nobody has scored yet this week.</div>
-            : (
-              <div className="divide-y divide-white/10">
-                {(openZ.reps || []).map((r) => (
-                  <div key={r.name} className="flex items-center justify-between py-1.5 text-sm">
-                    <span className="truncate">{r.name}</span>
-                    <span className="font-bold">{r.count}{r.sales ? <span className="ml-2 text-[11px] font-semibold text-emerald-300">{r.sales} sold</span> : null}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-        </div>
-      )}
-    </section>
   )
 }
 
