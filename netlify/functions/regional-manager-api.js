@@ -220,7 +220,7 @@ export const handler = async (event) => {
     const { data: reps, error: repsErr } = await supabase
       .from('trainees')
       .select(
-        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled',
+        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled, class_id, classes(week_start_date)',
       )
       // Active reps PLUS pre-grad field trainees (is_field_trainee, not yet graduated) in
       // this zone — so the manager can work with them from the Wednesday they check in
@@ -248,9 +248,27 @@ export const handler = async (event) => {
     // copy it and text it to the rep. The links live in CCG — fetch them server-side
     // (no CORS) and match by jobnimbus_id. Best-effort: a hiccup just omits the links.
     const ddLinks = await fetchDoorDispatcherLinks()
+    // WHICH WEEK of training they're in. Week A and Week B trainees are a very
+    // different proposition to a manager — one is three field days off a standing
+    // start, the other is finishing — so the dashboard says which (Neal,
+    // 2026-08-19). Day 0-6 of their class is Week A, 7-13 Week B, after that
+    // they've finished and it's blank.
+    const todayEt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+    const trainingWeek = (start) => {
+      if (!start) return null
+      const n = Math.floor((new Date(`${todayEt}T12:00:00Z`) - new Date(`${start}T12:00:00Z`)) / 86400000)
+      if (n < 0 || n > 13) return null
+      return n <= 6 ? 'A' : 'B'
+    }
+
     const repsOut = stillWithUs.map((r) => {
       const pregrad = r.is_field_trainee === true && r.is_active_sales_rep !== true
-      return { ...r, pregrad, rep_level: pregrad ? 'pregrad' : r.rep_level, door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null }
+      return {
+        ...r, pregrad,
+        training_week: pregrad ? trainingWeek(r.classes?.week_start_date) : null,
+        rep_level: pregrad ? 'pregrad' : r.rep_level,
+        door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null,
+      }
     })
 
     return json(200, {

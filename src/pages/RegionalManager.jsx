@@ -1594,7 +1594,10 @@ function NewTrainees({ reps }) {
       </h2>
       <p className="mb-2 text-xs leading-relaxed text-slate-200/75">
         They're in field training right now — still in class, not graduated. <strong>Reach out and get them
-        working with you.</strong> They don't count in the contest or your pay yet; they will the day they graduate.
+        working with you.</strong> <span className="text-amber-200/90">Week&nbsp;A</span> means they've just finished
+        the classroom and are in the field for the rest of the week; <span className="text-amber-200/90">Week&nbsp;B</span>
+        means they're in their final week. They stay on this list until they graduate or leave. They don't count in the
+        contest or your pay yet; they will the day they graduate.
       </p>
       <div className="space-y-2">
         {pregrads.map((r) => (
@@ -1602,7 +1605,7 @@ function NewTrainees({ reps }) {
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[15px] font-bold text-white">{r.first_name} {r.last_name}</span>
               <span className="rounded bg-amber-400/25 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-amber-100">
-                In training
+                {r.training_week ? `Week ${r.training_week} training` : 'In training'}
               </span>
             </div>
             {(r.city || r.state) && (
