@@ -940,7 +940,7 @@ function Leaderboard({ myZone }) {
         style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
         <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
-        <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOU' : ''}</div>
+        <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
         <div className="mt-1 text-xs font-bold">
           <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}
           {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
