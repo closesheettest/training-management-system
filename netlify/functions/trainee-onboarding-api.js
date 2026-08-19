@@ -71,7 +71,16 @@ export const handler = async (event) => {
     // of 2 was showing "waiting on 3 of 7", and all three had never attended a
     // single day (Neal, 2026-08-19). Same has-checked-in rule the zone-assignment
     // card uses.
-    live = live.filter((t) => (t.attendance || []).some((a) => a && a.confirmed))
+    // Present on the most recent day this class actually met — not merely "came
+    // once". Someone who attended Monday and stopped is out of the class, and
+    // listing them reads as outstanding paperwork from a person who has gone.
+    {
+      const lastMet = live.reduce((mx, t) =>
+        (t.attendance || []).reduce((m, a) => (a && a.confirmed && (!m || a.attendance_date > m) ? a.attendance_date : m), mx), null)
+      live = lastMet
+        ? live.filter((t) => (t.attendance || []).some((a) => a && a.confirmed && a.attendance_date === lastMet))
+        : []
+    }
     // A WEEK B page is about the people continuing — those present on the last
     // day their Week A recorded attendance. Listing the whole roster meant 22
     // names when 4 are coming, which reads as 18 people owing paperwork they

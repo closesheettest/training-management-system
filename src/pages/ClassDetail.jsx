@@ -2646,9 +2646,17 @@ function ZoneAssignments({ trainees, cls, onSaved }) {
   // from earlier weeks, which is why this listed a dozen names for a class of
   // four. Zoning a no-show puts a ghost on a manager's team, and Neal's rule is
   // to assign off who signed in.
-  const people = (trainees || []).filter((t) =>
-    !t.dropped_out_at && !t.declined_at && t.enrolled !== false &&
-    (t.attendance || []).some((a) => a && a.confirmed))
+  // "Checked in at some point" is too loose — it kept people who came Monday and
+  // never returned, so a class of 2 listed 4 (Neal, 2026-08-19). The test is
+  // whether they're STILL COMING: present on the most recent day this class
+  // actually met. Same rule the Week B roster uses.
+  const stillHere = (trainees || []).filter((t) =>
+    !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+  const lastMet = stillHere.reduce((mx, t) =>
+    (t.attendance || []).reduce((m, a) => (a && a.confirmed && (!m || a.attendance_date > m) ? a.attendance_date : m), mx), null)
+  const people = lastMet
+    ? stillHere.filter((t) => (t.attendance || []).some((a) => a && a.confirmed && a.attendance_date === lastMet))
+    : []
   // Not before TUESDAY (Day 2). Neal assigns zones off who actually SIGNED IN,
   // not off who registered — Monday's roster still includes people who never
   // turn up, and zoning a no-show puts a ghost on a manager's team. Day 2 is
