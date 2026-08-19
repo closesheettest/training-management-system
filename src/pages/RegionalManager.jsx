@@ -1599,8 +1599,26 @@ function NewTrainees({ reps }) {
         means they're in their final week. They stay on this list until they graduate or leave. They don't count in the
         contest or your pay yet; they will the day they graduate.
       </p>
-      <div className="space-y-2">
-        {pregrads.map((r) => (
+      {/* Grouped by training week. A manager treats the two very differently — Week A
+          are three field days off a standing start, Week B are finishing and about to
+          graduate onto the team — so they shouldn't be shuffled together in one list
+          (Neal, 2026-08-19). Anyone whose week can't be worked out falls to the end. */}
+      {[
+        { wk: 'A', title: 'Week A — first days in the field', note: 'Just out of the classroom. They need the most hand-holding.' },
+        { wk: 'B', title: 'Week B — final week', note: 'Graduating this week. They join the contest and your pay next week.' },
+        { wk: null, title: 'In training', note: '' },
+      ].map(({ wk, title, note }) => {
+        const group = pregrads.filter((r) => (r.training_week || null) === wk)
+        if (!group.length) return null
+        return (
+          <div key={String(wk)} className="mb-3">
+            <div className="mb-1 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[13px] font-bold text-amber-200">{title}</span>
+              <span className="text-[12px] text-slate-300/70">({group.length})</span>
+            </div>
+            {note && <p className="mb-1.5 text-[11.5px] leading-relaxed text-slate-200/60">{note}</p>}
+            <div className="space-y-2">
+              {group.map((r) => (
           <div key={r.id} className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[15px] font-bold text-white">{r.first_name} {r.last_name}</span>
@@ -1631,8 +1649,11 @@ function NewTrainees({ reps }) {
               {!r.phone && <span className="text-[12px] font-semibold text-red-300">No phone on file</span>}
             </div>
           </div>
-        ))}
-      </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </section>
   )
 }
