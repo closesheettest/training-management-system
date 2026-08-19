@@ -151,13 +151,19 @@ export default function ContestReport() {
                             {t.reps.map((r) => {
                               const rk = `${t.zone}|${r.name}`
                               const rOpen = openRep === rk
-                              const has = r.points > 0 || r.sales > 0 || attrs.some((a) => (r.totals[a.key] || 0) > 0)
+                              const has = !r.ineligible && (r.points > 0 || r.sales > 0 || attrs.some((a) => (r.totals[a.key] || 0) > 0))
                               return (
                                 <Fragment key={rk}>
                                   <tr className={'border-t border-slate-100 ' + (has ? 'cursor-pointer hover:bg-amber-50' : 'text-slate-300')}
                                     onClick={() => has && setOpenRep(rOpen ? null : rk)}>
                                     <td className="p-2 font-semibold text-slate-800">
                                       {r.name}{has ? <span className="ml-1 text-slate-400">{rOpen ? '▾' : '▸'}</span> : null}
+                                      {r.ineligible && (
+                                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                                              title="On the team, but out of this week's contest — they don't score and they don't count in the average.">
+                                          not eligible · in training
+                                        </span>
+                                      )}
                                       {isWinner && r.isManager && (
                                         <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">manager · not eligible</span>
                                       )}
