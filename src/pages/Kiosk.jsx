@@ -46,7 +46,7 @@ export default function Kiosk() {
     // part of the flow — every enrolled trainee is shown.
     let q = supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, registered, enrolled')
+      .select('id, first_name, last_name, phone, registered, enrolled, is_field_trainee, is_active_sales_rep, region')
       .eq('class_id', class_id)
       .neq('enrolled', false)
       .order('first_name', { ascending: true })
@@ -137,6 +137,28 @@ export default function Kiosk() {
     }
     setWelcome({ first_name: t.first_name })
     setTimeout(() => setWelcome(null), 3500)
+
+    // FIELD TRAINING STARTS NOW. Week A's classroom ends Wednesday; Thursday to
+    // Saturday they work their zone from home, right through to Week B. Their
+    // regional manager can't see them until they're flagged as a field trainee,
+    // and nothing was setting that — so a whole cohort could be out in the field
+    // with no manager knowing they existed (Neal, 2026-08-19).
+    //
+    // Checking in on that last classroom day IS the transition, so it's stamped
+    // here. Only ever turns the flag ON, only for someone who hasn't graduated to
+    // an active rep, so re-running it is harmless.
+    try {
+      const dayIdx = Math.floor(
+        (new Date(`${today}T12:00:00Z`) - new Date(`${cls.week_start_date}T12:00:00Z`)) / 86400000,
+      )
+      if (dayIdx >= 2 && dayIdx <= 6 && t.is_field_trainee !== true && t.is_active_sales_rep !== true) {
+        await supabase.from('trainees').update({ is_field_trainee: true }).eq('id', t.id)
+        // A field trainee with no zone belongs to no manager, so they'd be flagged
+        // and still invisible. Surface it here where a trainer can fix it, rather
+        // than let it fail silently.
+        if (!t.region) console.warn(`[kiosk] ${t.first_name} ${t.last_name} is now a field trainee but has NO ZONE — no manager will see them.`)
+      }
+    } catch { /* never block a sign-in over this */ }
     // TEMPORARILY DISABLED (Neal, live training before the curriculum is redone):
     // the morning mini-quiz SMS was going out to trainees on sign-in. Re-enable this
     // block once the training/quiz content is rebuilt.

@@ -1571,7 +1571,21 @@ function DamageRestore({ zone }) {
 // Placed first: a person waiting to hear from you outranks paperwork.
 function NewTrainees({ reps }) {
   const pregrads = (reps || []).filter((r) => r.pregrad)
-  if (!pregrads.length) return null
+  // Say so when there are none. Silence is ambiguous — a manager can't tell
+  // "nobody is in training" from "this card is broken" or "I'm on the wrong
+  // page" (Neal, 2026-08-19).
+  if (!pregrads.length) {
+    return (
+      <section className="mb-6">
+        <h2 className="mb-1 text-lg font-semibold text-white">🎓 New trainees in your zone</h2>
+        <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-[13px] text-slate-200/75">
+          <strong className="text-white">Nobody in field training in your zone right now.</strong> When a new
+          class starts working your area they'll appear here the morning they check in — with their phone number
+          and a link to their map.
+        </div>
+      </section>
+    )
+  }
   const tel = (p) => String(p || '').replace(/[^\d+]/g, '')
   return (
     <section className="mb-6">
