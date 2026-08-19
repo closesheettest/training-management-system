@@ -220,7 +220,7 @@ export const handler = async (event) => {
     const { data: reps, error: repsErr } = await supabase
       .from('trainees')
       .select(
-        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled, class_id, classes(week_start_date)',
+        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled, class_id',
       )
       // Active reps PLUS pre-grad field trainees (is_field_trainee, not yet graduated) in
       // this zone — so the manager can work with them from the Wednesday they check in
@@ -253,6 +253,14 @@ export const handler = async (event) => {
     // start, the other is finishing — so the dashboard says which (Neal,
     // 2026-08-19). Day 0-6 of their class is Week A, 7-13 Week B, after that
     // they've finished and it's blank.
+    // Class start dates, fetched separately — see the note on the select above.
+    const classIds = [...new Set(stillWithUs.map((r) => r.class_id).filter(Boolean))]
+    const startByClass = {}
+    if (classIds.length) {
+      const { data: clsRows } = await supabase.from('classes').select('id, week_start_date').in('id', classIds)
+      for (const c of clsRows || []) startByClass[c.id] = c.week_start_date
+    }
+
     const todayEt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
     const trainingWeek = (start) => {
       if (!start) return null
@@ -265,7 +273,7 @@ export const handler = async (event) => {
       const pregrad = r.is_field_trainee === true && r.is_active_sales_rep !== true
       return {
         ...r, pregrad,
-        training_week: pregrad ? trainingWeek(r.classes?.week_start_date) : null,
+        training_week: pregrad ? trainingWeek(startByClass[r.class_id]) : null,
         rep_level: pregrad ? 'pregrad' : r.rep_level,
         door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null,
       }
