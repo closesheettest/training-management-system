@@ -220,15 +220,26 @@ export const handler = async (event) => {
     const { data: reps, error: repsErr } = await supabase
       .from('trainees')
       .select(
-        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at',
+        'id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled',
       )
       // Active reps PLUS pre-grad field trainees (is_field_trainee, not yet graduated) in
-      // this zone — so the manager can work with them Wed/Thu/Fri while they're in training.
+      // this zone — so the manager can work with them from the Wednesday they check in
+      // right through the rest of training, not just for that one day.
       .or('is_active_sales_rep.eq.true,is_field_trainee.eq.true')
       .or('rep_level.is.null,rep_level.neq.non_field')  // keep null rep_level (pre-grads have none yet)
       .eq('region', region)
       .order('last_name', { ascending: true })
     if (repsErr) return json(500, { error: repsErr.message })
+
+    // …but they come OFF the moment they leave. is_field_trainee is sticky by
+    // design — that's what keeps a trainee on the manager's dashboard through
+    // the whole of training — so nothing was removing someone who dropped out,
+    // and they'd have sat on the team list indefinitely (Neal, 2026-08-19).
+    // An ACTIVE sales rep is never filtered out here, whatever their old training
+    // flags say, so a graduate can't be dropped by a stale dropout stamp.
+    const stillWithUs = (reps || []).filter((r) =>
+      r.is_active_sales_rep === true ||
+      (!r.dropped_out_at && !r.declined_at && r.enrolled !== false))
 
     // Auto-resolve this manager's CCG deal-board link by zone.
     const ccgRecordsUrl = await resolveCcgRecordsUrl(region)
@@ -237,7 +248,7 @@ export const handler = async (event) => {
     // copy it and text it to the rep. The links live in CCG — fetch them server-side
     // (no CORS) and match by jobnimbus_id. Best-effort: a hiccup just omits the links.
     const ddLinks = await fetchDoorDispatcherLinks()
-    const repsOut = (reps || []).map((r) => {
+    const repsOut = stillWithUs.map((r) => {
       const pregrad = r.is_field_trainee === true && r.is_active_sales_rep !== true
       return { ...r, pregrad, rep_level: pregrad ? 'pregrad' : r.rep_level, door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null }
     })
