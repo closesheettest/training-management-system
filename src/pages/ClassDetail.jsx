@@ -2137,7 +2137,32 @@ function TraineeGroup({
   )
 }
 
+// Zone → the regional manager who actually runs it, read from the roster rather
+// than hardcoded. A zone number means nothing to whoever is assigning; the team
+// name and the manager's name are what they recognise (Neal, 2026-08-19).
+function useZoneManagers() {
+  const [byZone, setByZone] = useState({})
+  useEffect(() => {
+    supabase
+      .from('trainees')
+      .select('first_name, last_name, managed_region')
+      .not('managed_region', 'is', null)
+      .then(({ data }) => {
+        const m = {}
+        for (const r of data || []) {
+          const z = String(r.managed_region || '').trim()
+          if (z) m[z] = `${r.first_name || ''} ${r.last_name || ''}`.trim()
+        }
+        setByZone(m)
+      })
+  }, [])
+  // "SQUAD (Zone 3) — Chad Griffith", falling back to the plain label until the
+  // managers have loaded (or if a zone has no manager on file).
+  return (z) => (byZone[z] ? `${teamLabel(z)} — ${byZone[z]}` : teamLabel(z))
+}
+
 function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
+  const zoneLabel = useZoneManagers()   // same "TEAM (Zone N) — Manager" labelling as the assign card
   if (!value) return null
   const set = (field) => (e) => onChange({ ...value, [field]: e.target.value })
   return (
@@ -2179,7 +2204,7 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
           >
             <option value="">— Not assigned —</option>
             {Object.keys(ZONE_TEAMS).map((z) => (
-              <option key={z} value={z}>{teamLabel(z)}</option>
+              <option key={z} value={z}>{zoneLabel(z)}</option>
             ))}
             {value.region && !ZONE_TEAMS[value.region] && (
               <option value={value.region}>{value.region} (current)</option>
@@ -2196,7 +2221,7 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
               onClick={() => onChange({ ...value, region: z })}
               className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
             >
-              💡 Suggested: {teamLabel(z)}{value.county ? ` — ${value.county} County` : ''} · tap to use
+              💡 Suggested: {zoneLabel(z)}{value.county ? ` · ${value.county} County` : ''} · tap to use
             </button>
           )
         })()}
@@ -2615,6 +2640,7 @@ function ViewDocs({ traineeId }) {
 //
 // Goes quiet once everyone has a zone — one green line instead of a panel.
 function ZoneAssignments({ trainees, cls, onSaved }) {
+  const zoneLabel = useZoneManagers()
   // Only people who have actually CHECKED IN. Not the enrolled roster — that
   // still holds everyone who was ever scheduled, including no-shows and people
   // from earlier weeks, which is why this listed a dozen names for a class of
@@ -2718,7 +2744,7 @@ function ZoneAssignments({ trainees, cls, onSaved }) {
                   className="rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-[12px] font-bold text-indigo-700 disabled:opacity-50"
                   title={sug.split ? 'This county is split between two zones — check before accepting' : ''}
                 >
-                  Use {teamLabel(sug.zone)}{sug.split ? ' ⚠' : ''}
+                  Use {zoneLabel(sug.zone)}{sug.split ? ' ⚠' : ''}
                 </button>
               )}
               {!t.region && sug && !sug.zone && (
@@ -2732,7 +2758,7 @@ function ZoneAssignments({ trainees, cls, onSaved }) {
               >
                 <option value="">— no zone —</option>
                 {Object.keys(ZONE_COUNTIES).map((z) => (
-                  <option key={z} value={z}>{teamLabel(z)}</option>
+                  <option key={z} value={z}>{zoneLabel(z)}</option>
                 ))}
               </select>
             </div>
