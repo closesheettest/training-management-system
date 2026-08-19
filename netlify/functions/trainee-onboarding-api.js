@@ -65,6 +65,13 @@ export const handler = async (event) => {
       .select('id, first_name, last_name, phone, email, enrolled, declined_at, dropped_out_at, attendance(attendance_date, confirmed)')
       .eq('class_id', classId)
     let live = (trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+    // WHO IS ACTUALLY IN THE CLASS. The paperwork link is sent when someone signs
+    // in at the kiosk, so a person who has never signed in cannot owe it — listing
+    // them reads as outstanding paperwork that will never arrive. A Week A class
+    // of 2 was showing "waiting on 3 of 7", and all three had never attended a
+    // single day (Neal, 2026-08-19). Same has-checked-in rule the zone-assignment
+    // card uses.
+    live = live.filter((t) => (t.attendance || []).some((a) => a && a.confirmed))
     // A WEEK B page is about the people continuing — those present on the last
     // day their Week A recorded attendance. Listing the whole roster meant 22
     // names when 4 are coming, which reads as 18 people owing paperwork they
