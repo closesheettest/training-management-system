@@ -61,7 +61,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, is_field_trainee, managed_region, latitude, longitude')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, is_field_trainee, managed_region, latitude, longitude, dropped_out_at, declined_at, enrolled')
     // Exclude only EXPLICIT non-field reps. A plain `.neq('rep_level','non_field')`
     // drops rows where rep_level IS NULL (SQL: null <> x → null → excluded), which
     // hid active reps activated manually without a rep_level set (e.g. Danny
@@ -95,6 +95,12 @@ export const handler = async (event) => {
       in_training: t.is_field_trainee === true,   // still in field training, whatever else is set
       pregrad,                                                  // still in field training, not graduated
       active: pregrad ? false : (t.is_active_sales_rep !== false), // pregrads active:false → contest/pay skip them
+      // Did they LEAVE training? Absence from this feed can't answer that — an
+      // inactive rep and a dropout look identical — so it's stated positively.
+      // CCG uses it to expire the harvest link of anyone who dropped out: four
+      // dropouts still had live trainee links days later (Neal, 2026-08-19).
+      dropped_out: !!t.dropped_out_at || !!t.declined_at || t.enrolled === false,
+      dropped_out_at: t.dropped_out_at || null,
       managed_region: t.managed_region || null,  // set on regional managers (the zone they manage)
       latitude: t.latitude != null ? Number(t.latitude) : null,    // rep home (for the setter's mile-radius match)
       longitude: t.longitude != null ? Number(t.longitude) : null,
