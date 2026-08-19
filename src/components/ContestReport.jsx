@@ -102,7 +102,18 @@ export default function ContestReport() {
                 // The top team (highest avg pts/rep) wins the $2,000. The manager
                 // gets none; it's split among the reps by their share of the
                 // team's REP-only points.
-                const isWinner = data.teams[0] && t.zone === data.teams[0].zone
+                // A WINNER ONLY ONCE THE WEEK IS OVER. `frozen` is set when the
+                // week closes and gets snapshotted, so it's the honest test for
+                // "the contest is decided". Without this the badge went to
+                // whichever team happened to sort first — on Week 2, with every
+                // team on 0 points, SQUAD was crowned before a single point had
+                // been scored (Neal, 2026-08-19). Also refuses to crown a team
+                // on 0 points, or a tie at the top.
+                const top = data.teams[0]
+                const decided = data.frozen === true
+                  && !!top && (top.avg || 0) > 0
+                  && !(data.teams[1] && data.teams[1].avg === top.avg)
+                const isWinner = decided && t.zone === top.zone
                 const repPts = t.reps.filter((r) => !r.isManager).reduce((s, r) => s + (r.points || 0), 0)
                 const prizeFor = (r) => (isWinner && !r.isManager && repPts > 0 ? (r.points / repPts) * PRIZE_POOL : 0)
                 const pctFor = (r) => (isWinner && !r.isManager && repPts > 0 ? (r.points / repPts) * 100 : 0)
@@ -116,6 +127,11 @@ export default function ContestReport() {
                         <span className="text-xs text-slate-500">{t.zone}</span>
                         {isWinner && (
                           <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-extrabold text-amber-950">🏆 Winner · ${PRIZE_POOL.toLocaleString()}</span>
+                        )}
+                        {!decided && t.zone === (top && top.zone) && (top?.avg || 0) > 0 && (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-600" title="Nothing is final until the week closes.">
+                            Leading
+                          </span>
                         )}
                       </span>
                       <span className="text-sm text-slate-700"><span className="font-bold">{t.avg}</span> pts/rep · {t.points} total · {t.activeReps} reps {tOpen ? '▾' : '▸'}</span>
