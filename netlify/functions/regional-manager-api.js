@@ -149,7 +149,16 @@ async function fetchDoorDispatcherLinks() {
     if (!r.ok) return {}
     const d = await r.json().catch(() => ({}))
     const map = {}
-    for (const rep of (d.reps || [])) if (rep.jobnimbus_id && rep.link) map[rep.jobnimbus_id] = rep.link
+    // reps AND trainees. harvest-rep-links deliberately splits anyone at
+    // harvest_level 'trainee' into their own list, and this only ever read
+    // `reps` — so every field trainee in Week B came back with no map link, the
+    // manager's "Their map" / "Copy map link" buttons vanished, and there was no
+    // way to hand a new rep their own link. Chad's team hit it the morning their
+    // class went out knocking (Neal, 2026-08-20). Trainees are exactly who a
+    // manager most needs to send a link to.
+    for (const rep of [...(d.reps || []), ...(d.trainees || [])]) {
+      if (rep.jobnimbus_id && rep.link) map[rep.jobnimbus_id] = rep.link
+    }
     return map
   } catch { return {} }
 }

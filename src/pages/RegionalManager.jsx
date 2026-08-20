@@ -1641,10 +1641,30 @@ function NewTrainees({ reps }) {
                 </>
               )}
               {r.door_dispatcher_link && (
-                <a href={r.door_dispatcher_link} target="_blank" rel="noreferrer"
-                   className="rounded-md border border-slate-400/50 px-2.5 py-1 text-[12px] font-bold text-slate-100">
-                  🗺️ Their map
-                </a>
+                <>
+                  <a href={r.door_dispatcher_link} target="_blank" rel="noreferrer"
+                     className="rounded-md border border-slate-400/50 px-2.5 py-1 text-[12px] font-bold text-slate-100">
+                    🗺️ Their map
+                  </a>
+                  {/* Opening it isn't the job — a manager needs to SEND it. */}
+                  <button type="button"
+                    onClick={() => {
+                      const link = r.door_dispatcher_link
+                      if (navigator.clipboard?.writeText) {
+                        navigator.clipboard.writeText(link).catch(() => window.prompt('Copy their DoorDispatcher link:', link))
+                      } else {
+                        window.prompt('Copy their DoorDispatcher link:', link)
+                      }
+                    }}
+                    className="rounded-md border border-violet-300/50 px-2.5 py-1 text-[12px] font-bold text-violet-100">
+                    📋 Copy map link
+                  </button>
+                </>
+              )}
+              {!r.door_dispatcher_link && (
+                <span className="text-[12px] font-semibold text-amber-300" title="Their DoorDispatcher link can't be found — usually means they aren't linked to JobNimbus yet.">
+                  No map link yet — tell the office
+                </span>
               )}
               {!r.phone && <span className="text-[12px] font-semibold text-red-300">No phone on file</span>}
             </div>
