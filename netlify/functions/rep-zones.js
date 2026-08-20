@@ -61,7 +61,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   let q = supabase
     .from('trainees')
-    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, is_field_trainee, managed_region, latitude, longitude, dropped_out_at, declined_at, enrolled')
+    .select('first_name, last_name, jobnimbus_id, region, county, phone, rep_level, is_active_sales_rep, is_field_trainee, managed_region, latitude, longitude, dropped_out_at, declined_at, enrolled, became_active_rep_at')
     // Exclude only EXPLICIT non-field reps. A plain `.neq('rep_level','non_field')`
     // drops rows where rep_level IS NULL (SQL: null <> x → null → excluded), which
     // hid active reps activated manually without a rep_level set (e.g. Danny
@@ -69,6 +69,11 @@ export const handler = async (event) => {
     // Always keep regional managers (managed_region set) so the Managers Pay
     // report can identify each zone's manager even if they're marked non_field.
     .or('rep_level.is.null,rep_level.neq.non_field,managed_region.not.is.null')
+    // Unenrolled records are off every feed. `enrolled` was selected but never
+    // filtered, so a duplicate trainee record kept coming back on
+    // include_inactive=1 even after the office cleared it — two Bret Dethlefsens
+    // in the roster, one of them a ghost (Neal, 2026-08-20).
+    .neq('enrolled', false)
     .order('last_name', { ascending: true })
   // Default set = ACTIVE reps PLUS PRE-GRAD field trainees (is_field_trainee, still in
   // field training before graduation) so the manager can work with them in their zone.
@@ -93,6 +98,10 @@ export const handler = async (event) => {
       phone: t.phone || null,
       rep_level: pregrad ? 'pregrad' : (t.rep_level || null),   // 'pregrad' | 'junior' | 'senior'
       in_training: t.is_field_trainee === true,   // still in field training, whatever else is set
+      // WHEN they graduated. The contest uses it to keep a brand-new rep out of
+      // the week they graduated IN — they spent it in training, so they can
+      // neither score for their team nor sit in its divisor (Neal, 2026-08-20).
+      became_active_rep_at: t.became_active_rep_at || null,
       pregrad,                                                  // still in field training, not graduated
       active: pregrad ? false : (t.is_active_sales_rep !== false), // pregrads active:false → contest/pay skip them
       // Did they LEAVE training? Absence from this feed can't answer that — an
