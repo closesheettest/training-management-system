@@ -24,6 +24,8 @@ export default function Kiosk() {
   const [signingIn, setSigningIn] = useState(null)
   const [welcome, setWelcome] = useState(null) // { first_name } shown briefly after sign-in
   const [closure, setClosure] = useState(null) // sign_in_closures row for today (if closed)
+  const [hidden, setHidden] = useState([]) // enrolled trainees held back by the no-show rule
+  const [showHidden, setShowHidden] = useState(false) // trainer revealed them
   const [togglingClosure, setTogglingClosure] = useState(false)
 
   const load = useCallback(async () => {
@@ -66,13 +68,23 @@ export default function Kiosk() {
       .lt('attendance_date', today)
       .order('attendance_date', { ascending: false })
     let visible = traineeData || []
+    let missed = []
     if (priorAtt && priorAtt.length) {
       const prevDate = priorAtt[0].attendance_date
       const presentPrevDay = new Set(
         priorAtt.filter((a) => a.attendance_date === prevDate).map((a) => a.trainee_id),
       )
+      missed = visible.filter((t) => !presentPrevDay.has(t.id))
       visible = visible.filter((t) => presentPrevDay.has(t.id))
+      // Hidden, NOT gone. The no-show rule is right for people who stopped
+      // coming, but it also drops someone who missed one day for a real reason
+      // and came back — and on the last day of class there's no tomorrow to
+      // come back to. Michael Whitmer and Joel Ortega were here Mon and Tue,
+      // missed Wednesday, and vanished off Thursday's kiosk — the final day
+      // (Neal, 2026-08-20). The trainer can now show them and let them sign
+      // themselves in, rather than anyone hand-entering attendance.
     }
+    setHidden(missed)
     setTrainees(visible)
 
     const { data: attData } = await supabase
@@ -322,10 +334,24 @@ export default function Kiosk() {
           <h2 className="mb-4 text-xl font-semibold text-slate-800 sm:text-2xl">
             Tap your name to sign in
             <span className="ml-2 text-base font-normal text-slate-500">
-              ({present.length} of {trainees.length} signed in)
+              ({present.length + (showHidden ? hidden.filter((t) => attendanceMap[t.id]?.confirmed).length : 0)}{' '}
+              of {trainees.length + (showHidden ? hidden.length : 0)} signed in)
             </span>
           </h2>
-          {trainees.length === 0 ? (
+          {hidden.length > 0 && !showHidden && (
+            <button type="button" onClick={() => setShowHidden(true)}
+              className="mb-4 w-full rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50">
+              <span className="font-semibold text-slate-800">Someone missing?</span>{' '}
+              {hidden.length} {hidden.length === 1 ? 'person is' : 'people are'} hidden because they weren't
+              here the last class day. Tap to show {hidden.length === 1 ? 'them' : 'them'} so they can sign in.
+            </button>
+          )}
+          {showHidden && hidden.length > 0 && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              Showing {hidden.length} who missed the last class day. They sign in themselves, same as everyone else.
+            </div>
+          )}
+          {trainees.length === 0 && !(showHidden && hidden.length > 0) ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-slate-600">
               {cls.attendance_only
                 ? 'No attendees added to this meeting yet. Add them on the Class detail page.'
@@ -333,7 +359,7 @@ export default function Kiosk() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[...absent, ...present].map((t) => {
+              {[...absent, ...(showHidden ? hidden : []), ...present].map((t) => {
                 const checked = !!attendanceMap[t.id]?.confirmed
                 const time = attendanceMap[t.id]?.confirmed_at
                 // Signed-in: a static green tile with an Undo (in case the wrong name
