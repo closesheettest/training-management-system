@@ -57,9 +57,16 @@ export default function Kiosk() {
     }
     const { data: traineeData } = await q
 
-    // Drop no-shows: only list trainees who were present on the most recent
-    // prior class day. Miss a day → off the kiosk the next day. On the class's
-    // first day (no prior attendance yet) everyone shows.
+    // Drop no-shows: list trainees who were present on either of the LAST TWO
+    // class days. On the class's first day (no prior attendance yet) everyone
+    // shows.
+    //
+    // It used to be the single most recent class day — one absence and you were
+    // off the next day's kiosk with no way back. Michael Whitmer and Joel Ortega
+    // were in Mon 8/17 and Tue 8/18, missed Wednesday, and so weren't on
+    // Thursday's kiosk — the last day of their class (Neal, 2026-08-20). One
+    // missed day is a dentist appointment or a sick kid; two in a row is someone
+    // who stopped coming, and that's the one the rule is actually for.
     const { data: priorAtt } = await supabase
       .from('attendance')
       .select('trainee_id, attendance_date')
@@ -70,19 +77,18 @@ export default function Kiosk() {
     let visible = traineeData || []
     let missed = []
     if (priorAtt && priorAtt.length) {
-      const prevDate = priorAtt[0].attendance_date
-      const presentPrevDay = new Set(
-        priorAtt.filter((a) => a.attendance_date === prevDate).map((a) => a.trainee_id),
+      // priorAtt is newest-first, so the first two distinct dates are the last
+      // two class days that actually happened (weekends and field days simply
+      // aren't in here, which is what we want).
+      const recentDays = [...new Set(priorAtt.map((a) => a.attendance_date))].slice(0, 2)
+      const presentRecently = new Set(
+        priorAtt.filter((a) => recentDays.includes(a.attendance_date)).map((a) => a.trainee_id),
       )
-      missed = visible.filter((t) => !presentPrevDay.has(t.id))
-      visible = visible.filter((t) => presentPrevDay.has(t.id))
-      // Hidden, NOT gone. The no-show rule is right for people who stopped
-      // coming, but it also drops someone who missed one day for a real reason
-      // and came back — and on the last day of class there's no tomorrow to
-      // come back to. Michael Whitmer and Joel Ortega were here Mon and Tue,
-      // missed Wednesday, and vanished off Thursday's kiosk — the final day
-      // (Neal, 2026-08-20). The trainer can now show them and let them sign
-      // themselves in, rather than anyone hand-entering attendance.
+      missed = visible.filter((t) => !presentRecently.has(t.id))
+      visible = visible.filter((t) => presentRecently.has(t.id))
+      // Anyone still held back is hidden, NOT gone — the "Someone missing?"
+      // button below reveals them so a trainer can put a genuine straggler back
+      // on the list without anyone hand-entering attendance for them.
     }
     setHidden(missed)
     setTrainees(visible)
@@ -343,12 +349,12 @@ export default function Kiosk() {
               className="mb-4 w-full rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50">
               <span className="font-semibold text-slate-800">Someone missing?</span>{' '}
               {hidden.length} {hidden.length === 1 ? 'person is' : 'people are'} hidden because they weren't
-              here the last class day. Tap to show {hidden.length === 1 ? 'them' : 'them'} so they can sign in.
+              here for the last two class days. Tap to show {hidden.length === 1 ? 'them' : 'them'} so they can sign in.
             </button>
           )}
           {showHidden && hidden.length > 0 && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-              Showing {hidden.length} who missed the last class day. They sign in themselves, same as everyone else.
+              Showing {hidden.length} who missed the last two class days. They sign in themselves, same as everyone else.
             </div>
           )}
           {trainees.length === 0 && !(showHidden && hidden.length > 0) ? (
