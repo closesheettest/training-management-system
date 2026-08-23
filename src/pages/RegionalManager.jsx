@@ -193,8 +193,8 @@ export default function RegionalManager() {
         <BackToRetailWins zone={manager.region} />
       </Group>
 
-      <Group title="🎯 Leads to work">
-        <ActiveLeads zone={manager.region} />
+      <Group title="🔍 Inspection Needed Leads Inventory">
+        <LeadBoards zone={manager.region} />
         <DamageRestore zone={manager.region} />
       </Group>
 
@@ -1494,6 +1494,48 @@ function AssignAppointments({ token }) {
 // Restore damage deals wrongly marked "BTR - NI" (Not Interested) back onto the
 // rep's Damage-visit list — flips the JN status to "Sit Sold Insp" + clears the
 // stale copy (manager-damage-queue btr_load / btr_restore). Sibling of DamageNeedsRep.
+// The four deal boards, scoped to this manager's zone. They replace the old
+// "Leads to work" tiles, which were four separate lists you had to load one at
+// a time — on a board every one of those is a column, and the manager sees the
+// whole zone at once instead of loading four things to find out which has
+// anything in it.
+//
+// These are the SAME boards the office and the reps read (one component, one
+// classifier over in CCG), so a manager and their rep can never be told
+// different things about the same deal. Deep-linked with ?zone= rather than
+// rebuilt here, which is what keeps that true (Neal, 2026-08-23).
+const CCG_APP = 'https://free-roof-inspections.netlify.app'
+const BOARDS = [
+  { mode: 'inspinventory', emoji: '🔍', label: 'Inspection Leads', sub: 'Signed — still to inspect, the result, declined, cancelled' },
+  { mode: 'painventory',   emoji: '🗂️', label: 'PA Deals',         sub: 'Damage — needs an appointment, rebooking, sit pending' },
+  { mode: 'pasigned',      emoji: '✍️', label: 'Signed Claims',    sub: 'Signed with a PA — filed, coverage, settlement' },
+  { mode: 'btrinventory',  emoji: '🏠', label: 'BTR Deals',        sub: 'Back-to-retail — not worked, appointment set, sold' },
+]
+function LeadBoards({ zone }) {
+  return (
+    <section className="mt-4">
+      <p className="mb-3 text-[13px] leading-relaxed text-slate-200/70">
+        Everyone on your team, on the same boards the reps and the office use — scoped to {zone || 'your zone'}.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {BOARDS.map((b) => (
+          <a key={b.mode}
+             href={`${CCG_APP}/?mode=${b.mode}&zone=${encodeURIComponent(zone || '')}`}
+             target="_blank" rel="noreferrer"
+             className="block rounded-lg border border-sky-300/40 bg-sky-500/10 p-3 transition hover:bg-sky-500/20">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg">{b.emoji}</span>
+              <span className="text-[15px] font-bold text-white">{b.label}</span>
+              <span className="ml-auto text-[11px] font-semibold text-sky-200">open ↗</span>
+            </div>
+            <div className="mt-0.5 text-[12px] leading-snug text-slate-200/70">{b.sub}</div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function DamageRestore({ zone }) {
   const [loading, setLoading] = useState(false)
   const [deals, setDeals] = useState(null)
