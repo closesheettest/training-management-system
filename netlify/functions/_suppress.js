@@ -50,6 +50,24 @@ async function loadSuppressed() {
       for (const p of [t.phone, t.company_phone, t.company_number]) { const d = digits10(p); if (d.length === 10) phones.add(d); }
       for (const e of [t.email, t.company_email]) { const v = lower(e); if (v.includes("@")) emails.add(v); }
     }
+
+    // AN ACTIVE RECORD WINS — the same rule the deal boards needed.
+    //
+    // Seventeen people are in this table twice, sharing a phone and an email.
+    // If ONE of those rows is marked departed while the other is a working rep,
+    // suppressing on the contact alone silently gags somebody who still works
+    // here. Chris Hill and Todd Saylor are exactly that shape, and tombstoning
+    // their duplicates would have muted them (Neal, 2026-08-24).
+    //
+    // So: take back any phone or email that also belongs to a row which has
+    // NOT left and has NOT dropped out.
+    const liveUrl = `${SB_URL}/rest/v1/trainees?left_company_at=is.null&dropped_out_at=is.null&select=phone,company_phone,company_number,email,company_email`;
+    const live = await fetch(liveUrl, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+      .then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    for (const t of live) {
+      for (const p of [t.phone, t.company_phone, t.company_number]) { const d = digits10(p); if (d.length === 10) phones.delete(d); }
+      for (const e of [t.email, t.company_email]) { const v = lower(e); if (v.includes("@")) emails.delete(v); }
+    }
     cache = { phones, emails }; cachedAt = Date.now();
     return cache;
   } catch {
