@@ -193,7 +193,7 @@ export default function RegionalManager() {
         <BackToRetailWins zone={manager.region} />
       </Group>
 
-      <Group title="🔍 Inspection Needed Leads Inventory">
+      <Group title="🔍 Inspection Needed Leads Inventory" accent="green">
         <LeadBoards zone={manager.region} />
         <DamageRestore zone={manager.region} />
       </Group>
@@ -313,16 +313,25 @@ function MeetingIdea({ token }) {
 
 // Collapsible group — wraps a set of sections under one tappable header so the
 // dashboard opens calm instead of a wall of cards. Daily group opens by default.
-function Group({ title, defaultOpen = false, children }) {
+// `accent` picks a section out of the stack. Every group looked identical in
+// slate, so the one a manager is meant to act on read as just another row
+// (Neal, 2026-08-24). Green on yellow is deliberately loud — it is the leads
+// nobody has inspected yet, and it should not blend in.
+function Group({ title, defaultOpen = false, accent = null, children }) {
   const [open, setOpen] = useState(defaultOpen)
+  const chrome = accent === 'green'
+    ? 'bg-green-700 hover:bg-green-600'
+    : 'bg-slate-800/70 hover:bg-slate-800'
+  const text = accent === 'green' ? 'text-yellow-300' : 'text-white'
+  const chev = accent === 'green' ? 'text-yellow-200' : 'text-slate-300'
   return (
     <div className="mb-3">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-lg bg-slate-800/70 px-4 py-3 text-left hover:bg-slate-800"
+        className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-left ${chrome}`}
       >
-        <span className="text-base font-bold text-white">{title}</span>
-        <span className={`text-lg text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+        <span className={`text-base font-bold ${text}`}>{title}</span>
+        <span className={`text-lg transition-transform ${chev} ${open ? 'rotate-180' : ''}`}>▾</span>
       </button>
       {open && <div className="mt-3">{children}</div>}
     </div>
