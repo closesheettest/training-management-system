@@ -39,3 +39,7 @@ update trainees
 select first_name, last_name, region, week_b_hold, week_b_hold_reason
   from trainees
  where week_b_hold = true;
+
+-- Stamped when the trainee has actually been told they're held, so a second run
+-- of notify-week-b-hold is a no-op rather than a second text.
+alter table trainees add column if not exists week_b_hold_notified_at timestamptz;
