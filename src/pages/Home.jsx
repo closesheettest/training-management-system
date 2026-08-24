@@ -53,7 +53,7 @@ function HotelAlert() {
       const [tRes, sRes] = await Promise.all([
         supabase
           .from('trainees')
-          .select('id, class_id, enrolled, declined_at, dropped_out_at, needs_hotel, attendance(attendance_date, confirmed)')
+          .select('id, class_id, enrolled, declined_at, dropped_out_at, week_b_hold, needs_hotel, attendance(attendance_date, confirmed)')
           .in('class_id', ids)
           .eq('needs_hotel', true),
         supabase
@@ -76,6 +76,8 @@ function HotelAlert() {
           t.enrolled !== false &&
           !t.declined_at &&
           !t.dropped_out_at &&
+          // Held out of Week B: not travelling, so not a room to book.
+          t.week_b_hold !== true &&
           (phaseByClass[t.class_id] !== 'B' || attendedWeekA(t)) &&
           !bookedKeys.has(`${t.id}:${phaseByClass[t.class_id]}`),
       ).length

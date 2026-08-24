@@ -23,7 +23,7 @@ export default function Calendar() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, attendance_only, location_id, locations(name), trainees!class_id(id, registered, last_sms_sent_at, enrolled, declined_at, dropped_out_at, confirmation_status, attendance(attendance_date, confirmed), test_attempts(submitted_at))',
+        'id, region, week_start_date, week_end_date, attendance_only, location_id, locations(name), trainees!class_id(id, first_name, last_name, registered, last_sms_sent_at, enrolled, declined_at, dropped_out_at, week_b_hold, confirmation_status, attendance(attendance_date, confirmed), test_attempts(submitted_at))',
       )
       .order('week_start_date', { ascending: true })
     if (err) setError(err.message)
@@ -477,7 +477,16 @@ function continuingForWeekB(cls, monday, todayIso) {
     }
   }
   if (!lastDay) return []
-  return live.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay))
+  return live.filter((t) => !t.week_b_hold && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay))
+}
+
+// Finished Week A but HELD out of Week B pending effort. Counted separately and
+// shown, not silently dropped — the office needs to see that these people exist
+// and are waiting on a decision, or a headcount falling by two looks like an
+// error (Neal, 2026-08-24).
+function onHoldForWeekB(cls, monday, todayIso) {
+  if (!cls || !weekAHasHappened(monday, todayIso)) return []
+  return liveTrainees(cls).filter((t) => t.week_b_hold === true)
 }
 
 function PhaseRow({ phase, cls, monday, todayIso }) {
@@ -485,6 +494,7 @@ function PhaseRow({ phase, cls, monday, todayIso }) {
   const isB = phase === 'B'
   const settled = isB && weekAHasHappened(monday, todayIso)
   const people = isB ? continuingForWeekB(cls, monday, todayIso) : liveTrainees(cls)
+  const held = isB ? onHoldForWeekB(cls, monday, todayIso) : []
   const registered = people.filter((t) => t.registered).length
   const pending = people.filter((t) => !t.registered && t.last_sms_sent_at).length
   const confirmed = people.filter((t) => /^(yes|confirmed|attending)$/i.test(t.confirmation_status || '')).length
@@ -515,6 +525,7 @@ function PhaseRow({ phase, cls, monday, todayIso }) {
         <span className="text-xs text-slate-600">{registered} registered</span>
       )}
       {isB && confirmed > 0 && <Badge color="green" label={`${confirmed} confirmed`} />}
+      {isB && held.length > 0 && <Badge color="amber" label={`${held.length} on hold`} />}
       {!isB && pending > 0 && <Badge color="amber" label={`${pending} pending`} />}
       {people.length === 0 && <Badge color="slate" label="nobody yet" />}
     </Link>

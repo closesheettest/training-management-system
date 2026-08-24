@@ -1025,7 +1025,10 @@ export default function ClassDetail() {
       if (a.confirmed && a.attendance_date && (!lastDay || a.attendance_date > lastDay)) lastDay = a.attendance_date
     }
     if (!lastDay) return null   // nobody has ever checked in — show everyone
-    return new Set(trainees.filter((t) => (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
+    // Held out of Week B pending effort: finished Week A, still ours, but not
+    // continuing this week. Excluded here so the Week B roster and its counts
+    // match who is actually coming (Neal, 2026-08-24).
+    return new Set(trainees.filter((t) => !t.week_b_hold && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
   })()
 
   const enrolled = trainees.filter((t) =>
@@ -1995,6 +1998,13 @@ function TraineeGroup({
                       {t.registered_at && (
                         <div className="mt-0.5 text-xs text-green-700">
                           Registered: {new Date(t.registered_at).toLocaleString()}
+                        </div>
+                      )}
+                      {t.week_b_hold && (
+                        <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[12px] text-amber-900">
+                          <b>⏸ On hold for Week B</b>
+                          {t.week_b_hold_reason ? <div className="mt-0.5 leading-snug">{t.week_b_hold_reason}</div> : null}
+                          <div className="mt-0.5 text-amber-700">Still on the team — not dropped. Clear the hold to bring them into a Week B.</div>
                         </div>
                       )}
                       {t.week_b_confirm_sent_at && (
