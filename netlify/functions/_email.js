@@ -27,6 +27,12 @@ function client() {
 // `content` is base64-encoded bytes — Resend accepts that format directly.
 export async function sendEmail(toAddress, subject, body, options = {}) {
   if (!toAddress) return { ok: false, step: 'precheck', error: 'No email address provided' }
+  // Same gate as the SMS helper — see _suppress.js. options.force for a message
+  // that must reach someone who has left.
+  if (!options.force) {
+    const sup = await checkSuppressed(toAddress)
+    if (sup.blocked) return { ok: false, step: 'suppressed', error: `Not sent — ${sup.reason}`, suppressed: true }
+  }
   const r = client()
   if (!r) return { ok: false, step: 'precheck', error: 'RESEND_API_KEY not configured' }
 

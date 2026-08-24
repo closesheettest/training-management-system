@@ -1,3 +1,4 @@
+import { checkSuppressed } from './_suppress.js'
 // Shared GoHighLevel helper for SMS.
 // Contacts are upserted by phone first; GHL needs a contactId before it'll
 // deliver a message. Never throws — returns { ok, step?, error? }.
@@ -45,8 +46,16 @@ async function fetchWithRetry(url, init, maxAttempts = 3) {
   return lastRes
 }
 
-export async function sendSmsViaGhl(phone, message, { firstName = 'Notify', lastName = 'Training System' } = {}) {
+export async function sendSmsViaGhl(phone, message, { firstName = 'Notify', lastName = 'Training System', force = false } = {}) {
   if (!phone) return { ok: false, step: 'precheck', error: 'No phone provided' }
+  // Nobody who has left the company gets another text. Checked HERE rather than
+  // in the forty functions that send, because patching call sites means missing
+  // one — and the one you miss texts an ex-employee at 7am (Neal, 2026-08-24).
+  // { force: true } for a message that genuinely must reach someone who has left.
+  if (!force) {
+    const sup = await checkSuppressed(phone)
+    if (sup.blocked) return { ok: false, step: 'suppressed', error: `Not sent — ${sup.reason}`, suppressed: true }
+  }
   try {
     const cRes = await fetchWithRetry(`${GHL_BASE}/contacts/upsert`, {
       method: 'POST',
