@@ -139,6 +139,33 @@ export async function renderAgreementPdf(d) {
       page.drawImage(png, { x: M + 58, y: y - 4, width: w, height: h })
     } catch { /* fall through to the typed name below */ }
   }
+  // The COMPANY countersignature, drawn in the right-hand column that has always
+  // been headed with the company name and left blank. An agreement signed by only
+  // one party is not executed, so the PDF is not rendered at all until Jennifer
+  // has signed too (Neal, 2026-08-24).
+  const RX = W / 2 + 10
+  const yTop = y
+  if (d.company_signature && String(d.company_signature).startsWith('data:image')) {
+    try {
+      const png = await pdf.embedPng(Buffer.from(String(d.company_signature).replace(/^data:image\/\w+;base64,/, ''), 'base64'))
+      const w = 170, h = Math.min((png.height / png.width) * w, 34)
+      page.drawImage(png, { x: RX + 58, y: y - 4, width: w, height: h })
+    } catch { /* typed name below still stands */ }
+  }
+  const coSignedOn = d.company_signed_at ? new Date(d.company_signed_at) : signedOn
+  let ry = y
+  const rowRight = (label, value, dy = 22) => {
+    page.drawText(label, { x: RX, y: ry, size: 10, font })
+    page.drawText(String(value || ''), { x: RX + 58, y: ry, size: 10, font })
+    page.drawLine({ start: { x: RX + 54, y: ry - 3 }, end: { x: W - M, y: ry - 3 }, thickness: 0.5 })
+    ry -= dy
+  }
+  rowRight('Signature:', d.company_signature ? '' : (d.company_sign_name || ''))
+  rowRight('Printed:', d.company_sign_name)
+  rowRight('Title:', d.company_sign_title || 'Authorized Representative')
+  rowRight('Date:', coSignedOn.toLocaleDateString('en-US'))
+  y = yTop
+
   const row = (label, value, dy = 22) => {
     page.drawText(label, { x: M, y, size: 10, font })
     page.drawText(String(value || ''), { x: M + 58, y, size: 10, font })
@@ -154,7 +181,11 @@ export async function renderAgreementPdf(d) {
   row('Social/EIN:', d.w9_tin ? `•••••-${String(d.w9_tin).replace(/\D/g, '').slice(-4)}` : '')
 
   y -= 8
-  text(`Signed electronically on ${signedOn.toLocaleString('en-US')}${d.sign_ip ? ` from ${d.sign_ip}` : ''}. The signer's typed name, drawn signature, timestamp and IP address constitute their electronic signature.`, { size: 8 })
+  text(`AGENT signed electronically on ${signedOn.toLocaleString('en-US')}${d.sign_ip ? ` from ${d.sign_ip}` : ''}.`, { size: 8 })
+  if (d.company_signed_at) {
+    text(`${COMPANY.name} countersigned electronically on ${new Date(d.company_signed_at).toLocaleString('en-US')} by ${d.company_sign_name || ''}${d.company_sign_ip ? ` from ${d.company_sign_ip}` : ''}.`, { size: 8 })
+  }
+  text("Each signer's typed name, drawn signature, timestamp and IP address constitute their electronic signature.", { size: 8 })
 
   return Buffer.from(await pdf.save()).toString('base64')
 }

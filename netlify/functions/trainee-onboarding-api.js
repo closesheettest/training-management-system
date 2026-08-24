@@ -26,6 +26,9 @@ import { renderAgreementPdf } from './_ic-agreement.js'
 import { sendEmail } from './_email.js'
 import { sendSmsViaGhl as sendSms } from './_ghl.js'
 
+// Who signs for the company. One place, so changing it is one edit.
+const COUNTERSIGNER = { name: 'Jennifer VonGraupen', phone: '(941) 718-0032' }
+
 const BUCKET = 'trainee-docs'
 
 // Fields the signing page may write. Anything else is ignored, so a tampered
@@ -306,10 +309,14 @@ export const handler = async (event) => {
       const w9 = await fillW9Pdf(merged)
       w9Path = await storeFile(supabase, `${trainee.id}/w9_${Date.now()}.pdf`, w9)
     } catch (e) { pdfError = `w9: ${e.message}` }
-    try {
-      const ag = await renderAgreementPdf(merged)
-      agreementPath = await storeFile(supabase, `${trainee.id}/agreement_${Date.now()}.pdf`, ag)
-    } catch (e) { pdfError = `${pdfError ? pdfError + '; ' : ''}agreement: ${e.message}` }
+    // THE AGREEMENT PDF IS NOT RENDERED HERE ANY MORE.
+    //
+    // It is a contract between two parties and this is only one of them. Rendering
+    // it the moment the rep signs filed a document with the U.S. Shingle side of
+    // the signature block blank — not an executed agreement (Neal, 2026-08-24).
+    // countersign-agreement.js renders it once Jennifer has signed too.
+    //
+    // The W-9 above is unaffected: that one genuinely is the rep's alone.
 
     const { error } = await supabase.from('trainee_onboarding').upsert({
       ...patch, signature: body.signature, signed_at: nowIso, sign_ip: ip,
@@ -317,8 +324,27 @@ export const handler = async (event) => {
     }, { onConflict: 'trainee_id' })
     if (error) return cors(500, { ok: false, error: error.message })
 
+    // Text Jennifer to countersign. Best-effort on purpose: a failed text must
+    // never cost us a signature the rep has already given, and the link can be
+    // resent. Fetch the token that the row's default generated.
+    let countersignSent = false
+    try {
+      const { data: fresh } = await supabase.from('trainee_onboarding')
+        .select('countersign_token').eq('trainee_id', trainee.id).maybeSingle()
+      const tok = fresh?.countersign_token
+      if (tok) {
+        const site = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
+        const who = `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim() || merged.sign_name || 'A new rep'
+        await sendSms(COUNTERSIGNER.phone,
+          `${who} just signed their Independent Contractor Agreement. It needs your signature to be complete:\n\n${site}/.netlify/functions/countersign-agreement?t=${tok}`,
+          { firstName: 'Training', lastName: 'System' })
+        await supabase.from('trainee_onboarding').update({ countersign_sent_at: new Date().toISOString() }).eq('trainee_id', trainee.id)
+        countersignSent = true
+      }
+    } catch { /* the office can resend; never block the rep */ }
+
     await deliver(supabase, trainee, { ...merged, _next_session: nextSession }, { w9Path, agreementPath }).catch(() => {})
-    return cors(200, { ok: true, signed: true, pdf_error: pdfError, next_session: nextSession })
+    return cors(200, { ok: true, signed: true, pdf_error: pdfError, next_session: nextSession, countersign_sent: countersignSent })
   }
 
   return cors(400, { ok: false, error: `Unknown action: ${action}` })
