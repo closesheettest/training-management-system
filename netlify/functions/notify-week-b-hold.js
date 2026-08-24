@@ -70,6 +70,35 @@ function emailFor(t) {
   }
 }
 
+// The manager hears at the SAME TIME as the trainee, not after.
+//
+// The message tells them to go to him, so he has to already know when the phone
+// rings — and it is ultimately his call whether to keep them. Neal will normally
+// have spoken to him first; this is the written record of exactly what the two
+// men were told, so the manager and the trainee are working off the same words
+// (Neal, 2026-08-24).
+function managerNoteFor(names, region) {
+  return [
+    `Heads up — ${names.join(' and ')} ${names.length > 1 ? 'have' : 'has'} just been told their second week of training is on hold.`,
+    ``,
+    `What they were told: the map didn't show the minimum effort in the field this past week, it isn't a no, and a full week of real effort puts them back in for week two. They were told to get with you.`,
+    ``,
+    `Whether they stay is your call. If you want them back in for week two, say the word.`,
+  ].join('\n')
+}
+
+async function managerFor(supabase, region) {
+  if (!region) return null
+  const { data } = await supabase
+    .from('trainees')
+    .select('id, first_name, last_name, phone, company_number, email, company_email')
+    .eq('managed_region', region)
+    .limit(1)
+  const m = (data || [])[0]
+  if (!m) return null
+  return { ...m, sms_to: m.company_number || m.phone, email_to: m.company_email || m.email }
+}
+
 export const handler = async (event) => {
   const qp = event.queryStringParameters || {}
   const dry = qp.dry === '1' || qp.dry === 'true'
@@ -113,9 +142,31 @@ export const handler = async (event) => {
     out.push({ ...row, sent })
   }
 
+  // Managers, one message each covering everyone held in their zone.
+  const managers = []
+  const byRegion = {}
+  for (const r of out) (byRegion[r.region] = byRegion[r.region] || []).push(r.name)
+  for (const [region, names] of Object.entries(byRegion)) {
+    const m = await managerFor(supabase, region)
+    if (!m) { managers.push({ region, error: 'no manager set for this zone' }); continue }
+    const note = managerNoteFor(names, region)
+    const row = { region, manager: `${m.first_name} ${m.last_name}`, sms_to: m.sms_to, email_to: m.email_to, about: names, message: note }
+    if (dry) { managers.push({ ...row, would_send: true }); continue }
+    const sent = []
+    if (m.sms_to) {
+      try { await sendSmsViaGhl(m.sms_to, note, { firstName: m.first_name, lastName: m.last_name }); sent.push('sms') }
+      catch (e) { sent.push(`sms failed: ${e.message}`) }
+    }
+    if (m.email_to) {
+      try { await sendEmail(m.email_to, `Second week on hold — ${names.join(', ')}`, note); sent.push('email') }
+      catch (e) { sent.push(`email failed: ${e.message}`) }
+    }
+    managers.push({ ...row, sent })
+  }
+
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ok: true, dry, count: out.length, results: out }, null, 2),
+    body: JSON.stringify({ ok: true, dry, count: out.length, results: out, managers }, null, 2),
   }
 }
