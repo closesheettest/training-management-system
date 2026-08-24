@@ -32,3 +32,21 @@ export function finishedWeekA(trainee, lastDay) {
   if (!lastDay) return false
   return (trainee.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)
 }
+
+// Held back from Week B — finished Week A, still on the team, still working, but
+// not going into Week B until someone releases them. Deliberately separate from
+// dropped/declined: those mean gone, this means "not yet". Bret Dethlefsen and
+// Noah Mamane were the first two (Neal, 2026-08-24).
+export function heldFromWeekB(trainee) {
+  return trainee?.week_b_hold === true;
+}
+
+// The single question every Week B list should ask: is this person actually
+// coming? Kept here so the confirmation text, the hotel list and the class page
+// cannot drift apart on it.
+export function comingToWeekB(trainee, lastDay) {
+  if (!trainee) return false;
+  if (trainee.enrolled === false || trainee.declined_at || trainee.dropped_out_at) return false;
+  if (heldFromWeekB(trainee)) return false;
+  return finishedWeekA(trainee, lastDay);
+}

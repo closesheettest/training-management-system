@@ -132,7 +132,7 @@ export default function Hotels() {
     const [tRes, sRes] = await Promise.all([
       supabase
         .from('trainees')
-        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, dropped_out_at, needs_hotel, confirmation_status, attendance(attendance_date, confirmed)')
+        .select('id, class_id, first_name, last_name, phone, email, street_address, city, state, zip, enrolled, declined_at, dropped_out_at, week_b_hold, needs_hotel, confirmation_status, attendance(attendance_date, confirmed)')
         .in('class_id', ids)
         .eq('needs_hotel', true),
       supabase
@@ -169,7 +169,11 @@ export default function Hotels() {
     //            This was booking to Friday, one paid night per person per
     //            cohort that nobody was there for.
     const rows = (tRes.data || [])
-      .filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+      // A trainee HELD from Week B is not travelling, so no room. They finished
+      // Week A and are still on the team — they are simply not coming Monday, and
+      // booking a bed for them is the same wasted night as booking one for
+      // somebody who dropped (Neal, 2026-08-24).
+      .filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && t.week_b_hold !== true)
       // Drop Week-B-phase no-shows: only people who did Week A continue.
       .filter((t) => phaseByClass[t.class_id] !== 'B' || attendedWeekA(t))
       .map((t) => {

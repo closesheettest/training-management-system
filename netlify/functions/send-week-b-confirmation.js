@@ -20,7 +20,7 @@
 //      CRON_SECRET (cron path only), optional PUBLIC_SITE_URL.
 
 import { createClient } from '@supabase/supabase-js'
-import { lastWeekADay, finishedWeekA } from './_week-a.js'
+import { lastWeekADay, finishedWeekA, heldFromWeekB } from './_week-a.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
@@ -92,7 +92,7 @@ export const handler = async (event) => {
 async function loadClass(supabase, classId) {
   const { data } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_confirm_sent_at, confirmation_status, attendance(attendance_date, confirmed))')
+    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_hold, week_b_hold_reason, week_b_confirm_sent_at, confirmation_status, attendance(attendance_date, confirmed))')
     .eq('id', classId)
     .maybeSingle()
   return data || null
@@ -117,9 +117,13 @@ async function sendForClass(supabase, cls, siteUrl, { force, onlyUnconfirmed = f
   for (const t of cls.trainees || []) {
     // Only people who ACTUALLY ATTENDED Week A get the Week B confirmation — if they
     // never showed for Week A there's no reason to send them Week B.
-    if (t.enrolled === false || t.declined_at || t.dropped_out_at || !attendedWeekA(t)) {
+    // A HELD trainee finished Week A and is still on the team — they simply are
+    // not going into Week B yet, so they must not get the "confirm your Monday"
+    // text. Listed with a reason rather than silently dropped, so the office can
+    // see who is being held and why.
+    if (t.enrolled === false || t.declined_at || t.dropped_out_at || heldFromWeekB(t) || !attendedWeekA(t)) {
       skipped++
-      skippedList.push({ name: nameOf(t), reason: t.dropped_out_at ? 'dropped out' : t.declined_at ? 'declined' : t.enrolled === false ? 'not enrolled' : "didn't finish Week A" })
+      skippedList.push({ name: nameOf(t), reason: t.dropped_out_at ? 'dropped out' : t.declined_at ? 'declined' : t.enrolled === false ? 'not enrolled' : heldFromWeekB(t) ? `held from Week B — ${t.week_b_hold_reason || 'pending effort'}` : "didn't finish Week A" })
       continue
     }
     if (!force && t.week_b_confirm_sent_at) { skipped++; skippedList.push({ name: nameOf(t), reason: 'already sent' }); continue } // cron dedupe
