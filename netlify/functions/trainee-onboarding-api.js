@@ -27,7 +27,7 @@ import { sendEmail } from './_email.js'
 import { sendSmsViaGhl as sendSms } from './_ghl.js'
 
 // Who signs for the company. One place, so changing it is one edit.
-const COUNTERSIGNER = { name: 'Jennifer VonGraupen', phone: '(941) 718-0032' }
+const COUNTERSIGNER = { name: 'Jennifer VonGraupen', phone: '(941) 718-0032', email: 'JennV@shingleusa.com' }
 
 const BUCKET = 'trainee-docs'
 
@@ -335,9 +335,22 @@ export const handler = async (event) => {
       if (tok) {
         const site = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
         const who = `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim() || merged.sign_name || 'A new rep'
-        await sendSms(COUNTERSIGNER.phone,
-          `${who} just signed their Independent Contractor Agreement. It needs your signature to be complete:\n\n${site}/.netlify/functions/countersign-agreement?t=${tok}`,
-          { firstName: 'Training', lastName: 'System' })
+        const link = `${site}/.netlify/functions/countersign-agreement?t=${tok}`
+        // BOTH channels, as everything else here does — a text alone misses
+        // anyone on DND or opted out of the GHL number, and this one holds up an
+        // agreement until it is answered.
+        await Promise.allSettled([
+          sendSms(COUNTERSIGNER.phone,
+            `${who} just signed their Independent Contractor Agreement. It needs your signature to be complete:\n\n${link}`,
+            { firstName: 'Training', lastName: 'System' }),
+          sendEmail(COUNTERSIGNER.email,
+            `Countersign needed — ${who}`,
+            [`${who} has just signed their Independent Contractor Agreement.`, '',
+             'It is not complete until U.S. Shingle signs it too, and the PDF is not created until you do.', '',
+             'Sign here:', link, '',
+             'It takes a few seconds and works on your phone.', '',
+             '— Training System'].join('\n')),
+        ])
         await supabase.from('trainee_onboarding').update({ countersign_sent_at: new Date().toISOString() }).eq('trainee_id', trainee.id)
         countersignSent = true
       }
