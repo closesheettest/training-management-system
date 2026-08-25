@@ -47,7 +47,7 @@ export const handler = async (event) => {
     })
   }
 
-  const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin'])
+  const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin', 'va'])
   const hr = [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]
 
   const out = []
@@ -64,7 +64,13 @@ export const handler = async (event) => {
 
     const targets = [[COUNTERSIGNER_EMAIL, `Countersigned — ${who}`, body('Your signed copy, for your records.')]]
     if (r.agent_email) targets.push([r.agent_email, 'Your Independent Contractor Agreement', body(`Hi ${(r.sign_name || '').split(' ')[0] || 'there'},`)])
-    for (const a of hr) targets.push([a, `Fully executed — ${who}`, body(`${who}'s agreement is complete.`)])
+    // Case-insensitive dedupe — JennV@ and jennv@ are the same inbox.
+    const already = new Set(targets.map((t) => String(t[0]).toLowerCase()))
+    for (const a of hr) {
+      if (already.has(String(a).toLowerCase())) continue
+      already.add(String(a).toLowerCase())
+      targets.push([a, `Fully executed — ${who}`, body(`${who}'s agreement is complete.`)])
+    }
 
     const sent = [], failed = []
     for (const [to, subject, text] of targets) {

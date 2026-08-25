@@ -321,8 +321,17 @@ export const handler = async (event) => {
           // The rep, whose earlier email could not carry this.
           if (row.agent_email) targets.push([row.agent_email, 'Your Independent Contractor Agreement', body(`Hi ${(row.sign_name || '').split(' ')[0] || 'there'},`)])
           // HR / admin.
-          const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin'])
-          for (const a of [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]) {
+          // 'va' is in here because Jerico handles the paperwork — he was on the
+          // recipients table already, just under a role the executed agreement
+          // never went to (Neal, 2026-08-25).
+          const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin', 'va'])
+          // Deduped case-INSENSITIVELY, and against whoever is already a target.
+          // Jennifer is JennV@ as the countersigner and jennv@ on the recipients
+          // table, so she was getting two copies of every agreement.
+          const already = new Set(targets.map((t) => String(t[0]).toLowerCase()))
+          for (const a of (office || []).filter((r) => r.active !== false && r.email).map((r) => r.email)) {
+            if (already.has(String(a).toLowerCase())) continue
+            already.add(String(a).toLowerCase())
             targets.push([a, `Fully executed — ${who}`, body(`${who}'s agreement is complete.`)])
           }
           for (const [to, subject, text] of targets) {
