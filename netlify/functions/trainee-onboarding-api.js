@@ -103,16 +103,40 @@ export const handler = async (event) => {
           : []
       }
     }
+    // CORE FIRST, DETAILS SECOND.
+    //
+    // These were one select. Adding agent_initials to it — a column whose
+    // migration had not been run — made the whole query error, `rows` came back
+    // undefined, and every trainee on the page read as "has not signed". A class
+    // of four who had all signed showed "Waiting on 4 of 4 to sign" (Neal,
+    // 2026-08-25).
+    //
+    // The signed/banking state is what gates a class starting, so it is fetched
+    // on its own and cannot be taken down by an optional field. The details are a
+    // second, best-effort query that degrades to nothing.
+    const ids = live.map((t) => t.id).length ? live.map((t) => t.id) : ['00000000-0000-0000-0000-000000000000']
     const { data: rows } = await supabase
       .from('trainee_onboarding')
-      // The details the office keeps asking for — shirt size, who to ring in an
-      // emergency, the address the paperwork was signed under. NEVER the SECRET
-      // columns: no TIN, no bank account, no routing (Neal, 2026-08-25).
-      .select('trainee_id, signed_at, banking_completed_at, w9_pdf_path, agreement_pdf_path, ' +
-              'preferred_name, shirt_size, agent_legal_name, agent_phone, agent_email, agent_dob, ' +
-              'agent_address, emergency_name, emergency_phone, agent_initials, sign_title, ' +
-              'business_name, bank_name, company_signed_at')
-      .in('trainee_id', live.map((t) => t.id).length ? live.map((t) => t.id) : ['00000000-0000-0000-0000-000000000000'])
+      .select('trainee_id, signed_at, banking_completed_at, w9_pdf_path, agreement_pdf_path, company_signed_at')
+      .in('trainee_id', ids)
+
+    // NEVER the SECRET columns: no TIN, no bank account, no routing.
+    const DETAIL_COLS = 'trainee_id, preferred_name, shirt_size, agent_legal_name, agent_phone, agent_email, ' +
+      'agent_dob, agent_address, emergency_name, emergency_phone, sign_title, business_name, bank_name, agent_initials'
+    let detail = []
+    {
+      const { data, error } = await supabase.from('trainee_onboarding').select(DETAIL_COLS).in('trainee_id', ids)
+      if (error) {
+        // Drop whatever the database does not have yet and try once more, so a
+        // pending migration costs the extra fields and nothing else.
+        const { data: basic } = await supabase.from('trainee_onboarding')
+          .select(DETAIL_COLS.split(', ').filter((c) => !error.message.includes(c)).join(', '))
+          .in('trainee_id', ids)
+        detail = basic || []
+        console.warn('roster details fell back:', error.message)
+      } else detail = data || []
+    }
+    const detailById = Object.fromEntries(detail.map((r) => [r.trainee_id, r]))
     const byId = Object.fromEntries((rows || []).map((r) => [r.trainee_id, r]))
     const people = live.map((t) => {
       const r = byId[t.id] || {}
@@ -124,7 +148,7 @@ export const handler = async (event) => {
         banking_done: !!r.banking_completed_at,
         has_docs: !!(r.w9_pdf_path && r.agreement_pdf_path),
         countersigned: !!r.company_signed_at,
-        details: {
+        details: (() => { const r = detailById[t.id] || {}; return {
           preferred_name: r.preferred_name || null,
           shirt_size: r.shirt_size || null,
           legal_name: r.agent_legal_name || null,
@@ -140,7 +164,7 @@ export const handler = async (event) => {
           // The bank NAME only — never the account. Enough to say direct deposit
           // is set up with someone, without putting the numbers on a screen.
           bank_name: r.bank_name || null,
-        },
+        } })(),
       }
     }).sort((a, b) => Number(a.signed) - Number(b.signed) || a.name.localeCompare(b.name))
     return cors(200, {
