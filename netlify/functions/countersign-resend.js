@@ -47,8 +47,13 @@ export const handler = async (event) => {
   const site = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
   const link = (t) => `${site}/.netlify/functions/countersign-agreement?t=${t}`
   const named = (r) => (r.agent_legal_name || r.sign_name || r.trainee_id || 'A rep').trim()
-
-  const ready = (rows || []).filter((r) => r.countersign_token)
+  // ?skip=<trainee_id>,<trainee_id> — leave someone out without signing them.
+  // Bret Dethlefsen was offboarded the week after he signed; countersigning is
+  // the company EXECUTING that contract, so it should not happen by default for
+  // someone who has left. His row just stays outstanding (Neal, 2026-08-25).
+  const skip = new Set(String(qp.skip || '').split(',').map((x) => x.trim()).filter(Boolean))
+  const ready = (rows || []).filter((r) => r.countersign_token && !skip.has(r.trainee_id))
+  const skipped = (rows || []).filter((r) => skip.has(r.trainee_id)).map(named)
   const noToken = (rows || []).filter((r) => !r.countersign_token).map(named)
 
   if (dry) {
@@ -56,6 +61,7 @@ export const handler = async (event) => {
       ok: true, dry_run: true,
       outstanding: (rows || []).length,
       sendable: ready.length,
+      skipped,
       missing_token: noToken,
       people: ready.map((r) => ({ who: named(r), signed_at: r.signed_at, already_told: r.countersign_sent_at, url: link(r.countersign_token) })),
     })
@@ -91,5 +97,5 @@ export const handler = async (event) => {
   await supabase.from('trainee_onboarding').update({ countersign_sent_at: nowIso })
     .in('trainee_id', ready.map((r) => r.trainee_id))
 
-  return json(200, { ok: true, sent: sent.length, mode: each ? 'one each' : 'digest', people: sent, missing_token: noToken })
+  return json(200, { ok: true, sent: sent.length, mode: each ? 'one each' : 'digest', people: sent, skipped, missing_token: noToken })
 }
