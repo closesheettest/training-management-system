@@ -80,12 +80,26 @@ export const handler = async (event) => {
       .lte('attendance_date', today)
       .order('attendance_date', { ascending: false })
     if (att && att.length) {
-      // Use the most recent COMPLETED day (before today) — today's sign-ins are
-      // still trickling in each morning, so today alone would under-count. Falls
-      // back to today's if there's no prior day yet.
-      const priorDates = att.map((a) => a.attendance_date).filter((dt) => dt < today)
-      const activeDate = priorDates.length ? priorDates[0] : att[0].attendance_date
-      activeIds = new Set(att.filter((a) => a.attendance_date === activeDate).map((a) => a.trainee_id))
+      // ONCE ANYONE HAS SIGNED IN TODAY, TODAY IS THE ANSWER.
+      //
+      // This used to always use the most recent COMPLETED day, reasoning that
+      // today's sign-ins are still trickling in and today alone would
+      // under-count. That holds at 7 AM and is wrong by mid-morning: on the
+      // Tuesday of Week A it listed all five of Monday's trainees when Kelvin
+      // Rainwater had not turned up, and William would have been handed a name
+      // who was not there (Neal, 2026-08-25).
+      //
+      // So: if the room has started signing in today, today's list is the live
+      // one. Before the first sign-in there is nothing to go on, and the last
+      // completed day is still the better guess than an empty room.
+      const todayIds = att.filter((a) => a.attendance_date === today).map((a) => a.trainee_id)
+      if (todayIds.length) {
+        activeIds = new Set(todayIds)
+      } else {
+        const priorDates = att.map((a) => a.attendance_date).filter((dt) => dt < today)
+        const activeDate = priorDates.length ? priorDates[0] : att[0].attendance_date
+        activeIds = new Set(att.filter((a) => a.attendance_date === activeDate).map((a) => a.trainee_id))
+      }
     }
   }
 
