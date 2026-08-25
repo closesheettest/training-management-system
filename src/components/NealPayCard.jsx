@@ -108,21 +108,26 @@ export default function NealPayCard() {
   // A single week answers "what did I earn"; only the full run answers "what am I
   // owed", which is the question that matters when the guarantee was paid on a
   // week the override had already beaten (Neal, 2026-08-25).
+  // FROZEN weeks, not a live recompute. Recomputing gave a different answer every
+  // time it was asked: the week of 10 Aug read $514,028 when it was paid and
+  // $467,468 a week later, because three sold deals had gone Lost in between. A
+  // week captured when it closed is the only figure that can be reconciled
+  // against what was actually paid (Neal, 2026-08-25).
   const loadAll = async () => {
     setAllLoading(true); setErr('')
-    const rows = []
     try {
-      for (const m of [...mondays].reverse()) {           // oldest first
-        const res = await fetch(LB_ORIGIN + 'all-manager-pay?weeks_back=' + weeksBackFor(m))
-        const d = await res.json()
-        if (!d || !d.ok) continue
-        const g = Number(d?.totals?.contract) || 0
+      const res = await fetch(LB_ORIGIN + 'frozen-weeks?since=' + EFFECTIVE_FROM)
+      const d = await res.json()
+      if (!d || !d.ok) { setErr(d?.error || 'Could not load the frozen weeks.'); setAllLoading(false); return }
+      const rows = (d.weeks || []).slice().reverse().map((w) => {
+        const g = Number(w.gross) || 0
         const b = bandFor(g)
         const o = b ? g * b.rate : 0
-        rows.push({ monday: m, gross: g, band: b, override: o, short: Math.max(0, o - GUARANTEE) })
-      }
+        return { monday: new Date(w.week_start + 'T12:00:00'), gross: g, band: b, override: o, short: Math.max(0, o - GUARANTEE) }
+      })
+      if (!rows.length) setErr('No weeks frozen yet — run the backfill.')
       setAll(rows)
-    } catch { setErr('Could not load every week.') }
+    } catch { setErr('Could not load the frozen weeks.') }
     setAllLoading(false)
   }
 
@@ -268,8 +273,9 @@ function AllWeeks({ rows }) {
         </table>
       </div>
       <p className="px-3 pb-2 pt-1 text-[11px] text-slate-500">
-        &ldquo;Paid&rdquo; assumes the {usd(GUARANTEE)} guarantee was what actually went out each week. Any week already
-        settled at the override rate should be struck from the total.
+        Each week is the figure captured when it closed, not a fresh recount &mdash; a deal going Lost later cannot
+        reduce a week that has already been paid. &ldquo;Paid&rdquo; assumes the {usd(GUARANTEE)} guarantee was what
+        actually went out; any week already settled at the override rate should be struck from the total.
       </p>
     </div>
   )
