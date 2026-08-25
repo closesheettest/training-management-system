@@ -92,6 +92,11 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  .go.notready{background:#94a3b8}
  .jump{flex:0 0 auto;padding:13px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:14px;font-weight:800;cursor:pointer}
  .clr{flex:0 0 100px;padding:13px;border:0;border-radius:10px;background:#e2e8f0;color:#334155;font-weight:800;cursor:pointer}
+ .step{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:999px;background:#0f172a;color:#fff;font-size:11.5px;margin-right:7px}
+ .hint{font-size:12px;color:#94a3b8;margin:5px 0 0}
+ .preview{margin-top:12px;border:1px solid #e2e8f0;border-radius:11px;background:#fff;padding:14px 12px;text-align:center;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+ .preview .sig{font-size:34px;line-height:1.2;color:#0f172a;white-space:nowrap;overflow:hidden;max-width:100%}
+ .preview .cap{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8}
  .err{color:#b91c1c;font-weight:700;font-size:13.5px;margin-top:10px;min-height:18px}
 </style>
 <div class=c>
@@ -101,16 +106,19 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  <div class=doc id=doc>${agreementHtml(row)}</div>
  <p class=read id=read>Scroll to the end of the agreement (or tap &ldquo;Jump to the end&rdquo;) before signing.</p>
 
- <label>Your name</label>
+ <label><span class=step>1</span> Your name, spelled how you want it signed</label>
  <input id=nm value="Jennifer VonGraupen" autocomplete=name>
+ <p class=hint>Already filled in — change it only if you want it to read differently.</p>
 
+ <label><span class=step>2</span> Pick your signature</label>
  <div class=tabs>
-   <button type=button id=tType class=on>Type it</button>
-   <button type=button id=tDraw>Draw it</button>
+   <button type=button id=tType class=on>Choose a style</button>
+   <button type=button id=tDraw>Draw it instead</button>
  </div>
 
  <div id=typeWrap>
    <div class=styles id=styles></div>
+   <div class=preview id=preview></div>
  </div>
  <div id=drawWrap style="display:none">
    <canvas id=cv></canvas>
@@ -145,6 +153,9 @@ function renderStyles(){
     '<div class="sty'+(i===styleIdx?' on':'')+'" data-i="'+i+'"><span style="font-family:\''+f[0]+'\','+f[1]+'">'+
     nm.replace(/[&<>]/g,'')+'</span></div>').join('');
   [...document.querySelectorAll('.sty')].forEach(el=>el.onclick=()=>{styleIdx=+el.dataset.i;renderStyles();gate();});
+  const f=FONTS[styleIdx];
+  $('preview').innerHTML='<div class=cap>This will be your signature</div>'+
+    '<div class=sig style="font-family:\''+f[0]+'\','+f[1]+'">'+nm.replace(/[&<>]/g,'')+'</div>';
 }
 // NEVER DISABLE THE BUTTON. Jennifer typed her name, pressed Sign & file it and
 // nothing happened — a greyed-out button gives no reason and no way forward. It
