@@ -20,6 +20,14 @@ alter table trainee_onboarding add column if not exists countersign_sent_at    t
 create index if not exists trainee_onboarding_countersign_token
   on trainee_onboarding (countersign_token);
 
+-- BACKFILL. `default gen_random_uuid()` only fires for rows inserted AFTER the
+-- column exists, so every agreement signed before this migration would come out
+-- of it with a NULL token and stay unsignable. Monday's Week A class signed
+-- while this file was still sitting unrun — they are exactly those rows.
+update trainee_onboarding
+   set countersign_token = gen_random_uuid()
+ where countersign_token is null;
+
 -- Anything already signed by a rep but not yet countersigned.
 select trainee_id, sign_name, signed_at, company_signed_at
   from trainee_onboarding

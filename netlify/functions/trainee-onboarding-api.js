@@ -329,9 +329,18 @@ export const handler = async (event) => {
     // resent. Fetch the token that the row's default generated.
     let countersignSent = false
     try {
-      const { data: fresh } = await supabase.from('trainee_onboarding')
+      const { data: fresh, error: tokErr } = await supabase.from('trainee_onboarding')
         .select('countersign_token').eq('trainee_id', trainee.id).maybeSingle()
       const tok = fresh?.countersign_token
+      // SAY SO WHEN THERE IS NO TOKEN. Monday's Week A class signed while
+      // sql/ic_countersign.sql was still unrun: the column did not exist, this
+      // select errored, `tok` came back undefined, and the whole notify block
+      // was skipped without a sound. Nine agreements sat signed by one party
+      // with Jennifer never told there was anything to sign (Neal, 2026-08-25).
+      if (!tok) {
+        console.error('COUNTERSIGN NOT SENT — no token for', trainee.id,
+          tokErr ? `(${tokErr.message} — has sql/ic_countersign.sql been run?)` : '(token column is null)')
+      }
       if (tok) {
         const site = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
         const who = `${trainee.first_name || ''} ${trainee.last_name || ''}`.trim() || merged.sign_name || 'A new rep'
