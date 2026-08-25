@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase.js'
 import { formatDateRange } from '../lib/dates.js'
 
 const PLATFORMS = [
-  { key: 'repcard', label: 'RepCard', field: 'repcard_setup_at' },
+  // RepCard and Sales Academy are gone — the company no longer uses either, so
+  // asking a VA to create accounts in them is asking for work that cannot be
+  // done. The columns stay in the database so past classes still read correctly
+  // (Neal, 2026-08-25).
   { key: 'jobnimbus', label: 'JobNimbus', field: 'jobnimbus_setup_at' },
-  { key: 'sales_academy', label: 'Sales Academy', field: 'sales_academy_setup_at' },
 ]
 
 export default function Setup() {

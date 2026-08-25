@@ -21,7 +21,7 @@ export async function notifyOffboarding(supabase, { repName, region, flaggedBy, 
   const why = reason ? ` Reason: ${reason}.` : ''
   const msg =
     `🚪 Off-boarding needed: ${name}${where} was marked Quit / Fired${by}.${why} ` +
-    `Please remove them from GHL, Google Workspace, RepCard, JobNimbus & Sales Academy. ` +
+    `Please remove them from GHL, Google Workspace & JobNimbus. ` +
     `Step-by-step: ${OFFBOARD_GUIDE_URL}`
 
   let sent = 0

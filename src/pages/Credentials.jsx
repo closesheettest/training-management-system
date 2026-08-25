@@ -140,7 +140,7 @@ export default function Credentials() {
       <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-brand-navy">Next: install your apps</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Once your email is set up, install RepCard and JobNimbus — the two apps you'll use every
+          Once your email is set up, install JobNimbus — the app you'll use every
           day.
         </p>
         <Link

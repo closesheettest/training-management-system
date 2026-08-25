@@ -73,12 +73,12 @@ export const handler = async (event) => {
   // VA-facing message
   const vaSms =
     `[Training] ${provisionedCount} new trainee${provisionedCount === 1 ? ' needs' : 's need'} to be set up in ` +
-    `RepCard, JobNimbus, and Sales Academy for ${cls.region} (week of ${weekLabel}). Check them off as you go: ${setupLink}`
+    `JobNimbus for ${cls.region} (week of ${weekLabel}). Check them off as you go: ${setupLink}`
   const vaEmailSubject = `Set up ${provisionedCount} trainee${provisionedCount === 1 ? '' : 's'} — ${cls.region}`
   const vaEmailBody =
     `${provisionedCount} new trainee${provisionedCount === 1 ? ' needs' : 's need'} accounts created in ` +
-    `RepCard, JobNimbus, and Sales Academy for ${cls.region} (week of ${weekLabel}).\n\n` +
-    `Open the checklist (each platform tracks per-trainee progress):\n${setupLink}\n\n` +
+    `JobNimbus for ${cls.region} (week of ${weekLabel}).\n\n` +
+    `Open the checklist (tracks per-trainee progress):\n${setupLink}\n\n` +
     `— Training System`
 
   const hrRecipients = await recipientsForEvent(supabase, 'it_emails_provisioned', { legacyRole: 'hr' })

@@ -33,7 +33,7 @@
 //      "Registered" count in real-time (e.g. 12 → 9 when 3 no-show).
 //   2. Notify IT and HR via SMS/email so accounts get cleaned up:
 //        * 'trainee_dropout_delete_email' → IT (delete Google Workspace email)
-//        * 'trainee_dropout_delete_apps'  → HR (remove from RepCard/JobNimbus/Sales Academy)
+//        * 'trainee_dropout_delete_apps'  → HR (remove from JobNimbus)
 //
 // Each trainee's dropout_notified_at is stamped so the same name won't
 // appear in a future day's report.
@@ -362,11 +362,11 @@ export const handler = async (event) => {
 
   const hrSms =
     provisioned.length === 1
-      ? `[Training] Dropout on ${dateLabel}: ${lines[0].slice(2)}. Please remove from RepCard, JobNimbus, and Sales Academy.`
-      : `[Training] ${provisioned.length} dropouts on ${dateLabel}. Please remove from RepCard, JobNimbus, and Sales Academy:\n${lines.join('\n')}`
+      ? `[Training] Dropout on ${dateLabel}: ${lines[0].slice(2)}. Please remove from JobNimbus.`
+      : `[Training] ${provisioned.length} dropouts on ${dateLabel}. Please remove from JobNimbus:\n${lines.join('\n')}`
   const hrEmailSubject = `Remove ${provisioned.length} dropout${provisioned.length === 1 ? '' : 's'} from apps — ${dateLabel}`
   const hrEmailBody =
-    `The following provisioned trainee${provisioned.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${provisioned.length === 1 ? 's' : ''} to have dropped out. Please remove their account${provisioned.length === 1 ? '' : 's'} from RepCard, JobNimbus, and Sales Academy:\n\n` +
+    `The following provisioned trainee${provisioned.length === 1 ? '' : 's'} no-showed on ${dateLabel} and appear${provisioned.length === 1 ? 's' : ''} to have dropped out. Please remove their account${provisioned.length === 1 ? '' : 's'} from JobNimbus:\n\n` +
     `${lines.join('\n')}\n\n` +
     `— Training System`
 

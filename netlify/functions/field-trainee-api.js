@@ -132,7 +132,7 @@ export const handler = async (event) => {
     if (action === 'email_done') {
       await supabase.from('trainees').update({ field_email_provisioned_at: nowIso }).eq('id', id)
       const { recipients } = await recipientsForEvent(supabase, 'va_setup_due', { legacyRole: 'va' })
-      const msg = `Email is provisioned for FIELD TRAINEE ${name}. Please set up their apps (RepCard / JobNimbus / Sales Academy), then mark apps done in the Field Trainee page.`
+      const msg = `Email is provisioned for FIELD TRAINEE ${name}. Please set up their apps (JobNimbus), then mark apps done in the Field Trainee page.`
       await notifyAll(recipients, { smsBody: msg, emailSubject: `App setup — field trainee ${name}`, emailBody: msg, contactLabel: 'App Setup' })
       return json(200, { ok: true, va_notified: (recipients || []).length })
     }

@@ -11,14 +11,6 @@ function detectPlatform() {
 
 const APPS = [
   {
-    key: 'repcard',
-    name: 'RepCard',
-    tagline: 'Digital business cards + follow-up automation for field sales.',
-    ios: 'https://apps.apple.com/us/app/repcard-field-sales-platform/id1372990002',
-    android: 'https://play.google.com/store/apps/details?id=com.rocket.repcard',
-    note: null,
-  },
-  {
     key: 'jobnimbus',
     name: 'JobNimbus',
     tagline: 'All-in-one CRM — contacts, jobs, and tasks on the go.',
@@ -46,7 +38,7 @@ export default function AppDownloads() {
           Install your apps
         </h1>
         <p className="mt-2 text-slate-600">
-          You'll use <strong>RepCard</strong> and <strong>JobNimbus</strong> every day. Follow the
+          You'll use <strong>JobNimbus</strong> every day. Follow the
           steps below carefully — the order matters.
         </p>
       </div>

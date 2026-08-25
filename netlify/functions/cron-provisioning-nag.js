@@ -18,7 +18,7 @@
 //                     Hub dropping the class off IT's list)
 //        Action page: /provision/:class_id
 //
-//   2. VA — RepCard / JobNimbus / Sales Academy setup
+//   2. VA — JobNimbus setup
 //        Responsible: role 'va'
 //        Due when:    IT marks emails complete (it_completed_at)
 //        Complete:    every trainee with (enrolled !== false && a
@@ -47,7 +47,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
 
-const PLATFORM_FIELDS = ['repcard_setup_at', 'jobnimbus_setup_at', 'sales_academy_setup_at']
+// RepCard and Sales Academy retired — JobNimbus is the only account to create.
+const PLATFORM_FIELDS = ['jobnimbus_setup_at']
 const LATE_MS = 24 * 60 * 60 * 1000 // a stage must be 24h+ overdue to nag
 const GRACE_DAYS = 14 // don't resurrect classes that ended > 2 weeks ago
 
@@ -163,7 +164,7 @@ export const handler = async (event) => {
     const dept = await getDept('va')
     const msg =
       `[Training] Reminder: ${label} — ${remaining.length} trainee${remaining.length === 1 ? '' : 's'} ` +
-      `still need RepCard / JobNimbus / Sales Academy setup, now ${daysLate} day${daysLate === 1 ? '' : 's'} past due. ` +
+      `still need JobNimbus setup, now ${daysLate} day${daysLate === 1 ? '' : 's'} past due. ` +
       `Finish here: ${siteUrl}/setup/${cls.id}`
     const r = await fanout(dept, msg, { dry, errors })
     sent += r.sent

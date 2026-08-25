@@ -31,7 +31,7 @@
 //     and company email/number stay locked — name keys the JobNimbus match).
 //     Region-gated like deactivate. On any change, texts the office (admins
 //     subscribed to 'rep_info_updated_by_manager') a plain-English summary
-//     of what changed so they mirror it in GHL / JobNimbus / RepCard. When
+//     of what changed so they mirror it in GHL / JobNimbus. When
 //     the address changes the geocode is cleared; the client re-geocodes.
 //
 //   POST { action: 'send_message', token, channels, sms_body?,
@@ -508,7 +508,7 @@ export const handler = async (event) => {
     // RepCard. A failed alert must NOT fail the manager's edit — the DB is
     // already updated, so we swallow notify errors and just log them.
     const repName = `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'A rep'
-    const msg = `${repName}'s info was updated by ${manager.first_name} (${region}): ${changes.join('; ')}. Please update your other records (GHL, JobNimbus, RepCard).`
+    const msg = `${repName}'s info was updated by ${manager.first_name} (${region}): ${changes.join('; ')}. Please update your other records (GHL, JobNimbus).`
     try {
       const { phones } = await recipientPhonesForEvent(supabase, 'rep_info_updated_by_manager', {
         legacyRole: 'admin',

@@ -10,8 +10,7 @@
 //
 // This is in ADDITION to the instant alert that fires the moment a rep is
 // marked Quit / Fired (see _offboard-notify.js): instant notice, then a
-// daily reminder so nobody sits un-scrubbed in GHL / Google / RepCard /
-// JobNimbus / Sales Academy.
+// daily reminder so nobody sits un-scrubbed in GHL / Google / JobNimbus.
 //
 // Native Netlify scheduled function (export config.schedule). Permissive
 // auth like the leaderboard/welcome crons: a WRONG secret is rejected, but
@@ -66,7 +65,7 @@ export const handler = async (event) => {
   const n = pending.length
   const msg =
     `🚪 Off-boarding cleanup — ${n} rep${n === 1 ? '' : 's'} still need${n === 1 ? 's' : ''} removing from ` +
-    `GHL, Google Workspace, RepCard, JobNimbus & Sales Academy:\n` +
+    `GHL, Google Workspace & JobNimbus:\n` +
     `${lines.join('\n')}\n` +
     `Steps: ${OFFBOARD_GUIDE_URL}`
 

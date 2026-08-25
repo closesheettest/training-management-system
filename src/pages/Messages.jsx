@@ -138,11 +138,11 @@ Reply to this text if anything looks wrong. — U.S. Shingle Training`,
   },
   va_setup_due: {
     triggers: ['Fires alongside IT-completed event — VAs are notified to start RepCard/JN/SA setup'],
-    sms: `[Training] ${SAMPLE.provisionedCount} new trainees need to be set up in RepCard, JobNimbus, and Sales Academy for ${SAMPLE.region} (week of ${SAMPLE.weekStart}). Check them off as you go: ${SAMPLE.setupLink}`,
+    sms: `[Training] ${SAMPLE.provisionedCount} new trainees need to be set up in JobNimbus for ${SAMPLE.region} (week of ${SAMPLE.weekStart}). Check them off as you go: ${SAMPLE.setupLink}`,
     emailSubject: `Set up ${SAMPLE.provisionedCount} trainees — ${SAMPLE.region}`,
     emailBody:
-      `${SAMPLE.provisionedCount} new trainees need accounts created in RepCard, JobNimbus, and Sales Academy for ${SAMPLE.region} (week of ${SAMPLE.weekStart}).\n\n` +
-      `Open the checklist (each platform tracks per-trainee progress):\n${SAMPLE.setupLink}\n\n` +
+      `${SAMPLE.provisionedCount} new trainees need a JobNimbus account created for ${SAMPLE.region} (week of ${SAMPLE.weekStart}).\n\n` +
+      `Open the checklist (tracks per-trainee progress):\n${SAMPLE.setupLink}\n\n` +
       `— Training System`,
   },
   hotel_noshow_alert: {
@@ -162,10 +162,10 @@ Reply to this text if anything looks wrong. — U.S. Shingle Training`,
   },
   trainee_dropout_delete_apps: {
     triggers: ['Fires alongside the IT version — same dropout, separate audience'],
-    sms: `[Training] Dropout on Wed, May 13: ${SAMPLE.trainee} — ${SAMPLE.email} (${SAMPLE.region} · ${SAMPLE.location}). Please remove from RepCard, JobNimbus, and Sales Academy.`,
+    sms: `[Training] Dropout on Wed, May 13: ${SAMPLE.trainee} — ${SAMPLE.email} (${SAMPLE.region} · ${SAMPLE.location}). Please remove from JobNimbus.`,
     emailSubject: `Remove 1 dropout from apps — Wed, May 13`,
     emailBody:
-      `The following provisioned trainee no-showed on Wed, May 13 and appears to have dropped out. Please remove their account from RepCard, JobNimbus, and Sales Academy:\n\n` +
+      `The following provisioned trainee no-showed on Wed, May 13 and appears to have dropped out. Please remove their account from JobNimbus:\n\n` +
       `• ${SAMPLE.trainee} — ${SAMPLE.email} (${SAMPLE.region} · ${SAMPLE.location})\n\n` +
       `— Training System`,
   },

@@ -20,7 +20,7 @@ export default function Home() {
         <Tile to="/locations" title="Locations" desc="Manage your training locations — hotels, offices, training sites — by region." />
         <Tile to="/group-messages" title="Group Messages" desc="Broadcast SMS or email to every active sales rep, a region, or one class — for company meetings and ad-hoc blasts." />
         <Tile to="/active-reps" title="Active Sales Reps" desc="Master list of reps in the field. Promote, deactivate, and mark who's left the company." />
-        <Tile to="/offboarding" title="Off Boarding" desc="Reps who left — check off each system (GoHighLevel, Google, RepCard, JobNimbus, Sales Academy, RoofR) to deactivate; auto-completes when all are done." />
+        <Tile to="/offboarding" title="Off Boarding" desc="Reps who left — check off each system (GoHighLevel, Google, JobNimbus, RoofR) to deactivate; auto-completes when all are done." />
       </div>
     </div>
   )
