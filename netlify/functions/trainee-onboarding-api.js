@@ -58,6 +58,34 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body || '{}') } catch { return cors(400, { ok: false, error: 'Bad JSON' }) }
   const action = String(body.action || '').toLowerCase()
 
+  // ── what everyone in a class filled in on their paperwork ──────────────────
+  //
+  // The roster action only covers people who have CHECKED IN, because it exists
+  // to gate a class starting. The class page needs the same details for the whole
+  // roster — the office looks up a shirt size or an emergency contact for someone
+  // who has not turned up yet just as often (Neal, 2026-08-25).
+  //
+  // Never the SECRET columns: no TIN, no account number, no routing.
+  if (action === 'details') {
+    const classId = String(body.class_id || '')
+    if (!classId) return cors(400, { ok: false, error: 'class_id required' })
+    const { data: trainees } = await supabase.from('trainees').select('id').eq('class_id', classId)
+    const ids = (trainees || []).map((t) => t.id)
+    if (!ids.length) return cors(200, { ok: true, byTrainee: {} })
+    const COLS = 'trainee_id, preferred_name, shirt_size, agent_legal_name, agent_phone, agent_email, agent_dob, ' +
+      'agent_address, emergency_name, emergency_phone, sign_title, business_name, bank_name, agent_initials, ' +
+      'signed_at, banking_completed_at, company_signed_at'
+    let rows = []
+    const { data, error } = await supabase.from('trainee_onboarding').select(COLS).in('trainee_id', ids)
+    if (error) {
+      // A pending migration costs the extra columns, never the whole lookup.
+      const { data: basic } = await supabase.from('trainee_onboarding')
+        .select(COLS.split(', ').filter((c) => !error.message.includes(c)).join(', ')).in('trainee_id', ids)
+      rows = basic || []
+    } else rows = data || []
+    return cors(200, { ok: true, byTrainee: Object.fromEntries(rows.map((r) => [r.trainee_id, r])) })
+  }
+
   // ── the class gate: who still owes paperwork ───────────────────────────────
   if (action === 'roster') {
     const classId = String(body.class_id || '')

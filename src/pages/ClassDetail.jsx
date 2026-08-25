@@ -28,6 +28,20 @@ export default function ClassDetail() {
       .catch(() => {})
   }, [id, viewWeek])
   useEffect(() => { loadPaperwork(); const t = setInterval(loadPaperwork, 20000); return () => clearInterval(t) }, [loadPaperwork])
+
+  // What everyone in the class put on their paperwork. Separate from the gate
+  // above, which only covers people who have CHECKED IN — the office looks up a
+  // shirt size for someone who has not turned up yet just as often.
+  const [paperworkDetails, setPaperworkDetails] = useState({})
+  useEffect(() => {
+    if (!id) return
+    fetch('/.netlify/functions/trainee-onboarding-api', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'details', class_id: id }),
+    }).then((r) => r.json())
+      .then((b) => { if (b.ok) setPaperworkDetails(b.byTrainee || {}) })
+      .catch(() => {})
+  }, [id])
   const { persona } = usePersona()
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
@@ -1605,6 +1619,7 @@ export default function ClassDetail() {
         <TraineeGroup
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
+          paperworkDetailsById={paperworkDetails}
           title="Attendees"
           emoji="👥"
           color="slate"
@@ -1669,6 +1684,7 @@ export default function ClassDetail() {
         <TraineeGroup
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
+          paperworkDetailsById={paperworkDetails}
           key={group.title}
           title={group.title}
           emoji={group.emoji}
@@ -1712,6 +1728,7 @@ export default function ClassDetail() {
         <TraineeGroup
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
+          paperworkDetailsById={paperworkDetails}
           title="Holding (rescheduled in)"
           emoji="🅿️"
           color="purple"
@@ -1909,6 +1926,7 @@ export default function ClassDetail() {
 
 function TraineeGroup({
   paperworkById,
+  paperworkDetailsById,
   onSendPaperwork,
   title,
   emoji,
@@ -1973,6 +1991,7 @@ function TraineeGroup({
                     onSave={onSaveEdit}
                     onCancel={onCancelEdit}
                     saveLabel="Save changes"
+                    paperwork={paperworkDetailsById?.[t.id]}
                   />
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -2171,7 +2190,7 @@ function useZoneManagers() {
   return (z) => (byZone[z] ? `${teamLabel(z)} — ${byZone[z]}` : teamLabel(z))
 }
 
-function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
+function TraineeForm({ value, onChange, onSave, onCancel, saveLabel, paperwork }) {
   const zoneLabel = useZoneManagers()   // same "TEAM (Zone N) — Manager" labelling as the assign card
   if (!value) return null
   const set = (field) => (e) => onChange({ ...value, [field]: e.target.value })
@@ -2239,6 +2258,49 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel }) {
           Required before this trainee can take the test — they’re blocked at the test screen until a zone is assigned.
         </p>
       </div>
+      {/* WHAT THEY PUT ON THEIR PAPERWORK. Read-only: these sit on a document they
+          have signed, so the place to change them is the paperwork, not here. Shown
+          because the office looks up a shirt size or an emergency contact from this
+          screen and had nowhere to find it (Neal, 2026-08-25). */}
+      {paperwork && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">From their paperwork</div>
+          {(() => {
+            const rows = [
+              ['Shirt size', paperwork.shirt_size],
+              ['Goes by', paperwork.preferred_name],
+              ['Legal name', paperwork.agent_legal_name],
+              ['Date of birth', paperwork.agent_dob ? new Date(`${paperwork.agent_dob}T12:00:00Z`).toLocaleDateString('en-US') : null],
+              ['Home address', paperwork.agent_address],
+              ['Emergency contact', paperwork.emergency_name],
+              ['Emergency number', paperwork.emergency_phone],
+              ['Phone on paperwork', paperwork.agent_phone],
+              ['Email on paperwork', paperwork.agent_email],
+              ['Title', paperwork.sign_title],
+              ['Initials', paperwork.agent_initials],
+              ['Business', paperwork.business_name],
+              ['Bank', paperwork.bank_name],
+            ].filter(([, v]) => v)
+            if (!rows.length) {
+              return <p className="mt-1 text-xs text-slate-500">Nothing yet — they haven&rsquo;t filled in their paperwork.</p>
+            }
+            return (
+              <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                {rows.map(([k, v]) => (
+                  <div key={k} className="flex gap-2 text-xs">
+                    <dt className="w-36 shrink-0 text-slate-400">{k}</dt>
+                    <dd className="font-medium text-slate-700">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            )
+          })()}
+          <p className="mt-2 text-[11px] text-slate-400">
+            These come from the W-9 and agreement they signed. To change one, they need to redo that form.
+          </p>
+        </div>
+      )}
+
       <div className="border-t border-slate-200 pt-3">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Registration details
