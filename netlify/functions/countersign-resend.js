@@ -70,14 +70,16 @@ export const handler = async (event) => {
   if (!ready.length) return json(200, { ok: true, sent: 0, note: 'nothing outstanding', missing_token: noToken })
 
   const sent = []
+  const delivery = []
   if (each) {
     for (const r of ready) {
       const who = named(r)
-      await Promise.allSettled([
-        sendSms(COUNTERSIGNER.phone, `${who} signed their Independent Contractor Agreement. It needs your signature:\n\n${link(r.countersign_token)}`, { firstName: 'Training', lastName: 'System' }),
-        sendEmail(COUNTERSIGNER.email, `Countersign needed — ${who}`, `${who} has signed. Sign here:\n\n${link(r.countersign_token)}`),
+      const [smsR, mailR] = await Promise.all([
+        sendSms(COUNTERSIGNER.phone, `${who} signed their Independent Contractor Agreement. It needs your signature:\n\n${link(r.countersign_token)}`, { firstName: 'Training', lastName: 'System' }).catch((e) => ({ ok: false, error: e.message })),
+        sendEmail(COUNTERSIGNER.email, `Countersign needed — ${who}`, `${who} has signed. Sign here:\n\n${link(r.countersign_token)}`).catch((e) => ({ ok: false, error: e.message })),
       ])
-      sent.push(who)
+      delivery.push({ who, sms: smsR, email: mailR })
+      if (smsR?.ok || mailR?.ok) sent.push(who)
     }
   } else {
     const lines = ready.map((r, i) => `${i + 1}. ${named(r)}\n   ${link(r.countersign_token)}`)
@@ -86,16 +88,29 @@ export const handler = async (event) => {
       '', 'Each one is signed by the rep already. The PDF is created once you sign.', '',
       ...lines, '', 'Each link takes a few seconds and works on your phone.', '', '— Training System',
     ].join('\n')
-    await Promise.allSettled([
-      sendSms(COUNTERSIGNER.phone, body, { firstName: 'Training', lastName: 'System' }),
-      sendEmail(COUNTERSIGNER.email, `${ready.length} agreement${ready.length === 1 ? '' : 's'} need your signature`, body),
+    // CHECK WHAT CAME BACK. Both helpers are documented "never throws — returns
+    // { ok, error }", so allSettled here reported a clean success for sends that
+    // never happened: this said "sent 12" and Jennifer received nothing
+    // (Neal, 2026-08-25).
+    const [smsR, mailR] = await Promise.all([
+      sendSms(COUNTERSIGNER.phone, body, { firstName: 'Training', lastName: 'System' }).catch((e) => ({ ok: false, error: e.message })),
+      sendEmail(COUNTERSIGNER.email, `${ready.length} agreement${ready.length === 1 ? '' : 's'} need your signature`, body).catch((e) => ({ ok: false, error: e.message })),
     ])
-    sent.push(...ready.map(named))
+    delivery.push({ who: 'digest', sms: smsR, email: mailR })
+    if (smsR?.ok || mailR?.ok) sent.push(...ready.map(named))
   }
 
-  const nowIso = new Date().toISOString()
-  await supabase.from('trainee_onboarding').update({ countersign_sent_at: nowIso })
-    .in('trainee_id', ready.map((r) => r.trainee_id))
+  // Only stamp what actually went out — a countersign_sent_at on a message that
+  // failed is a record saying she was told when she was not.
+  if (sent.length) {
+    const nowIso = new Date().toISOString()
+    await supabase.from('trainee_onboarding').update({ countersign_sent_at: nowIso })
+      .in('trainee_id', ready.map((r) => r.trainee_id))
+  }
 
-  return json(200, { ok: true, sent: sent.length, mode: each ? 'one each' : 'digest', people: sent, skipped, missing_token: noToken })
+  const anyOk = delivery.some((d) => d.sms?.ok || d.email?.ok)
+  return json(anyOk ? 200 : 502, {
+    ok: anyOk, sent: sent.length, mode: each ? 'one each' : 'digest',
+    people: sent, skipped, missing_token: noToken, delivery,
+  })
 }
