@@ -415,7 +415,11 @@ async function deliver(supabase, trainee, d, { w9Path, agreementPath }) {
   if (trainee.email) {
     await sendEmail(trainee.email, 'Your signed U.S. Shingle paperwork',
       `Hi ${trainee.first_name || 'there'},\n\nThank you — we've got everything. ${d._next_session || 'See you in class.'}\n\n` +
-      `Attached are the documents you just signed — your W-9 and your Independent Contractor Agreement. Keep them for your records.\n\n` +
+      // The agreement is NOT attached here any more: it is not rendered until the
+      // company countersigns, so this promised a document it could not carry.
+      // countersign-agreement emails the executed copy when Jennifer signs.
+      `Attached is your W-9. Keep it for your records.\n\n` +
+      `Your Independent Contractor Agreement goes to our office for signature — once it is countersigned we'll email you the completed copy with both signatures on it.\n\n` +
       (d.banking_completed_at ? '' : 'One thing still outstanding: we don\'t have your direct deposit details yet. You can add them any time using the same link — we\'ll send a reminder each day until they\'re in, so you get paid on time.\n\n') +
       '— U.S. Shingle & Metal Training', { attachments }).catch(() => {})
     await supabase.from('trainee_onboarding').update({ emailed_rep_at: nowIso }).eq('trainee_id', trainee.id)
@@ -427,7 +431,7 @@ async function deliver(supabase, trainee, d, { w9Path, agreementPath }) {
   const to = [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]
   for (const addr of to) {
     await sendEmail(addr, `Signed paperwork — ${who}`,
-      `${who} signed their W-9 and Independent Contractor Agreement just now.\n\n` +
+      `${who} signed their W-9 and Independent Contractor Agreement just now. The agreement is waiting on the company countersignature — the executed copy follows once it is signed.\n\n` +
       `Phone: ${d.agent_phone || trainee.phone || '—'}\nEmail: ${d.agent_email || trainee.email || '—'}\n` +
       `Direct deposit: ${d.banking_completed_at ? 'on file' : 'NOT YET PROVIDED — they\'ll be reminded daily until it is'}\n\n` +
       'Both documents are attached.', { attachments }).catch(() => {})

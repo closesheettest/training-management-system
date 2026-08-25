@@ -17,10 +17,13 @@
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 
 import { createClient } from '@supabase/supabase-js'
+import { sendEmail } from './_email.js'
 import { renderAgreementPdf, COMPANY, AGREEMENT, EXHIBIT_A } from './_ic-agreement.js'
 
 const html = (body, code = 200) => ({ statusCode: code, headers: { 'Content-Type': 'text/html; charset=utf-8' }, body })
 const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) })
+
+const COUNTERSIGNER_EMAIL = 'JennV@shingleusa.com'
 
 const db = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
@@ -292,7 +295,46 @@ export const handler = async (event) => {
         .update({ company_sign_style: merged.company_sign_style }).eq('countersign_token', t)
       if (styleErr) console.warn('company_sign_style not stored (run sql/ic_countersign.sql):', styleErr.message)
     }
-    return json(200, { ok: true, signed: true, pdf: path, pdf_error: pdfError })
+    // SEND THE EXECUTED AGREEMENT OUT. Nothing was emailed on countersignature at
+    // all, so the finished document sat in storage and no party held a copy.
+    //
+    // Worse, the rep's own "Your signed paperwork" email goes out when THEY sign,
+    // which is now before the agreement PDF exists — it promised their
+    // Independent Contractor Agreement and attached only the W-9. This is where
+    // they actually get it (Neal, 2026-08-25).
+    let emailed = []
+    if (path) {
+      try {
+        const { data: file } = await supabase.storage.from('trainee-docs').download(path)
+        const content = file ? Buffer.from(await file.arrayBuffer()).toString('base64') : null
+        if (content) {
+          const attachments = [{ filename: `Independent-Contractor-Agreement-${(row.sign_name || 'rep').replace(/[^A-Za-z0-9]+/g, '-')}.pdf`, content }]
+          const who = row.agent_legal_name || row.sign_name || 'the rep'
+          const body = (greeting) =>
+            `${greeting}\n\nAttached is the fully executed Independent Contractor Agreement for ${who}, ` +
+            `signed by them on ${new Date(row.signed_at).toLocaleDateString('en-US')} and countersigned by ` +
+            `${merged.company_sign_name} on ${new Date(nowIso).toLocaleDateString('en-US')}.\n\n— U.S. Shingle & Metal`
+
+          const targets = []
+          // Jennifer, so she keeps a copy of what she just signed.
+          targets.push([COUNTERSIGNER_EMAIL, `Countersigned — ${who}`, body('Thank you for signing.')])
+          // The rep, whose earlier email could not carry this.
+          if (row.agent_email) targets.push([row.agent_email, 'Your Independent Contractor Agreement', body(`Hi ${(row.sign_name || '').split(' ')[0] || 'there'},`)])
+          // HR / admin.
+          const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin'])
+          for (const a of [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]) {
+            targets.push([a, `Fully executed — ${who}`, body(`${who}'s agreement is complete.`)])
+          }
+          for (const [to, subject, text] of targets) {
+            const r = await sendEmail(to, subject, text, { attachments }).catch((e) => ({ ok: false, error: e.message }))
+            if (r && r.ok) emailed.push(to)
+            else console.error('countersign email failed:', to, r && r.error)
+          }
+        }
+      } catch (e) { console.error('countersign email step failed:', e.message) }
+    }
+
+    return json(200, { ok: true, signed: true, pdf: path, pdf_error: pdfError, emailed })
   }
 
   if (!token) return html('<p style="font-family:system-ui;padding:24px">This link is missing its code.</p>', 400)
