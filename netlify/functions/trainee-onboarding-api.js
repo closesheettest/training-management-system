@@ -42,7 +42,7 @@ const WRITABLE = [
   'business_name', 'business_ein', 'business_address',
   'bank_name', 'bank_account_name', 'bank_routing', 'bank_wire_routing', 'bank_account_number',
   'sign_name', 'sign_title',
-]
+, 'agent_initials']
 // Never echoed back to the browser once saved.
 const SECRET = ['w9_tin', 'bank_account_number', 'bank_routing', 'bank_wire_routing', 'business_ein']
 

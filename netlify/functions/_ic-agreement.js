@@ -135,6 +135,14 @@ export async function renderAgreementPdf(d) {
       need(64)
       y -= 12
       const who = d.agent_legal_name || d.sign_name || ''
+      // Initials, only when we have them. An agreement signed before the field
+      // existed must not render with an empty initials line implying something
+      // is missing from it.
+      if (d.agent_initials) {
+        page.drawText('Initials:', { x: W - M - 150, y: y + 26, size: 10, font })
+        page.drawText(String(d.agent_initials).toUpperCase(), { x: W - M - 96, y: y + 26, size: 11, font: bold })
+        page.drawLine({ start: { x: W - M - 100, y: y + 23 }, end: { x: W - M, y: y + 23 }, thickness: 0.5 })
+      }
       page.drawText('Print Name:', { x: M, y, size: 10, font })
       page.drawText(who, { x: M + 66, y, size: 10, font })
       page.drawLine({ start: { x: M + 62, y: y - 3 }, end: { x: M + 232, y: y - 3 }, thickness: 0.5 })

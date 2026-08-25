@@ -209,6 +209,18 @@ export default function Onboarding() {
               <L t="Printed name *"><input className={input} value={f.sign_name || ''} onChange={set('sign_name')} /></L>
               <L t="Title"><input className={input} value={f.sign_title || ''} onChange={set('sign_title')} /></L>
             </Two>
+            {/* Initials for Exhibit A — the commission schedule. Optional on
+                purpose: agreements signed before this existed must not become
+                incomplete for want of a field nobody was asked for
+                (Neal, 2026-08-25). */}
+            <Two>
+              <L t="Your initials (for Exhibit A)">
+                <input className={input} maxLength={5} placeholder="e.g. NM"
+                  value={f.agent_initials || ''}
+                  onChange={(e) => set('agent_initials')({ target: { value: e.target.value.toUpperCase() } })} />
+              </L>
+              <div />
+            </Two>
             <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
               <input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
               <span>I have read and agree to the Independent Contractor Agreement and Exhibit A, and I confirm the information above is correct.</span>

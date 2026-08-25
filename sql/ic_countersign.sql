@@ -36,3 +36,7 @@ select trainee_id, sign_name, signed_at, company_signed_at
 -- Which signature style Jennifer picked (a typed font name, or 'drawn').
 -- Part of the audit trail for how the signature was produced.
 alter table trainee_onboarding add column if not exists company_sign_style text;
+
+-- Initials on Exhibit A (the commission schedule). Optional: agreements signed
+-- before this existed stay complete without it.
+alter table trainee_onboarding add column if not exists agent_initials text;
