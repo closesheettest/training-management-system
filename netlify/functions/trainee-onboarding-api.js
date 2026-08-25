@@ -41,8 +41,8 @@ const WRITABLE = [
   'w9_address', 'w9_city_state_zip', 'w9_tin_type', 'w9_tin',
   'business_name', 'business_ein', 'business_address',
   'bank_name', 'bank_account_name', 'bank_routing', 'bank_wire_routing', 'bank_account_number',
-  'sign_name', 'sign_title',
-, 'agent_initials']
+  'sign_name', 'sign_title', 'agent_initials',
+]
 // Never echoed back to the browser once saved.
 const SECRET = ['w9_tin', 'bank_account_number', 'bank_routing', 'bank_wire_routing', 'business_ein']
 
@@ -105,7 +105,13 @@ export const handler = async (event) => {
     }
     const { data: rows } = await supabase
       .from('trainee_onboarding')
-      .select('trainee_id, signed_at, banking_completed_at, w9_pdf_path, agreement_pdf_path')
+      // The details the office keeps asking for — shirt size, who to ring in an
+      // emergency, the address the paperwork was signed under. NEVER the SECRET
+      // columns: no TIN, no bank account, no routing (Neal, 2026-08-25).
+      .select('trainee_id, signed_at, banking_completed_at, w9_pdf_path, agreement_pdf_path, ' +
+              'preferred_name, shirt_size, agent_legal_name, agent_phone, agent_email, agent_dob, ' +
+              'agent_address, emergency_name, emergency_phone, agent_initials, sign_title, ' +
+              'business_name, bank_name, company_signed_at')
       .in('trainee_id', live.map((t) => t.id).length ? live.map((t) => t.id) : ['00000000-0000-0000-0000-000000000000'])
     const byId = Object.fromEntries((rows || []).map((r) => [r.trainee_id, r]))
     const people = live.map((t) => {
@@ -117,6 +123,24 @@ export const handler = async (event) => {
         signed: !!r.signed_at, signed_at: r.signed_at || null,
         banking_done: !!r.banking_completed_at,
         has_docs: !!(r.w9_pdf_path && r.agreement_pdf_path),
+        countersigned: !!r.company_signed_at,
+        details: {
+          preferred_name: r.preferred_name || null,
+          shirt_size: r.shirt_size || null,
+          legal_name: r.agent_legal_name || null,
+          phone: r.agent_phone || null,
+          email: r.agent_email || null,
+          dob: r.agent_dob || null,
+          address: r.agent_address || null,
+          emergency_name: r.emergency_name || null,
+          emergency_phone: r.emergency_phone || null,
+          initials: r.agent_initials || null,
+          title: r.sign_title || null,
+          business_name: r.business_name || null,
+          // The bank NAME only — never the account. Enough to say direct deposit
+          // is set up with someone, without putting the numbers on a screen.
+          bank_name: r.bank_name || null,
+        },
       }
     }).sort((a, b) => Number(a.signed) - Number(b.signed) || a.name.localeCompare(b.name))
     return cors(200, {

@@ -2810,17 +2810,20 @@ function PaperworkGate({ classId, week }) {
       </p>
       <ul className="mt-3 space-y-1">
         {data.people.map((p) => (
-          <li key={p.trainee_id} className="flex flex-wrap items-center gap-2 text-sm">
-            <span className={p.signed ? 'text-emerald-700' : 'text-amber-800'}>{p.signed ? '✓' : '○'}</span>
-            <span className={`flex-1 ${p.signed ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>{p.name}</span>
-            {!p.signed && <span className="text-xs text-slate-500">{p.phone || p.email || 'no contact'}</span>}
-            {p.signed && <ViewDocs traineeId={p.trainee_id} />}
-            {p.signed && !p.banking_done && (
-              <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">bank details pending</span>
-            )}
-            {p.signed && p.banking_done && (
-              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">complete</span>
-            )}
+          <li key={p.trainee_id} className="text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={p.signed ? 'text-emerald-700' : 'text-amber-800'}>{p.signed ? '✓' : '○'}</span>
+              <span className={`flex-1 ${p.signed ? 'text-slate-700' : 'font-semibold text-slate-900'}`}>{p.name}</span>
+              {!p.signed && <span className="text-xs text-slate-500">{p.phone || p.email || 'no contact'}</span>}
+              {p.signed && <ViewDocs traineeId={p.trainee_id} />}
+              {p.signed && <TraineeDetails d={p.details} />}
+              {p.signed && !p.banking_done && (
+                <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">bank details pending</span>
+              )}
+              {p.signed && p.banking_done && (
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">complete</span>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -2851,6 +2854,49 @@ function PaperworkBadge({ st }) {
     )
   }
   return <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">📄 paperwork complete</span>
+}
+
+// What they filled in at registration — shirt size, emergency contact, the
+// address the paperwork was signed under. Behind a toggle so the roster stays a
+// roster, and never showing a TIN, an account number or a routing number: the
+// roster endpoint does not return them at all (Neal, 2026-08-25).
+function TraineeDetails({ d }) {
+  const [open, setOpen] = useState(false)
+  if (!d) return null
+  const rows = [
+    ['Shirt size', d.shirt_size],
+    ['Goes by', d.preferred_name],
+    ['Legal name', d.legal_name],
+    ['Initials', d.initials],
+    ['Title', d.title],
+    ['Phone', d.phone],
+    ['Email', d.email],
+    ['Date of birth', d.dob ? new Date(`${d.dob}T12:00:00Z`).toLocaleDateString('en-US') : null],
+    ['Address', d.address],
+    ['Emergency contact', d.emergency_name],
+    ['Emergency phone', d.emergency_phone],
+    ['Business', d.business_name],
+    ['Bank', d.bank_name],
+  ].filter(([, v]) => v)
+  if (!rows.length) return null
+  return (
+    <>
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+        {open ? 'Hide details' : `Details (${rows.length})`}
+      </button>
+      {open && (
+        <dl className="mt-1 w-full grid grid-cols-1 gap-x-6 gap-y-0.5 rounded-md border border-slate-200 bg-white px-3 py-2 sm:grid-cols-2">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex gap-2 text-xs">
+              <dt className="w-32 shrink-0 text-slate-400">{k}</dt>
+              <dd className="font-medium text-slate-700">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </>
+  )
 }
 
 function RowMenu({ items, disabled }) {
