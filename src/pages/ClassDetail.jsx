@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
@@ -2854,9 +2854,26 @@ function PaperworkBadge({ st }) {
 }
 
 function RowMenu({ items, disabled }) {
+  // CLOSES ON CLICK-OUTSIDE, NOT ON MOUSE-OUT.
+  //
+  // This used to close on onMouseLeave of the <details>. The panel is absolutely
+  // positioned with mt-1, so between the ⋯ button and the first menu item there
+  // is a four-pixel strip over neither of them — the pointer crosses it on the
+  // way down, mouseleave fires, and the menu shuts before you can pick anything.
+  // The menu opened and vanished every single time (Neal, 2026-08-25).
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onDown = (e) => { if (el.open && !el.contains(e.target)) el.open = false }
+    const onKey = (e) => { if (e.key === 'Escape' && el.open) el.open = false }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [])
   if (!items?.length) return null
   return (
-    <details className="relative" onMouseLeave={(e) => { e.currentTarget.open = false }}>
+    <details className="relative" ref={ref}>
       <summary
         className={`flex h-7 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 ${disabled ? 'pointer-events-none opacity-50' : ''}`}
         title="More actions"
