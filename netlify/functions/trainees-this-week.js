@@ -42,6 +42,11 @@ export const handler = async (event) => {
   //    training LOCATION so William knows where to go.
   const currentClassIds = new Set()
   const classLoc = {}
+  // The class's week start, so the caller can tell WHICH DAY of the week it is.
+  // William's picker needs "day 2 of Week A", and a weekday number cannot answer
+  // that on its own — a class that starts late, or on any day but Monday, would
+  // put day 2 on a different weekday (Neal, 2026-08-25).
+  const classStart = {}
   const classIds = [...new Set(inTraining.map((t) => t.class_id))]
   if (classIds.length) {
     const { data: cs } = await supabase
@@ -52,6 +57,7 @@ export const handler = async (event) => {
       .gte('week_end_date', today)
     for (const c of cs || []) {
       currentClassIds.add(c.id)
+      classStart[c.id] = c.week_start_date || null
       const l = Array.isArray(c.locations) ? c.locations[0] : c.locations
       if (l) classLoc[c.id] = { name: l.name || null, address: [l.street_address, l.city, l.state, l.zip].filter(Boolean).join(', ') || null }
     }
@@ -92,6 +98,9 @@ export const handler = async (event) => {
       last_name: t.last_name || '',
       phone: t.phone || null,
       location: classLoc[t.class_id] || null,
+      week_start_date: classStart[t.class_id] || null,
+      // 1-based day of the class week: day 1 is week_start_date itself.
+      class_day: dayOfWeekA(classStart[t.class_id], today),
     }))
 
   return cors(200, JSON.stringify({ ok: true, generated_at: new Date().toISOString(), count: trainees.length, trainees }))
@@ -109,4 +118,14 @@ function cors(status, body) {
     },
     body,
   }
+}
+
+// Which day of the class week is `today`? 1 = the first day. Null when we cannot
+// tell. Date-only strings, compared as UTC midnights so no timezone drift.
+function dayOfWeekA(startDate, today) {
+  if (!startDate || !today) return null
+  const a = Date.parse(`${startDate}T00:00:00Z`)
+  const b = Date.parse(`${today}T00:00:00Z`)
+  if (Number.isNaN(a) || Number.isNaN(b)) return null
+  return Math.floor((b - a) / 864e5) + 1
 }
