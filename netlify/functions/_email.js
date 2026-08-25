@@ -14,6 +14,11 @@
 // Never throws — returns { ok, step?, error? } so callers can aggregate.
 
 import { Resend } from 'resend'
+// The suppression gate below is called from sendEmail. It was added to both
+// send helpers yesterday and imported into only one of them, so every email
+// this file sent threw ReferenceError, got swallowed by its own try/catch and
+// returned { ok: false } — silent for a full day (Neal, 2026-08-25).
+import { checkSuppressed } from './_suppress.js'
 
 let _client = null
 function client() {
