@@ -40,3 +40,7 @@ alter table trainee_onboarding add column if not exists company_sign_style text;
 -- Initials on Exhibit A (the commission schedule). Optional: agreements signed
 -- before this existed stay complete without it.
 alter table trainee_onboarding add column if not exists agent_initials text;
+
+-- Who the money is made out to: 'individual' or 'company'. Jen asks every
+-- trainee this on day one and the form was not collecting it.
+alter table trainee_onboarding add column if not exists pay_direction text;

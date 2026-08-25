@@ -2279,17 +2279,23 @@ function TraineeForm({ value, onChange, onSave, onCancel, saveLabel, paperwork }
               ['Title', paperwork.sign_title],
               ['Initials', paperwork.agent_initials],
               ['Business', paperwork.business_name],
-              ['Bank', paperwork.bank_name],
+              ['Pay to', paperwork.pay_direction === 'company' ? 'Their company' : paperwork.pay_direction === 'individual' ? 'Them personally' : null],
             ].filter(([, v]) => v)
-            if (!rows.length) {
-              return <p className="mt-1 text-xs text-slate-500">Nothing yet — they haven&rsquo;t filled in their paperwork.</p>
+            // BANKING IS STATED, NOT OMITTED. A missing field just vanished from
+            // this list, so "no bank details yet" looked exactly like "we never
+            // asked" — and direct deposit is the thing that stops someone being
+            // paid (Neal, 2026-08-25).
+            const banked = !!paperwork.banking_completed_at
+            rows.push(['Bank', banked ? (paperwork.bank_name || 'on file') : 'NOT PROVIDED YET'])
+            if (!paperwork.signed_at) {
+              return <p className="mt-1 text-xs text-amber-700">Paperwork not signed yet — nothing to show.</p>
             }
             return (
               <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {rows.map(([k, v]) => (
                   <div key={k} className="flex gap-2 text-xs">
                     <dt className="w-36 shrink-0 text-slate-400">{k}</dt>
-                    <dd className="font-medium text-slate-700">{v}</dd>
+                    <dd className={v === 'NOT PROVIDED YET' ? 'font-semibold text-amber-700' : 'font-medium text-slate-700'}>{v}</dd>
                   </div>
                 ))}
               </dl>

@@ -136,6 +136,19 @@ export default function Onboarding() {
               <L t="Emergency contact name"><input className={input} value={f.emergency_name || ''} onChange={set('emergency_name')} /></L>
               <L t="Emergency contact number"><input className={input} inputMode="tel" value={f.emergency_phone || ''} onChange={set('emergency_phone')} /></L>
             </Two>
+            {/* Who the money is made out to. Jen asks every trainee this on day one
+                and it was the only thing on her list the form did not collect
+                (Neal, 2026-08-25). */}
+            <Two>
+              <L t="Pay to">
+                <select className={input} value={f.pay_direction || ''} onChange={set('pay_direction')}>
+                  <option value="">Choose…</option>
+                  <option value="individual">Me personally (individual)</option>
+                  <option value="company">My company (business)</option>
+                </select>
+              </L>
+              <div />
+            </Two>
           </Section>
 
           <Section title="Business / LLC" note="Only if you're contracting through a business. Most people leave this blank.">

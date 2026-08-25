@@ -36,7 +36,7 @@ const BUCKET = 'trainee-docs'
 const WRITABLE = [
   'first_name', 'last_name', 'preferred_name', 'shirt_size',
   'agent_email', 'agent_phone', 'agent_dob', 'agent_address', 'agent_legal_name',
-  'emergency_name', 'emergency_phone',
+  'emergency_name', 'emergency_phone', 'pay_direction',
   'w9_name', 'w9_business_name', 'w9_tax_classification', 'w9_llc_class',
   'w9_address', 'w9_city_state_zip', 'w9_tin_type', 'w9_tin',
   'business_name', 'business_ein', 'business_address',
@@ -73,7 +73,7 @@ export const handler = async (event) => {
     const ids = (trainees || []).map((t) => t.id)
     if (!ids.length) return cors(200, { ok: true, byTrainee: {} })
     const COLS = 'trainee_id, preferred_name, shirt_size, agent_legal_name, agent_phone, agent_email, agent_dob, ' +
-      'agent_address, emergency_name, emergency_phone, sign_title, business_name, bank_name, agent_initials, ' +
+      'agent_address, emergency_name, emergency_phone, sign_title, business_name, bank_name, agent_initials, pay_direction, ' +
       'signed_at, banking_completed_at, company_signed_at'
     let rows = []
     const { data, error } = await supabase.from('trainee_onboarding').select(COLS).in('trainee_id', ids)
