@@ -73,6 +73,16 @@
 # dynamic graduation-handoff function (queries Supabase for that team's
 # graduates). MUST come before the SPA catch-all below, or /* swallows it.
 # status 200 = rewrite (proxy), so the address bar keeps /handoff.
+# Short link for the countersign text. The full function URL is ~110 characters
+# and twelve of them in one SMS exceeded GHL's 1600-character limit — the send
+# was accepted and then failed, so the endpoint reported success and Jennifer
+# received nothing (Neal, 2026-08-25).
+[[redirects]]
+  from = "/cs/:token"
+  to = "/.netlify/functions/countersign-agreement?t=:token"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/handoff"
   to = "/.netlify/functions/graduation-handoff"

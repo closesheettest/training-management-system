@@ -46,6 +46,8 @@ export const handler = async (event) => {
 
   const site = (process.env.PUBLIC_SITE_URL || process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
   const link = (t) => `${site}/.netlify/functions/countersign-agreement?t=${t}`
+  // SMS gets the short form — see the /cs/:token redirect in netlify.toml.
+  const shortLink = (t) => `${site}/cs/${t}`
   const named = (r) => (r.agent_legal_name || r.sign_name || r.trainee_id || 'A rep').trim()
   // ?skip=<trainee_id>,<trainee_id> — leave someone out without signing them.
   // Bret Dethlefsen was offboarded the week after he signed; countersigning is
@@ -82,20 +84,34 @@ export const handler = async (event) => {
       if (smsR?.ok || mailR?.ok) sent.push(who)
     }
   } else {
-    const lines = ready.map((r, i) => `${i + 1}. ${named(r)}\n   ${link(r.countersign_token)}`)
+    const head = `${ready.length} Independent Contractor Agreement${ready.length === 1 ? '' : 's'} ${ready.length === 1 ? 'is' : 'are'} waiting for your signature.`
     const body = [
-      `${ready.length} Independent Contractor Agreement${ready.length === 1 ? '' : 's'} ${ready.length === 1 ? 'is' : 'are'} waiting for your signature.`,
-      '', 'Each one is signed by the rep already. The PDF is created once you sign.', '',
-      ...lines, '', 'Each link takes a few seconds and works on your phone.', '', '— Training System',
+      head, '', 'Each one is signed by the rep already. The PDF is created once you sign.', '',
+      ...ready.map((r, i) => `${i + 1}. ${named(r)}\n   ${link(r.countersign_token)}`),
+      '', 'Each link takes a few seconds and works on your phone.', '', '— Training System',
     ].join('\n')
+    // SMS is capped at 1600 characters by the carrier and the whole list does not
+    // fit. Short links plus chunking keeps every link in the text rather than
+    // making her go and find the email.
+    const smsLines = ready.map((r, i) => `${i + 1}. ${named(r)} ${shortLink(r.countersign_token)}`)
+    const chunks = []
+    let cur = head
+    for (const ln of smsLines) {
+      if ((cur + '\n' + ln).length > 1400) { chunks.push(cur); cur = '(cont.)' }
+      cur += '\n' + ln
+    }
+    chunks.push(cur)
     // CHECK WHAT CAME BACK. Both helpers are documented "never throws — returns
     // { ok, error }", so allSettled here reported a clean success for sends that
     // never happened: this said "sent 12" and Jennifer received nothing
     // (Neal, 2026-08-25).
-    const [smsR, mailR] = await Promise.all([
-      sendSms(COUNTERSIGNER.phone, body, { firstName: 'Training', lastName: 'System' }).catch((e) => ({ ok: false, error: e.message })),
-      sendEmail(COUNTERSIGNER.email, `${ready.length} agreement${ready.length === 1 ? '' : 's'} need your signature`, body).catch((e) => ({ ok: false, error: e.message })),
-    ])
+    const smsResults = []
+    for (const c of chunks) {
+      smsResults.push(await sendSms(COUNTERSIGNER.phone, c, { firstName: 'Training', lastName: 'System' }).catch((e) => ({ ok: false, error: e.message })))
+    }
+    const smsR = { ok: smsResults.some((x) => x?.ok), parts: smsResults.length, results: smsResults }
+    const mailR = await sendEmail(COUNTERSIGNER.email, `${ready.length} agreement${ready.length === 1 ? '' : 's'} need your signature`, body)
+      .catch((e) => ({ ok: false, error: e.message }))
     delivery.push({ who: 'digest', sms: smsR, email: mailR })
     if (smsR?.ok || mailR?.ok) sent.push(...ready.map(named))
   }
