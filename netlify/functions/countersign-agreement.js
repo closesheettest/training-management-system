@@ -148,18 +148,32 @@ doc.addEventListener('scroll',checkRead);
 setTimeout(checkRead,300);   // a short agreement may need no scrolling at all
 
 function renderStyles(){
+  // BUILT WITH THE DOM, NOT STRING HTML. This was assembled by concatenation with
+  // escaped quotes around the font name, the backslashes were lost in an edit, and
+  // it emitted font-family:Dancing Script,cursive unquoted — invalid CSS for a
+  // multi-word family. The browser dropped the declaration, all four styles
+  // rendered in the same default face, and clicking between them did nothing
+  // visible. Setting style.fontFamily has no quoting to get wrong (Neal, 2026-08-25).
   const nm=$('nm').value.trim()||'Your name';
-  $('styles').innerHTML=FONTS.map((f,i)=>
-    '<div class="sty'+(i===styleIdx?' on':'')+'" data-i="'+i+'"><span style="font-family:\''+f[0]+'\','+f[1]+'">'+
-    nm.replace(/[&<>]/g,'')+'</span></div>').join('');
-  [...document.querySelectorAll('.sty')].forEach(el=>el.onclick=()=>{styleIdx=+el.dataset.i;renderStyles();gate();});
+  const box=$('styles'); box.innerHTML='';
+  FONTS.forEach((f,i)=>{
+    const el=document.createElement('div');
+    el.className='sty'+(i===styleIdx?' on':'');
+    const sp=document.createElement('span');
+    sp.textContent=nm;
+    sp.style.fontFamily='"'+f[0]+'", '+f[1];
+    el.appendChild(sp);
+    el.onclick=()=>{styleIdx=i;renderStyles();gate();};
+    box.appendChild(el);
+  });
   const f=FONTS[styleIdx];
-  $('preview').innerHTML='<div class=cap>This will be your signature</div>'+
-    '<div class=sig style="font-family:\''+f[0]+'\','+f[1]+'">'+nm.replace(/[&<>]/g,'')+'</div>';
+  const pv=$('preview'); pv.innerHTML='';
+  const cap=document.createElement('div'); cap.className='cap'; cap.textContent='This will be your signature';
+  const sig=document.createElement('div'); sig.className='sig'; sig.textContent=nm;
+  sig.style.fontFamily='"'+f[0]+'", '+f[1];
+  pv.appendChild(cap); pv.appendChild(sig);
 }
-// NEVER DISABLE THE BUTTON. Jennifer typed her name, pressed Sign & file it and
-// nothing happened — a greyed-out button gives no reason and no way forward. It
-// now always responds and says exactly what is missing (Neal, 2026-08-25).
+
 function ready(){
   const nm=$('nm').value.trim();
   return read && nm && (mode==='type' || drew);
