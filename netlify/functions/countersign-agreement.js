@@ -72,6 +72,7 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  .c{background:#fff;padding:22px;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.08);max-width:760px;margin:0 auto}
  h1{font-size:19px;margin:0 0 4px}.sub{color:#64748b;font-size:14px;margin:0 0 16px}
  .doc{border:1px solid #cbd5e1;border-radius:10px;padding:16px 18px;max-height:52vh;overflow-y:auto;background:#fcfcfd;font-size:13.2px;line-height:1.5}
+ @supports (height:100dvh){ .doc{max-height:52dvh} }
  .doc h3{text-align:center;font-size:15px;margin:16px 0 8px}
  .doc p{margin:0 0 9px}.doc p.li{margin-left:14px}
  .sigblk{margin:14px 0;padding:10px 12px;border:1px dashed #94a3b8;border-radius:8px;background:#fff;font-size:12.5px;line-height:1.6}
@@ -88,7 +89,8 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  canvas{border:1.5px dashed #94a3b8;border-radius:10px;width:100%;height:170px;touch-action:none;background:#fff}
  .row{display:flex;gap:9px;margin-top:14px}
  .go{flex:1;padding:13px;border:0;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;background:#15803d;color:#fff}
- .go:disabled{background:#94a3b8;cursor:not-allowed}
+ .go.notready{background:#94a3b8}
+ .jump{flex:0 0 auto;padding:13px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:14px;font-weight:800;cursor:pointer}
  .clr{flex:0 0 100px;padding:13px;border:0;border-radius:10px;background:#e2e8f0;color:#334155;font-weight:800;cursor:pointer}
  .err{color:#b91c1c;font-weight:700;font-size:13.5px;margin-top:10px;min-height:18px}
 </style>
@@ -97,7 +99,7 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  <p class=sub><b>${agent}</b> signed their Independent Contractor Agreement on ${signedOn}. Read it below, then add your signature.</p>
 
  <div class=doc id=doc>${agreementHtml(row)}</div>
- <p class=read id=read>Scroll to the end of the agreement to sign.</p>
+ <p class=read id=read>Scroll to the end of the agreement (or tap &ldquo;Jump to the end&rdquo;) before signing.</p>
 
  <label>Your name</label>
  <input id=nm value="Jennifer VonGraupen" autocomplete=name>
@@ -115,7 +117,10 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
    <div class=row><button class=clr id=clr type=button>Clear</button></div>
  </div>
 
- <div class=row><button class=go id=go type=button disabled>Sign &amp; file it</button></div>
+ <div class=row>
+   <button class=jump id=jump type=button>Jump to the end</button>
+   <button class=go id=go type=button>Sign &amp; file it</button>
+ </div>
  <div class=err id=err></div>
 </div>
 <script>
@@ -126,7 +131,9 @@ const $=(id)=>document.getElementById(id);
 // Don't enable signing until the agreement has actually been scrolled through.
 const doc=$('doc');
 const checkRead=()=>{
-  if(doc.scrollTop+doc.clientHeight>=doc.scrollHeight-24){read=true;$('read').textContent='';$('read').style.color='#15803d';}
+  if(doc.scrollTop+doc.clientHeight>=doc.scrollHeight-24){
+    read=true;$('read').textContent='\u2713 Read to the end — you can sign now.';$('read').style.color='#15803d';
+  }
   gate();
 };
 doc.addEventListener('scroll',checkRead);
@@ -139,9 +146,15 @@ function renderStyles(){
     nm.replace(/[&<>]/g,'')+'</span></div>').join('');
   [...document.querySelectorAll('.sty')].forEach(el=>el.onclick=()=>{styleIdx=+el.dataset.i;renderStyles();gate();});
 }
-function gate(){
+// NEVER DISABLE THE BUTTON. Jennifer typed her name, pressed Sign & file it and
+// nothing happened — a greyed-out button gives no reason and no way forward. It
+// now always responds and says exactly what is missing (Neal, 2026-08-25).
+function ready(){
   const nm=$('nm').value.trim();
-  $('go').disabled=!(read && nm && (mode==='type' || drew));
+  return read && nm && (mode==='type' || drew);
+}
+function gate(){
+  $('go').className = ready() ? 'go' : 'go notready';
 }
 $('nm').addEventListener('input',()=>{renderStyles();gate();});
 $('tType').onclick=()=>{mode='type';$('tType').className='on';$('tDraw').className='';$('typeWrap').style.display='';$('drawWrap').style.display='none';gate();};
@@ -173,9 +186,13 @@ function typedPng(){
 
 $('go').onclick=async()=>{
   const err=$('err'),nm=$('nm').value.trim(),btn=$('go');
-  if(!read){err.textContent='Please read to the end of the agreement first.';return}
-  if(!nm){err.textContent='Please type your name.';return}
-  if(mode==='draw'&&!drew){err.textContent='Please sign in the box.';return}
+  if(!read){
+    err.textContent='Please read to the end of the agreement first — use "Jump to the end".';
+    doc.scrollTo({top:doc.scrollHeight,behavior:'smooth'});
+    return
+  }
+  if(!nm){err.textContent='Please type your name.';$('nm').focus();return}
+  if(mode==='draw'&&!drew){err.textContent='Please draw your signature in the box.';return}
   btn.disabled=true;btn.textContent='Filing…';err.textContent='';
   try{
     const sig = mode==='draw' ? cv.toDataURL('image/png') : typedPng();
@@ -186,6 +203,7 @@ $('go').onclick=async()=>{
     location.reload();
   }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Sign & file it'}
 };
+$('jump').onclick=()=>{doc.scrollTo({top:doc.scrollHeight,behavior:'smooth'})};
 document.fonts && document.fonts.ready.then(renderStyles);
 renderStyles();gate();
 </script>`
