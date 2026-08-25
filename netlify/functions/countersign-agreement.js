@@ -233,13 +233,22 @@ export const handler = async (event) => {
       path = name
     } catch (e) { pdfError = e.message }
 
-    const { error } = await supabase.from('trainee_onboarding').update({
+    // company_sign_style is a newer column. If the migration has not been run,
+    // writing it 400s and takes the whole countersignature down with it — a
+    // signature lost to an audit field nobody would miss. Save the signature
+    // first, then add the style only if the column is there.
+    const core = {
       company_signature: merged.company_signature, company_sign_name: merged.company_sign_name,
       company_sign_title: merged.company_sign_title, company_signed_at: nowIso, company_sign_ip: ip,
-      ...(merged.company_sign_style ? { company_sign_style: merged.company_sign_style } : {}),
       ...(path ? { agreement_pdf_path: path } : {}), ...(pdfError ? { pdf_error: `agreement: ${pdfError}` } : {}),
-    }).eq('countersign_token', t)
+    }
+    const { error } = await supabase.from('trainee_onboarding').update(core).eq('countersign_token', t)
     if (error) return json(500, { ok: false, error: error.message })
+    if (merged.company_sign_style) {
+      const { error: styleErr } = await supabase.from('trainee_onboarding')
+        .update({ company_sign_style: merged.company_sign_style }).eq('countersign_token', t)
+      if (styleErr) console.warn('company_sign_style not stored (run sql/ic_countersign.sql):', styleErr.message)
+    }
     return json(200, { ok: true, signed: true, pdf: path, pdf_error: pdfError })
   }
 
