@@ -202,6 +202,19 @@ export const HOSTED_PAGES = [
     category: 'Training overview & resources',
   },
   {
+    slug: 'full-presentation-homework',
+    title: 'Full Presentation Homework',
+    url: '/homework/slides',
+    description:
+      'The whole in-home presentation, slide by slide — each slide\'s talking points with the ' +
+      'verbatim script underneath, tap to open. Reads training_days (presentation track only), so ' +
+      'it can never drift from the manual and the manager-curriculum items never leak in. ' +
+      'Texted and emailed to the Week A class on 2026-08-25 alongside the written script PDF ' +
+      '(/sales-pitch/sales-script.pdf). This is the link to hand a trainee who asks for "the presentation".',
+    created: '2026-08-25',
+    category: 'Training overview & resources',
+  },
+  {
     slug: 'sales-pitch',
     title: 'Free Inspection — sales pitch + resources (legacy)',
     url: '/sales-pitch/',
