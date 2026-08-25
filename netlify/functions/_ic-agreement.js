@@ -32,7 +32,8 @@ export const AGREEMENT = [
   { n: '6.', p: 'If any license is required for the AGENT, or any employees of AGENT by reason of any activity in the furtherance of this Agreement, it shall be the sole obligation of the AGENT, or its employees, to obtain such a license or licenses, and to otherwise comply with all legal and/or governmental requirements for the performance of the activities of the AGENT under this Agreement.' },
   { n: '7.', p: 'AGENT will at all times follow an Industry acceptable standard for appearance and professionalism while selling services provided by or in conjunction with SHINGLE. AGENT will also use the sales process and sales tools provided by SHINGLE. AGENT will not produce or distribute any sales, marketing or intellectual materials either written or verbal to any other AGENT, entity or individual without express written consent of SHINGLE.' },
   { n: '8.', p: 'SHINGLE shall always have, in its sole and absolute discretion, the right to not accept and/or to terminate any Residential/Commercial contract, without any obligation or liability whatsoever, including but not limited to loss of commissions or damages to the AGENT. The AGENT has absolutely no authority to bind SHINGLE and shall not represent to anyone or any entity that such authority does exist. All proposals for Residential/Commercial Improvement services shall be submitted to SHINGLE and shall be subject to approval by SHINGLE.' },
-  { n: '9.', p: 'Non-Disclosure of Information Concerning Business; Trade Secrets. Except in connection with his/her representation, AGENT shall not at any time, either directly or indirectly divulge, disclose, or communicate to any person, firm, corporation, or any entity whatsoever in any manner whatsoever any information of any kind, nature or description concerning any matters affecting or relating to the business of SHINGLE, including, but not limited to, the names of SHINGLE’s employees, or clients, or any of SHINGLE’s financial, marketing, software, or operational information including sales methods and procurement methods concerning SHINGLE’ business. It is expressly understood that the above items are confidential information of and belonging to SHINGLE and these are considered and have been demonstrated to AGENT as protected and are trade secrets of SHINGLE. Except in connection with its representation, SHINGLE shall not at any time, either directly or indirectly divulge, disclose, or communicate to any person, firm, corporation, or any entity whatsoever in any manner whatsoever any information of any kind, nature or description concerning any matters affecting or relating to the business of AGENT, including, but not limited to, the names of AGENT’s employees, or clients, or any of AGENT’s financial, marketing, or operational information including sales methods and procurement methods concerning AGENT’s business.' },
+  { n: '9.', p: 'Non-Disclosure of Information Concerning Business; Trade Secrets. Except in connection with his/her representation, AGENT shall not at any time, either directly or indirectly divulge, disclose, or communicate to any person, firm, corporation, or any entity whatsoever in any manner whatsoever any information of any kind, nature or description concerning any matters affecting or relating to the business of SHINGLE, including, but not limited to, the names of SHINGLE’s employees, or clients, or any of SHINGLE’s financial, marketing, software, or operational information including sales methods and procurement methods concerning SHINGLE’ business. It is expressly understood that the above items are confidential information of and belonging to SHINGLE and these are considered and have been demonstrated to AGENT as protected and are trade secrets of SHINGLE.' },
+  { p: 'Except in connection with its representation, SHINGLE shall not at any time, either directly or indirectly divulge, disclose, or communicate to any person, firm, corporation, or any entity whatsoever in any manner whatsoever any information of any kind, nature or description concerning any matters affecting or relating to the business of AGENT, including, but not limited to, the names of AGENT’s employees, or clients, or any of AGENT’s financial, marketing, or operational information including sales methods and procurement methods concerning AGENT’s business.' },
   { n: '10.', p: 'Compensation - AGENT shall be paid a commission fee for operating contracts successfully placed with SHINGLE for providing Residential/Commercial Restoration services. Commissions paid shall be according to the attached schedule "A". If after 7 days of inactivity or no communication, we will accept that as your resignation, and you will no longer be receiving compensation(s). If AGENT becomes disassociated with SHINGLE, any remaining commissions will be paid according to the letter of this agreement.' },
   { n: '11.', p: 'Non-Disparagement and Contingent Commission Forfeiture - Upon termination of this Agreement, AGENT agrees that they shall not make, publish, or communicate to any person or entity, in any form—whether orally, in writing, online, or otherwise—any disparaging or knowingly false statements about SHINGLE, its affiliates, officers, employees, clients, products, or services.' },
   { p: 'For purposes of this Agreement, a "disparaging" statement is defined as any false or malicious statement that would reasonably be expected to damage the reputation, business interests, or goodwill of SHINGLE.' },
@@ -54,11 +55,14 @@ export const EXHIBIT_A = [
   { h: 'Exhibit A' },
   { exhibitIntro: true },
   { p: 'Independent Contractor shall receive 50% of the following in compensation if they only have 9 or fewer sales for the calendar month. If they have 10 to 14 they will receive 100% of the following commissions. If they write 15 or more they will be bonused an additional 1% for all sales for the month.' },
-  { p: 'Sales: Agent will be paid according to the fee structure published on the AGENT dashboard provided by SHINGLE (currently at https://sites.google.com/shingleusa.com/repdashboard/home), as published from time to time and as may be updated by SHINGLE, for all services sold. Par pricing may change from time to time based on many factors such as material and labor cost along with marketing costs and other expenses which may fluctuate over time.' },
+  { p: 'Sales: Agent will be paid according to the fee structure listed on AGENTS dashboard located at https://sites.google.com/shingleusa.com/repdashboard/home?pli=1&authuser=3 for all services sold. Par pricing may change from time to time based on many factors such as material and labor cost along with marketing costs and other expenses which may fluctuate over time.' },
   { li: 'Agent must have prior approval before selling any and all services and/or products outside of the preset plans, packages, and offerings.' },
   { li: 'If AGENT offers extra services or materials for free as an inducement to contract, AGENT will be responsible for such costs.' },
   { p: 'Monies COLLECTED by Sunday are funded on the current Friday.' },
   { p: 'All payments are made via ACH or Wire. Please note your bank may charge you fees and SHINGLE is not responsible for those.' },
+  // The template signs Exhibit A separately from the main body. Dropping it left
+  // the exhibit unsigned against a template that has a line for it.
+  { exhibitSign: true },
 ]
 
 const M = 56               // page margin
@@ -122,6 +126,32 @@ export async function renderAgreementPdf(d) {
     }
     if (block.exhibitIntro) {
       text(`This Exhibit A form is part of the Independent Contractor Partner Agreement date effective as of this ${dd} day of ${mm}, 20${yy} between ${COMPANY.name} and ${d.agent_legal_name || d.sign_name || ''} (Independent Contractor).`)
+      continue
+    }
+    if (block.exhibitSign) {
+      // Print Name / Signature / Date Signed, as the template has at the foot of
+      // Exhibit A. The rep signed the whole document in one action, so the same
+      // signature stands here.
+      need(64)
+      y -= 12
+      const who = d.agent_legal_name || d.sign_name || ''
+      page.drawText('Print Name:', { x: M, y, size: 10, font })
+      page.drawText(who, { x: M + 66, y, size: 10, font })
+      page.drawLine({ start: { x: M + 62, y: y - 3 }, end: { x: M + 232, y: y - 3 }, thickness: 0.5 })
+      page.drawText('Signature:', { x: M + 244, y, size: 10, font })
+      page.drawLine({ start: { x: M + 300, y: y - 3 }, end: { x: W - M, y: y - 3 }, thickness: 0.5 })
+      if (d.signature && String(d.signature).startsWith('data:image')) {
+        try {
+          const png = await pdf.embedPng(Buffer.from(String(d.signature).replace(/^data:image\/\w+;base64,/, ''), 'base64'))
+          const w = 150, h = Math.min((png.height / png.width) * w, 26)
+          page.drawImage(png, { x: M + 304, y: y - 2, width: w, height: h })
+        } catch { page.drawText(who, { x: M + 304, y, size: 10, font }) }
+      } else page.drawText(who, { x: M + 304, y, size: 10, font })
+      y -= 26
+      page.drawText('Date Signed:', { x: M, y, size: 10, font })
+      page.drawText(signedOn.toLocaleDateString('en-US'), { x: M + 74, y, size: 10, font })
+      page.drawLine({ start: { x: M + 70, y: y - 3 }, end: { x: M + 232, y: y - 3 }, thickness: 0.5 })
+      y -= 20
       continue
     }
     if (block.li) { text(`•  ${block.li}`, { indent: 22 }); continue }
