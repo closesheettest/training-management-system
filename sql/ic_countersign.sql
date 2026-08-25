@@ -32,3 +32,7 @@ update trainee_onboarding
 select trainee_id, sign_name, signed_at, company_signed_at
   from trainee_onboarding
  where signed_at is not null and company_signed_at is null;
+
+-- Which signature style Jennifer picked (a typed font name, or 'drawn').
+-- Part of the audit trail for how the signature was produced.
+alter table trainee_onboarding add column if not exists company_sign_style text;
