@@ -14,6 +14,7 @@ import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
 import AppDownloads from './pages/AppDownloads.jsx'
+import UploadAudio from './pages/UploadAudio.jsx'
 import Setup from './pages/Setup.jsx'
 import Timetable from './pages/Timetable.jsx'
 import Onboarding from './pages/Onboarding.jsx'
@@ -72,6 +73,10 @@ export default function App() {
 
         {/* Public app downloads — linked from the credentials page */}
         <Route path="/apps" element={<MinimalLayout><AppDownloads /></MinimalLayout>} />
+
+        {/* Upload page for training audio — the recording is far too big to
+            push through a Netlify function, so this goes straight to Storage. */}
+        <Route path="/upload-audio" element={<MinimalLayout><UploadAudio /></MinimalLayout>} />
 
         {/* Public test taking + thank-you (last-day final assessment) */}
         <Route path="/test/:token" element={<MinimalLayout><TakeTest /></MinimalLayout>} />
