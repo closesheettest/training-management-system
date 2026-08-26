@@ -64,6 +64,13 @@ export const handler = async (event) => {
     }))
   }
 
+  if (event.httpMethod === 'DELETE') {
+    const name = String((event.queryStringParameters || {}).name || '').trim()
+    if (!name) return cors(400, JSON.stringify({ ok: false, error: 'missing name' }))
+    const { error } = await supabase.storage.from(BUCKET).remove([name])
+    return cors(error ? 500 : 200, JSON.stringify({ ok: !error, removed: name, error: error?.message || null }))
+  }
+
   if (event.httpMethod !== 'POST') return cors(405, JSON.stringify({ ok: false, error: 'POST only' }))
 
   let body = {}
@@ -86,5 +93,5 @@ export const handler = async (event) => {
 }
 
 function cors(status, body) {
-  return { statusCode: status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }, body }
+  return { statusCode: status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }, body }
 }

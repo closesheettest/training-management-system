@@ -32,6 +32,14 @@ export default function UploadAudio() {
   // unusable, so every page says what it is.
   useEffect(() => { document.title = 'Upload training audio' }, [])
 
+  const remove = async (name) => {
+    if (!window.confirm(`Remove ${name}? Any link already sent out will stop working.`)) return
+    try {
+      await fetch(`/.netlify/functions/audio-upload-url?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+      await refresh()
+    } catch { setErr('Could not remove that file.') }
+  }
+
   const upload = async (file) => {
     if (!file) return
     setErr(''); setDone(null); setBusy(true); setPct(0)
@@ -116,6 +124,12 @@ export default function UploadAudio() {
                 {f.name} {f.size_mb != null && <span style={{ color: '#94a3b8', fontWeight: 500 }}>· {f.size_mb} MB</span>}
               </div>
               <audio controls src={f.url} style={{ width: '100%', marginTop: 8 }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button onClick={() => navigator.clipboard?.writeText(f.url)}
+                  style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 12px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>Copy link</button>
+                <button onClick={() => remove(f.name)}
+                  style={{ background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 7, padding: '7px 12px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>Remove</button>
+              </div>
             </div>
           ))}
         </div>
