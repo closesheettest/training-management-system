@@ -111,10 +111,30 @@ export const handler = async (event) => {
   const { data: classes, error: clsErr } = await query
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })
 
+  // A GRADUATION NOTICE HAS A SHELF LIFE.
+  //
+  // The class of 15 June fired this morning — two months after it ran — because
+  // it only became "everyone has tested" once the people who never tested had
+  // left. Chad was told to ring four new reps: three had left the company in
+  // June and July, and the fourth was already working for him. Sam got the same
+  // about a rep who left on 31 July (Neal, 2026-08-26).
+  //
+  // Whoever is left in an old class, a welcome call weeks late is wrong. Auto-send
+  // only within STALE_DAYS of the class week; a manual fire still works, because
+  // sometimes you genuinely do want to resend an old one.
+  const STALE_DAYS = 30
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const daysSince = (d) => (d ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 864e5) : null)
+
   const eligible = (classes || []).filter((c) => {
     const enrolled = (c.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at)
     if (enrolled.length === 0) return false
-    if (targetClassId) return true // manual fire bypasses the test-done check
+    if (targetClassId) return true // manual fire bypasses the test-done + age checks
+    const age = daysSince(c.week_start_date)
+    if (age != null && age > STALE_DAYS) {
+      console.warn(`graduation report skipped — class ${c.id} (${c.week_start_date}) is ${age} days old`)
+      return false
+    }
     return enrolled.every((t) => (t.test_attempts || []).some((a) => a.submitted_at))
   })
 
