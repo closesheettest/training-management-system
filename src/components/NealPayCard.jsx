@@ -90,8 +90,24 @@ export default function NealPayCard() {
     fetch(LB_ORIGIN + 'neal-pay-config').then((r) => r.json())
       .then((d) => { if (d && d.ok) setCfg(d.config) }).catch(() => {})
   }, [])
-  const GUARANTEE = Number(cfg?.guarantee) || DEFAULT_GUARANTEE
-  const LADDER = (cfg?.bands || BANDS).map((b) => ({
+
+  // EACH WEEK USES THE SCHEDULE THAT APPLIED TO IT. Raising a rate today must not
+  // rewrite what June was paid, so the config is a dated history and a week looks
+  // up the one in force when it closed (Neal, 2026-08-25).
+  const schedules = (cfg?.schedules || []).slice().sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))
+  const scheduleFor = (weekStart) =>
+    schedules.find((s) => !weekStart || s.effective_from <= weekStart)
+    || schedules[schedules.length - 1]
+    || { guarantee: DEFAULT_GUARANTEE, bands: BANDS, effective_from: EFFECTIVE_FROM }
+  const ladderOf = (sch) => (sch.bands || BANDS).map((b) => ({
+    ...b, max: b.max == null ? Infinity : Number(b.max),
+    label: b.max == null ? `${money0(b.min)}+` : `${money0(b.min)} – ${money0(b.max)}`,
+  }))
+  const bandIn = (sch, g) => ladderOf(sch).find((b) => g >= b.min && g < b.max) || null
+
+  const current = scheduleFor(null)
+  const GUARANTEE = Number(current.guarantee) || DEFAULT_GUARANTEE
+  const LADDER = (current.bands || BANDS).map((b) => ({
     ...b, max: b.max == null ? Infinity : Number(b.max),
     label: b.max == null ? `${money0(b.min)}+` : `${money0(b.min)} – ${money0(b.max)}`,
   }))
@@ -135,9 +151,12 @@ export default function NealPayCard() {
       if (!d || !d.ok) { setErr(d?.error || 'Could not load the frozen weeks.'); setAllLoading(false); return }
       const rows = (d.weeks || []).slice().reverse().map((w) => {
         const g = Number(w.gross) || 0
-        const b = bandFor(g)
+        const sch = scheduleFor(w.week_start)          // the terms in force THAT week
+        const b = bandIn(sch, g)
         const o = b ? g * b.rate : 0
-        return { monday: new Date(w.week_start + 'T12:00:00'), gross: g, band: b, override: o, short: Math.max(0, o - GUARANTEE) }
+        const gtee = Number(sch.guarantee) || DEFAULT_GUARANTEE
+        return { monday: new Date(w.week_start + 'T12:00:00'), gross: g, band: b, override: o,
+                 guarantee: gtee, short: Math.max(0, o - gtee) }
       })
       if (!rows.length) setErr('No weeks frozen yet — run the backfill.')
       setAll(rows)
@@ -278,7 +297,7 @@ function AllWeeks({ rows, guarantee }) {
                 <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
-                <td className="px-3 py-1.5 tabular-nums">{usd(guarantee)}</td>
+                <td className="px-3 py-1.5 tabular-nums">{usd(r.guarantee ?? guarantee)}</td>
                 <td className={`px-3 py-1.5 tabular-nums ${r.short > 0 ? 'text-red-700' : ''}`}>{r.short > 0 ? usd(r.short) : '—'}</td>
               </tr>
             ))}
@@ -300,7 +319,14 @@ function AllWeeks({ rows, guarantee }) {
 function RatesEditor({ cfg, onSaved }) {
   const [pin, setPin] = useState('')
   const [guarantee, setGuarantee] = useState(cfg.guarantee)
-  const [bands, setBands] = useState(cfg.bands.map((b) => ({ ...b })))
+  const [bands, setBands] = useState((cfg.bands || []).map((b) => ({ ...b })))
+  // Defaults to the Monday of this week: a change applies from here forward and
+  // every week before it keeps the terms it was paid under.
+  const [from, setFrom] = useState(() => {
+    const d = new Date(); d.setHours(12, 0, 0, 0)
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    return d.toISOString().slice(0, 10)
+  })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -311,7 +337,7 @@ function RatesEditor({ cfg, onSaved }) {
     try {
       const res = await fetch(LB_ORIGIN + 'neal-pay-config', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, config: { guarantee: Number(guarantee), effective_from: cfg.effective_from, bands } }),
+        body: JSON.stringify({ pin, config: { guarantee: Number(guarantee), effective_from: from, bands } }),
       })
       const d = await res.json()
       if (!d.ok) { setErr(d.error || 'Could not save.'); setSaving(false); return }
@@ -326,6 +352,11 @@ function RatesEditor({ cfg, onSaved }) {
       <p className="mt-0.5 text-xs text-slate-500">
         The rate applies to the whole week&rsquo;s gross. The guarantee is paid only when it beats the override, never both.
       </p>
+
+      <label className="mt-3 block text-xs font-semibold text-slate-600">Applies from (Monday)</label>
+      <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+        className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      <p className="mt-1 text-[11px] text-slate-500">Weeks before this date keep the rates they were paid under.</p>
 
       <label className="mt-3 block text-xs font-semibold text-slate-600">Weekly guarantee</label>
       <div className="flex items-center gap-1">
