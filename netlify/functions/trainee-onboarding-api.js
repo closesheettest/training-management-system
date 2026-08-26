@@ -93,9 +93,11 @@ export const handler = async (event) => {
     const week = String(body.week || 'A').toUpperCase() === 'B' ? 'B' : 'A'
     const { data: trainees } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, enrolled, declined_at, dropped_out_at, attendance(attendance_date, confirmed)')
+      .select('id, first_name, last_name, phone, email, enrolled, declined_at, dropped_out_at, left_company_at, attendance(attendance_date, confirmed)')
       .eq('class_id', classId)
-    let live = (trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+    // left_company_at too — offboarding sets it, and leaving it out is why a
+    // fired rep kept reappearing on the roster (Neal, 2026-08-25).
+    let live = (trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && !t.left_company_at)
     // WHO IS ACTUALLY IN THE CLASS. The paperwork link is sent when someone signs
     // in at the kiosk, so a person who has never signed in cannot owe it — listing
     // them reads as outstanding paperwork that will never arrive. A Week A class
@@ -265,13 +267,13 @@ export const handler = async (event) => {
     const onlyIds = Array.isArray(body.trainee_ids) && body.trainee_ids.length ? body.trainee_ids : null
     const { data: trainees } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, dropped_out_at')
+      .select('id, first_name, last_name, phone, email, registration_token, enrolled, declined_at, dropped_out_at, left_company_at')
       .eq('class_id', classId)
     const { data: rows } = await supabase
       .from('trainee_onboarding').select('trainee_id, signed_at').eq('class_id', classId)
     const signed = new Set((rows || []).filter((r) => r.signed_at).map((r) => r.trainee_id))
     const targets = (trainees || []).filter((t) =>
-      t.enrolled !== false && !t.declined_at && !t.dropped_out_at &&
+      t.enrolled !== false && !t.declined_at && !t.dropped_out_at && !t.left_company_at &&
       !signed.has(t.id) && (t.phone || t.email) &&
       (!onlyIds || onlyIds.includes(t.id)))
 

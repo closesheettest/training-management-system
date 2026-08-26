@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { isLiveTrainee } from '../lib/liveTrainee.js'
 import { supabase } from '../lib/supabase.js'
 import { US_STATES } from '../lib/locations.js'
 
@@ -173,7 +174,7 @@ export default function Hotels() {
       // Week A and are still on the team — they are simply not coming Monday, and
       // booking a bed for them is the same wasted night as booking one for
       // somebody who dropped (Neal, 2026-08-24).
-      .filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && t.week_b_hold !== true)
+      .filter((t) => isLiveTrainee(t) && t.week_b_hold !== true)
       // Drop Week-B-phase no-shows: only people who did Week A continue.
       .filter((t) => phaseByClass[t.class_id] !== 'B' || attendedWeekA(t))
       .map((t) => {

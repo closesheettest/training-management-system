@@ -49,13 +49,28 @@ export const handler = async (event) => {
   // SMS gets the short form — see the /cs/:token redirect in netlify.toml.
   const shortLink = (t) => `${site}/cs/${t}`
   const named = (r) => (r.agent_legal_name || r.sign_name || r.trainee_id || 'A rep').trim()
+
+  // NOBODY WHO HAS LEFT. Countersigning is the company executing the contract,
+  // and Bret Dethlefsen and Michael Whitmer were both on this list days after
+  // being offboarded — Jennifer would have been signing agreements with people
+  // who are gone (Neal, 2026-08-25).
+  const ids = (rows || []).map((r) => r.trainee_id).filter(Boolean)
+  const gone = new Set()
+  if (ids.length) {
+    const { data: left } = await supabase.from('trainees')
+      .select('id, left_company_at, dropped_out_at, declined_at').in('id', ids)
+    for (const t of left || []) {
+      if (t.left_company_at || t.dropped_out_at || t.declined_at) gone.add(t.id)
+    }
+  }
   // ?skip=<trainee_id>,<trainee_id> — leave someone out without signing them.
   // Bret Dethlefsen was offboarded the week after he signed; countersigning is
   // the company EXECUTING that contract, so it should not happen by default for
   // someone who has left. His row just stays outstanding (Neal, 2026-08-25).
   const skip = new Set(String(qp.skip || '').split(',').map((x) => x.trim()).filter(Boolean))
-  const ready = (rows || []).filter((r) => r.countersign_token && !skip.has(r.trainee_id))
+  const ready = (rows || []).filter((r) => r.countersign_token && !skip.has(r.trainee_id) && !gone.has(r.trainee_id))
   const skipped = (rows || []).filter((r) => skip.has(r.trainee_id)).map(named)
+  const departed = (rows || []).filter((r) => gone.has(r.trainee_id) && !skip.has(r.trainee_id)).map(named)
   const noToken = (rows || []).filter((r) => !r.countersign_token).map(named)
 
   if (dry) {
@@ -64,6 +79,7 @@ export const handler = async (event) => {
       outstanding: (rows || []).length,
       sendable: ready.length,
       skipped,
+      left_the_company: departed,
       missing_token: noToken,
       people: ready.map((r) => ({ who: named(r), signed_at: r.signed_at, already_told: r.countersign_sent_at, url: link(r.countersign_token) })),
     })
@@ -127,6 +143,6 @@ export const handler = async (event) => {
   const anyOk = delivery.some((d) => d.sms?.ok || d.email?.ok)
   return json(anyOk ? 200 : 502, {
     ok: anyOk, sent: sent.length, mode: each ? 'one each' : 'digest',
-    people: sent, skipped, missing_token: noToken, delivery,
+    people: sent, skipped, left_the_company: departed, missing_token: noToken, delivery,
   })
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { isLiveTrainee } from '../lib/liveTrainee.js'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateRange, formatMonth, groupByMonth, parseLocalDate } from '../lib/dates.js'
@@ -450,7 +451,7 @@ function mondayOfIso(iso) {
 // isn't continuing, and counting them made a roster of 22 read as 22 when 7 were
 // coming. Same rule the Hotels page and the Week B confirmation already use.
 function liveTrainees(cls) {
-  return (cls?.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at)
+  return (cls?.trainees || []).filter(isLiveTrainee)
 }
 // Trust attendance from the moment their Week A STARTS (the Monday 7 days
 // before), not after it ends — otherwise the week about to begin still reports

@@ -103,7 +103,7 @@ export const handler = async (event) => {
     // Day 2 is the moment to settle it, so the provisioning notice carries the
     // state of play and nags only when someone is still unassigned.
     const roster = (cls.trainees || []).filter(
-      (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at,
+      (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && !t.left_company_at,
     )
     const noZone = roster.filter((t) => !t.region)
     // WHO to provision. Two cohorts are in the building in any given week —
