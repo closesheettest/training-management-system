@@ -24,7 +24,9 @@ import { useState } from 'react'
 
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 
-const GUARANTEE = 3000
+// Defaults only — the live schedule comes from neal-pay-config so a rate can be
+// changed without a developer (Neal, 2026-08-25).
+const DEFAULT_GUARANTEE = 3000
 const EFFECTIVE_FROM = '2026-06-01'
 
 // min is inclusive, max exclusive. Anything under 500k earns no override.
@@ -77,11 +79,23 @@ const weekName = (d) => {
 // weeks_back the API understands, derived from the Monday chosen.
 const weeksBackFor = (monday) => Math.round((latestReportMonday().getTime() - monday.getTime()) / (7 * DAY))
 
-const bandFor = (gross) => BANDS.find((b) => gross >= b.min && gross < b.max) || null
+const money0 = (n) => (n >= 1000000 ? `${n / 1000000}mm` : `${Math.round(n / 1000)}k`)
 const usd = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const pct = (r) => `${(r * 100).toFixed(2).replace(/\.?0+$/, '')}%`
 
 export default function NealPayCard() {
+  const [cfg, setCfg] = useState(null)
+  const [ratesOpen, setRatesOpen] = useState(false)
+  useEffect(() => {
+    fetch(LB_ORIGIN + 'neal-pay-config').then((r) => r.json())
+      .then((d) => { if (d && d.ok) setCfg(d.config) }).catch(() => {})
+  }, [])
+  const GUARANTEE = Number(cfg?.guarantee) || DEFAULT_GUARANTEE
+  const LADDER = (cfg?.bands || BANDS).map((b) => ({
+    ...b, max: b.max == null ? Infinity : Number(b.max),
+    label: b.max == null ? `${money0(b.min)}+` : `${money0(b.min)} – ${money0(b.max)}`,
+  }))
+  const bandFor = (g) => LADDER.find((b) => g >= b.min && g < b.max) || null
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
@@ -179,11 +193,16 @@ export default function NealPayCard() {
           <button onClick={loadAll} disabled={allLoading} className="rounded-md border border-brand-navy px-3 py-1 text-xs font-bold text-brand-navy disabled:opacity-60">
             {allLoading ? 'Adding it up…' : 'Every week since 1 June'}
           </button>
+          <button onClick={() => setRatesOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            ⚙️ Rates
+          </button>
         </div>
       </div>
 
+      {ratesOpen && <RatesEditor cfg={cfg || { guarantee: DEFAULT_GUARANTEE, bands: BANDS }} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
+
       {err && <p className="mt-3 text-sm font-semibold text-red-600">{err}</p>}
-      {!data && all && <AllWeeks rows={all} />}
+      {!data && all && <AllWeeks rows={all} guarantee={GUARANTEE} />}
 
       {data && (
         <>
@@ -202,7 +221,7 @@ export default function NealPayCard() {
 
 
 
-          {all && <AllWeeks rows={all} />}
+          {all && <AllWeeks rows={all} guarantee={GUARANTEE} />}
 
         </>
       )}
@@ -228,7 +247,7 @@ function weekLabel(range) {
 
 // Every week since the schedule took effect: what it should have paid against the
 // $3,000 that was actually paid, and the running shortfall.
-function AllWeeks({ rows }) {
+function AllWeeks({ rows, guarantee }) {
   const earning = rows.filter((r) => r.band)
   const shortTotal = rows.reduce((n, r) => n + r.short, 0)
   const fmtWeek = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -259,7 +278,7 @@ function AllWeeks({ rows }) {
                 <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
-                <td className="px-3 py-1.5 tabular-nums">{usd(GUARANTEE)}</td>
+                <td className="px-3 py-1.5 tabular-nums">{usd(guarantee)}</td>
                 <td className={`px-3 py-1.5 tabular-nums ${r.short > 0 ? 'text-red-700' : ''}`}>{r.short > 0 ? usd(r.short) : '—'}</td>
               </tr>
             ))}
@@ -272,11 +291,90 @@ function AllWeeks({ rows }) {
           </tfoot>
         </table>
       </div>
-      <p className="px-3 pb-2 pt-1 text-[11px] text-slate-500">
-        Each week is the figure captured when it closed, not a fresh recount &mdash; a deal going Lost later cannot
-        reduce a week that has already been paid. &ldquo;Paid&rdquo; assumes the {usd(GUARANTEE)} guarantee was what
-        actually went out; any week already settled at the override rate should be struck from the total.
+    </div>
+  )
+}
+
+// Change the guarantee or any band's rate. PIN-gated, same gate the manager
+// rates use — this is what somebody gets paid, so it should not be a free edit.
+function RatesEditor({ cfg, onSaved }) {
+  const [pin, setPin] = useState('')
+  const [guarantee, setGuarantee] = useState(cfg.guarantee)
+  const [bands, setBands] = useState(cfg.bands.map((b) => ({ ...b })))
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  const setBand = (i, k, v) => setBands((bs) => bs.map((b, j) => (j === i ? { ...b, [k]: v } : b)))
+
+  const save = async () => {
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, config: { guarantee: Number(guarantee), effective_from: cfg.effective_from, bands } }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not save.'); setSaving(false); return }
+      onSaved(d.config)
+    } catch { setErr('Network error.') }
+    setSaving(false)
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-300 bg-slate-50 p-3">
+      <h3 className="text-sm font-bold text-brand-navy">Pay schedule</h3>
+      <p className="mt-0.5 text-xs text-slate-500">
+        The rate applies to the whole week&rsquo;s gross. The guarantee is paid only when it beats the override, never both.
       </p>
+
+      <label className="mt-3 block text-xs font-semibold text-slate-600">Weekly guarantee</label>
+      <div className="flex items-center gap-1">
+        <span className="text-slate-500">$</span>
+        <input type="number" value={guarantee} onChange={(e) => setGuarantee(e.target.value)}
+          className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums" />
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+              <th className="py-1 pr-3 font-semibold">Gross from</th>
+              <th className="py-1 pr-3 font-semibold">up to</th>
+              <th className="py-1 font-semibold">Rate %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bands.map((b, i) => (
+              <tr key={i}>
+                <td className="py-0.5 pr-3">
+                  <input type="number" value={b.min} onChange={(e) => setBand(i, 'min', e.target.value)}
+                    className="w-28 rounded-md border border-slate-300 px-2 py-1 tabular-nums" />
+                </td>
+                <td className="py-0.5 pr-3">
+                  <input type="number" value={b.max ?? ''} placeholder="no limit"
+                    onChange={(e) => setBand(i, 'max', e.target.value === '' ? null : e.target.value)}
+                    className="w-28 rounded-md border border-slate-300 px-2 py-1 tabular-nums" />
+                </td>
+                <td className="py-0.5">
+                  <input type="number" step="0.01" value={(Number(b.rate) * 100).toFixed(2)}
+                    onChange={(e) => setBand(i, 'rate', Number(e.target.value) / 100)}
+                    className="w-24 rounded-md border border-slate-300 px-2 py-1 tabular-nums" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
+          className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+        <button onClick={save} disabled={saving || !pin}
+          className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save rates'}
+        </button>
+        {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
+      </div>
     </div>
   )
 }
