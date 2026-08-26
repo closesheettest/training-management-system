@@ -39,13 +39,13 @@ export const handler = async (event) => {
   // trainee_id is passed (e.g. someone who arrived late / missed the class blast).
   let q = supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, email, registration_token, registered, enrolled')
+    .select('id, first_name, last_name, phone, email, registration_token, registered, enrolled, left_company_at')
   q = trainee_id ? q.eq('id', trainee_id) : q.eq('class_id', class_id)
   const { data: trainees, error: tErr } = await q
   if (tErr) return json(500, { error: tErr.message })
 
   // Eligible = registered, enrolled, and reachable on at least one channel.
-  const eligible = (trainees || []).filter((t) => t.registered && t.enrolled !== false && (t.phone || t.email))
+  const eligible = (trainees || []).filter((t) => t.registered && t.enrolled !== false && !t.left_company_at && (t.phone || t.email))
 
   const results = []
   for (const t of eligible) {

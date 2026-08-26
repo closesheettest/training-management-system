@@ -59,14 +59,14 @@ export const handler = async (event) => {
   // Trainees in this class who need a hotel and checked in on `date`.
   const { data: trainees, error: tErr } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, enrolled, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
+    .select('id, first_name, last_name, enrolled, left_company_at, declined_at, needs_hotel, attendance(attendance_date, confirmed)')
     .eq('class_id', classId)
     .eq('needs_hotel', true)
   if (tErr) return json(500, { ok: false, error: tErr.message })
 
   const checkedIn = (trainees || []).filter(
     (t) =>
-      t.enrolled !== false &&
+      t.enrolled !== false && !t.left_company_at &&
       !t.declined_at &&
       (t.attendance || []).some((a) => a.confirmed && a.attendance_date === date),
   )

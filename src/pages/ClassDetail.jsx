@@ -678,7 +678,7 @@ export default function ClassDetail() {
       setMessage({
         type: 'error',
         text:
-          'Nobody to text right now. The button sends to provisioned trainees (enrolled + have a company email) who haven\'t already been texted.',
+          'Nobody to text right now. The button sends to provisioned trainees (enrolled, left_company_at + have a company email) who haven\'t already been texted.',
       })
       return
     }
@@ -1046,7 +1046,7 @@ export default function ClassDetail() {
   })()
 
   const enrolled = trainees.filter((t) =>
-    t.enrolled !== false && !t.dropped_out_at && (!continuingIds || continuingIds.has(t.id)))
+    t.enrolled !== false && !t.left_company_at && !t.dropped_out_at && (!continuingIds || continuingIds.has(t.id)))
   const unenrolled = trainees.filter((t) => t.enrolled === false && !t.declined_at && !t.dropped_out_at)
   // Holding bucket — trainees rescheduled INTO this class who haven't
   // been admitted to the active roster yet. They keep their existing
@@ -2531,7 +2531,7 @@ function ProvisioningWorkflowCard({ cls, onSendDay2, onSendCredentials }) {
   const notifiedAt = cls.day_2_it_notified_at
   const completedAt = cls.it_completed_at
   const provisioned = (cls.trainees || []).filter(
-    (t) => t.enrolled !== false && t.company_email,
+    (t) => t.enrolled !== false && !t.left_company_at && t.company_email,
   )
   // Any provisioned trainee who hasn't been texted yet is eligible —
   // no "attended today" requirement.
@@ -2729,7 +2729,7 @@ function ZoneAssignments({ trainees, cls, onSaved }) {
   // whether they're STILL COMING: present on the most recent day this class
   // actually met. Same rule the Week B roster uses.
   const stillHere = (trainees || []).filter((t) =>
-    !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+    !t.dropped_out_at && !t.declined_at && t.enrolled !== false && !t.left_company_at)
   const lastMet = stillHere.reduce((mx, t) =>
     (t.attendance || []).reduce((m, a) => (a && a.confirmed && (!m || a.attendance_date > m) ? a.attendance_date : m), mx), null)
   const people = lastMet
@@ -4490,11 +4490,11 @@ function BucketBlock({
 }
 
 // Card for marking enrolled trainees who never submitted a final test as
-// dropouts (sets enrolled=false). Only shown for non-attendance_only
+// dropouts (sets enrolled, left_company_at=false). Only shown for non-attendance_only
 // classes whose week has ended — otherwise the rule doesn't apply and the
 // button would be confusing. Without this, no-shows pollute the "all
 // enrolled" broadcast list and any other "active trainees" report.
-function DropoutsCard({ cls, enrolled, attemptsByTrainee, onReload }) {
+function DropoutsCard({ cls, enrolled, left_company_at, attemptsByTrainee, onReload }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
 
@@ -4780,7 +4780,7 @@ function CancelClassModal({ trainees, upcomingClasses, onConfirm, onCancel }) {
         </div>
         {trainees.length === 0 ? (
           <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            This class has no enrolled trainees — cancelling it won't move anyone.
+            This class has no enrolled, left_company_at trainees — cancelling it won't move anyone.
           </p>
         ) : (
           <div className="max-h-96 overflow-y-auto rounded-md border border-slate-200">

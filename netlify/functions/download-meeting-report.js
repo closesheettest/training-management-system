@@ -47,7 +47,7 @@ export const handler = async (event) => {
       id, region, week_start_date, week_end_date, attendance_only,
       locations(name),
       trainees!class_id(
-        id, first_name, last_name, phone, enrolled, declined_at,
+        id, first_name, last_name, phone, enrolled, left_company_at, declined_at,
         info_updated_at, region
       )
     `)
@@ -80,7 +80,7 @@ export const handler = async (event) => {
     noShowNotUpdated: [],
   }
   const enrolledRoster = (cls.trainees || [])
-    .filter((t) => t.enrolled !== false && !t.declined_at)
+    .filter((t) => t.enrolled !== false && !t.left_company_at && !t.declined_at)
     .sort((a, b) =>
       `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
     )

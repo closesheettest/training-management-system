@@ -71,7 +71,7 @@ export default function Progress() {
         sign_in_closures(attendance_date),
         trainees!class_id(
           id, first_name, last_name,
-          enrolled, registered, declined_at, needs_hotel, dropout_notified_at,
+          enrolled, left_company_at, registered, declined_at, needs_hotel, dropout_notified_at,
           itinerary_email_sent_at, company_email, email_assigned_at,
           credentials_sent_at, credentials_viewed_at,
           repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at,
@@ -156,7 +156,7 @@ function ClassRow({ cls, expanded, onToggle }) {
   // dropout rule used in computeStages — anyone who missed an
   // officially-over training day is a dropout. Show both numbers when
   // they diverge so the dropout count is visible at the row level.
-  const enrolledTrainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
+  const enrolledTrainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at && !t.declined_at)
   const traineeTotal = enrolledTrainees.length
   const overDates = getOfficiallyOverDates(cls)
   const activeCount = enrolledTrainees.filter((t) => isActiveTrainee(t, overDates)).length
@@ -326,7 +326,7 @@ function computeStages(cls) {
   const isPastClass = end && today > end
   // Full enrolled roster (excludes only manual unenroll + explicit decline).
   // Used for the Attendance stage so dropouts surface as missing.
-  const trainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.declined_at)
+  const trainees = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at && !t.declined_at)
   // Active roster — Neal's strict policy: miss ANY officially-over
   // training day and you're a dropout. See getOfficiallyOverDates +
   // isActiveTrainee for the rule. Anyone the dropout cron has already

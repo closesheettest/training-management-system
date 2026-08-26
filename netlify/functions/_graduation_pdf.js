@@ -72,7 +72,7 @@ export function buildReportHtml(cls) {
   // Requires the caller's Supabase query to include
   // `test_attempts(submitted_at)` nested under trainees.
   const graduates = (cls.trainees || [])
-    .filter((t) => t.enrolled !== false)
+    .filter((t) => t.enrolled !== false && !t.left_company_at)
     .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
   const locationName = esc(cls.locations?.name || `${cls.region || 'Region'} — TBD`)

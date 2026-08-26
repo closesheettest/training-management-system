@@ -39,13 +39,13 @@ export const handler = async (event) => {
 
   const { data: cls, error: clsErr } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name), trainees!class_id(id, enrolled, company_email)')
+    .select('id, region, week_start_date, locations(name), trainees!class_id(id, enrolled, left_company_at, company_email)')
     .eq('id', class_id)
     .maybeSingle()
   if (clsErr || !cls) return json(404, { error: 'Class not found' })
 
   const provisionedCount = (cls.trainees || []).filter(
-    (t) => t.enrolled !== false && t.company_email,
+    (t) => t.enrolled !== false && !t.left_company_at && t.company_email,
   ).length
 
   const { error: stampErr } = await supabase

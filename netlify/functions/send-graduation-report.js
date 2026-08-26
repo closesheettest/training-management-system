@@ -70,12 +70,12 @@ export const handler = async (event) => {
   if (managerHandoffOnly) {
     const { data: cls, error: cErr } = await supabase
       .from('classes')
-      .select('id, region, trainees!class_id(id, first_name, last_name, phone, region, enrolled, test_attempts(submitted_at))')
+      .select('id, region, trainees!class_id(id, first_name, last_name, phone, region, enrolled, left_company_at, test_attempts(submitted_at))')
       .eq('id', targetClassId)
       .maybeSingle()
     if (cErr) return json(500, { error: `Supabase: ${cErr.message}` })
     if (!cls) return json(404, { error: 'Class not found' })
-    const graduates = (cls.trainees || []).filter((t) => t.enrolled !== false && (t.test_attempts || []).some((a) => a.submitted_at))
+    const graduates = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at && (t.test_attempts || []).some((a) => a.submitted_at))
     if (graduates.length === 0) return json(200, { ok: false, skipped_reason: 'No finished trainees in this class yet' })
     const result = await fireManagerHandoff(supabase, cls, graduates)
     return json(200, { ok: true, manager_handoff_only: true, finished_graduates: graduates.length, result })
@@ -94,7 +94,7 @@ export const handler = async (event) => {
       id, region, week_start_date, week_end_date,
       locations(name, street_address, city, state, zip),
       trainees!class_id(
-        id, first_name, last_name, company_email, enrolled, region,
+        id, first_name, last_name, company_email, enrolled, left_company_at, region,
         phone, street_address, city, state, zip,
         repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at,
         attendance(attendance_date, confirmed),
@@ -112,7 +112,7 @@ export const handler = async (event) => {
   if (clsErr) return json(500, { error: `Supabase: ${clsErr.message}` })
 
   const eligible = (classes || []).filter((c) => {
-    const enrolled = (c.trainees || []).filter((t) => t.enrolled !== false)
+    const enrolled = (c.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at)
     if (enrolled.length === 0) return false
     if (targetClassId) return true // manual fire bypasses the test-done check
     return enrolled.every((t) => (t.test_attempts || []).some((a) => a.submitted_at))
@@ -173,7 +173,7 @@ export const handler = async (event) => {
     // same filter buildReportHtml uses, so the email body number always
     // agrees with the row count in the attached PDF.
     const graduates = (cls.trainees || [])
-      .filter((t) => t.enrolled !== false)
+      .filter((t) => t.enrolled !== false && !t.left_company_at)
       .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     const body =
       `Attached is the graduating class report for ${cls.region} · ${locationName} (week of ${dateLabel}).\n\n` +

@@ -90,7 +90,7 @@ export const handler = async (event) => {
     .from('classes')
     .select(
       'id, region, week_start_date, week_end_date, day_2_it_notified_at, it_completed_at, ' +
-        'trainees!class_id(id, enrolled, company_email, repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at)',
+        'trainees!class_id(id, enrolled, left_company_at, company_email, repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at)',
     )
     .lte('week_start_date', todayIso)
     .gte('week_end_date', graceFloorIso)
@@ -144,7 +144,7 @@ export const handler = async (event) => {
     // ── Stage 2: VA — platform setup ──────────────────────────────────
     // Mirror the Setup page exactly: only trainees that are enrolled AND
     // have a company email are in scope; "done" = all 3 platforms each.
-    const inScope = (cls.trainees || []).filter((t) => t.enrolled !== false && t.company_email)
+    const inScope = (cls.trainees || []).filter((t) => t.enrolled !== false && !t.left_company_at && t.company_email)
     if (inScope.length === 0) {
       actions.push({ class_id: cls.id, stage: 'va', skipped: 'no enrolled+emailed trainees to set up' })
       continue

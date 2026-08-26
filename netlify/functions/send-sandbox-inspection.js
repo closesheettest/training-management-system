@@ -49,13 +49,13 @@ export const handler = async (event) => {
 
   const { data: trainees, error: trErr } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, email, enrolled, dropout_notified_at')
+    .select('id, first_name, last_name, phone, email, enrolled, left_company_at, dropout_notified_at')
     .in('id', ids)
   if (trErr) return json(500, { ok: false, error: trErr.message })
 
   // Active reps only — drop dropouts and anyone with no contact info.
   const recipients = (trainees || []).filter(
-    (t) => t.enrolled !== false && !t.dropout_notified_at && (t.phone || t.email),
+    (t) => t.enrolled !== false && !t.left_company_at && !t.dropout_notified_at && (t.phone || t.email),
   )
 
   const smsBody =

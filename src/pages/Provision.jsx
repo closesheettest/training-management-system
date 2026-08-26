@@ -58,7 +58,7 @@ export default function Provision() {
     const eligible = (clsData.trainees || [])
       .filter(
         (t) =>
-          t.enrolled !== false && (checkedInIds.has(t.id) || t.email_assigned_at),
+          t.enrolled !== false && !t.left_company_at && (checkedInIds.has(t.id) || t.email_assigned_at),
       )
       .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
 

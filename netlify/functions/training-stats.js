@@ -46,7 +46,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data: classes, error } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, week_end_date, attendance_only, cancelled_at, trainees!class_id(id, first_name, last_name, enrolled, region, test_attempts(submitted_at))')
+    .select('id, region, week_start_date, week_end_date, attendance_only, cancelled_at, trainees!class_id(id, first_name, last_name, enrolled, left_company_at, region, test_attempts(submitted_at))')
     .gte('week_end_date', startDate)
     .lte('week_start_date', endDate)
 
@@ -55,7 +55,7 @@ export const handler = async (event) => {
   }
 
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
-  const isGraduate = (t) => t.enrolled !== false && (t.test_attempts || []).some((a) => a.submitted_at)
+  const isGraduate = (t) => t.enrolled !== false && !t.left_company_at && (t.test_attempts || []).some((a) => a.submitted_at)
 
   const gradNames = []
   const gradByRegion = {}
@@ -76,7 +76,7 @@ export const handler = async (event) => {
         gradNames.push(fullName(t))
         gradByRegion[zone] = (gradByRegion[zone] || 0) + 1
       }
-      if (overlaps && t.enrolled !== false) {
+      if (overlaps && t.enrolled !== false && !t.left_company_at) {
         rosterNames.push(fullName(t))
         rosterByRegion[zone] = (rosterByRegion[zone] || 0) + 1
       }

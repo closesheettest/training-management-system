@@ -24,7 +24,7 @@ export default function Setup() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name), trainees!class_id(id, first_name, last_name, company_email, enrolled, repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at)',
+        'id, region, week_start_date, week_end_date, locations(name), trainees!class_id(id, first_name, last_name, company_email, enrolled, left_company_at, repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at)',
       )
       .eq('id', class_id)
       .maybeSingle()
@@ -81,7 +81,7 @@ export default function Setup() {
   if (!cls) return null
 
   const trainees = (cls.trainees || [])
-    .filter((t) => t.enrolled !== false && t.company_email)
+    .filter((t) => t.enrolled !== false && !t.left_company_at && t.company_email)
     .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`))
 
   const platformDone = (field) => trainees.filter((t) => t[field]).length

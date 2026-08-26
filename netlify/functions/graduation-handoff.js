@@ -48,7 +48,7 @@ export const handler = async (event) => {
     .select(`
       id, region, week_start_date, week_end_date,
       trainees!class_id(
-        id, first_name, last_name, enrolled, region,
+        id, first_name, last_name, enrolled, left_company_at, region,
         phone, company_email, email, street_address, city, state, zip,
         test_attempts(submitted_at)
       )
@@ -61,7 +61,7 @@ export const handler = async (event) => {
   // Graduate = enrolled AND submitted the final test. Same filter the
   // report PDF uses, so the manager's list matches the report exactly.
   const allGraduates = (cls.trainees || [])
-    .filter((t) => t.enrolled !== false)
+    .filter((t) => t.enrolled !== false && !t.left_company_at)
     .filter((t) => (t.test_attempts || []).some((a) => a.submitted_at))
     .map((t) => ({ ...t, zone: t.region || cls.region || '' }))
 
