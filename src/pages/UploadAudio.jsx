@@ -28,6 +28,9 @@ export default function UploadAudio() {
     } catch { /* leave the list as it was */ }
   }
   useEffect(() => { refresh() }, [])
+  // Name the tab. Fifteen tabs all reading "training-management-system" is
+  // unusable, so every page says what it is.
+  useEffect(() => { document.title = 'Upload training audio' }, [])
 
   const upload = async (file) => {
     if (!file) return
