@@ -61,6 +61,19 @@ delete from attendance a using merge_map m where a.trainee_id = m.drop_id;
 update test_attempts       t set trainee_id = m.keep from merge_map m where t.trainee_id = m.drop_id;
 update trainee_hotel_stays h set trainee_id = m.keep from merge_map m where h.trainee_id = m.drop_id;
 
+-- 3b. PAPERWORK FOLLOWS THE PERSON TOO.
+-- trainee_onboarding did not exist in this script when it was written, and a
+-- signed W-9 and Independent Contractor Agreement are the last things that
+-- should be orphaned by a merge. Moved only when the keeper has none of their
+-- own — if BOTH rows have signed paperwork that is a real conflict, so the
+-- duplicate's row is left in place and the delete below fails the transaction
+-- rather than quietly discarding a signature (Neal, 2026-08-25).
+update trainee_onboarding o
+   set trainee_id = m.keep
+  from merge_map m
+ where o.trainee_id = m.drop_id
+   and not exists (select 1 from trainee_onboarding k where k.trainee_id = m.keep);
+
 -- 4. The duplicate row itself, now carrying nothing.
 delete from trainees t using merge_map m where t.id = m.drop_id;
 
