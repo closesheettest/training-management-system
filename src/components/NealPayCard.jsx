@@ -20,7 +20,7 @@
 // Gross comes from CCG all-manager-pay (totals.contract) so this and the Managers
 // Pay report below it are always reading the same week from the same source.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 
