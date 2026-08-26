@@ -25,12 +25,27 @@ export const handler = async (event) => {
   const supabase = createClient(url, key)
 
   // Make sure the bucket exists and is public.
+  //
+  // Errors here are REPORTED, never swallowed. Hiding a failed createBucket
+  // just moves the failure to the upload, where it surfaces as Supabase's
+  // "The related resource does not exist" — which tells the person uploading
+  // nothing at all about what actually went wrong.
+  const ensure = { listed: null, created: null, error: null }
   try {
-    const { data: buckets } = await supabase.storage.listBuckets()
+    const { data: buckets, error: lerr } = await supabase.storage.listBuckets()
+    if (lerr) ensure.error = `listBuckets: ${lerr.message}`
+    ensure.listed = (buckets || []).map((b) => b.name)
     if (!(buckets || []).some((b) => b.name === BUCKET)) {
-      await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: '200MB' })
+      const { error: cerr } = await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 209715200 })
+      if (cerr && !/already exists/i.test(cerr.message || '')) ensure.error = `createBucket: ${cerr.message}`
+      else ensure.created = true
     }
-  } catch { /* if it already exists, carry on */ }
+  } catch (e) { ensure.error = `ensureBucket: ${e.message}` }
+
+  if (/^(1|true|yes)$/i.test((event.queryStringParameters || {}).diag || '')) {
+    return cors(200, JSON.stringify({ ok: !ensure.error, bucket: BUCKET, ensure, key_kind: (process.env.SUPABASE_SECRET_KEY || '').slice(0, 12) }))
+  }
+  if (ensure.error) return cors(500, JSON.stringify({ ok: false, error: `Storage isn't set up: ${ensure.error}` }))
 
   if (event.httpMethod === 'GET') {
     const { data, error } = await supabase.storage.from(BUCKET).list('', { limit: 50, sortBy: { column: 'created_at', order: 'desc' } })
