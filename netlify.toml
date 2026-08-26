@@ -48,6 +48,13 @@
 # send lives in send-week-b-confirmation.js as an HTTP function (so the class-page
 # button works — Netlify 403s HTTP calls to scheduled functions). This tiny cron
 # fires Fri 18:00 UTC and hits that endpoint's secured GET path.
+# The full presentation audio to Week A trainees at Wednesday dismissal (2 PM
+# ET). The schedule lives here, on a thin wrapper, because Netlify 403s HTTP
+# calls to a scheduled function and the worker must stay testable.
+# 18:00 UTC = 2 PM EDT. Change to '0 19 * * 3' when EST starts in November.
+[functions."cron-week-a-presentation"]
+  schedule = "0 18 * * 3"
+
 [functions."cron-week-b-confirmation"]
   schedule = "0 18 * * 5"
 
