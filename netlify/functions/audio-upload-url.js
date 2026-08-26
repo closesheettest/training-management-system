@@ -36,7 +36,11 @@ export const handler = async (event) => {
     if (lerr) ensure.error = `listBuckets: ${lerr.message}`
     ensure.listed = (buckets || []).map((b) => b.name)
     if (!(buckets || []).some((b) => b.name === BUCKET)) {
-      const { error: cerr } = await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 209715200 })
+      // No fileSizeLimit — asking for one ABOVE the project's global cap makes
+      // createBucket fail with "The object exceeded the maximum allowed size",
+      // which sounds like a problem with the file being uploaded and isn't.
+      // Omitting it inherits the project cap (50 MB; the presentation is 25).
+      const { error: cerr } = await supabase.storage.createBucket(BUCKET, { public: true })
       if (cerr && !/already exists/i.test(cerr.message || '')) ensure.error = `createBucket: ${cerr.message}`
       else ensure.created = true
     }
