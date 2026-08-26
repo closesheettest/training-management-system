@@ -81,11 +81,32 @@ export default function Kiosk() {
       // two class days that actually happened (weekends and field days simply
       // aren't in here, which is what we want).
       const recentDays = [...new Set(priorAtt.map((a) => a.attendance_date))].slice(0, 2)
-      const presentRecently = new Set(
-        priorAtt.filter((a) => recentDays.includes(a.attendance_date)).map((a) => a.trainee_id),
+      const lastDay = recentDays[0]
+      const cameLastDay = new Set(
+        priorAtt.filter((a) => a.attendance_date === lastDay).map((a) => a.trainee_id),
       )
-      missed = visible.filter((t) => !presentRecently.has(t.id))
-      visible = visible.filter((t) => presentRecently.has(t.id))
+      // How many class days each trainee has actually attended so far.
+      const daysAttended = priorAtt.reduce((m, a) => m.set(a.trainee_id, (m.get(a.trainee_id) || 0) + 1), new Map())
+
+      // THE GRACE IS EARNED, NOT AUTOMATIC.
+      //
+      // Missing the most recent class day hides you — with one exception: if you
+      // had already shown up for two or more days, one absence is a dentist
+      // appointment or a sick kid, not a dropout. That exception is why Michael
+      // Whitmer and Joel Ortega (in Mon 8/17 + Tue 8/18, out Wed) must still
+      // appear on Thursday's kiosk (Neal, 2026-08-20).
+      //
+      // But it can't be handed out on day one. Kelvin Rainwater signed in Monday
+      // 8/24, never came back Tuesday, and was still offered on Wednesday's
+      // kiosk (Neal, 2026-08-26). A single day attended is not a track record —
+      // it's the most common shape of someone who isn't coming back.
+      //
+      // Hidden is not gone either way: "Someone missing?" below reveals them so
+      // a trainer can put a genuine straggler back without hand-entering
+      // attendance for anybody.
+      const stillIn = (t) => cameLastDay.has(t.id) || (daysAttended.get(t.id) || 0) >= 2
+      missed = visible.filter((t) => !stillIn(t))
+      visible = visible.filter(stillIn)
       // Anyone still held back is hidden, NOT gone — the "Someone missing?"
       // button below reveals them so a trainer can put a genuine straggler back
       // on the list without anyone hand-entering attendance for them.
