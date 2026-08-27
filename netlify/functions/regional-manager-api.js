@@ -143,12 +143,21 @@ async function ccgRecordsApi(zone, payload) {
 
 // jobnimbus_id → the rep's DoorDispatcher personal link, from CCG's harvest-rep-links
 // roster. Server-to-server (no CORS). Best-effort — returns {} on any hiccup.
+// Last 10 digits of a phone — the one identifier a trainee reliably has on BOTH
+// sides before they are ever provisioned in JobNimbus.
+const phoneKey = (p) => {
+  const d = String(p || '').replace(/\D/g, '')
+  return d.length >= 10 ? d.slice(-10) : null
+}
+
 async function fetchDoorDispatcherLinks() {
+  const empty = { byJn: {}, byPhone: {} }
   try {
     const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/harvest-rep-links`)
-    if (!r.ok) return {}
+    if (!r.ok) return empty
     const d = await r.json().catch(() => ({}))
-    const map = {}
+    const byJn = {}, byPhone = {}
+    const phoneSeen = new Set()
     // reps AND trainees. harvest-rep-links deliberately splits anyone at
     // harvest_level 'trainee' into their own list, and this only ever read
     // `reps` — so every field trainee in Week B came back with no map link, the
@@ -157,10 +166,27 @@ async function fetchDoorDispatcherLinks() {
     // class went out knocking (Neal, 2026-08-20). Trainees are exactly who a
     // manager most needs to send a link to.
     for (const rep of [...(d.reps || []), ...(d.trainees || [])]) {
-      if (rep.jobnimbus_id && rep.link) map[rep.jobnimbus_id] = rep.link
+      if (!rep.link) continue
+      if (rep.jobnimbus_id) byJn[rep.jobnimbus_id] = rep.link
+      // MATCH ON PHONE TOO. Keying only on jobnimbus_id silently hid every trainee
+      // who has no JobNimbus account yet — which is most of them, because they get
+      // provisioned around graduation. Oded Zilpa had passed his harvest test, had
+      // his link texted to him and was knocking on the map, and Sam's dashboard
+      // still said "No map link yet — tell the office" (Neal, 2026-08-27). Four of
+      // the six trainees were in that state.
+      //
+      // Phone, not name: it is unique, and two-surname reps do not spell the same
+      // in JobNimbus as on the roster. An ambiguous phone is dropped rather than
+      // guessed — this link opens someone's own map, so handing it to the wrong
+      // person is worse than showing none.
+      const pk = phoneKey(rep.phone)
+      if (!pk) continue
+      if (phoneSeen.has(pk)) { delete byPhone[pk]; continue }
+      phoneSeen.add(pk)
+      byPhone[pk] = rep.link
     }
-    return map
-  } catch { return {} }
+    return { byJn, byPhone }
+  } catch { return empty }
 }
 
 
@@ -284,7 +310,12 @@ export const handler = async (event) => {
         ...r, pregrad,
         training_week: pregrad ? trainingWeek(startByClass[r.class_id]) : null,
         rep_level: pregrad ? 'pregrad' : r.rep_level,
-        door_dispatcher_link: (r.jobnimbus_id && ddLinks[r.jobnimbus_id]) || null,
+        // jobnimbus_id is authoritative; phone is the fallback that covers anyone
+        // not yet provisioned in JobNimbus (see fetchDoorDispatcherLinks).
+        door_dispatcher_link:
+          (r.jobnimbus_id && ddLinks.byJn[r.jobnimbus_id])
+          || (phoneKey(r.phone) && ddLinks.byPhone[phoneKey(r.phone)])
+          || null,
       }
     })
 
