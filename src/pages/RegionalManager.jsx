@@ -1664,10 +1664,10 @@ function NewTrainees({ reps }) {
         return (
           <div key={String(wk)} className="mb-3">
             <div className="mb-1 flex flex-wrap items-baseline gap-x-2">
-              <span className="text-[13px] font-bold text-amber-200">{title}</span>
-              <span className="text-[12px] text-slate-300/70">({group.length})</span>
+              <span className="text-[18px] font-bold text-amber-200">{title}</span>
+              <span className="text-[14px] font-semibold text-slate-300/80">({group.length})</span>
             </div>
-            {note && <p className="mb-1.5 text-[11.5px] leading-relaxed text-slate-200/60">{note}</p>}
+            {note && <p className="mb-2 text-[14px] font-medium leading-relaxed text-slate-100/90">{note}</p>}
             <div className="space-y-2">
               {group.map((r) => (
           <div key={r.id} className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5">
