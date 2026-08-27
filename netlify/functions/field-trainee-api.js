@@ -3,7 +3,17 @@
 //
 // Chain: add → send_homework (trainee + manager, then fire IT email provisioning)
 //        → email_done (fires VA app setup) → apps_done (send trainee instructions)
-//        → send_test (final test, multiple-choice only).
+//        → send_test (final test, multiple-choice only) → graduate.
+//
+// GRADUATE is the step the two-week flow never had. Nothing marked the end of
+// training, so is_field_trainee stayed set forever: the old class flow flipped
+// is_active_sales_rep when the final test was submitted (TakeTest.jsx) but never
+// cleared the trainee flag, and field training has no test-submit moment at all.
+// Everything downstream reads that flag as "still in training" — rep-zones reports
+// in_training, and CCG's contest board drops anyone carrying it, for or against
+// their team. Danny Pasicolan sat on NO contest team for two months after he
+// graduated because of it (Neal, 2026-08-27). `ungraduated` is the matching audit:
+// who is still waiting on the stamp, and which class they were in.
 //
 // POST { action, ... }. Reuses the same IT/VA provisioning notifications as the
 // class flow (recipientsForEvent / notifyAll).
@@ -92,6 +102,101 @@ export const handler = async (event) => {
       const { error } = await supabase.from('trainees').update(patch).eq('id', tid)
       if (error) throw error
       return json(200, { ok: true })
+    }
+
+    // GRADUATED — out of training, onto the field sales team. One button, because
+    // the office needs a way to say so that does not depend on a test submission.
+    //
+    // Clearing is_field_trainee is the point: it is what makes them a plain rep to
+    // rep-zones, the manager dashboard and the contest board.
+    //
+    // becoming ACTIVE keeps its ORIGINAL date when there already is one. The contest
+    // holds a rep out of the week they graduated IN — they spent it in training — so
+    // re-stamping today's date while clearing a backlog would bench a rep who has been
+    // in the field for months. Pass active_since to set it deliberately.
+    if (action === 'graduate') {
+      const tid = String(body.trainee_id || body.id || '').trim()
+      if (!tid) return json(400, { ok: false, error: 'trainee_id required' })
+      const { data: g } = await supabase
+        .from('trainees')
+        .select('id, first_name, last_name, rep_level, became_active_rep_at, is_active_sales_rep, is_field_trainee')
+        .eq('id', tid)
+        .maybeSingle()
+      if (!g) return json(404, { ok: false, error: 'Trainee not found' })
+      const gNow = new Date().toISOString()
+      const patch = {
+        is_field_trainee: false,
+        is_active_sales_rep: true,
+        became_active_rep_at: body.active_since || g.became_active_rep_at || gNow,
+      }
+      // Default a missing level to junior, the same as the test-submit path does.
+      // A level already on file (including non_field for office staff) is left alone.
+      if (!g.rep_level) { patch.rep_level = 'junior'; patch.rep_level_confirmed_at = gNow }
+      const { error: gErr } = await supabase.from('trainees').update(patch).eq('id', tid)
+      if (gErr) throw gErr
+      return json(200, {
+        ok: true,
+        name: `${g.first_name || ''} ${g.last_name || ''}`.trim(),
+        became_active_rep_at: patch.became_active_rep_at,
+        kept_original_date: !body.active_since && !!g.became_active_rep_at,
+      })
+    }
+
+    // UNGRADUATED — everyone still waiting on that stamp, with the class they sat in.
+    //
+    // Graduated means is_active_sales_rep AND no is_field_trainee flag. Anything else
+    // is on this list. Dropouts, declines and unenrolled records are not waiting on a
+    // graduation, so they are out.
+    //
+    // Filtered in JS rather than in the query: `enrolled` is nullable, and PostgREST's
+    // neq drops NULL rows (null <> false is null, not true), which would silently hide
+    // anyone whose enrolled was never set.
+    if (action === 'ungraduated') {
+      const { data: all, error: uErr } = await supabase
+        .from('trainees')
+        .select('id, first_name, last_name, phone, email, region, rep_level, registered, enrolled, declined_at, dropped_out_at, is_active_sales_rep, is_field_trainee, became_active_rep_at, created_at, classes!class_id(region, week_start_date, week_end_date, cancelled_at, attendance_only)')
+        .order('last_name', { ascending: true })
+        .limit(5000)
+      if (uErr) throw uErr
+      const today = new Date().toISOString().slice(0, 10)
+      const rows = (all || [])
+        .filter((t) => t.enrolled !== false && !t.dropped_out_at && !t.declined_at)
+        .filter((t) => !(t.is_active_sales_rep === true && t.is_field_trainee !== true))
+        .map((t) => {
+          const c = t.classes || null
+          // WHY they are on the list, so the office knows which ones are a real backlog.
+          // A class that has not finished yet is not a miss — those people are still in
+          // training. One that ended is someone nobody ever marked.
+          const classOver = !!(c && c.week_end_date && c.week_end_date < today)
+          return {
+            id: t.id,
+            name: `${t.first_name || ''} ${t.last_name || ''}`.trim() || '(no name)',
+            phone: t.phone || null,
+            email: t.email || null,
+            region: t.region || (c && c.region) || null,
+            rep_level: t.rep_level || null,
+            field_trainee: t.is_field_trainee === true,
+            active_rep: t.is_active_sales_rep === true,
+            registered: t.registered === true,
+            class_region: c ? c.region || null : null,
+            class_week: c ? c.week_start_date || null : null,
+            class_end: c ? c.week_end_date || null : null,
+            class_cancelled: !!(c && c.cancelled_at),
+            class_over: classOver,
+            // The Danny case: carrying BOTH flags reads as an ordinary rep everywhere
+            // except the contest, which drops them. Worth calling out on its own.
+            stuck_flag: t.is_field_trainee === true && t.is_active_sales_rep === true,
+            no_class: !c,
+          }
+        })
+      // Newest class first; no-class rows last. The backlog worth chasing is at the top.
+      rows.sort((a, b) => (b.class_week || '').localeCompare(a.class_week || '') || a.name.localeCompare(b.name))
+      return json(200, {
+        ok: true,
+        count: rows.length,
+        pending: rows.filter((r) => r.class_over || r.no_class || r.field_trainee).length,
+        trainees: rows,
+      })
     }
 
     // The remaining actions operate on one field trainee.

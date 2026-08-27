@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react'
 // the field, not in a class). Add them here, then run the provisioning chain:
 //   Send homework (→ trainee + manager, fires IT email provisioning)
 //   → Email provisioned (fires app setup) → Apps set up (sends trainee
-//   instructions) → Send final test (multiple-choice only).
+//   instructions) → Send final test (multiple-choice only) → Graduated.
+//
+// GRADUATED is also the page's second job. Nothing in the two-week flow marked the
+// end of training, so people kept the is_field_trainee flag for months after they
+// were in the field — and the contest board drops anyone carrying it. So this page
+// also lists everyone still waiting on that stamp, with the class they sat in, and
+// graduates them from the same row.
 // All backed by /field-trainee-api.
 
 export default function FieldTrainee() {
@@ -19,6 +25,14 @@ export default function FieldTrainee() {
   const [regions, setRegions] = useState([])
   const [regionFilter, setRegionFilter] = useState('')
   const [searchMgr, setSearchMgr] = useState('')
+  const [ungrad, setUngrad] = useState([])
+  const [ungradCount, setUngradCount] = useState(0)
+  // Default to the ones that are actually a MISS — class finished, or no class, or
+  // still flagged a field trainee. Somebody whose class runs next week has not
+  // failed to graduate, they just have not got there yet, and burying the real
+  // backlog under 25 of them is how it stays unnoticed.
+  const [showAllUngrad, setShowAllUngrad] = useState(false)
+  const [ungradQuery, setUngradQuery] = useState('')
 
   async function api(action, extra) {
     const res = await fetch('/.netlify/functions/field-trainee-api', {
@@ -29,9 +43,10 @@ export default function FieldTrainee() {
   }
   async function load() {
     setLoading(true)
-    const [l, m] = await Promise.all([api('list'), api('managers')])
+    const [l, m, u] = await Promise.all([api('list'), api('managers'), api('ungraduated')])
     if (l.ok) setList(l.trainees || [])
     if (m.ok) setManagers(m.managers || [])
+    if (u.ok) { setUngrad(u.trainees || []); setUngradCount(u.count || 0) }
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -78,8 +93,22 @@ export default function FieldTrainee() {
       email_done: 'Marked email provisioned; app-setup team notified.',
       apps_done: `Trainee sent their setup instructions (${(o.channels || []).join(', ') || 'no channel'}).`,
       send_test: `Final test sent (${(o.channels || []).join(', ') || 'no channel'}).`,
+      graduate: `${o.name || 'They'} graduated — out of training and on the active roster.`,
     }[action] || 'Done.'
     setFlash({ k: 'success', t: done })
+    load()
+  }
+
+  // Graduate one person, from either list. Same call the step buttons make, but the
+  // ungraduated rows are plain trainees rather than field trainees so they carry a
+  // name instead of a first/last pair.
+  async function graduate(id, name) {
+    if (!confirm(`Mark ${name} as GRADUATED?\n\nThey come off training and onto the active sales roster — they'll show up for their zone's manager and start counting in the contest.\n\nIf they already have a start date on file it is kept, so this won't bench them for the current contest week.`)) return
+    setBusy(`${id}:graduate`); setFlash(null)
+    const o = await api('graduate', { trainee_id: id })
+    setBusy(null)
+    if (!o.ok) { setFlash({ k: 'error', t: o.error }); return }
+    setFlash({ k: 'success', t: `${o.name || name} graduated — on the active roster${o.kept_original_date ? ', keeping their original start date' : ''}.` })
     load()
   }
 
@@ -199,12 +228,101 @@ export default function FieldTrainee() {
                   {B('apps_done', ap ? '✓ Apps + instructions sent' : '③ Apps set up → send instructions', em && !ap)}
                   <span className="mx-1 self-center text-slate-300">|</span>
                   {B('send_test', '📝 Send final test (no essays)', true, `Send the FINAL TEST (no essays) to ${full(t)}? Only when their manager says they're ready.`)}
+                  <button type="button" disabled={busy === `${t.id}:graduate`} onClick={() => graduate(t.id, full(t))}
+                    className="rounded-md bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-40">
+                    {busy === `${t.id}:graduate` ? 'Working…' : '🎓 Graduated'}
+                  </button>
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      {/* ── Hasn't graduated ─────────────────────────────────────────────────
+          The audit behind the button. Anyone who is not (active rep AND not
+          flagged a field trainee) is still waiting on a graduation stamp. */}
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+            Hasn't graduated{ungradCount ? ` · ${ungradCount}` : ''}
+          </h2>
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" className="rounded border-slate-300" checked={showAllUngrad} onChange={(e) => setShowAllUngrad(e.target.checked)} />
+            Include classes that haven't finished yet
+          </label>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Nobody here is on the active roster, so their zone manager can't see them and they don't
+          count in the contest. By default this shows the ones that are a real miss — their class is
+          over, they have no class, or they're still flagged a field trainee. Graduating keeps any
+          start date already on file.
+        </p>
+
+        <input
+          className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm sm:max-w-xs"
+          placeholder="Filter by name…" value={ungradQuery} onChange={(e) => setUngradQuery(e.target.value)}
+        />
+
+        {loading ? (
+          <p className="mt-3 text-sm text-slate-400">Loading…</p>
+        ) : (() => {
+          const q = ungradQuery.trim().toLowerCase()
+          const shown = ungrad
+            .filter((r) => showAllUngrad || r.class_over || r.no_class || r.field_trainee)
+            .filter((r) => !q || r.name.toLowerCase().includes(q))
+          if (!shown.length) {
+            return <p className="mt-3 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-600">
+              {ungrad.length ? 'Nothing matching — everyone left is in a class that hasn\u2019t finished.' : 'Everyone has been graduated. Nothing waiting.'}
+            </p>
+          }
+          // Group by the class they sat in, newest first (the API already sorted).
+          const groups = []
+          for (const r of shown) {
+            const key = r.no_class ? '\u2014 no class on file \u2014' : `${r.class_region || 'No region'} \u00b7 week of ${r.class_week || 'unknown'}`
+            const last = groups[groups.length - 1]
+            if (last && last.key === key) last.rows.push(r)
+            else groups.push({ key, rows: [r], over: r.class_over, cancelled: r.class_cancelled })
+          }
+          return (
+            <div className="mt-3 space-y-4">
+              {groups.map((g) => (
+                <div key={g.key}>
+                  <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{g.key}</h3>
+                    <span className="text-[10px] text-slate-400">{g.rows.length}</span>
+                    {g.cancelled && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">class cancelled</span>}
+                    {g.over && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-800">class is over</span>}
+                  </div>
+                  <ul className="divide-y divide-slate-100">
+                    {g.rows.map((r) => (
+                      <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                        <span className="min-w-0">
+                          <span className="font-semibold text-slate-900">{r.name}</span>
+                          <span className="ml-2 text-slate-500">{r.region || 'no zone'}</span>
+                          {r.phone && <span className="ml-2 text-slate-400">{r.phone}</span>}
+                          {r.stuck_flag && (
+                            <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-800"
+                              title="Active rep, but still carrying the field-trainee flag — this is what hides someone from the contest board.">
+                              in the field, never marked graduated
+                            </span>
+                          )}
+                          {r.field_trainee && !r.stuck_flag && <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800">field trainee</span>}
+                          {!r.registered && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">never registered</span>}
+                        </span>
+                        <button type="button" disabled={busy === `${r.id}:graduate`} onClick={() => graduate(r.id, r.name)}
+                          className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50">
+                          {busy === `${r.id}:graduate` ? 'Working…' : '🎓 Graduated'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+      </div>
     </div>
   )
 }
