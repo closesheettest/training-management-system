@@ -171,7 +171,7 @@ export default function RegionalManager() {
       </div>
 
       <Group title="⭐ Today's work" defaultOpen>
-        <NewTrainees reps={reps} />
+        <NewTrainees reps={reps} token={token} onChanged={reload} />
         <CancelReviews zone={manager.region} />
         <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
         <AssignAppointments token={token} />
@@ -1620,8 +1620,26 @@ function DamageRestore({ zone }) {
 // Managers Pay, so they can sit in Today's work without distorting any number.
 //
 // Placed first: a person waiting to hear from you outranks paperwork.
-function NewTrainees({ reps }) {
+function NewTrainees({ reps, token, onChanged }) {
   const pregrads = (reps || []).filter((r) => r.pregrad)
+  const [firing, setFiring] = useState('')
+  // Fire / remove a trainee who was let go mid-training — stamps dropped_out_at so
+  // they fall off this list (there was no way to do this before; deactivate_rep
+  // only handled active reps).
+  async function fireTrainee(r) {
+    if (!window.confirm(`Mark ${r.first_name} ${r.last_name} as Quit / Fired?\n\nThey'll drop off your training list right away.`)) return
+    setFiring(r.id)
+    try {
+      const res = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deactivate_rep', token, trainee_id: r.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) window.alert(data?.error || 'Could not remove them.')
+      else if (onChanged) await onChanged()
+    } catch (e) { window.alert(e?.message || 'Network error.') }
+    finally { setFiring('') }
+  }
   // Say so when there are none. Silence is ambiguous — a manager can't tell
   // "nobody is in training" from "this card is broken" or "I'm on the wrong
   // page" (Neal, 2026-08-19).
@@ -1718,6 +1736,14 @@ function NewTrainees({ reps }) {
                 </span>
               )}
               {!r.phone && <span className="text-[12px] font-semibold text-red-300">No phone on file</span>}
+              <button
+                type="button"
+                disabled={firing === r.id}
+                onClick={() => fireTrainee(r)}
+                title="Remove this trainee from your list — use if they were fired or quit during training."
+                className="ml-auto rounded-md border border-red-300/40 bg-red-500/10 px-2.5 py-1 text-[12px] font-bold text-red-100 hover:bg-red-500/20 disabled:opacity-50">
+                {firing === r.id ? '…' : '❌ Quit / Fired'}
+              </button>
             </div>
           </div>
               ))}

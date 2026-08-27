@@ -359,7 +359,7 @@ export const handler = async (event) => {
     // refuse — managers have no business reaching outside their own crew.
     const { data: target } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, region, is_active_sales_rep')
+      .select('id, first_name, last_name, region, is_active_sales_rep, is_field_trainee, dropped_out_at')
       .eq('id', targetId)
       .maybeSingle()
     if (!target) return json(404, { error: 'Rep not found.' })
@@ -367,6 +367,26 @@ export const handler = async (event) => {
       return json(403, { error: 'That rep is not in your region.' })
     }
     if (!target.is_active_sales_rep) {
+      // A FIELD TRAINEE fired/quitting mid-training never became an active rep, so
+      // there's no outside-system scrub to do — just mark them dropped out of
+      // training so they fall off the manager's Week A / Week B list. Without this
+      // there was no way to remove a fired trainee from the dashboard at all.
+      if (target.is_field_trainee && !target.dropped_out_at) {
+        const reason = (body.reason || '').toString().slice(0, 500).trim()
+        const { data: dropped, error: dErr } = await supabase
+          .from('trainees')
+          .update({
+            dropped_out_at: new Date().toISOString(),
+            left_company_reason: reason
+              ? `[Regional manager ${manager.first_name} ${manager.last_name}] ${reason}`
+              : `Left during field training — marked by regional manager (${manager.first_name} ${manager.last_name}).`,
+          })
+          .eq('id', targetId)
+          .select('id, first_name, last_name, dropped_out_at')
+          .maybeSingle()
+        if (dErr) return json(500, { error: dErr.message })
+        return json(200, { ok: true, trainee: dropped, dropped_out: true })
+      }
       // Already off — return the row so the UI removes it from the list
       // without making the manager wonder if something failed.
       return json(200, { ok: true, trainee: target, already_inactive: true })
