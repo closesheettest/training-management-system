@@ -255,7 +255,14 @@ export default function NealPayCard() {
         </div>
       </div>
 
-      {ratesOpen && <RatesEditor cfg={cfg || { guarantee: DEFAULT_GUARANTEE, bands: BANDS }} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
+      {/* The editor edits ONE schedule, so hand it the schedule in force — not the
+          raw config. The config became a dated history ({schedules:[…]}) when each
+          week started being valued by its own terms, but this still passed the whole
+          config, so `cfg.guarantee` and `cfg.bands` were both undefined and the
+          screen came up with an empty guarantee and no ladder at all (Neal,
+          2026-08-27). `current` falls back to the built-in schedule, so it is never
+          undefined. */}
+      {ratesOpen && <RatesEditor cfg={current} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
 
       {err && <p className="mt-3 text-sm font-semibold text-red-600">{err}</p>}
       {!data && all && <AllWeeks rows={all} guarantee={GUARANTEE} />}
