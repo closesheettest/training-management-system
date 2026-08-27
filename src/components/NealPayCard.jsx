@@ -17,8 +17,14 @@
 // ~30 sales the point where the override passes the guarantee. Paid is the
 // GREATER of the guarantee and the override, never both.
 //
-// Gross comes from CCG all-manager-pay (totals.contract) so this and the Managers
-// Pay report below it are always reading the same week from the same source.
+// Gross comes from the FROZEN week (CCG frozen-weeks) whenever that week has been
+// captured, and only falls back to a live all-manager-pay recompute for a week not
+// frozen yet. Both views used to disagree: the table read the frozen figure while
+// this card always recomputed, so the week of 1 June showed $560,006 in the table
+// and $505,300 on the card — the same week, valued two months apart, after sold
+// deals had gone Lost (Neal, 2026-08-27). The frozen figure is what was paid on,
+// so it is the one that gets shown; the drift is surfaced underneath rather than
+// silently swapped in, because seeing it is the whole point of reconciling.
 
 import { useEffect, useState } from 'react'
 
@@ -70,6 +76,11 @@ function reportableMondays() {
 
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const monthName = (d) => d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+// "Jun 1 – 7". Built from the week's MONDAY, so the card, the dropdown and the table
+// can never disagree. The API returns its range as instants — Monday 00:00 ET to
+// Sunday 23:59:59 ET — and that end lands on Monday in UTC, so formatting it off the
+// raw ISO string printed a Mon–Sun week as "Jun 1 – Jun 8" and made the card look
+// like it had counted an extra day (Neal, 2026-08-27).
 const weekName = (d) => {
   const end = new Date(d.getTime() + 6 * DAY)
   const f = (x, withMonth) => x.toLocaleDateString('en-US', withMonth ? { month: 'short', day: 'numeric' } : { day: 'numeric' })
@@ -107,16 +118,21 @@ export default function NealPayCard() {
 
   const current = scheduleFor(null)
   const GUARANTEE = Number(current.guarantee) || DEFAULT_GUARANTEE
-  const LADDER = (current.bands || BANDS).map((b) => ({
-    ...b, max: b.max == null ? Infinity : Number(b.max),
-    label: b.max == null ? `${money0(b.min)}+` : `${money0(b.min)} – ${money0(b.max)}`,
-  }))
-  const bandFor = (g) => LADDER.find((b) => g >= b.min && g < b.max) || null
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [all, setAll] = useState(null)          // every week since the effective date
   const [allLoading, setAllLoading] = useState(false)
+  // week_start → frozen row, so ONE week can be valued off the freeze too. Loaded up
+  // front: the card must not depend on somebody having pressed "Every week since".
+  const [frozen, setFrozen] = useState({})
+  useEffect(() => {
+    fetch(LB_ORIGIN + 'frozen-weeks?since=' + EFFECTIVE_FROM).then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) return
+        setFrozen(Object.fromEntries((d.weeks || []).map((w) => [w.week_start, w])))
+      }).catch(() => {})
+  }, [])
   const mondays = reportableMondays()
   const [monday, setMonday] = useState(() => mondays[0] || latestReportMonday())
   const months = [...new Map(mondays.map((m) => [monthKey(m), m])).values()]
@@ -174,13 +190,34 @@ export default function NealPayCard() {
     if (m) { setMonday(m); load(m) }
   }
 
-  const gross = Number(data?.totals?.contract) || 0
-  const band = bandFor(gross)
+  // The week on screen, addressed by its Monday.
+  const weekStart = monday.toISOString().slice(0, 10)
+  // THE TERMS THAT APPLIED TO THIS WEEK, not today's. The table below already did
+  // this per row; the card was reading the newest schedule, so the first time a rate
+  // changed it would have re-priced every past week on screen.
+  const weekSchedule = scheduleFor(weekStart)
+  const weekGuarantee = Number(weekSchedule.guarantee) || DEFAULT_GUARANTEE
+  const bandForWeek = (g) => ladderOf(weekSchedule).find((b) => g >= b.min && g < b.max) || null
+
+  // THE FROZEN FIGURE WINS. A frozen week is what the week was worth when it closed
+  // and what the override was paid on; recomputing it today just re-reads JobNimbus
+  // as it stands now, which drops every deal that has gone Lost since.
+  const frozenRow = frozen[weekStart] || null
+  const liveGross = Number(data?.totals?.contract) || 0
+  const gross = frozenRow ? Number(frozenRow.gross) || 0 : liveGross
+  const drift = frozenRow && data ? liveGross - gross : 0
+  // How long AFTER the week ended it was captured. A same-week freeze is the figure
+  // that was paid on; one taken two months later is a recompute wearing a freeze's
+  // clothes, and can sit below what was actually paid.
+  const lateCapture = frozenRow?.captured_at && frozenRow?.week_end
+    ? Math.round((new Date(frozenRow.captured_at) - new Date(frozenRow.week_end + 'T23:59:59Z')) / 864e5)
+    : 0
+
+  const band = bandForWeek(gross)
   const override = band ? gross * band.rate : 0
-  const paid = Math.max(GUARANTEE, override)
-  const onGuarantee = paid === GUARANTEE && override < GUARANTEE
+  const paid = Math.max(weekGuarantee, override)
+  const onGuarantee = paid === weekGuarantee && override < weekGuarantee
   // A week that closed before the schedule started is not covered by it.
-  const weekStart = data?.range?.start ? String(data.range.start).slice(0, 10) : null
   const beforeEffective = weekStart && weekStart < EFFECTIVE_FROM
 
   return (
@@ -232,11 +269,35 @@ export default function NealPayCard() {
           )}
 
           <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
-            <Cell label="Gross sales" value={usd(gross)} sub={data.range ? weekLabel(data.range) : ''} />
+            <Cell label="Gross sales" value={usd(gross)} sub={weekName(monday)} />
             <Cell label="Band" value={band ? pct(band.rate) : '—'} sub={band ? band.label : 'under 500k — no override'} />
             <Cell label="Override" value={usd(override)} sub={band ? `${pct(band.rate)} of gross` : 'nothing earned'} />
             <Cell label="Pays out" value={usd(paid)} sub={onGuarantee ? 'the guarantee' : 'the override'} strong />
           </div>
+
+          {/* Which figure is on screen, and how far JobNimbus has moved since. */}
+          {frozenRow ? (
+            <p className="mt-2 text-[11px] text-slate-500">
+              Frozen{frozenRow.deals ? ` · ${frozenRow.deals} deals` : ''} — this is the figure the override is paid on.
+              {/* A week captured LATE was recomputed after deals had already moved, so the
+                  freeze may have locked in a number below what was actually paid on. That
+                  is not a rounding detail: it is the difference between clearing the 500k
+                  floor and earning nothing (Neal, 2026-08-27). */}
+              {lateCapture > 10 && (
+                <> <span className="font-semibold text-amber-700">Captured {lateCapture} days after the week closed</span>, so it may already have drifted below the figure that was reported at payout — worth checking against the report you were paid on.</>
+              )}
+              {Math.abs(drift) >= 1 && (
+                <>
+                  {' '}JobNimbus now recomputes this week at <strong className="tabular-nums">{usd(liveGross)}</strong>{' '}
+                  ({drift < 0 ? `${usd(Math.abs(drift))} lower` : `${usd(drift)} higher`}) because deals have changed status since. That drift does not change the pay.
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] text-amber-700">
+              Not frozen yet — this is a live recompute and it will move as deals change status. Freeze the week to lock it.
+            </p>
+          )}
 
 
 
@@ -256,12 +317,6 @@ function Cell({ label, value, sub, strong }) {
       {sub && <div className="text-[11px] text-slate-500">{sub}</div>}
     </div>
   )
-}
-
-function weekLabel(range) {
-  if (!range?.start) return ''
-  const f = (s) => new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `${f(String(range.start).slice(0, 10))} – ${f(String(range.end || range.start).slice(0, 10))}`
 }
 
 // Every week since the schedule took effect: what it should have paid against the
