@@ -165,15 +165,31 @@ export default function NealPayCard() {
       const res = await fetch(LB_ORIGIN + 'frozen-weeks?since=' + EFFECTIVE_FROM)
       const d = await res.json()
       if (!d || !d.ok) { setErr(d?.error || 'Could not load the frozen weeks.'); setAllLoading(false); return }
-      const rows = (d.weeks || []).slice().reverse().map((w) => {
-        const g = Number(w.gross) || 0
-        const sch = scheduleFor(w.week_start)          // the terms in force THAT week
+      const weeks = d.weeks || []
+      const frozenStarts = new Set(weeks.map((w) => w.week_start))
+      const rowFor = (weekStart, gross, extra) => {
+        const g = Number(gross) || 0
+        const sch = scheduleFor(weekStart)             // the terms in force THAT week
         const b = bandIn(sch, g)
         const o = b ? g * b.rate : 0
         const gtee = Number(sch.guarantee) || DEFAULT_GUARANTEE
-        return { monday: new Date(w.week_start + 'T12:00:00'), gross: g, band: b, override: o,
-                 guarantee: gtee, short: Math.max(0, o - gtee) }
-      })
+        return { monday: new Date(weekStart + 'T12:00:00'), gross: g, band: b, override: o,
+                 guarantee: gtee, short: Math.max(0, o - gtee), ...extra }
+      }
+      const rows = weeks.slice().reverse().map((w) => rowFor(w.week_start, w.gross))
+      // The just-completed week isn't frozen until the Monday 6:05am ET run — and a
+      // missed run would leave it off entirely. Show it LIVE so last week never
+      // vanishes from the ladder; it settles to the frozen figure once captured.
+      const latestMon = latestReportMonday()
+      const latestIso = latestMon.toISOString().slice(0, 10)
+      if (!frozenStarts.has(latestIso)) {
+        try {
+          const r2 = await fetch(LB_ORIGIN + 'all-manager-pay?weeks_back=' + weeksBackFor(latestMon))
+          const d2 = await r2.json()
+          const g = Number(d2?.totals?.contract) || 0
+          if (g > 0) rows.push(rowFor(latestIso, g, { preliminary: true }))
+        } catch { /* live fetch failed — just show the frozen weeks */ }
+      }
       if (!rows.length) setErr('No weeks frozen yet — run the backfill.')
       setAll(rows)
     } catch { setErr('Could not load the frozen weeks.') }
@@ -355,7 +371,7 @@ function AllWeeks({ rows, guarantee }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.monday.toISOString()} className={r.short > 0 ? 'border-t border-slate-100 font-semibold' : 'border-t border-slate-100 text-slate-500'}>
-                <td className="px-3 py-1.5">{fmtWeek(r.monday)}</td>
+                <td className="px-3 py-1.5">{fmtWeek(r.monday)}{r.preliminary ? <span className="ml-1 text-[10px] font-semibold text-amber-600">· live (freezes Mon)</span> : ''}</td>
                 <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
