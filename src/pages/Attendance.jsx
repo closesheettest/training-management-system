@@ -95,9 +95,11 @@ export default function Attendance() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Daily Attendance</h1>
-          <p className="mt-2 text-slate-600">
-            For HR & corporate. Shows every class active on the selected day and who's signed in.
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+            <span>For HR &amp; corporate — every class active on this day.</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-sky-600" /> Week A</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-violet-600" /> Week B</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -221,15 +223,31 @@ function ClassAttendanceCard({ cls, date }) {
   })
 
   const dayNumber = computeDayNumber(date, cls.week_start_date, cls.week_end_date)
+  const wk = weekInfo(date, cls.week_start_date, cls.week_end_date)
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+    <section className={`overflow-hidden rounded-lg border bg-white shadow-sm ${wk?.letter === 'A' ? 'border-sky-300' : wk?.letter === 'B' ? 'border-violet-300' : 'border-slate-200'}`}>
+      {/* A bold, color-coded strip so you can tell a Week A class from a Week B
+          class at a glance — the whole point of this page (Neal, 2026-08-31). */}
+      {wk?.letter && (
+        <div className={`px-5 py-2 text-sm font-bold uppercase tracking-wide text-white ${wk.letter === 'A' ? 'bg-sky-600' : 'bg-violet-600'}`}>
+          Week {wk.letter}
+          <span className="ml-2 font-medium normal-case opacity-90">
+            {wk.weekday} · Day {wk.dayInWeek} of the week
+          </span>
+        </div>
+      )}
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 p-5">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold text-slate-900">
               {cls.locations?.name || `${cls.region} — Location TBD`}
             </h2>
+            {wk?.letter && (
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white ${wk.letter === 'A' ? 'bg-sky-600' : 'bg-violet-600'}`}>
+                Week {wk.letter}
+              </span>
+            )}
             {cls.region && (
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
                 {cls.region}
@@ -424,4 +442,21 @@ function computeDayNumber(date, weekStart, weekEnd) {
   const offset = Math.round((d - start) / dayMs) + 1
   if (offset < 1 || offset > totalDays) return null
   return `Day ${offset} of ${totalDays}`
+}
+
+// Which training week the selected date falls in for this class. The class window
+// spans two weeks (Week A then Week B); the first 7 days from the start are Week A,
+// the next 7 are Week B. Returns the letter, the weekday, and the day-in-week so
+// the card can say "Week B · Mon · Day 1" instead of a confusing "Day 8 of 12".
+function weekInfo(date, weekStart, weekEnd) {
+  const d = parseLocalDate(date)
+  const s = parseLocalDate(weekStart)
+  const e = parseLocalDate(weekEnd)
+  if (!d || !s) return null
+  const dayMs = 1000 * 60 * 60 * 24
+  const days = Math.round((d - s) / dayMs)
+  if (days < 0 || (e && d > e)) return null
+  const wk = Math.floor(days / 7)
+  const letter = wk === 0 ? 'A' : wk === 1 ? 'B' : null
+  return { letter, dayInWeek: days - wk * 7 + 1, weekday: d.toLocaleDateString(undefined, { weekday: 'short' }) }
 }
