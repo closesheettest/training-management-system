@@ -26,7 +26,7 @@
 // so it is the one that gets shown; the drift is surfaced underneath rather than
 // silently swapped in, because seeing it is the whole point of reconciling.
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 
@@ -132,6 +132,14 @@ export default function NealPayCard() {
         if (!d || !d.ok) return
         setFrozen(Object.fromEntries((d.weeks || []).map((w) => [w.week_start, w])))
       }).catch(() => {})
+  }, [])
+  // What was ACTUALLY paid each week (amount + date), keyed by the week's Monday.
+  // Past weeks were paid the base $3,000 (accurate as-is); this is for recording
+  // real payments from this week forward once they go out (Neal, 2026-08-31).
+  const [payments, setPayments] = useState({})
+  useEffect(() => {
+    fetch(LB_ORIGIN + 'neal-pay-payments').then((r) => r.json())
+      .then((d) => { if (d && d.ok) setPayments(d.payments || {}) }).catch(() => {})
   }, [])
   const mondays = reportableMondays()
   const [monday, setMonday] = useState(() => mondays[0] || latestReportMonday())
@@ -281,7 +289,7 @@ export default function NealPayCard() {
       {ratesOpen && <RatesEditor cfg={current} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
 
       {err && <p className="mt-3 text-sm font-semibold text-red-600">{err}</p>}
-      {!data && all && <AllWeeks rows={all} guarantee={GUARANTEE} />}
+      {!data && all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
       {data && (
         <>
@@ -324,7 +332,7 @@ export default function NealPayCard() {
 
 
 
-          {all && <AllWeeks rows={all} guarantee={GUARANTEE} />}
+          {all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
         </>
       )}
@@ -342,18 +350,36 @@ function Cell({ label, value, sub, strong }) {
   )
 }
 
-// Every week since the schedule took effect: what it should have paid against the
-// $3,000 that was actually paid, and the running shortfall.
-function AllWeeks({ rows, guarantee }) {
+// Every week since the schedule took effect: what it should have paid against
+// what was actually paid, and the running shortfall. Each week's payment can be
+// recorded (amount + date); until it is, a PAST week assumes the $3,000 base was
+// paid (accurate — those went out), while THIS week forward shows "pending" until
+// its payday (the Friday after the week closes) or a real payment is entered.
+function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
+  const [editing, setEditing] = useState(null)  // week iso being edited
   const earning = rows.filter((r) => r.band)
-  const shortTotal = rows.reduce((n, r) => n + r.short, 0)
+  const paydayOf = (monday) => new Date(monday.getTime() + 11 * DAY)   // Friday after the Sun close
+  const isoOf = (r) => r.monday.toISOString().slice(0, 10)
   const fmtWeek = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const fmtDate = (iso) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+
+  // What each week paid: a recorded payment wins; else, once payday has passed, we
+  // assume the base guarantee (past weeks); else it's pending (not paid yet).
+  const stateOf = (r) => {
+    const rec = payments[isoOf(r)]
+    if (rec && rec.amount != null) return { kind: 'recorded', amount: rec.amount, date: rec.date }
+    if (Date.now() >= paydayOf(r.monday).getTime()) return { kind: 'assumed', amount: r.guarantee ?? guarantee, date: null }
+    return { kind: 'pending', amount: null, date: null }
+  }
+  const shortOf = (r, st) => (st.amount != null && r.band) ? Math.max(0, r.override - st.amount) : 0
+  const shortTotal = rows.reduce((n, r) => { const st = stateOf(r); return n + shortOf(r, st) }, 0)
+
   return (
     <div className="mt-4 rounded-lg border border-slate-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <h3 className="text-sm font-bold text-brand-navy">Every week since 1 June</h3>
         <p className="text-xs text-slate-500">
-          {earning.length} of {rows.length} weeks cleared 500k
+          {earning.length} of {rows.length} weeks cleared 500k · tap ✎ to record what was paid
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -365,29 +391,121 @@ function AllWeeks({ rows, guarantee }) {
               <th className="px-3 py-1.5 font-semibold">Rate</th>
               <th className="px-3 py-1.5 font-semibold">Should be</th>
               <th className="px-3 py-1.5 font-semibold">Paid</th>
+              <th className="px-3 py-1.5 font-semibold">When</th>
               <th className="px-3 py-1.5 font-semibold">Short</th>
+              <th className="px-3 py-1.5 font-semibold"></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.monday.toISOString()} className={r.short > 0 ? 'border-t border-slate-100 font-semibold' : 'border-t border-slate-100 text-slate-500'}>
-                <td className="px-3 py-1.5">{fmtWeek(r.monday)}</td>
-                <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
-                <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
-                <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
-                <td className="px-3 py-1.5 tabular-nums">{usd(r.guarantee ?? guarantee)}</td>
-                <td className={`px-3 py-1.5 tabular-nums ${r.short > 0 ? 'text-red-700' : ''}`}>{r.short > 0 ? usd(r.short) : '—'}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const iso = isoOf(r)
+              const st = stateOf(r)
+              const short = shortOf(r, st)
+              return (
+                <Fragment key={iso}>
+                  <tr className={short > 0 ? 'border-t border-slate-100 font-semibold' : 'border-t border-slate-100 text-slate-500'}>
+                    <td className="px-3 py-1.5">{fmtWeek(r.monday)}</td>
+                    <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
+                    <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
+                    <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
+                    <td className="px-3 py-1.5 tabular-nums">
+                      {st.kind === 'pending'
+                        ? <span className="font-semibold text-amber-600">pending</span>
+                        : <>{usd(st.amount)}{st.kind === 'assumed' && <span className="ml-1 text-[10px] font-normal text-slate-400">base</span>}</>}
+                    </td>
+                    <td className="px-3 py-1.5 text-[11px] text-slate-500">
+                      {st.kind === 'recorded' ? (st.date ? fmtDate(st.date) : 'date not set')
+                        : st.kind === 'pending' ? <span className="text-amber-600">pays {fmtDate(paydayOf(r.monday).toISOString().slice(0, 10))}</span>
+                        : ''}
+                    </td>
+                    <td className={`px-3 py-1.5 tabular-nums ${short > 0 ? 'text-red-700' : ''}`}>
+                      {st.kind === 'pending' ? <span className="text-amber-600">—</span> : short > 0 ? usd(short) : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      <button type="button" onClick={() => setEditing(editing === iso ? null : iso)}
+                        title="Record what was paid and when" className="text-slate-400 hover:text-brand-navy">✎</button>
+                    </td>
+                  </tr>
+                  {editing === iso && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={8} className="px-3 py-2">
+                        <PaymentEditor iso={iso} rec={payments[iso]} defaultAmount={r.band ? r.override : (r.guarantee ?? guarantee)}
+                          defaultDate={paydayOf(r.monday).toISOString().slice(0, 10)} weekLabel={weekName(r.monday)}
+                          onDone={(p) => { if (p) onSaved && onSaved(p); setEditing(null) }} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-extrabold text-brand-navy">
-              <td className="px-3 py-2" colSpan={5}>Short in total</td>
+              <td className="px-3 py-2" colSpan={6}>Short in total <span className="text-[11px] font-normal text-slate-500">(paid weeks only)</span></td>
               <td className="px-3 py-2 tabular-nums text-red-700">{usd(shortTotal)}</td>
+              <td />
             </tr>
           </tfoot>
         </table>
       </div>
+    </div>
+  )
+}
+
+// Record what a week actually paid, and when. PIN-gated (same gate the pay
+// schedule uses). Saving overrides the assumed base; clearing reverts a week to
+// the assumed/pending default.
+function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone }) {
+  const [amount, setAmount] = useState(rec?.amount != null ? String(rec.amount) : String(Math.round(defaultAmount || 0)))
+  const [date, setDate] = useState(rec?.date || defaultDate || '')
+  const [pin, setPin] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  const post = async (payload) => {
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, week_start: iso, ...payload }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not save.'); setSaving(false); return }
+      setSaving(false); onDone(d.payments || {})
+    } catch { setErr('Network error.'); setSaving(false) }
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="text-xs font-bold text-brand-navy">Record payment · <span className="font-normal text-slate-500">{weekLabel}</span></div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Amount paid</label>
+        <div className="flex items-center gap-1"><span className="text-slate-500">$</span>
+          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+            className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums" /></div>
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Date paid</label>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
+          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <button type="button" onClick={() => post({ amount, date })} disabled={saving || !pin}
+        className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+      {rec && (
+        <button type="button" onClick={() => post({ amount: '' })} disabled={saving || !pin}
+          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60">
+          Clear
+        </button>
+      )}
+      <button type="button" onClick={() => onDone(null)} className="text-xs font-semibold text-slate-400 hover:text-slate-600">Cancel</button>
+      {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
     </div>
   )
 }
