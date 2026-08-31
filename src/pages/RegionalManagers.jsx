@@ -156,8 +156,6 @@ export default function RegionalManagers() {
 
       <AllApptConversion />
 
-      <SalesTrend />
-
       <AllNoSits />
 
       <ToolsetReference />
