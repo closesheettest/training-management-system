@@ -371,7 +371,7 @@ function AllWeeks({ rows, guarantee }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.monday.toISOString()} className={r.short > 0 ? 'border-t border-slate-100 font-semibold' : 'border-t border-slate-100 text-slate-500'}>
-                <td className="px-3 py-1.5">{fmtWeek(r.monday)}{r.preliminary ? <span className="ml-1 text-[10px] font-semibold text-amber-600">· live (freezes Mon)</span> : ''}</td>
+                <td className="px-3 py-1.5">{fmtWeek(r.monday)}</td>
                 <td className="px-3 py-1.5 tabular-nums">{usd(r.gross)}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? pct(r.band.rate) : '—'}</td>
                 <td className="px-3 py-1.5 tabular-nums">{r.band ? usd(r.override) : '—'}</td>
