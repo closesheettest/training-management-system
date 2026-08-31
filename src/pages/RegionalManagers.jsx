@@ -757,9 +757,23 @@ function AllApptConversion() {
   const [toDate, setToDate] = useState('')
   const [usingRange, setUsingRange] = useState(false)
   const [err, setErr] = useState('')
+  // Running open-pending backlog over the LAST 30 DAYS — period-independent, so
+  // it stays put no matter which week/month is selected above. It's every deal
+  // still sitting at "Sit - Pending" whose appointment was in the last 30 days.
+  const [pend30, setPend30] = useState(null)
+
+  const loadPend30 = async () => {
+    try {
+      const now = new Date(), start = new Date(now.getTime() - 30 * 864e5)
+      const res = await fetch(LB_ORIGIN + 'all-appt-conversion?start=' + start.toISOString() + '&end=' + now.toISOString())
+      const d = await res.json()
+      if (d && d.ok && d.totals) setPend30({ pendAp: d.totals.pendAp || 0, pendPct: d.totals.pendPct || 0 })
+    } catch { /* leave null — the badge just won't show */ }
+  }
 
   const load = async (override) => {
     setLoading(true); setErr('')
+    if (pend30 == null) loadPend30()   // fire-and-forget; independent of the period
     const q = override || ('period=' + period)
     // This report pulls a lot from JobNimbus (~5-6s) so the first hit can time
     // out — auto-retry a couple times before showing an error.
@@ -909,6 +923,12 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
       <button type="button" onClick={() => load()} disabled={loading}
         className="w-full rounded-lg bg-indigo-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
         📈 Appointments → Sales{data ? ` (${data.totals.pct}% · ${data.totals.sales}/${data.totals.appts})` : ''}
+        {pend30 != null && (
+          <span className="ml-2 inline-block rounded bg-amber-300 px-1.5 py-0.5 align-middle text-[11px] font-bold text-amber-950"
+            title="Every deal still open at 'Sit - Pending' whose appointment was in the last 30 days — a running backlog, regardless of the week selected below.">
+            ⏳ {pend30.pendAp} pending{pend30.pendPct ? ` (${pend30.pendPct}%)` : ''} · last 30 days
+          </span>
+        )}
         <div className="text-xs font-normal opacity-90">
           {loading ? 'Loading…' : `Per-rep conversion + Radiant Barrier / Insulation attach rate, by region. Tap to ${data ? 'refresh' : 'load'}.`}
         </div>
