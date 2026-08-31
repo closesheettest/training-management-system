@@ -14,7 +14,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   })
   const [who, setWho] = useState(() => { try { return sessionStorage.getItem(storageKey + '_name') || '' } catch { return '' } })
 
-  const [step, setStep] = useState('name')      // name → enter | create
+  const [step, setStep] = useState('pin')       // pin (returning) → create (first time)
   const [name, setName] = useState('')
   const [pin, setPin] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -28,28 +28,18 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
 
   const doUnlock = (nm) => {
     try { sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', nm || '') } catch { /* private mode */ }
-    setWho(nm || ''); setUnlocked(true); setPin(''); setConfirm('')
+    setWho(nm || ''); setUnlocked(true); setPin(''); setConfirm(''); setName('')
   }
 
-  const checkName = async (e) => {
-    e?.preventDefault?.()
-    if (!name.trim()) return
-    setBusy(true); setErr('')
-    try {
-      const d = await call({ action: 'status', name })
-      if (!d.ok) { setErr(d.error || 'Something went wrong.'); setBusy(false); return }
-      setStep(d.exists ? 'enter' : 'create'); setPin(''); setConfirm('')
-    } catch { setErr('Network error.') }
-    setBusy(false)
-  }
-
+  // Returning user: just their PIN — it identifies them (PINs are unique).
   const doEnter = async (e) => {
     e?.preventDefault?.()
+    if (!pin.trim()) return
     setBusy(true); setErr('')
     try {
-      const d = await call({ action: 'verify', name, pin })
-      if (d.ok && d.valid) doUnlock(d.name || name)
-      else setErr('Wrong PIN for that name.')
+      const d = await call({ action: 'verify', pin })
+      if (d.ok && d.valid) doUnlock(d.name || '')
+      else setErr('That PIN isn’t recognized.')
     } catch { setErr('Network error.') }
     setBusy(false)
   }
@@ -57,13 +47,14 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   const doCreate = async (e) => {
     e?.preventDefault?.()
     setErr('')
+    if (!name.trim()) { setErr('Enter your name.'); return }
     if (pin.trim().length < 4) { setErr('Pick a PIN of at least 4 digits.'); return }
     if (pin !== confirm) { setErr('The two PINs don’t match.'); return }
     setBusy(true)
     try {
       const d = await call({ action: 'enroll', name, pin })
       if (d.ok) doUnlock(d.name || name)
-      else if (d.error && /already has a PIN/i.test(d.error)) { setErr('That name already has a PIN — enter it.'); setStep('enter') }
+      else if (d.error && /already has a PIN/i.test(d.error)) { setErr('That name already has a PIN — just enter your PIN below.'); setStep('pin'); setPin(''); setConfirm('') }
       else setErr(d.error || 'Could not set your PIN.')
     } catch { setErr('Network error.') }
     setBusy(false)
@@ -71,9 +62,9 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
 
   const lock = () => {
     try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + '_name') } catch { /* ignore */ }
-    setUnlocked(false); setStep('name'); setName(''); setPin(''); setConfirm(''); setErr('')
+    setUnlocked(false); setStep('pin'); setName(''); setPin(''); setConfirm(''); setErr('')
   }
-  const startOver = () => { setStep('name'); setPin(''); setConfirm(''); setErr('') }
+  const startOver = () => { setStep('pin'); setPin(''); setConfirm(''); setName(''); setErr('') }
 
   if (unlocked) {
     return (
@@ -97,39 +88,31 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
           <h1 className="mt-2 text-xl font-bold text-brand-navy">{title} — admin sign in</h1>
         </div>
 
-        {step === 'name' && (
-          <form onSubmit={checkName} className="mt-5 flex flex-col items-center gap-2">
-            <p className="text-sm text-slate-500">Enter your name to sign in.</p>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoFocus className={inputCls} />
-            <button type="submit" disabled={busy || !name.trim()} className="w-56 rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
-              {busy ? '…' : 'Continue'}
-            </button>
-            {err && <p className="text-sm font-semibold text-red-600">{err}</p>}
-          </form>
-        )}
-
-        {step === 'enter' && (
+        {step === 'pin' && (
           <form onSubmit={doEnter} className="mt-5 flex flex-col items-center gap-2">
-            <p className="text-sm text-slate-500">Welcome back, <span className="font-semibold text-slate-700">{name}</span>. Enter your PIN.</p>
+            <p className="text-sm text-slate-500">Enter your PIN.</p>
             <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Your PIN" autoFocus className={inputCls + ' tracking-widest'} />
             <button type="submit" disabled={busy || !pin} className="w-56 rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
               {busy ? 'Checking…' : 'Sign in'}
             </button>
             {err && <p className="text-sm font-semibold text-red-600">{err}</p>}
-            <button type="button" onClick={startOver} className="text-xs font-semibold text-slate-400 hover:text-slate-600">← Not you? Use a different name</button>
+            <button type="button" onClick={() => { setStep('create'); setPin(''); setConfirm(''); setErr('') }} className="text-xs font-semibold text-slate-400 hover:text-brand-navy">
+              First time here? Set up your PIN
+            </button>
           </form>
         )}
 
         {step === 'create' && (
           <form onSubmit={doCreate} className="mt-5 flex flex-col items-center gap-2">
-            <p className="text-sm text-slate-500">First time, <span className="font-semibold text-slate-700">{name}</span> — set your own PIN.</p>
-            <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Create a PIN (4+ digits)" autoFocus className={inputCls + ' tracking-widest'} />
+            <p className="text-sm text-slate-500">First time — enter your name and choose a PIN. After this you’ll only need the PIN.</p>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoFocus className={inputCls} />
+            <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Create a PIN (4+ digits)" className={inputCls + ' tracking-widest'} />
             <input type="password" inputMode="numeric" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm PIN" className={inputCls + ' tracking-widest'} />
-            <button type="submit" disabled={busy || !pin || !confirm} className="w-56 rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+            <button type="submit" disabled={busy || !name.trim() || !pin || !confirm} className="w-56 rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
               {busy ? 'Saving…' : 'Set my PIN & sign in'}
             </button>
             {err && <p className="text-sm font-semibold text-red-600">{err}</p>}
-            <button type="button" onClick={startOver} className="text-xs font-semibold text-slate-400 hover:text-slate-600">← Back</button>
+            <button type="button" onClick={startOver} className="text-xs font-semibold text-slate-400 hover:text-slate-600">← Back to PIN sign-in</button>
           </form>
         )}
 
