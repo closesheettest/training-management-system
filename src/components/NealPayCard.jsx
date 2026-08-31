@@ -371,7 +371,14 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
     if (Date.now() >= paydayOf(r.monday).getTime()) return { kind: 'assumed', amount: r.guarantee ?? guarantee, date: null }
     return { kind: 'pending', amount: null, date: null }
   }
-  const shortOf = (r, st) => (st.amount != null && r.band) ? Math.max(0, r.override - st.amount) : 0
+  // The full pay due for a week (the override once earned, else the guarantee).
+  const owedOf = (r) => r.band ? r.override : (r.guarantee ?? guarantee)
+  // What's still OWED for a week: a paid week is short by (should-be − paid); a
+  // pending week has had nothing paid, so the whole amount due is outstanding
+  // and belongs in the total (Neal, 2026-08-31).
+  const shortOf = (r, st) => st.kind === 'pending'
+    ? owedOf(r)
+    : (st.amount != null && r.band) ? Math.max(0, r.override - st.amount) : 0
   const shortTotal = rows.reduce((n, r) => { const st = stateOf(r); return n + shortOf(r, st) }, 0)
 
   return (
@@ -418,8 +425,8 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
                         : st.kind === 'pending' ? <span className="text-amber-600">pays {fmtDate(paydayOf(r.monday).toISOString().slice(0, 10))}</span>
                         : ''}
                     </td>
-                    <td className={`px-3 py-1.5 tabular-nums ${short > 0 ? 'text-red-700' : ''}`}>
-                      {st.kind === 'pending' ? <span className="text-amber-600">—</span> : short > 0 ? usd(short) : '—'}
+                    <td className={`px-3 py-1.5 tabular-nums ${st.kind === 'pending' ? 'font-semibold text-amber-600' : short > 0 ? 'text-red-700' : ''}`}>
+                      {short > 0 ? usd(short) : '—'}{st.kind === 'pending' && <span className="ml-1 text-[10px] font-normal text-amber-500">not paid yet</span>}
                     </td>
                     <td className="px-3 py-1.5 text-right">
                       <button type="button" onClick={() => setEditing(editing === iso ? null : iso)}
@@ -441,7 +448,7 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-extrabold text-brand-navy">
-              <td className="px-3 py-2" colSpan={6}>Short in total <span className="text-[11px] font-normal text-slate-500">(paid weeks only)</span></td>
+              <td className="px-3 py-2" colSpan={6}>Short in total <span className="text-[11px] font-normal text-slate-500">(shortfalls + weeks not paid yet)</span></td>
               <td className="px-3 py-2 tabular-nums text-red-700">{usd(shortTotal)}</td>
               <td />
             </tr>
