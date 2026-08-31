@@ -400,7 +400,7 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
               <th className="px-3 py-1.5 font-semibold">Paid</th>
               <th className="px-3 py-1.5 font-semibold">When</th>
               <th className="px-3 py-1.5 font-semibold">Short</th>
-              <th className="px-3 py-1.5 font-semibold"></th>
+              <th className="px-3 py-1.5 text-right font-semibold">Record pay</th>
             </tr>
           </thead>
           <tbody>
@@ -430,7 +430,10 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
                     </td>
                     <td className="px-3 py-1.5 text-right">
                       <button type="button" onClick={() => setEditing(editing === iso ? null : iso)}
-                        title="Record what was paid and when" className="text-slate-400 hover:text-brand-navy">✎</button>
+                        title="Record what was paid and when"
+                        className="whitespace-nowrap rounded-md border border-slate-300 px-2 py-0.5 text-[11px] font-semibold text-brand-navy hover:bg-slate-100">
+                        {editing === iso ? 'Close' : st.kind === 'recorded' ? '✎ Edit' : '✎ Record'}
+                      </button>
                     </td>
                   </tr>
                   {editing === iso && (
