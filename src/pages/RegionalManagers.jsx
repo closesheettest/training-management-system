@@ -925,7 +925,7 @@ function PendingToSales() {
               <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
                 <span><span className="text-[10px] uppercase text-slate-400">+ Added (period)</span> <b>{t.new_entered}</b></span>
                 <span><span className="text-[10px] uppercase text-slate-400">Total entered</span> <b>{t.entered}</b></span>
-                <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">Converted</span> <b>{t.sold}</b></span>
+                <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{t.sold}</b></span>
                 <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">$ Sold</span> <b>{t.sold_amt ? money(t.sold_amt) : '—'}</b></span>
                 <span className="text-red-300"><span className="text-[10px] uppercase text-slate-400">Lost</span> <b>{t.lost}</b></span>
                 <span className="text-sky-300"><span className="text-[10px] uppercase text-slate-400">Open</span> <b>{t.still}</b></span>
