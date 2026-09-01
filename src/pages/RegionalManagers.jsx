@@ -763,6 +763,9 @@ function PendingToSales() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [usingRange, setUsingRange] = useState(false)
+  const [openReps, setOpenReps] = useState(() => new Set())
+  const toggleRep = (k) => setOpenReps((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })
+  const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString()
 
   const load = async (override) => {
     setLoading(true); setErr('')
@@ -785,7 +788,7 @@ function PendingToSales() {
     <section className="mb-6">
       <button type="button" onClick={() => load()} disabled={loading}
         className="w-full rounded-lg bg-amber-600 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
-        ⏳ Pending → Sales{t ? ` (${t.conv_pct}% convert · ${t.sold}/${t.sold + t.lost} decided)` : ''}
+        ⏳ Pending → Sales{t ? ` (${t.conv_pct}% converted · ${t.sold} of ${t.entered}${t.sold_amt ? ' · ' + money(t.sold_amt) : ''})` : ''}
         {data && (
           <span className="ml-2 inline-block rounded bg-white/90 px-1.5 py-0.5 align-middle text-[11px] font-bold text-amber-900">
             {data.currently_pending} pending right now
@@ -830,10 +833,12 @@ function PendingToSales() {
                     <span className="text-xs text-slate-500">{z.zone}</span>
                   </span>
                   <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-slate-700">
-                    <span><span className="text-[10px] uppercase text-slate-400">Pending</span> <b>{zt.entered}</b></span>
+                    <span title="New pendings that entered in the selected period"><span className="text-[10px] uppercase text-slate-400">+ Added</span> <b>{zt.new_entered}</b></span>
+                    <span title="All pendings since Jun 1"><span className="text-[10px] uppercase text-slate-400">Total</span> <b>{zt.entered}</b></span>
                     <span className="text-emerald-700"><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sold}</b></span>
                     <span className="text-red-700"><span className="text-[10px] uppercase text-slate-400">Lost</span> <b>{zt.lost}</b></span>
                     <span className="text-sky-700"><span className="text-[10px] uppercase text-slate-400">Open</span> <b>{zt.still}</b></span>
+                    {zt.quiet > 0 && <span className="text-amber-700" title={'Open with no rep note in ' + (data.stale_days || 8) + '+ days'}><span className="text-[10px] uppercase text-slate-400">Quiet</span> <b>{zt.quiet}</b></span>}
                     <span className="font-bold text-amber-700">{zt.conv_pct}% conv</span>
                     <span>{zoneOpen ? '▾' : '▸'}</span>
                   </span>
@@ -843,35 +848,68 @@ function PendingToSales() {
                     <table className="w-full whitespace-nowrap text-sm">
                       <thead>
                         <tr className="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-400">
-                          <th className="px-3 py-1.5">Rep</th>
-                          <th className="px-3 py-1.5 text-right">Entered pending</th>
+                          <th className="px-3 py-1.5">Rep <span className="font-normal normal-case text-slate-400">· tap for deals</span></th>
+                          <th className="px-3 py-1.5 text-right" title="Entered pending in the selected period">+ Added</th>
+                          <th className="px-3 py-1.5 text-right" title="Total entered pending since Jun 1">Total</th>
                           <th className="px-3 py-1.5 text-right">Converted</th>
+                          <th className="px-3 py-1.5 text-right">$ Sold</th>
                           <th className="px-3 py-1.5 text-right">Lost</th>
-                          <th className="px-3 py-1.5 text-right">Still open</th>
-                          <th className="px-3 py-1.5 text-right" title="Sold ÷ (sold + lost) — of the deals that resolved">Conv %</th>
-                          <th className="px-3 py-1.5 text-right">Loss %</th>
+                          <th className="px-3 py-1.5 text-right">Open</th>
+                          <th className="px-3 py-1.5 text-right" title={'Open with no rep note in ' + (data.stale_days || 8) + '+ days'}>Quiet</th>
+                          <th className="px-3 py-1.5 text-right" title="Converted ÷ total entered">Conv %</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {z.reps.map((r) => (
-                          <tr key={r.rep} className="border-t border-slate-100">
-                            <td className="px-3 py-1.5 font-medium text-slate-700">{r.rep}</td>
-                            <td className="px-3 py-1.5 text-right font-bold">{r.entered}</td>
-                            <td className="px-3 py-1.5 text-right text-emerald-700 font-semibold">{r.sold}</td>
-                            <td className="px-3 py-1.5 text-right text-red-700">{r.lost}</td>
-                            <td className="px-3 py-1.5 text-right text-sky-700">{r.still}</td>
-                            <td className="px-3 py-1.5 text-right font-bold text-amber-700">{r.sold + r.lost ? r.conv_pct + '%' : '—'}</td>
-                            <td className="px-3 py-1.5 text-right text-slate-500">{r.sold + r.lost ? r.loss_pct + '%' : '—'}</td>
-                          </tr>
-                        ))}
+                        {z.reps.map((r) => {
+                          const rk = z.zone + '|' + r.rep
+                          const repOpen = openReps.has(rk)
+                          return (
+                            <Fragment key={rk}>
+                              <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => toggleRep(rk)}>
+                                <td className="px-3 py-1.5 font-medium text-slate-700">{repOpen ? '▾ ' : '▸ '}{r.rep}</td>
+                                <td className="px-3 py-1.5 text-right font-bold">{r.new_entered}</td>
+                                <td className="px-3 py-1.5 text-right">{r.entered}</td>
+                                <td className="px-3 py-1.5 text-right text-emerald-700 font-semibold">{r.sold}</td>
+                                <td className="px-3 py-1.5 text-right text-emerald-700">{r.sold_amt ? money(r.sold_amt) : '—'}</td>
+                                <td className="px-3 py-1.5 text-right text-red-700">{r.lost}</td>
+                                <td className="px-3 py-1.5 text-right text-sky-700">{r.still}</td>
+                                <td className="px-3 py-1.5 text-right font-semibold text-amber-700">{r.quiet || 0}</td>
+                                <td className="px-3 py-1.5 text-right font-bold text-amber-700">{r.entered ? r.conv_pct + '%' : '—'}</td>
+                              </tr>
+                              {repOpen && (r.details && r.details.length ? r.details.map((dd, i) => (
+                                <tr key={rk + i} className="border-t border-slate-50 bg-slate-50/60 text-[12px]">
+                                  <td className="px-3 py-1 pl-7 text-slate-600" colSpan={3}>
+                                    <span className="font-medium text-slate-700">{dd.name || '—'}</span>{dd.address ? <span className="text-slate-400"> · {dd.address}</span> : null}
+                                  </td>
+                                  <td className="px-3 py-1 text-slate-500" colSpan={2}>
+                                    {dd.outcome === 'sold' ? <span className="font-semibold text-emerald-700">SOLD{dd.amount ? ' · ' + money(dd.amount) : ''}</span>
+                                      : dd.outcome === 'lost' ? <span className="font-semibold text-red-700">LOST</span>
+                                      : dd.outcome === 'pending' ? <span className="text-slate-500">Sit - Pending</span>
+                                      : <span className="text-slate-400">{dd.status || 'other'}</span>}
+                                  </td>
+                                  <td className="px-3 py-1 text-right text-slate-500" colSpan={2}>{dd.days_pending != null ? dd.days_pending + 'd in' : ''}</td>
+                                  <td className="px-3 py-1 text-right" colSpan={2}>
+                                    {dd.outcome === 'pending' && dd.days_quiet != null
+                                      ? <span className={dd.stale ? 'font-bold text-amber-700' : 'text-slate-400'}>{dd.days_quiet}d quiet{dd.stale ? ' ⚠' : ''}</span>
+                                      : <span className="text-slate-300">—</span>}
+                                  </td>
+                                </tr>
+                              )) : (
+                                <tr className="border-t border-slate-50 bg-slate-50/60"><td colSpan={9} className="px-3 py-1 pl-7 text-[12px] text-slate-400">No deals in range.</td></tr>
+                              ))}
+                            </Fragment>
+                          )
+                        })}
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-extrabold text-slate-800">
                           <td className="px-3 py-1.5">Zone total</td>
+                          <td className="px-3 py-1.5 text-right">{zt.new_entered}</td>
                           <td className="px-3 py-1.5 text-right">{zt.entered}</td>
                           <td className="px-3 py-1.5 text-right text-emerald-700">{zt.sold}</td>
+                          <td className="px-3 py-1.5 text-right text-emerald-700">{zt.sold_amt ? money(zt.sold_amt) : '—'}</td>
                           <td className="px-3 py-1.5 text-right text-red-700">{zt.lost}</td>
                           <td className="px-3 py-1.5 text-right text-sky-700">{zt.still}</td>
-                          <td className="px-3 py-1.5 text-right text-amber-700">{zt.sold + zt.lost ? zt.conv_pct + '%' : '—'}</td>
-                          <td className="px-3 py-1.5 text-right text-slate-500">{zt.sold + zt.lost ? zt.loss_pct + '%' : '—'}</td>
+                          <td className="px-3 py-1.5 text-right text-amber-700">{zt.quiet || 0}</td>
+                          <td className="px-3 py-1.5 text-right text-amber-700">{zt.entered ? zt.conv_pct + '%' : '—'}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -885,12 +923,14 @@ function PendingToSales() {
             <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-white">
               <div className="text-sm font-bold">🏢 Company total</div>
               <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                <span><span className="text-[10px] uppercase text-slate-400">Entered pending</span> <b>{t.entered}</b></span>
+                <span><span className="text-[10px] uppercase text-slate-400">+ Added (period)</span> <b>{t.new_entered}</b></span>
+                <span><span className="text-[10px] uppercase text-slate-400">Total entered</span> <b>{t.entered}</b></span>
                 <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">Converted</span> <b>{t.sold}</b></span>
+                <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">$ Sold</span> <b>{t.sold_amt ? money(t.sold_amt) : '—'}</b></span>
                 <span className="text-red-300"><span className="text-[10px] uppercase text-slate-400">Lost</span> <b>{t.lost}</b></span>
-                <span className="text-sky-300"><span className="text-[10px] uppercase text-slate-400">Still open</span> <b>{t.still}</b></span>
-                <span className="text-amber-300 font-bold">{t.sold + t.lost ? t.conv_pct + '% convert' : '—'}</span>
-                <span className="text-slate-300">{t.sold + t.lost ? t.loss_pct + '% lost' : ''}</span>
+                <span className="text-sky-300"><span className="text-[10px] uppercase text-slate-400">Open</span> <b>{t.still}</b></span>
+                <span className="text-amber-300"><span className="text-[10px] uppercase text-slate-400">Quiet</span> <b>{t.quiet || 0}</b></span>
+                <span className="text-amber-300 font-bold">{t.entered ? t.conv_pct + '% converted' : '—'}</span>
               </div>
             </div>
           )}
