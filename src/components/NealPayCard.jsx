@@ -270,9 +270,14 @@ export default function NealPayCard() {
           <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
             {loading ? 'Loading…' : data ? 'Refresh' : 'Load'}
           </button>
-          <button onClick={loadAll} disabled={allLoading} className="rounded-md border border-brand-navy px-3 py-1 text-xs font-bold text-brand-navy disabled:opacity-60">
-            {allLoading ? 'Adding it up…' : 'Every week since 1 June'}
+          <button onClick={() => (all ? setAll(null) : loadAll())} disabled={allLoading} className="rounded-md border border-brand-navy px-3 py-1 text-xs font-bold text-brand-navy disabled:opacity-60">
+            {allLoading ? 'Adding it up…' : all ? 'Hide weekly list' : 'Every week since 1 June'}
           </button>
+          {(data || all) && (
+            <button onClick={() => { setData(null); setAll(null); setErr('') }} className="rounded-md border border-slate-300 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">
+              ✕ Close
+            </button>
+          )}
           <button onClick={() => setRatesOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
             ⚙️ Rates
           </button>
