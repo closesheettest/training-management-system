@@ -154,6 +154,8 @@ export default function RegionalManagers() {
 
       <AllDealsToFix />
 
+      <PendingToSales />
+
       <AllApptConversion />
 
       <AllNoSits />
@@ -744,6 +746,155 @@ function ApptDetail({ details }) {
         </table>
       </div>
     </div>
+  )
+}
+
+// Company-wide "Pending → Sales" — the funnel base is deals that reached JN
+// "Sit - Pending". Scoped by when a deal entered pending. Zones expand
+// INDEPENDENTLY (open as many as you like), unlike the single-open reports.
+function PendingToSales() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [period, setPeriod] = useState('month')
+  const [openZones, setOpenZones] = useState(() => new Set())
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [usingRange, setUsingRange] = useState(false)
+
+  const load = async (override) => {
+    setLoading(true); setErr('')
+    const q = override || ('period=' + period)
+    try {
+      const res = await fetch(LB_ORIGIN + 'pending-conversion?' + q)
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenZones(new Set()) }
+      else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const setP = (p) => { setPeriod(p); setUsingRange(false); load('period=' + p) }
+  const applyRange = () => { if (fromDate && toDate) { setUsingRange(true); load('start=' + fromDate + 'T00:00:00&end=' + toDate + 'T23:59:59') } }
+  const toggleZone = (z) => setOpenZones((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
+  const periods = [['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month'], ['lastmonth', 'Last month'], ['d30', 'Last 30 days'], ['all', 'All since Jun 1']]
+
+  const t = data?.totals
+  return (
+    <section className="mb-6">
+      <button type="button" onClick={() => load()} disabled={loading}
+        className="w-full rounded-lg bg-amber-600 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
+        ⏳ Pending → Sales{t ? ` (${t.conv_pct}% convert · ${t.sold}/${t.sold + t.lost} decided)` : ''}
+        {data && (
+          <span className="ml-2 inline-block rounded bg-white/90 px-1.5 py-0.5 align-middle text-[11px] font-bold text-amber-900">
+            {data.currently_pending} pending right now
+          </span>
+        )}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Loading…' : `Of the deals that reached "Sit - Pending", how many convert vs. die — by rep & zone. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {data && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {periods.map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setP(k)}
+              className={'rounded-md px-2 py-1 text-[11px] font-semibold ' + (!usingRange && period === k ? 'bg-amber-600 text-white' : 'bg-slate-200 text-slate-700')}>{label}</button>
+          ))}
+          <span className="ml-1 flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5">
+            <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} className="rounded border border-slate-300 px-1 py-0.5 text-[11px] text-slate-700" />
+            <span className="text-[11px] text-slate-500">→</span>
+            <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} className="rounded border border-slate-300 px-1 py-0.5 text-[11px] text-slate-700" />
+            <button type="button" onClick={applyRange} disabled={!fromDate || !toDate || loading} className={'rounded px-2 py-0.5 text-[11px] font-semibold ' + (usingRange ? 'bg-amber-600 text-white' : 'bg-slate-300 text-slate-700 hover:bg-slate-400 disabled:opacity-50')}>Go</button>
+          </span>
+        </div>
+      )}
+      {data && <div className="mt-1 text-[11px] font-semibold text-slate-500">📅 {fmtRange(data.range)} · scoped by when each deal entered pending</div>}
+      {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+
+      {data && (
+        <div className="mt-3 space-y-3">
+          {data.zones.length === 0 ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No deals entered pending in this period.</div>
+          ) : data.zones.map((z) => {
+            const zoneOpen = openZones.has(z.zone)
+            const zt = z.totals
+            return (
+              <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <button type="button" onClick={() => toggleZone(z.zone)}
+                  className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                  style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}>
+                  <span className="flex items-center gap-2">
+                    <span className="font-bold" style={{ color: (ZONE_COLORS[z.zone]?.deep) || '#0f172a' }}>{teamLabel(z.zone) || z.zone}</span>
+                    <span className="text-xs text-slate-500">{z.zone}</span>
+                  </span>
+                  <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-slate-700">
+                    <span><span className="text-[10px] uppercase text-slate-400">Pending</span> <b>{zt.entered}</b></span>
+                    <span className="text-emerald-700"><span className="text-[10px] uppercase text-slate-400">Sold</span> <b>{zt.sold}</b></span>
+                    <span className="text-red-700"><span className="text-[10px] uppercase text-slate-400">Lost</span> <b>{zt.lost}</b></span>
+                    <span className="text-sky-700"><span className="text-[10px] uppercase text-slate-400">Open</span> <b>{zt.still}</b></span>
+                    <span className="font-bold text-amber-700">{zt.conv_pct}% conv</span>
+                    <span>{zoneOpen ? '▾' : '▸'}</span>
+                  </span>
+                </button>
+                {zoneOpen && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full whitespace-nowrap text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-400">
+                          <th className="px-3 py-1.5">Rep</th>
+                          <th className="px-3 py-1.5 text-right">Entered pending</th>
+                          <th className="px-3 py-1.5 text-right">Converted</th>
+                          <th className="px-3 py-1.5 text-right">Lost</th>
+                          <th className="px-3 py-1.5 text-right">Still open</th>
+                          <th className="px-3 py-1.5 text-right" title="Sold ÷ (sold + lost) — of the deals that resolved">Conv %</th>
+                          <th className="px-3 py-1.5 text-right">Loss %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {z.reps.map((r) => (
+                          <tr key={r.rep} className="border-t border-slate-100">
+                            <td className="px-3 py-1.5 font-medium text-slate-700">{r.rep}</td>
+                            <td className="px-3 py-1.5 text-right font-bold">{r.entered}</td>
+                            <td className="px-3 py-1.5 text-right text-emerald-700 font-semibold">{r.sold}</td>
+                            <td className="px-3 py-1.5 text-right text-red-700">{r.lost}</td>
+                            <td className="px-3 py-1.5 text-right text-sky-700">{r.still}</td>
+                            <td className="px-3 py-1.5 text-right font-bold text-amber-700">{r.sold + r.lost ? r.conv_pct + '%' : '—'}</td>
+                            <td className="px-3 py-1.5 text-right text-slate-500">{r.sold + r.lost ? r.loss_pct + '%' : '—'}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 border-slate-300 bg-slate-50 font-extrabold text-slate-800">
+                          <td className="px-3 py-1.5">Zone total</td>
+                          <td className="px-3 py-1.5 text-right">{zt.entered}</td>
+                          <td className="px-3 py-1.5 text-right text-emerald-700">{zt.sold}</td>
+                          <td className="px-3 py-1.5 text-right text-red-700">{zt.lost}</td>
+                          <td className="px-3 py-1.5 text-right text-sky-700">{zt.still}</td>
+                          <td className="px-3 py-1.5 text-right text-amber-700">{zt.sold + zt.lost ? zt.conv_pct + '%' : '—'}</td>
+                          <td className="px-3 py-1.5 text-right text-slate-500">{zt.sold + zt.lost ? zt.loss_pct + '%' : '—'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {t && (
+            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-white">
+              <div className="text-sm font-bold">🏢 Company total</div>
+              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                <span><span className="text-[10px] uppercase text-slate-400">Entered pending</span> <b>{t.entered}</b></span>
+                <span className="text-emerald-300"><span className="text-[10px] uppercase text-slate-400">Converted</span> <b>{t.sold}</b></span>
+                <span className="text-red-300"><span className="text-[10px] uppercase text-slate-400">Lost</span> <b>{t.lost}</b></span>
+                <span className="text-sky-300"><span className="text-[10px] uppercase text-slate-400">Still open</span> <b>{t.still}</b></span>
+                <span className="text-amber-300 font-bold">{t.sold + t.lost ? t.conv_pct + '% convert' : '—'}</span>
+                <span className="text-slate-300">{t.sold + t.lost ? t.loss_pct + '% lost' : ''}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 
