@@ -1769,6 +1769,9 @@ function DamageNeedsRep({ zone }) {
       const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'load', zone }) })
       const d = await res.json()
       if (!d.ok) { setErr(d.error || 'Could not load.'); setLoading(false); return }
+      // Roster service was briefly unreachable — DON'T show phantom orphans or an
+      // empty dropdown (Anthony, 2026-09-01). Show a clear retry message instead.
+      if (d.roster_unavailable) { setErr("⚠️ Couldn't reach the rep roster just now — this is a temporary hiccup, not a data problem. Tap Refresh in a few seconds."); setData(null); setLoading(false); return }
       setData(d)
       const s = {}; for (const dl of d.deals) s[dl.inspection_id] = d.reps[0]?.jobnimbus_id || ''
       setSel(s)
