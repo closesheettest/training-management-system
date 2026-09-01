@@ -426,7 +426,8 @@ function SalesTrend() {
 function ResultsFollowups() {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
-  const [openZone, setOpenZone] = useState(null)
+  const [openZones, setOpenZones] = useState(() => new Set())
+  const toggleZone = (z) => setOpenZones((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
   const [openRep, setOpenRep] = useState(null)
   const [err, setErr] = useState('')
   const load = async () => {
@@ -434,7 +435,7 @@ function ResultsFollowups() {
     try {
       const res = await fetch(LB_ORIGIN + 'all-results-followups')
       const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      if (d && d.ok) { setData(d); setOpenZones(new Set()); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
@@ -456,10 +457,10 @@ function ResultsFollowups() {
           {data.zones.length === 0 ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">✅ No pending result-review visits right now.</div>
           ) : data.zones.map((z) => {
-            const zoneOpen = openZone === z.zone
+            const zoneOpen = openZones.has(z.zone)
             return (
               <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                <button type="button" onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                <button type="button" onClick={() => { toggleZone(z.zone); setOpenRep(null) }}
                   className="flex w-full items-center justify-between gap-3 p-3 text-left"
                   style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}>
                   <span className="flex items-center gap-2">
@@ -520,7 +521,8 @@ function ResultsFollowups() {
 function AllDealsToFix() {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null) // { zones, total_flagged } | null
-  const [openZone, setOpenZone] = useState(null)
+  const [openZones, setOpenZones] = useState(() => new Set())
+  const toggleZone = (z) => setOpenZones((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
   const [openRep, setOpenRep] = useState(null) // `${zone}|${rep}`
   const [err, setErr] = useState('')
 
@@ -529,7 +531,7 @@ function AllDealsToFix() {
     try {
       const res = await fetch(LB_ORIGIN + 'all-deals-to-fix')
       const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      if (d && d.ok) { setData(d); setOpenZones(new Set()); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
@@ -561,12 +563,12 @@ function AllDealsToFix() {
             </div>
           ) : (
             data.zones.map((z) => {
-              const zoneOpen = openZone === z.zone
+              const zoneOpen = openZones.has(z.zone)
               return (
                 <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                   <button
                     type="button"
-                    onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                    onClick={() => { toggleZone(z.zone); setOpenRep(null) }}
                     className="flex w-full items-center justify-between gap-3 p-3 text-left"
                     style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}
                   >
@@ -901,7 +903,8 @@ function PendingToSales() {
 function AllApptConversion() {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
-  const [openZone, setOpenZone] = useState(null)
+  const [openZones, setOpenZones] = useState(() => new Set())
+  const toggleZone = (z) => setOpenZones((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
   const [openRep, setOpenRep] = useState(null)   // `${zone}|${rep}` — drill-down detail
   const [period, setPeriod] = useState('month')
   const [fromDate, setFromDate] = useState('')
@@ -933,7 +936,7 @@ function AllApptConversion() {
       try {
         const res = await fetch(LB_ORIGIN + 'all-appt-conversion?' + q)
         const d = await res.json()
-        if (d && d.ok) { setData(d); setOpenZone(null); setLoading(false); return }
+        if (d && d.ok) { setData(d); setOpenZones(new Set()); setLoading(false); return }
         lastErr = d?.error || 'Could not load.'
       } catch { lastErr = 'Network error.' }
       if (attempt < 2) await new Promise((r) => setTimeout(r, 1500))
@@ -1112,11 +1115,11 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
           {data.zones.length === 0 ? (
             <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">No appointments in this period.</div>
           ) : data.zones.map((z) => {
-            const zoneOpen = openZone === z.zone
+            const zoneOpen = openZones.has(z.zone)
             const zt = z.totals
             return (
               <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                <button type="button" onClick={() => setOpenZone(zoneOpen ? null : z.zone)}
+                <button type="button" onClick={() => toggleZone(z.zone)}
                   className="flex w-full items-center justify-between gap-3 p-3 text-left"
                   style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}>
                   <span className="flex items-center gap-2">
@@ -1335,7 +1338,8 @@ function AllNoSits() {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false) // benchmark set/reset in flight
   const [data, setData] = useState(null) // { total, zones, benchmark_at, progress } | null
-  const [openZone, setOpenZone] = useState(null)
+  const [openZones, setOpenZones] = useState(() => new Set())
+  const toggleZone = (z) => setOpenZones((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
   const [openRep, setOpenRep] = useState(null) // `${zone}|${rep}`
   const [err, setErr] = useState('')
 
@@ -1344,7 +1348,7 @@ function AllNoSits() {
     try {
       const res = await fetch(LB_ORIGIN + 'all-no-sits')
       const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenZone(null); setOpenRep(null) }
+      if (d && d.ok) { setData(d); setOpenZones(new Set()); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
@@ -1441,12 +1445,12 @@ function AllNoSits() {
             </div>
           ) : (
             data.zones.map((z) => {
-              const zoneOpen = openZone === z.zone
+              const zoneOpen = openZones.has(z.zone)
               return (
                 <div key={z.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                   <button
                     type="button"
-                    onClick={() => { setOpenZone(zoneOpen ? null : z.zone); setOpenRep(null) }}
+                    onClick={() => { toggleZone(z.zone); setOpenRep(null) }}
                     className="flex w-full items-center justify-between gap-3 p-3 text-left"
                     style={{ background: (ZONE_COLORS[z.zone]?.light) || '#f8fafc' }}
                   >

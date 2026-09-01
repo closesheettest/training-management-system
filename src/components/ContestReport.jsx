@@ -28,7 +28,8 @@ export default function ContestReport() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [win, setWin] = useState('active') // 'active' | '7' | '1'..'4'
-  const [openTeam, setOpenTeam] = useState(null)
+  const [openTeams, setOpenTeams] = useState(() => new Set())
+  const toggleTeam = (z) => setOpenTeams((s) => { const n = new Set(s); n.has(z) ? n.delete(z) : n.add(z); return n })
   const [openRep, setOpenRep] = useState(null)
 
   const load = async (w) => {
@@ -37,7 +38,7 @@ export default function ContestReport() {
       const q = w === 'active' ? '' : w === '7' ? '?days=7' : `?week=${w}`
       const res = await fetch(LB_ORIGIN + 'contest-report' + q)
       const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenTeam(null); setOpenRep(null) }
+      if (d && d.ok) { setData(d); setOpenTeams(new Set()); setOpenRep(null) }
       else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setLoading(false)
@@ -98,7 +99,7 @@ export default function ContestReport() {
           {data && (
             <div className="space-y-3">
               {data.teams.map((t) => {
-                const tOpen = openTeam === t.zone
+                const tOpen = openTeams.has(t.zone)
                 // The top team (highest avg pts/rep) wins the $2,000. The manager
                 // gets none; it's split among the reps by their share of the
                 // team's REP-only points.
@@ -119,7 +120,7 @@ export default function ContestReport() {
                 const pctFor = (r) => (isWinner && !r.isManager && repPts > 0 ? (r.points / repPts) * 100 : 0)
                 return (
                   <div key={t.zone} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                    <button type="button" onClick={() => { setOpenTeam(tOpen ? null : t.zone); setOpenRep(null) }}
+                    <button type="button" onClick={() => { toggleTeam(t.zone); setOpenRep(null) }}
                       className="flex w-full items-center justify-between gap-3 p-3 text-left"
                       style={{ background: (ZONE_COLORS[t.zone]?.light) || '#f8fafc' }}>
                       <span className="flex items-center gap-2">
