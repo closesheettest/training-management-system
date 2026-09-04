@@ -362,6 +362,7 @@ function Cell({ label, value, sub, strong }) {
 // its payday (the Friday after the week closes) or a real payment is entered.
 function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
   const [editing, setEditing] = useState(null)  // week iso being edited
+  const [showLedger, setShowLedger] = useState(false)  // standalone "record a payment" open
   const earning = rows.filter((r) => r.band)
   const paydayOf = (monday) => new Date(monday.getTime() + 11 * DAY)   // Friday after the Sun close
   const isoOf = (r) => r.monday.toISOString().slice(0, 10)
@@ -385,6 +386,12 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
     ? owedOf(r)
     : (st.amount != null && r.band) ? Math.max(0, r.override - st.amount) : 0
   const shortTotal = rows.reduce((n, r) => { const st = stateOf(r); return n + shortOf(r, st) }, 0)
+  // Standalone payments (check register): lump sums paid against the balance, not tied
+  // to a week. They reduce the total owed (Neal, 2026-09-04).
+  const ledger = Array.isArray(payments._ledger) ? [...payments._ledger].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))) : []
+  const ledgerTotal = ledger.reduce((n, e) => n + (Number(e.amount) || 0), 0)
+  const remaining = Math.max(0, shortTotal - ledgerTotal)
+  const fmtDate2 = (iso) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'no date'
 
   return (
     <div className="mt-4 rounded-lg border border-slate-200">
@@ -423,10 +430,12 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
                     <td className="px-3 py-1.5 tabular-nums">
                       {st.kind === 'pending'
                         ? <span className="font-semibold text-amber-600">pending</span>
-                        : <>{usd(st.amount)}{st.kind === 'assumed' && <span className="ml-1 text-[10px] font-normal text-slate-400">base</span>}</>}
+                        : st.kind === 'recorded'
+                          ? <span className="font-bold text-emerald-700">{usd(st.amount)}<span className="ml-1 text-[10px] font-semibold text-emerald-600">✓ you recorded</span></span>
+                          : <>{usd(st.amount)}<span className="ml-1 text-[10px] font-normal text-slate-400">base (assumed)</span></>}
                     </td>
                     <td className="px-3 py-1.5 text-[11px] text-slate-500">
-                      {st.kind === 'recorded' ? (st.date ? fmtDate(st.date) : 'date not set')
+                      {st.kind === 'recorded' ? <span className="font-semibold text-emerald-700">{st.date ? `paid ${fmtDate(st.date)}` : 'date not set'}</span>
                         : st.kind === 'pending' ? <span className="text-amber-600">pays {fmtDate(paydayOf(r.monday).toISOString().slice(0, 10))}</span>
                         : ''}
                     </td>
@@ -455,15 +464,134 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-slate-300 font-extrabold text-brand-navy">
+            <tr className={ledgerTotal > 0 ? 'border-t-2 border-slate-300 font-semibold text-slate-600' : 'border-t-2 border-slate-300 font-extrabold text-brand-navy'}>
               <td className="px-3 py-2" colSpan={6}>Short in total <span className="text-[11px] font-normal text-slate-500">(shortfalls + weeks not paid yet)</span></td>
               <td className="px-3 py-2 tabular-nums text-red-700">{usd(shortTotal)}</td>
               <td />
             </tr>
+            {ledgerTotal > 0 && (
+              <>
+                <tr className="font-semibold text-emerald-700">
+                  <td className="px-3 py-1.5" colSpan={6}>Payments recorded <span className="text-[11px] font-normal text-slate-500">(check register)</span></td>
+                  <td className="px-3 py-1.5 tabular-nums">− {usd(ledgerTotal)}</td>
+                  <td />
+                </tr>
+                <tr className="border-t border-slate-300 font-extrabold text-brand-navy">
+                  <td className="px-3 py-2" colSpan={6}>Remaining owed</td>
+                  <td className="px-3 py-2 tabular-nums text-red-700">{usd(remaining)}</td>
+                  <td />
+                </tr>
+              </>
+            )}
           </tfoot>
         </table>
       </div>
+
+      {/* Check register — standalone payments not tied to a week */}
+      <div className="border-t border-slate-200 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-bold text-brand-navy">Payment register <span className="font-normal text-slate-500">— record a payment received, any amount, any date</span></h4>
+          <button type="button" onClick={() => setShowLedger((v) => !v)}
+            className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100">
+            {showLedger ? 'Close' : '＋ Record a payment'}
+          </button>
+        </div>
+        {showLedger && <div className="mt-2"><LedgerEditor onDone={(p) => { if (p) onSaved && onSaved(p); setShowLedger(false) }} /></div>}
+        {ledger.length > 0 && (
+          <ul className="mt-2 divide-y divide-slate-100">
+            {ledger.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-2 py-1 text-sm">
+                <span className="tabular-nums font-semibold text-slate-700">{usd(Number(e.amount) || 0)}</span>
+                <span className="text-xs text-slate-500">{fmtDate2(e.date)}{e.note ? ` · ${e.note}` : ''}</span>
+                <LedgerDelete id={e.id} onDone={(p) => p && onSaved && onSaved(p)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
+  )
+}
+
+// A standalone payment against the balance (check register): amount + date + note.
+// PIN-gated, same gate as week payments. Not tied to any week (Neal, 2026-09-04).
+function LedgerEditor({ onDone }) {
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [note, setNote] = useState('')
+  const [pin, setPin] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const save = async () => {
+    setSaving(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, ledger_add: { amount, date, note } }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not save.'); setSaving(false); return }
+      setSaving(false); onDone(d.payments || {})
+    } catch { setErr('Network error.'); setSaving(false) }
+  }
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-md bg-slate-50 p-2">
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Amount</label>
+        <div className="flex items-center gap-1"><span className="text-slate-500">$</span>
+          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0"
+            className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums" /></div>
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Date</label>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Note</label>
+        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional"
+          className="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
+          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <button type="button" onClick={save} disabled={saving || !pin || !(Number(amount) > 0)}
+        className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
+        {saving ? 'Saving…' : 'Save payment'}
+      </button>
+      {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
+    </div>
+  )
+}
+
+function LedgerDelete({ id, onDone }) {
+  const [confirming, setConfirming] = useState(false)
+  const [pin, setPin] = useState('')
+  const [saving, setSaving] = useState(false)
+  const del = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, ledger_remove: id }),
+      })
+      const d = await res.json()
+      setSaving(false); setConfirming(false); setPin('')
+      if (d.ok) onDone(d.payments || {})
+    } catch { setSaving(false) }
+  }
+  if (!confirming) return (
+    <button type="button" onClick={() => setConfirming(true)} className="text-xs font-semibold text-slate-400 hover:text-red-600">Delete</button>
+  )
+  return (
+    <span className="flex items-center gap-1">
+      <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
+        className="w-16 rounded border border-slate-300 px-1.5 py-0.5 text-xs" />
+      <button type="button" onClick={del} disabled={saving || !pin} className="text-xs font-bold text-red-600 disabled:opacity-50">{saving ? '…' : 'Confirm'}</button>
+      <button type="button" onClick={() => { setConfirming(false); setPin('') }} className="text-xs text-slate-400">✕</button>
+    </span>
   )
 }
 
