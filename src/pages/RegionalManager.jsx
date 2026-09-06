@@ -171,6 +171,7 @@ export default function RegionalManager() {
       </div>
 
       <Group title="⭐ Today's work" defaultOpen>
+        <TeamAppointments zone={manager.region} />
         <NewTrainees reps={reps} token={token} onChanged={reload} />
         <CancelReviews zone={manager.region} />
         <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
@@ -495,6 +496,96 @@ function HarvestActivityReport({ zone }) {
 // company-wide admin report (AllApptConversion in RegionalManagers.jsx), just
 // scoped to this manager's one zone via zone-appt-conversion (same data shape
 // as one of the admin's zones[] entries).
+// ── This week's appointments ────────────────────────────────────────
+// Everybody on the manager's team, grouped by day, straight out of JobNimbus.
+// Each row deep-links into Roof Fusion with the job name and address already filled in,
+// so measuring a roof is one tap from the appointment (Neal, 2026-09-06).
+//
+// The rep-side version of this same card is parked as "Coming soon"; the manager's is live.
+function TeamAppointments({ zone }) {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [span, setSpan] = useState('next7')
+
+  const load = async (sp) => {
+    setLoading(true); setErr('')
+    let lastErr = ''
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(LB_ORIGIN + 'week-appointments?zone=' + encodeURIComponent(zone) + '&span=' + sp)
+        const d = await res.json()
+        if (d && d.ok) { setData(d); setLoading(false); return }
+        lastErr = d?.error || 'Could not load.'
+      } catch { lastErr = 'Network error.' }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1200))
+    }
+    setErr(lastErr); setLoading(false)
+  }
+  useEffect(() => { load(span) /* eslint-disable-next-line */ }, [zone, span])
+
+  const spans = [['next7', 'Next 7 days'], ['week', 'This week'], ['nextweek', 'Next week']]
+  // Only render days that have something, plus today even when it's empty — a manager
+  // scrolling past five blank days stops reading the card.
+  const days = (data?.days || []).filter((d) => d.appts.length || d.is_today)
+
+  return (
+    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-base font-bold text-white">🗓️ Appointments this week</span>
+        {data && <span className="text-sm text-slate-300">{data.totals.appts} appointment{data.totals.appts === 1 ? '' : 's'} · {data.scope.rep_count} rep{data.scope.rep_count === 1 ? '' : 's'}</span>}
+        <span className="ml-auto flex gap-1">
+          {spans.map(([k, label]) => (
+            <button key={k} onClick={() => setSpan(k)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold ${span === k ? 'bg-yellow-400 text-slate-900' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}>{label}</button>
+          ))}
+        </span>
+      </div>
+
+      {loading && <p className="text-sm text-slate-300">Loading from JobNimbus…</p>}
+      {err && <p className="text-sm text-red-300">{err} <button onClick={() => load(span)} className="underline">Try again</button></p>}
+      {!loading && !err && !days.some((d) => d.appts.length) && (
+        <p className="text-sm text-slate-300">No appointments on the books for your team in this window.</p>
+      )}
+
+      {!loading && !err && days.map((d) => (
+        <div key={d.date} className="mb-3">
+          <div className={`mb-1.5 flex items-center gap-2 border-b pb-1 ${d.is_today ? 'border-yellow-400/60' : 'border-slate-700'}`}>
+            <span className={`text-sm font-bold ${d.is_today ? 'text-yellow-300' : 'text-slate-200'}`}>{d.label}</span>
+            <span className="text-xs text-slate-400">{d.appts.length || 'nothing booked'}{d.appts.length ? (d.appts.length === 1 ? ' appointment' : ' appointments') : ''}</span>
+          </div>
+          {d.appts.map((a) => (
+            <div key={a.task_id || a.jn_job_id} className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-800/70 px-3 py-2">
+              <span className="w-16 shrink-0 text-sm font-bold text-yellow-200">{a.time_et}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-white">{a.job_name}</span>
+                <span className="block truncate text-xs text-slate-300">
+                  {a.address || 'no address on the job'}
+                  {a.rep_name ? <> · <span className="text-slate-200">{a.rep_name}</span></> : null}
+                  {a.status ? <> · {a.status}</> : null}
+                  {a.type && a.type !== 'Appointment' ? <> · {a.type}</> : null}
+                </span>
+              </span>
+              <span className="flex shrink-0 gap-1.5">
+                {a.address && (
+                  <a href={CCG_APP + a.measure_url} target="_blank" rel="noreferrer"
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure roof</a>
+                )}
+                {a.jn_url && (
+                  <a href={a.jn_url} target="_blank" rel="noreferrer"
+                    className="rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">JN</a>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+      {data?.week && <p className="mt-1 text-xs text-slate-400">{data.week.start_et} → {data.week.end_et} (Eastern)</p>}
+    </div>
+  )
+}
+
+// ── This week's appointments ends ───────────────────────────────────
 function ApptConversion({ zone }) {
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)   // collapsed by default — click to open/close
