@@ -172,6 +172,7 @@ export default function RegionalManager() {
 
       <Group title="⭐ Today's work" defaultOpen>
         <TeamAppointments zone={manager.region} />
+        <MeasurePractice zone={manager.region} />
         <NewTrainees reps={reps} token={token} onChanged={reload} />
         <CancelReviews zone={manager.region} />
         <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
@@ -496,6 +497,72 @@ function HarvestActivityReport({ zone }) {
 // company-wide admin report (AllApptConversion in RegionalManagers.jsx), just
 // scoped to this manager's one zone via zone-appt-conversion (same data shape
 // as one of the admin's zones[] entries).
+// ── Roofs to measure (practice) ─────────────────────────────────────
+// The manager's share of the open hand-measure backlog, each one deep-linking into Roof
+// Fusion. Renders NOTHING until the verified numbers are loaded and the list is published —
+// a list you can work before there is a right answer to score against is just unscored work
+// (Neal, 2026-09-06).
+function MeasurePractice({ zone }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(true)
+
+  useEffect(() => {
+    let live = true
+    setBusy(true)
+    fetch(LB_ORIGIN + 'measure-practice?zone=' + encodeURIComponent(zone))
+      .then((r) => r.json())
+      .then((j) => { if (!live) return; if (j.ok) setData(j); else setErr(j.error || 'Could not load.') })
+      .catch(() => { if (live) setErr('Network error.') })
+      .finally(() => { if (live) setBusy(false) })
+    return () => { live = false }
+  }, [zone])
+
+  if (busy || err) return null
+  if (!data || data.published !== true || !data.count) return null   // hidden until published
+
+  const done = data.summary?.done || 0
+  const pct = data.count ? Math.round((100 * done) / data.count) : 0
+
+  return (
+    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <span className="text-base font-bold text-white">📐 Roofs to measure</span>
+        <span className="text-sm text-slate-300">{done} of {data.count} done</span>
+        <a href="https://claude.ai/code/artifact/62d8900a-f958-4486-8f7b-907443d41f71" target="_blank" rel="noreferrer"
+          className="ml-auto rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">How to trace →</a>
+      </div>
+      <p className="mb-3 text-xs text-slate-400">
+        Land within <b className="text-slate-200">half a square</b> of the number on file. Square the corner till the
+        guide goes green, line a 45° ray up the hip, then walk the red line for daylight.
+      </p>
+      <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
+        <div className="h-full rounded-full bg-emerald-500" style={{ width: pct + '%' }} />
+      </div>
+
+      {data.jobs.map((j) => (
+        <div key={j.jnid} className={`mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 ${j.done ? 'bg-slate-800/40' : 'bg-slate-800/70'}`}>
+          <span className="min-w-0 flex-1">
+            <span className={`block truncate text-sm font-semibold ${j.done ? 'text-slate-400 line-through' : 'text-white'}`}>{j.job_name}</span>
+            <span className="block truncate text-xs text-slate-300">
+              {j.address || 'no address on the job'}
+              {j.product_type ? <> · {j.product_type}</> : null}
+            </span>
+          </span>
+          <span className="flex shrink-0 gap-1.5">
+            {!j.done && j.address && (
+              <a href={CCG_APP + j.measure_url} target="_blank" rel="noreferrer"
+                className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure</a>
+            )}
+            <a href={j.jn_url} target="_blank" rel="noreferrer"
+              className="rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">JN</a>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── This week's appointments ────────────────────────────────────────
 // Everybody on the manager's team, grouped by day, straight out of JobNimbus.
 // The point is PREPARATION: each row deep-links into Roof Fusion with the job name and
