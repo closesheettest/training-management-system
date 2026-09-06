@@ -498,8 +498,9 @@ function HarvestActivityReport({ zone }) {
 // as one of the admin's zones[] entries).
 // ── This week's appointments ────────────────────────────────────────
 // Everybody on the manager's team, grouped by day, straight out of JobNimbus.
-// Each row deep-links into Roof Fusion with the job name and address already filled in,
-// so measuring a roof is one tap from the appointment (Neal, 2026-09-06).
+// The point is PREPARATION: each row deep-links into Roof Fusion with the job name and
+// address prefilled, so a roof gets measured BEFORE the appointment and the rep walks in
+// already knowing the squares -- never working it out on the doorstep (Neal, 2026-09-06).
 //
 // The rep-side version of this same card is parked as "Coming soon"; the manager's is live.
 function TeamAppointments({ zone }) {
@@ -534,6 +535,7 @@ function TeamAppointments({ zone }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-base font-bold text-white">🗓️ Appointments this week</span>
         {data && <span className="text-sm text-slate-300">{data.totals.appts} appointment{data.totals.appts === 1 ? '' : 's'} · {data.scope.rep_count} rep{data.scope.rep_count === 1 ? '' : 's'}</span>}
+        <span className="w-full text-xs text-slate-400">Measure each roof ahead of time so the rep walks in prepared.</span>
         <span className="ml-auto flex gap-1">
           {spans.map(([k, label]) => (
             <button key={k} onClick={() => setSpan(k)}
@@ -569,7 +571,7 @@ function TeamAppointments({ zone }) {
               <span className="flex shrink-0 gap-1.5">
                 {a.address && (
                   <a href={CCG_APP + a.measure_url} target="_blank" rel="noreferrer"
-                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure roof</a>
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure &amp; prep</a>
                 )}
                 {a.jn_url && (
                   <a href={a.jn_url} target="_blank" rel="noreferrer"
