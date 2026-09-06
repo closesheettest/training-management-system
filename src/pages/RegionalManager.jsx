@@ -636,9 +636,13 @@ function TeamAppointments({ zone }) {
                 </span>
               </span>
               <span className="flex shrink-0 gap-1.5">
+                {/* PARKED. A manager texted Neal asking to use this the day it appeared -- but
+                    nobody measures a live appointment until they've been through the practice
+                    set and can hold half a square (Neal, 2026-09-06). Swap back to the link
+                    when the practice list is signed off. */}
                 {a.address && (
-                  <a href={CCG_APP + a.measure_url} target="_blank" rel="noreferrer"
-                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure &amp; prep</a>
+                  <span title="Coming soon — after the practice roofs"
+                    className="cursor-not-allowed rounded-md bg-slate-700/60 px-2.5 py-1 text-xs font-semibold text-slate-400">📐 Measure · coming soon</span>
                 )}
                 {a.jn_url && (
                   <a href={a.jn_url} target="_blank" rel="noreferrer"
