@@ -545,11 +545,14 @@ function MeasurePractice({ zone }) {
           <span className="min-w-0 flex-1">
             <span className={`block text-sm font-semibold ${j.done ? 'text-slate-400 line-through' : 'text-white'}`}>
               {j.job_name}
-              {/* No verified number to score against — say WHY. A silent blank reads as broken,
-                  and this is the case the tree-cover calculation exists for (Neal, 2026-09-07). */}
+              {/* No verified number to score against — say WHY, but don't tell them not to
+                  trace it. Roofr declined these for canopy; that does not mean WE can't do
+                  them, and once the map fits the building rather than the parcel most are
+                  perfectly traceable. Measure it, it just won't be scored (Neal, 2026-09-07). */}
               {j.tree_cover && (
-                <span className="ml-2 whitespace-nowrap rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
-                  🌳 too much tree cover — use the calculation
+                <span className="ml-2 whitespace-nowrap rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300"
+                  title="Roofr wouldn't do this one, so there's no number to check against. Trace it anyway — if the canopy really does hide it, use Too much tree cover in Roof Fusion.">
+                  🌳 no number to check — measure it anyway
                 </span>
               )}
             </span>
