@@ -543,7 +543,16 @@ function MeasurePractice({ zone }) {
       {data.jobs.map((j) => (
         <div key={j.jnid} className={`mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 ${j.done ? 'bg-slate-800/40' : 'bg-slate-800/70'}`}>
           <span className="min-w-0 flex-1">
-            <span className={`block truncate text-sm font-semibold ${j.done ? 'text-slate-400 line-through' : 'text-white'}`}>{j.job_name}</span>
+            <span className={`block text-sm font-semibold ${j.done ? 'text-slate-400 line-through' : 'text-white'}`}>
+              {j.job_name}
+              {/* No verified number to score against — say WHY. A silent blank reads as broken,
+                  and this is the case the tree-cover calculation exists for (Neal, 2026-09-07). */}
+              {j.tree_cover && (
+                <span className="ml-2 whitespace-nowrap rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                  🌳 too much tree cover — use the calculation
+                </span>
+              )}
+            </span>
             <span className="block truncate text-xs text-slate-300">
               {j.address || 'no address on the job'}
               {j.product_type ? <> · {j.product_type}</> : null}
