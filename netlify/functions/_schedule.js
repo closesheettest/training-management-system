@@ -20,7 +20,7 @@
 //
 // `_`-prefixed helper module — not a Netlify endpoint.
 
-import { isLateStartDate } from './_late-start.js'
+import { isLateStartDate, lateStartHourET } from './_late-start.js'
 
 // Fallback only. The live timetable is app_settings.training_timetable, edited at
 // /timetable — one row, shared with the trainee-facing pages, so the hours a
@@ -88,6 +88,11 @@ export function isClassDay(weekStartDate, today, startHours = FALLBACK_START_ET)
 export function alertHourET(weekStartDate, today, startHours = FALLBACK_START_ET) {
   const start = classStartHourET(weekStartDate, today, startHours)
   if (start == null) return null
-  if (isLateStartDate(today)) return 12.5
+  // A listed late-start date carries its OWN hour ("2026-09-09=14"); a bare date
+  // still means noon. max() so the gate can only ever move LATER than the
+  // timetable, never earlier — an override must not be able to open the gate
+  // before class has even started.
+  const late = lateStartHourET(today)
+  if (late != null) return Math.max(late + 0.5, start + 0.5)
   return start + 0.5
 }
