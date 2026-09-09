@@ -41,12 +41,28 @@ export function heldFromWeekB(trainee) {
   return trainee?.week_b_hold === true;
 }
 
+// The OPPOSITE of a hold: the office putting someone into Week B who did not
+// clear the attendance gate. Michael Carraggi-Willan made Aug 31 and Sep 1 but
+// not Sep 2, the last Week A day, so the rule excluded him — and Neal wanted him
+// back in (2026-09-09).
+//
+// This exists so nobody solves that by back-dating an attendance record. That
+// would say he was in a room he was not in, and the same attendance rows drive
+// no-show detection, dropout alerts and the hotel list. An override says what
+// actually happened: someone decided.
+export function forcedIntoWeekB(trainee) {
+  return trainee?.week_b_force === true;
+}
+
 // The single question every Week B list should ask: is this person actually
 // coming? Kept here so the confirmation text, the hotel list and the class page
 // cannot drift apart on it.
 export function comingToWeekB(trainee, lastDay) {
   if (!trainee) return false;
   if (trainee.enrolled === false || trainee.declined_at || trainee.dropped_out_at) return false;
+  // A hold still wins over a force — "not yet" is a live decision, and the office
+  // holding someone must not be silently undone by an older override.
   if (heldFromWeekB(trainee)) return false;
+  if (forcedIntoWeekB(trainee)) return true;
   return finishedWeekA(trainee, lastDay);
 }
