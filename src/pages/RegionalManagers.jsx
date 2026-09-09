@@ -900,6 +900,18 @@ function SalesToInstall() {
                 </div>
               )}
 
+              {/* Roof on, install date never entered. Kept OFF the waiting list -- it
+                  is a records gap, not a backlog -- but shown, because these jobs are
+                  also missing from every cycle-time figure above. */}
+              {data.missing_install_date?.count > 0 && (
+                <p className="mb-3 rounded-md bg-slate-100 p-2 text-xs text-slate-700">
+                  📋 <b>{data.missing_install_date.count} finished jobs have no install date</b> on the JN job
+                  (Paid &amp; Closed, Roof Started, etc). They are not waiting on anything — but they are missing
+                  from every figure above. Oldest: {data.missing_install_date.rows.slice(0, 3)
+                    .map((r) => `${r.name || r.address} (${r.days_since_sold}d)`).join(' · ')}
+                </p>
+              )}
+
               {/* MONTH BY MONTH — keyed on the INSTALL month, because a job's cycle
                   time is only known once it goes on. Bucketing by sold month would
                   make recent months look fast: the slow deals sold then haven't
