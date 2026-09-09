@@ -768,6 +768,7 @@ function SalesToInstall() {
   const [months, setMonths] = useState(12)
   const [openProduct, setOpenProduct] = useState(null)
   const [openMonth, setOpenMonth] = useState(null)
+  const [showWaiting, setShowWaiting] = useState(false)
 
   const load = async (m) => {
     const mm = m || months
@@ -823,6 +824,66 @@ function SalesToInstall() {
                   Average ({o.avg_days}d) sits well above the median ({o.median_days}d) — a tail of stuck jobs is
                   pulling it, not the typical install. The 90th percentile ({o.p90_days}d) is where that tail starts.
                 </p>
+              )}
+
+              {/* WAITING ON INSTALL — sold, not on a roof yet. Two kinds, and the gap
+                  between them is the point: one has a date and simply isn't here
+                  yet; the other has NO date, which is the one nobody is looking at.
+                  Age runs from the SALE, because that is the clock the homeowner
+                  is feeling. */}
+              {data.waiting?.summary?.total > 0 && (
+                <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <span className="text-sm font-bold text-amber-900">
+                      ⏳ Waiting on install: {data.waiting.summary.total}
+                    </span>
+                    <span className="text-xs text-amber-800">
+                      {data.waiting.summary.scheduled} have a date · <b>{data.waiting.summary.no_date} have none</b>
+                    </span>
+                    <span className="text-xs text-amber-800">
+                      median age {data.waiting.summary.median_age}d · oldest {data.waiting.summary.oldest}d
+                    </span>
+                    {data.waiting.summary.over_90 > 0 && (
+                      <span className="rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                        {data.waiting.summary.over_90} over 90 days
+                      </span>
+                    )}
+                    <button type="button" onClick={() => setShowWaiting((v) => !v)}
+                      className="ml-auto text-xs font-semibold text-amber-900 underline">
+                      {showWaiting ? 'Hide' : 'Show the list'}
+                    </button>
+                  </div>
+                  {showWaiting && (
+                    <div className="mt-2 max-h-80 overflow-y-auto rounded bg-white p-2">
+                      <table className="w-full text-xs">
+                        <thead><tr className="text-left text-slate-500">
+                          <th className="py-1">Job</th><th>Product</th><th>Rep</th><th>Sold</th>
+                          <th>Install date</th><th className="text-right">Waiting</th>
+                        </tr></thead>
+                        <tbody>
+                          {data.waiting.rows.map((w) => (
+                            <tr key={w.jnid} className="border-t border-slate-200">
+                              <td className="py-1 pr-2">
+                                <a href={w.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{w.name || w.address}</a>
+                              </td>
+                              <td className="pr-2 text-slate-600">{w.product}</td>
+                              <td className="pr-2 text-slate-600">{w.rep}</td>
+                              <td className="pr-2 tabular-nums text-slate-500">{w.sold_date}</td>
+                              <td className="pr-2 tabular-nums">
+                                {w.scheduled_for
+                                  ? <span className="text-slate-600">{w.scheduled_for}</span>
+                                  : <span className="font-bold text-red-600">none set</span>}
+                              </td>
+                              <td className={'text-right font-bold tabular-nums ' + (w.days_waiting > 90 ? 'text-red-600' : w.days_waiting > 60 ? 'text-amber-700' : 'text-slate-700')}>
+                                {w.days_waiting}d
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* MONTH BY MONTH — keyed on the INSTALL month, because a job's cycle
