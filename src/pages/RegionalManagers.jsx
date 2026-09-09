@@ -856,10 +856,16 @@ function SalesToInstall() {
                   {showWaiting && (
                     <div className="mt-2 max-h-80 overflow-y-auto rounded bg-white p-2">
                       <table className="w-full text-xs">
-                        <thead><tr className="text-left text-slate-500">
-                          <th className="py-1">Job</th><th>Status</th><th>Product</th><th>Rep</th><th>Sold</th>
-                          <th>Install date</th><th className="text-right">Waiting</th>
-                        </tr></thead>
+                        {/* Sticky: this list is 219 rows in a short scroller, and by row
+                            twenty you have lost which column is Sold and which is Install
+                            date. A background is required — without one the rows show
+                            through the header as it scrolls. */}
+                        <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e2e8f0]">
+                          <tr className="text-left text-slate-500">
+                            <th className="py-1">Job</th><th>Status</th><th>Product</th><th>Rep</th><th>Sold</th>
+                            <th>Install date</th><th className="text-right">Waiting</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           {data.waiting.rows.map((w) => (
                             <tr key={w.jnid} className="border-t border-slate-200">
@@ -1006,9 +1012,11 @@ function SalesToInstall() {
                           <td colSpan={6} className="bg-slate-50 px-2 py-2">
                             <div className="max-h-72 overflow-y-auto">
                               <table className="w-full text-xs">
-                                <thead><tr className="text-left text-slate-500">
-                                  <th className="py-1">Job</th><th>Rep</th><th>Zone</th><th>Sold</th><th>Installed</th><th className="text-right">Days</th>
-                                </tr></thead>
+  <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_0_#e2e8f0]">
+                                  <tr className="text-left text-slate-500">
+                                    <th className="py-1">Job</th><th>Rep</th><th>Zone</th><th>Sold</th><th>Installed</th><th className="text-right">Days</th>
+                                  </tr>
+                                </thead>
                                 <tbody>
                                   {data.rows.filter((x) => x.product === r.product).map((x) => (
                                     <tr key={x.jnid} className="border-t border-slate-200">
