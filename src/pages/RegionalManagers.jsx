@@ -160,6 +160,8 @@ export default function RegionalManagers() {
 
       <AllNoSits />
 
+      <SalesToInstall />
+
       <ToolsetReference />
 
       {error && (
@@ -748,6 +750,146 @@ function ApptDetail({ details }) {
         </table>
       </div>
     </div>
+  )
+}
+
+// Company-wide "Sales → Install" — how long a deal takes to get on a roof, by
+// what was sold (Neal, 2026-09-09: "reps say installs are taking too long — I
+// just want to see the data for myself").
+//
+// MEDIAN LEADS, average sits beside it. A handful of jobs wait 300 days on
+// insurance or PACE and drag the mean away from what a normal job looks like.
+// The gap between the two IS the finding: mean >> median means a tail of stuck
+// jobs, not slow crews.
+function SalesToInstall() {
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [months, setMonths] = useState(12)
+  const [openProduct, setOpenProduct] = useState(null)
+
+  const load = async (m) => {
+    const mm = m || months
+    setLoading(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'sales-to-install?months=' + mm)
+      const d = await res.json()
+      if (d && d.ok) { setData(d); setOpenProduct(null) } else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setLoading(false)
+  }
+  const setM = (m) => { setMonths(m); load(m) }
+  const o = data?.overall
+
+  return (
+    <section className="mb-6">
+      <button type="button" onClick={() => load()} disabled={loading}
+        className="w-full rounded-lg bg-emerald-700 px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95 disabled:opacity-60">
+        🔨 Sales → Install{o && o.jobs ? ` (median ${o.median_days} days · ${o.jobs} installs)` : ''}
+        <div className="text-xs font-normal opacity-90">
+          {loading ? 'Loading…' : `Sold date → install date, broken down by product sold. Tap to ${data ? 'refresh' : 'load'}.`}
+        </div>
+      </button>
+
+      {data && (
+        <div className="mt-2 rounded-lg border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {[[6, 'Last 6 months'], [12, 'Last 12 months'], [24, 'Last 2 years']].map(([m, label]) => (
+              <button key={m} type="button" onClick={() => setM(m)}
+                className={'rounded-md border px-2.5 py-1 text-xs font-semibold ' +
+                  (months === m ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-300 bg-white text-slate-600')}>
+                {label}
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-slate-500">
+              {data.scheduled_ahead} scheduled ahead (not counted)
+            </span>
+          </div>
+
+          {!o.jobs ? <p className="text-sm text-slate-500">No completed installs in this window.</p> : (
+            <>
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {[['Median', o.median_days], ['Average', o.avg_days], ['90th pct', o.p90_days],
+                  ['Fastest', o.fastest_days], ['Slowest', o.slowest_days]].map(([l, v]) => (
+                  <div key={l} className="rounded-md bg-slate-50 p-2 text-center">
+                    <div className="text-lg font-bold text-slate-900">{v}<span className="text-xs font-normal text-slate-500">d</span></div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500">{l}</div>
+                  </div>
+                ))}
+              </div>
+              {o.avg_days > o.median_days * 1.4 && (
+                <p className="mb-3 rounded-md bg-amber-50 p-2 text-xs text-amber-800">
+                  Average ({o.avg_days}d) sits well above the median ({o.median_days}d) — a tail of stuck jobs is
+                  pulling it, not the typical install. The 90th percentile ({o.p90_days}d) is where that tail starts.
+                </p>
+              )}
+
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                    <th className="py-1">Product</th><th className="py-1 text-right">Installs</th>
+                    <th className="py-1 text-right">Median</th><th className="py-1 text-right">Avg</th>
+                    <th className="py-1 text-right">90th</th><th className="py-1 text-right">Slowest</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.by_product.map((r) => (
+                    <>
+                      <tr key={r.product} onClick={() => setOpenProduct(openProduct === r.product ? null : r.product)}
+                          className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-1.5 font-medium text-slate-800">{openProduct === r.product ? '▾' : '▸'} {r.product}</td>
+                        <td className="py-1.5 text-right tabular-nums">{r.jobs}</td>
+                        <td className="py-1.5 text-right font-bold tabular-nums">{r.median_days}d</td>
+                        <td className="py-1.5 text-right tabular-nums text-slate-500">{r.avg_days}d</td>
+                        <td className="py-1.5 text-right tabular-nums text-slate-500">{r.p90_days}d</td>
+                        <td className="py-1.5 text-right tabular-nums text-slate-500">{r.slowest_days}d</td>
+                      </tr>
+                      {openProduct === r.product && (
+                        <tr key={r.product + '-d'}>
+                          <td colSpan={6} className="bg-slate-50 px-2 py-2">
+                            <div className="max-h-72 overflow-y-auto">
+                              <table className="w-full text-xs">
+                                <thead><tr className="text-left text-slate-500">
+                                  <th className="py-1">Job</th><th>Rep</th><th>Zone</th><th>Sold</th><th>Installed</th><th className="text-right">Days</th>
+                                </tr></thead>
+                                <tbody>
+                                  {data.rows.filter((x) => x.product === r.product).map((x) => (
+                                    <tr key={x.jnid} className="border-t border-slate-200">
+                                      <td className="py-1 pr-2">
+                                        <a href={x.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{x.name || x.address}</a>
+                                      </td>
+                                      <td className="pr-2 text-slate-600">{x.rep}</td>
+                                      <td className="pr-2 text-slate-500">{x.zone}</td>
+                                      <td className="pr-2 tabular-nums text-slate-500">{x.sold_date}</td>
+                                      <td className="pr-2 tabular-nums text-slate-500">{x.install_date}</td>
+                                      <td className="text-right font-bold tabular-nums">{x.days}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Never hide what the report could not use — a number that quietly
+                  drops rows reads as complete when it isn't. */}
+              <p className="mt-3 text-[11px] text-slate-500">
+                Not counted: {data.excluded.no_sold_date} with no sold date
+                · {data.excluded.install_before_sale} where the install date precedes the sale (data entry)
+                · {data.excluded.out_of_window} outside the window.
+              </p>
+            </>
+          )}
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+        </div>
+      )}
+      {err && !data && <p className="mt-2 text-sm text-red-600">{err}</p>}
+    </section>
   )
 }
 
