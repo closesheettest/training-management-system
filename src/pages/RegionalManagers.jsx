@@ -824,6 +824,49 @@ function SalesToInstall() {
                 </p>
               )}
 
+              {/* MONTH BY MONTH — keyed on the INSTALL month, because a job's cycle
+                  time is only known once it goes on. Bucketing by sold month would
+                  make recent months look fast: the slow deals sold then haven't
+                  finished, so they wouldn't be counted at all. */}
+              {data.by_month?.length > 1 && (() => {
+                const worst = Math.max(...data.by_month.map((m) => m.median_days || 0)) || 1
+                return (
+                  <div className="mb-4">
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Month by month (by install month)</p>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                          <th className="py-1">Month</th><th className="py-1 text-right">Installs</th>
+                          <th className="py-1 text-right">Median</th><th className="py-1 text-right">Avg</th>
+                          <th className="py-1 text-right">90th</th><th className="py-1 pl-3">Trend</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.by_month.map((m) => (
+                          <tr key={m.month} className="border-b border-slate-100">
+                            <td className="py-1.5 font-medium text-slate-800">
+                              {new Date(m.month + '-02').toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums">{m.jobs}</td>
+                            <td className="py-1.5 text-right font-bold tabular-nums">{m.median_days}d</td>
+                            <td className="py-1.5 text-right tabular-nums text-slate-500">{m.avg_days}d</td>
+                            <td className="py-1.5 text-right tabular-nums text-slate-500">{m.p90_days}d</td>
+                            <td className="py-1.5 pl-3">
+                              <div className="h-2 rounded bg-emerald-600"
+                                   style={{ width: Math.max(4, Math.round(((m.median_days || 0) / worst) * 100)) + '%' }} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      A month with few installs swings easily — read the count beside the median before drawing a trend from it.
+                    </p>
+                  </div>
+                )
+              })()}
+
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">By product</p>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
