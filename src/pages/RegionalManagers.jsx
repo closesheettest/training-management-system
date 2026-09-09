@@ -767,6 +767,7 @@ function SalesToInstall() {
   const [err, setErr] = useState('')
   const [months, setMonths] = useState(12)
   const [openProduct, setOpenProduct] = useState(null)
+  const [openMonth, setOpenMonth] = useState(null)
 
   const load = async (m) => {
     const mm = m || months
@@ -843,9 +844,11 @@ function SalesToInstall() {
                       </thead>
                       <tbody>
                         {data.by_month.map((m) => (
-                          <tr key={m.month} className="border-b border-slate-100">
+                          <>
+                          <tr key={m.month} onClick={() => setOpenMonth(openMonth === m.month ? null : m.month)}
+                              className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
                             <td className="py-1.5 font-medium text-slate-800">
-                              {new Date(m.month + '-02').toLocaleString('en-US', { month: 'short', year: 'numeric' })}
+                              {openMonth === m.month ? '▾' : '▸'} {new Date(m.month + '-02').toLocaleString('en-US', { month: 'short', year: 'numeric' })}
                             </td>
                             <td className="py-1.5 text-right tabular-nums">{m.jobs}</td>
                             <td className="py-1.5 text-right font-bold tabular-nums">{m.median_days}d</td>
@@ -856,6 +859,30 @@ function SalesToInstall() {
                                    style={{ width: Math.max(4, Math.round(((m.median_days || 0) / worst) * 100)) + '%' }} />
                             </td>
                           </tr>
+                          {openMonth === m.month && (
+                            <tr key={m.month + '-p'}>
+                              <td colSpan={6} className="bg-slate-50 px-2 py-2">
+                                <table className="w-full text-xs">
+                                  <thead><tr className="text-left text-slate-500">
+                                    <th className="py-1">Product</th><th className="text-right">Installs</th>
+                                    <th className="text-right">Median</th><th className="text-right">Avg</th><th className="text-right">Slowest</th>
+                                  </tr></thead>
+                                  <tbody>
+                                    {(data.by_month_product || []).filter((x) => x.month === m.month).map((x) => (
+                                      <tr key={x.product} className="border-t border-slate-200">
+                                        <td className="py-1 pr-2 font-medium text-slate-700">{x.product}</td>
+                                        <td className="text-right tabular-nums">{x.jobs}</td>
+                                        <td className="text-right font-bold tabular-nums">{x.median_days}d</td>
+                                        <td className="text-right tabular-nums text-slate-500">{x.avg_days}d</td>
+                                        <td className="text-right tabular-nums text-slate-500">{x.slowest_days}d</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          )}
+                          </>
                         ))}
                       </tbody>
                     </table>
