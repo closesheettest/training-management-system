@@ -857,7 +857,7 @@ function SalesToInstall() {
                     <div className="mt-2 max-h-80 overflow-y-auto rounded bg-white p-2">
                       <table className="w-full text-xs">
                         <thead><tr className="text-left text-slate-500">
-                          <th className="py-1">Job</th><th>Product</th><th>Rep</th><th>Sold</th>
+                          <th className="py-1">Job</th><th>Status</th><th>Product</th><th>Rep</th><th>Sold</th>
                           <th>Install date</th><th className="text-right">Waiting</th>
                         </tr></thead>
                         <tbody>
@@ -865,6 +865,20 @@ function SalesToInstall() {
                             <tr key={w.jnid} className="border-t border-slate-200">
                               <td className="py-1 pr-2">
                                 <a href={w.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{w.name || w.address}</a>
+                              </td>
+                              {/* The status is the whole explanation for an old one:
+                                  "Holds" or "In Funding" at 800 days is a parked deal,
+                                  not a production backlog. Parked ones are called out
+                                  so a long age is not read as a scheduling failure. */}
+                              <td className="pr-2">
+                                <span className={'rounded px-1.5 py-0.5 text-[10px] font-bold ' +
+                                  (/hold|funding|pace/i.test(w.status || '')
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : /prep|review|upcoming|set/i.test(w.status || '')
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-slate-100 text-slate-700')}>
+                                  {w.status || '—'}
+                                </span>
                               </td>
                               <td className="pr-2 text-slate-600">{w.product}</td>
                               <td className="pr-2 text-slate-600">{w.rep}</td>
