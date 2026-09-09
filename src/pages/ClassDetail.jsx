@@ -1042,7 +1042,12 @@ export default function ClassDetail() {
     // Held out of Week B pending effort: finished Week A, still ours, but not
     // continuing this week. Excluded here so the Week B roster and its counts
     // match who is actually coming (Neal, 2026-08-24).
-    return new Set(trainees.filter((t) => !t.week_b_hold && (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay)).map((t) => t.id))
+    // week_b_force is the office putting someone in who missed the last Week A day
+    // — the mirror of week_b_hold. A HOLD still wins: "not yet" is a live decision
+    // and must not be undone by an older override. Same order as comingToWeekB in
+    // _week-a.js, so this page and the server lists cannot disagree.
+    return new Set(trainees.filter((t) => !t.week_b_hold
+      && (t.week_b_force || (t.attendance || []).some((a) => a.confirmed && a.attendance_date === lastDay))).map((t) => t.id))
   })()
 
   const enrolled = trainees.filter((t) =>
@@ -1070,7 +1075,12 @@ export default function ClassDetail() {
     if (!prevDate) return { attending: registered, noShow: [] } // first day — no prior attendance yet
     const present = new Set()
     for (const t of trainees) if ((t.attendance || []).some((a) => a.confirmed && a.attendance_date === prevDate)) present.add(t.id)
-    return { attending: registered.filter((t) => present.has(t.id)), noShow: registered.filter((t) => !present.has(t.id)) }
+    // Someone the office deliberately put back in has NOT "stopped attending" —
+    // that is exactly why they missed the day. Dropping them into the muted group
+    // is what made Michael Carraggi-Willan vanish from Registered after being
+    // added back (Neal, 2026-09-09).
+    const keep = (t) => present.has(t.id) || t.week_b_force
+    return { attending: registered.filter(keep), noShow: registered.filter((t) => !keep(t)) }
   })()
   const registeredAttending = registeredSplit.attending
   const registeredNoShow = registeredSplit.noShow
