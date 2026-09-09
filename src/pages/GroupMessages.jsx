@@ -1059,9 +1059,20 @@ function PlaceholderToolbar({ onInsert }) {
       >
         {'{link}'}
       </button>
+      {/* The pay documents. Same per-recipient token as {link}, so a company-wide
+          "go sign these" blast needs no new links minted (Neal, 2026-09-09). */}
+      <button
+        type="button"
+        onClick={() => onInsert('{signlink}')}
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-[11px] hover:bg-slate-50"
+      >
+        {'{signlink}'}
+      </button>
       <span className="text-slate-400">
         — substituted per recipient. <code>{'{link}'}</code> points to{' '}
-        <code>/update-info/&lt;their token&gt;</code>.
+        <code>/update-info/&lt;their token&gt;</code>;{' '}
+        <code>{'{signlink}'}</code> to the{' '}
+        <b>Draw Program + Inspection Compensation Plan</b> to sign.
       </span>
     </div>
   )

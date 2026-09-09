@@ -200,6 +200,10 @@ export async function runGroupSend(body) {
     const vars = {
       firstName: t.first_name || 'there',
       link: t.registration_token ? `${siteUrl}/update-info/${t.registration_token}` : '',
+      // The pay documents (Draw Program + Inspection Compensation Plan). Same
+      // token as {link} — a company-wide "go sign these" blast needs no new
+      // links minted and no second list to keep in step (Neal, 2026-09-09).
+      signlink: t.registration_token ? `${siteUrl}/comp-agreement/${t.registration_token}` : '',
     }
     if (wantSms && t.phone) {
       taskFactories.push(async () => {

@@ -32,6 +32,7 @@ import Welcome from './pages/Welcome.jsx'
 import WelcomeLinks from './pages/WelcomeLinks.jsx'
 import Results from './pages/Results.jsx'
 import UpdateInfo from './pages/UpdateInfo.jsx'
+import CompAgreement from './pages/CompAgreement'
 import GroupMessages from './pages/GroupMessages.jsx'
 import ActiveReps from './pages/ActiveReps.jsx'
 import RepMap from './pages/RepMap.jsx'
@@ -101,6 +102,10 @@ export default function App() {
             Group Messages broadcast and fill in personal email + home
             address. Token-gated. */}
         <Route path="/update-info/:token" element={<MinimalLayout><UpdateInfo /></MinimalLayout>} />
+        {/* Draw Program + Inspection Compensation Plan — one form, a signature on
+            each. Uses the SAME registration_token as /update-info, so a Group
+            messages blast can point {signlink} at it with no new links minted. */}
+        <Route path="/comp-agreement/:token" element={<MinimalLayout><CompAgreement /></MinimalLayout>} />
 
         {/* Public morning mini-quiz — trainees tap a link from the
             kiosk-sign-in-triggered SMS. Token-gated; questions test the
