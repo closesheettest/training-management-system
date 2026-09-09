@@ -769,6 +769,15 @@ function SalesToInstall() {
   const [openProduct, setOpenProduct] = useState(null)
   const [openMonth, setOpenMonth] = useState(null)
   const [showWaiting, setShowWaiting] = useState(false)
+  // Default = oldest first, which is the question the list exists to answer.
+  const [waitSort, setWaitSort] = useState({ key: 'days_waiting', dir: 'desc' })
+  const sortWait = (key) => setWaitSort((s0) => ({
+    key,
+    // A new column starts in the direction that is USEFUL for it: text A-Z,
+    // numbers and dates biggest/newest first. Re-clicking the same column flips.
+    dir: s0.key === key ? (s0.dir === 'asc' ? 'desc' : 'asc')
+       : (key === 'name' || key === 'status' || key === 'product' || key === 'rep') ? 'asc' : 'desc',
+  }))
 
   const load = async (m) => {
     const mm = m || months
@@ -862,12 +871,34 @@ function SalesToInstall() {
                             through the header as it scrolls. */}
                         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e2e8f0]">
                           <tr className="text-left text-slate-500">
-                            <th className="py-1">Job</th><th>Status</th><th>Product</th><th>Rep</th><th>Sold</th>
-                            <th>Install date</th><th className="text-right">Waiting</th>
+                            {[['name', 'Job', ''], ['status', 'Status', ''], ['product', 'Product', ''],
+                              ['rep', 'Rep', ''], ['sold_date', 'Sold', ''], ['scheduled_for', 'Install date', ''],
+                              ['days_waiting', 'Waiting', 'text-right']].map(([k, label, cls]) => (
+                              <th key={k} onClick={() => sortWait(k)}
+                                  title="Sort by this column"
+                                  className={'cursor-pointer select-none py-1 hover:text-slate-900 ' + cls}>
+                                {label}
+                                <span className={'ml-0.5 ' + (waitSort.key === k ? 'text-slate-900' : 'text-slate-300')}>
+                                  {waitSort.key === k ? (waitSort.dir === 'asc' ? '▲' : '▼') : '▲'}
+                                </span>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {data.waiting.rows.map((w) => (
+                          {[...data.waiting.rows].sort((a, b) => {
+                            const k = waitSort.key, s1 = waitSort.dir === 'asc' ? 1 : -1
+                            // "none set" has no date to compare — it sorts to the END
+                            // either way, because a blank is not "earliest".
+                            if (k === 'scheduled_for') {
+                              if (!a.scheduled_for && !b.scheduled_for) return 0
+                              if (!a.scheduled_for) return 1
+                              if (!b.scheduled_for) return -1
+                            }
+                            const av = a[k] ?? '', bv = b[k] ?? ''
+                            if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * s1
+                            return String(av).localeCompare(String(bv)) * s1
+                          }).map((w) => (
                             <tr key={w.jnid} className="border-t border-slate-200">
                               <td className="py-1 pr-2">
                                 <a href={w.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{w.name || w.address}</a>
