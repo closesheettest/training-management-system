@@ -835,6 +835,49 @@ function SalesToInstall() {
                 </p>
               )}
 
+              {/* REGION — the company median blends two different businesses. South FL
+                  runs 2-3x longer (HVHZ permit review) and always has; the May 2026
+                  "slowdown" was mostly its volume doubling, not anyone getting slower. */}
+              {data.by_region?.length > 1 && (
+                <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                  {data.by_region.map((r) => {
+                    const sofl = r.region === 'South FL'
+                    const recent = (r.by_month || []).slice(-6)
+                    const worst = Math.max(...recent.map((m) => m.median_days || 0), 1)
+                    return (
+                      <div key={r.region} className={'rounded-md border p-3 ' + (sofl ? 'border-orange-300 bg-orange-50' : 'border-slate-200 bg-slate-50')}>
+                        <div className="flex items-baseline justify-between">
+                          <span className={'text-sm font-bold ' + (sofl ? 'text-orange-900' : 'text-slate-800')}>
+                            {sofl ? '🌴 ' : '📍 '}{r.region}
+                          </span>
+                          <span className="text-lg font-bold tabular-nums">{r.median_days}<span className="text-xs font-normal text-slate-500">d median</span></span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-slate-600">
+                          {r.jobs} installs · {r.waiting} waiting
+                          {r.waiting_over_85 > 0 && <> · <b className={sofl ? 'text-orange-800' : ''}>{r.waiting_over_85} stuck 85d+</b></>}
+                        </div>
+                        <div className="mt-2 flex items-end gap-1" style={{ height: 34 }}>
+                          {recent.map((m) => (
+                            <div key={m.month} className="flex-1" title={`${m.month}: ${m.median_days}d (${m.jobs} installs)`}>
+                              <div className={'w-full rounded-t ' + (sofl ? 'bg-orange-500' : 'bg-slate-400')}
+                                   style={{ height: Math.max(3, Math.round(((m.median_days || 0) / worst) * 32)) }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-0.5 flex justify-between text-[10px] text-slate-500">
+                          <span>{recent[0]?.month.slice(5)}</span><span>last 6 months</span><span>{recent[recent.length - 1]?.month.slice(5)}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <p className="text-[11px] text-slate-500 sm:col-span-2">
+                    South Florida is Miami-Dade / Broward / Palm Beach — High-Velocity Hurricane Zone permit review
+                    (product approval, UL ratings, structural). It has always run 2–3× the rest of the state, so read
+                    the two separately: a company-wide median moves when the MIX changes, not only when work slows.
+                  </p>
+                </div>
+              )}
+
               {/* WAITING ON INSTALL — sold, not on a roof yet. Two kinds, and the gap
                   between them is the point: one has a date and simply isn't here
                   yet; the other has NO date, which is the one nobody is looking at.
