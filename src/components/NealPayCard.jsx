@@ -373,6 +373,9 @@ export default function NealPayCard() {
                 old one-week rule, and the week of 31 Aug starts the new two-week wait and pays on 18 Sep.
                 No override is calculated for this Friday.
               </p>
+              <MarkPaid weekStart={TRANSITION_PAYDAY} amount={GUARANTEE} date={TRANSITION_PAYDAY}
+                paid={!!(payments[TRANSITION_PAYDAY] && payments[TRANSITION_PAYDAY].amount != null)}
+                onSaved={setPayments} />
             </>
           ) : alreadyPaid ? (
             /* SETTLED. This week's override was calculated and paid already; the
@@ -409,6 +412,11 @@ export default function NealPayCard() {
             <p className="mt-2 text-[11px] text-slate-500">
               Sales week {weekName(monday)} — settled. Nothing further is owed on it.
             </p>
+          )}
+          {!transition && (
+            <MarkPaid weekStart={weekStart} amount={Math.round(paid * 100) / 100}
+              date={paydayFor(monday).toISOString().slice(0, 10)}
+              paid={alreadyPaid} onSaved={setPayments} />
           )}
           {!alreadyPaid && !dueYet && (
             <p className="mt-2 text-[11px] text-slate-500">
@@ -448,6 +456,79 @@ function Cell({ label, value, sub, strong }) {
 // recorded (amount + date); until it is, a PAST week assumes the $3,000 base was
 // paid (accurate — those went out), while THIS week forward shows "pending" until
 // its payday (the Friday after the week closes) or a real payment is entered.
+
+// Mark the week ON SCREEN as paid, from the card itself (Neal, 2026-09-10) —
+// rather than asking someone to go and record it elsewhere. Amount defaults to
+// what the week owes and the date to its payday, so the common case is one tick
+// and the PIN. Unticking clears the record, which is how a mistake gets undone.
+function MarkPaid({ weekStart, amount, date, paid, onSaved }) {
+  const [open, setOpen] = useState(false)
+  const [pin, setPin] = useState('')
+  const [amt, setAmt] = useState(String(amount ?? ''))
+  const [when, setWhen] = useState(date || '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const send = async (clear) => {
+    setBusy(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, week_start: weekStart, amount: clear ? '' : Number(amt), date: when || undefined }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not save.'); setBusy(false); return }
+      setBusy(false); setOpen(false); setPin(''); onSaved(d.payments || {})
+    } catch { setErr('Network error.'); setBusy(false) }
+  }
+
+  if (paid && !open) return (
+    <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+      <input type="checkbox" checked readOnly onClick={() => setOpen(true)} className="h-4 w-4 accent-emerald-600" />
+      Paid — tick to undo
+    </label>
+  )
+  if (!open) return (
+    <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+      <input type="checkbox" checked={false} onChange={() => setOpen(true)} className="h-4 w-4" />
+      Mark this week paid
+    </label>
+  )
+  return (
+    <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md bg-slate-50 p-2">
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Amount</label>
+        <div className="flex items-center gap-1"><span className="text-slate-500">$</span>
+          <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)}
+            className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums" /></div>
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">Date paid</label>
+        <input type="date" value={when} onChange={(e) => setWhen(e.target.value)}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)}
+          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      <button type="button" disabled={busy} onClick={() => send(false)}
+        className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60">
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+      {paid && (
+        <button type="button" disabled={busy} onClick={() => send(true)}
+          className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-bold text-red-600 disabled:opacity-60">
+          Clear
+        </button>
+      )}
+      <button type="button" onClick={() => { setOpen(false); setErr('') }}
+        className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600">Cancel</button>
+      {err && <span className="w-full text-xs font-semibold text-red-600">{err}</span>}
+    </div>
+  )
+}
+
 function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
   const [editing, setEditing] = useState(null)  // week iso being edited
   const [showLedger, setShowLedger] = useState(false)  // standalone "record a payment" open
