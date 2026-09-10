@@ -322,7 +322,18 @@ export default function NealPayCard() {
             {/* Ordered by PAY DATE, newest first — the changeover Friday sits in its
                 real chronological place (between 18 Sep and 4 Sep) instead of being
                 pinned to the top, which read as out of order (Neal, 2026-09-10). */}
-            {[...weeksInMonth.map((m) => ({ kind: 'week', m, pay: paydayFor(m) })),
+            {[...weeksInMonth.map((m) => {
+                // Sort on the date the option ACTUALLY SHOWS. A paid week is
+                // labelled by when it was paid, but was being sorted by its
+                // computed payday — so the week of 24 Aug displayed "Paid Sep 4"
+                // while sorting at Sep 11, and landed below the transition row
+                // (Neal, 2026-09-10).
+                const rec = payments[m.toISOString().slice(0, 10)]
+                const shown = rec && rec.amount != null && rec.date
+                  ? new Date(rec.date + 'T12:00:00')
+                  : paydayFor(m)
+                return { kind: 'week', m, pay: shown }
+              }),
               ...(weeksInMonth.length ? [{ kind: 'transition', pay: new Date(TRANSITION_PAYDAY + 'T12:00:00') }] : [])]
               .sort((a, b) => b.pay - a.pay)
               .map((row) => {
