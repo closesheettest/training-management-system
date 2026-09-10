@@ -87,6 +87,14 @@ const weekName = (d) => {
   const sameMonth = d.getMonth() === end.getMonth()
   return `${f(d, true)} – ${f(end, !sameMonth)}`
 }
+// THE PAY DATE for a sales week. Two-week lag (Neal, 2026-09-10): a week no longer
+// pays on the first Friday after it closes but on the SECOND, so cancellations have
+// a week to land before anyone is paid on the deal. Monday + 18 days = that Friday.
+const PAY_LAG_DAYS = 18
+const paydayFor = (monday) => new Date(monday.getTime() + PAY_LAG_DAYS * DAY)
+const paydayName = (monday) => paydayFor(monday).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const isDue = (monday) => Date.now() >= paydayFor(monday).getTime()
+
 // weeks_back the API understands, derived from the Monday chosen.
 const weeksBackFor = (monday) => Math.round((latestReportMonday().getTime() - monday.getTime()) / (7 * DAY))
 
@@ -255,6 +263,8 @@ export default function NealPayCard() {
   const onGuarantee = paid === weekGuarantee && override < weekGuarantee
   // A week that closed before the schedule started is not covered by it.
   const beforeEffective = weekStart && weekStart < EFFECTIVE_FROM
+  // A week already paid is due by definition; otherwise it waits for its payday.
+  const dueYet = alreadyPaid || isDue(monday)
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -278,7 +288,10 @@ export default function NealPayCard() {
           <select value={monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
             {weeksInMonth.map((m) => (
-              <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>{weekName(m)}</option>
+              {/* Labelled by the FRIDAY IT PAYS, not the sales range — you pick a
+                  pay period by its payment date (Neal, 2026-09-10). The card body
+                  still shows the sales range the figure covers. */}
+              <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>Pays {paydayName(m)}</option>
             ))}
           </select>
           <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
@@ -318,12 +331,32 @@ export default function NealPayCard() {
             </p>
           )}
 
+          {/* NOT DUE YET → N/A, not a number. Under the two-week lag the figure for a
+              week that has not reached its payday is still moving: cancellations are
+              exactly what that extra week exists to catch. Showing $512,678 for a week
+              that pays a fortnight out invites someone to treat it as owed (Neal,
+              2026-09-10). The pay date is shown instead so it is clear WHEN it lands. */}
+          {!dueYet ? (
+            <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
+              <Cell label="Gross sales" value="N/A" sub={`not final until ${paydayName(monday)}`} />
+              <Cell label="Band" value="—" sub="not due yet" />
+              <Cell label="Override" value="—" sub="not due yet" />
+              <Cell label="Pays out" value="—" sub={`pays ${paydayName(monday)}`} strong />
+            </div>
+          ) : (
           <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
             <Cell label="Gross sales" value={usd(gross)} sub={weekName(monday)} />
             <Cell label="Band" value={band ? pct(band.rate) : '—'} sub={band ? band.label : 'under 500k — no override'} />
             <Cell label="Override" value={usd(override)} sub={band ? `${pct(band.rate)} of gross` : 'nothing earned'} />
             <Cell label="Pays out" value={usd(paid)} sub={onGuarantee ? 'the guarantee' : 'the override'} strong />
           </div>
+          )}
+          {!dueYet && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              Sales week {weekName(monday)} — figures are held back until this week clears its
+              two-week waiting period on {paydayName(monday)}, so cancellations come out first.
+            </p>
+          )}
 
           {/* Which figure is on screen, and how far JobNimbus has moved since. */}
           {frozenRow ? (
@@ -378,10 +411,7 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
   const [editing, setEditing] = useState(null)  // week iso being edited
   const [showLedger, setShowLedger] = useState(false)  // standalone "record a payment" open
   const earning = rows.filter((r) => r.band)
-  // TWO-WEEK LAG (Neal, 2026-09-10). A week no longer pays on the first Friday
-  // after it closes but on the SECOND — so cancellations have a week to land
-  // before anyone is paid on the deal. Monday + 18 days = that Friday.
-  const paydayOf = (monday) => new Date(monday.getTime() + 18 * DAY)
+  const paydayOf = paydayFor
   const isoOf = (r) => r.monday.toISOString().slice(0, 10)
   const fmtWeek = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const fmtDate = (iso) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
