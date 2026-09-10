@@ -384,31 +384,12 @@ export default function NealPayCard() {
             </p>
           )}
 
-          {/* Which figure is on screen, and how far JobNimbus has moved since. */}
-          {frozenRow ? (
-            <p className="mt-2 text-[11px] text-slate-500">
-              Frozen{frozenRow.deals ? ` · ${frozenRow.deals} deals` : ''} — this is the figure the override is paid on.
-              {/* A week captured LATE was recomputed after deals had already moved, so the
-                  freeze may have locked in a number below what was actually paid on. That
-                  is not a rounding detail: it is the difference between clearing the 500k
-                  floor and earning nothing (Neal, 2026-08-27). */}
-              {lateCapture > 10 && (
-                <> <span className="font-semibold text-amber-700">Captured {lateCapture} days after the week closed</span>, so it may already have drifted below the figure that was reported at payout — worth checking against the report you were paid on.</>
-              )}
-              {Math.abs(drift) >= 1 && (
-                <>
-                  {' '}JobNimbus now recomputes this week at <strong className="tabular-nums">{usd(liveGross)}</strong>{' '}
-                  ({drift < 0 ? `${usd(Math.abs(drift))} lower` : `${usd(drift)} higher`}) because deals have changed status since. That drift does not change the pay.
-                </>
-              )}
-            </p>
-          ) : (
-            <p className="mt-2 text-[11px] text-amber-700">
-              Not frozen yet — this is a live recompute and it will move as deals change status. Freeze the week to lock it.
-            </p>
-          )}
-
-
+          {/* The "Frozen · N deals" / "Not frozen yet" note is gone (Neal,
+              2026-09-10). Under the new structure the three states on the tiles —
+              settled, not due yet, due — already say everything that matters, and
+              whether the underlying week happens to be frozen is plumbing the
+              reader does not act on. `drift` and `lateCapture` are still computed
+              above if it ever needs to come back. */}
 
           {all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
