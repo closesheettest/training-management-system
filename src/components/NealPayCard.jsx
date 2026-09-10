@@ -95,6 +95,15 @@ const paydayFor = (monday) => new Date(monday.getTime() + PAY_LAG_DAYS * DAY)
 const paydayName = (monday) => paydayFor(monday).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const isDue = (monday) => Date.now() >= paydayFor(monday).getTime()
 
+// THE CHANGEOVER FRIDAY. Doubling the lag leaves one Friday with no sales week
+// behind it: the week of 24 Aug paid early on 4 Sep under the old one-week rule,
+// and the week of 31 Aug does not pay until 18 Sep under the new one. That Friday
+// still owes the weekly guarantee — the base does not stop because the override
+// timing changed (Neal, 2026-09-10). A single dated exception, not a rule.
+const TRANSITION_PAYDAY = '2026-09-11'
+const TRANSITION_VALUE = 'transition'
+
+
 // weeks_back the API understands, derived from the Monday chosen.
 const weeksBackFor = (monday) => Math.round((latestReportMonday().getTime() - monday.getTime()) / (7 * DAY))
 
@@ -145,6 +154,7 @@ export default function NealPayCard() {
   // Past weeks were paid the base $3,000 (accurate as-is); this is for recording
   // real payments from this week forward once they go out (Neal, 2026-08-31).
   const [payments, setPayments] = useState({})
+  const [transition, setTransition] = useState(false)
   useEffect(() => {
     fetch(LB_ORIGIN + 'neal-pay-payments').then((r) => r.json())
       .then((d) => { if (d && d.ok) setPayments(d.payments || {}) }).catch(() => {})
@@ -224,6 +234,8 @@ export default function NealPayCard() {
     if (first) { setMonday(first); load(first) }
   }
   const pickWeek = (iso) => {
+    if (iso === TRANSITION_VALUE) { setTransition(true); return }
+    setTransition(false)
     const m = mondays.find((x) => x.toISOString().slice(0, 10) === iso)
     if (m) { setMonday(m); load(m) }
   }
@@ -288,8 +300,11 @@ export default function NealPayCard() {
           {/* Pay periods are labelled by the FRIDAY THEY PAY, not the sales range —
               a period is chosen by its payment date (Neal, 2026-09-10). The card
               body still shows the sales range the figure covers. */}
-          <select value={monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
+          <select value={transition ? TRANSITION_VALUE : monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
+            <option value={TRANSITION_VALUE}>
+              Pays {new Date(TRANSITION_PAYDAY + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · transition
+            </option>
             {weeksInMonth.map((m) => {
               // A PAID week is labelled by the date it was ACTUALLY paid. The
               // two-week lag is the rule from here on; applying it to history
@@ -345,7 +360,21 @@ export default function NealPayCard() {
               exactly what that extra week exists to catch. Showing $512,678 for a week
               that pays a fortnight out invites someone to treat it as owed (Neal,
               2026-09-10). The pay date is shown instead so it is clear WHEN it lands. */}
-          {alreadyPaid ? (
+          {transition ? (
+            <>
+              <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
+                <Cell label="Gross sales" value="N/A" sub="new override waiting period starting" />
+                <Cell label="Band" value="—" sub="no override this week" />
+                <Cell label="Override" value="—" sub="first override pays Sep 18" />
+                <Cell label="Pays out" value={usd(GUARANTEE)} sub="the guarantee" strong />
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Changeover Friday — the base guarantee is paid. The week of 24 Aug settled on 4 Sep under the
+                old one-week rule, and the week of 31 Aug starts the new two-week wait and pays on 18 Sep.
+                No override is calculated for this Friday.
+              </p>
+            </>
+          ) : alreadyPaid ? (
             /* SETTLED. This week's override was calculated and paid already; the
                figures are history, not something being worked out now. Re-running
                the band on it reads as a fresh amount owed, which is exactly what
