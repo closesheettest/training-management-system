@@ -290,9 +290,18 @@ export default function NealPayCard() {
               body still shows the sales range the figure covers. */}
           <select value={monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
-            {weeksInMonth.map((m) => (
-              <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>Pays {paydayName(m)}</option>
-            ))}
+            {weeksInMonth.map((m) => {
+              // A PAID week is labelled by the date it was ACTUALLY paid. The
+              // two-week lag is the rule from here on; applying it to history
+              // re-dated weeks that had already settled, so the week of 24 Aug
+              // — paid 4 Sep under the old one-week rule — came back as "Pays
+              // 11 Sep" and looked owed all over again (Neal, 2026-09-10).
+              const rec = payments[m.toISOString().slice(0, 10)]
+              const label = rec && rec.amount != null
+                ? `Paid ${rec.date ? new Date(rec.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`.trim()
+                : `Pays ${paydayName(m)}`
+              return <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>{label}</option>
+            })}
           </select>
           <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
             {loading ? 'Loading…' : data ? 'Refresh' : 'Load'}
@@ -336,7 +345,19 @@ export default function NealPayCard() {
               exactly what that extra week exists to catch. Showing $512,678 for a week
               that pays a fortnight out invites someone to treat it as owed (Neal,
               2026-09-10). The pay date is shown instead so it is clear WHEN it lands. */}
-          {!dueYet ? (
+          {alreadyPaid ? (
+            /* SETTLED. This week's override was calculated and paid already; the
+               figures are history, not something being worked out now. Re-running
+               the band on it reads as a fresh amount owed, which is exactly what
+               made tomorrow's pay show an override that had been paid a week
+               earlier (Neal, 2026-09-10). */
+            <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
+              <Cell label="Gross sales" value="N/A" sub="already settled" />
+              <Cell label="Band" value="—" sub="already settled" />
+              <Cell label="Override" value="—" sub="already settled" />
+              <Cell label="Paid" value={usd(payments[weekStart].amount)} sub={payments[weekStart].date ? `paid ${new Date(payments[weekStart].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'paid'} strong />
+            </div>
+          ) : !dueYet ? (
             <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
               <Cell label="Gross sales" value="N/A" sub={`not final until ${paydayName(monday)}`} />
               <Cell label="Band" value="—" sub="not due yet" />
@@ -351,7 +372,12 @@ export default function NealPayCard() {
             <Cell label="Pays out" value={usd(paid)} sub={onGuarantee ? 'the guarantee' : 'the override'} strong />
           </div>
           )}
-          {!dueYet && (
+          {alreadyPaid && (
+            <p className="mt-2 text-[11px] text-slate-500">
+              Sales week {weekName(monday)} — settled. Nothing further is owed on it.
+            </p>
+          )}
+          {!alreadyPaid && !dueYet && (
             <p className="mt-2 text-[11px] text-slate-500">
               Sales week {weekName(monday)} — figures are held back until this week clears its
               two-week waiting period on {paydayName(monday)}, so cancellations come out first.
