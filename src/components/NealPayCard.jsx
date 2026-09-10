@@ -155,6 +155,10 @@ export default function NealPayCard() {
   // real payments from this week forward once they go out (Neal, 2026-08-31).
   const [payments, setPayments] = useState({})
   const [transition, setTransition] = useState(false)
+  // Collapsed on arrival, and it does NOT fetch until opened (Neal, 2026-09-10).
+  // The card sits on a page full of other reports; loading pay figures nobody
+  // asked to see cost a JobNimbus round trip on every visit.
+  const [open, setOpen] = useState(false)
   useEffect(() => {
     fetch(LB_ORIGIN + 'neal-pay-payments').then((r) => r.json())
       .then((d) => { if (d && d.ok) setPayments(d.payments || {}) }).catch(() => {})
@@ -169,7 +173,7 @@ export default function NealPayCard() {
   // 2026-09-10). Driven off the selected Monday rather than the select handlers:
   // pickMonth/pickWeek set state, and calling load() from the handler would run
   // against the previous week. load() also takes a Date, not the option's string.
-  useEffect(() => { load(monday) /* eslint-disable-next-line */ }, [monday])
+  useEffect(() => { if (open) load(monday) /* eslint-disable-next-line */ }, [open, monday])
 
   const load = async (mon = monday) => {
     const weeksBack = weeksBackFor(mon)
@@ -233,6 +237,16 @@ export default function NealPayCard() {
     const first = mondays.find((m) => monthKey(m) === k)
     if (first) { setMonday(first); load(first) }
   }
+  // One place that builds a week's <option>, so the sorted list and the old
+  // inline map cannot drift.
+  const renderWeekOption = (m) => {
+    const rec = payments[m.toISOString().slice(0, 10)]
+    const label = rec && rec.amount != null
+      ? `Paid ${rec.date ? new Date(rec.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`.trim()
+      : `Pays ${paydayName(m)}`
+    return <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>{label}</option>
+  }
+
   const pickWeek = (iso) => {
     if (iso === TRANSITION_VALUE) { setTransition(true); return }
     setTransition(false)
@@ -283,14 +297,17 @@ export default function NealPayCard() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold text-brand-navy">
-            🧾 Neal's Pay <span className="text-sm font-normal text-slate-500">(guarantee vs. override on gross sales)</span>
+            <button type="button" onClick={() => setOpen((v) => !v)} className="text-left hover:opacity-80">
+              <span className="mr-1 inline-block text-slate-400">{open ? '▾' : '▸'}</span>
+              🧾 Neal's Pay <span className="text-sm font-normal text-slate-500">(guarantee vs. override on gross sales)</span>
+            </button>
           </h2>
           <p className="text-xs text-slate-500">
             {usd(GUARANTEE)} a week guaranteed. Once the override beats it, the override is what gets paid — never both.
             Sales weeks run Monday–Sunday. Effective 1 June 2026.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {open && <div className="flex items-center gap-2">
           {/* Pick a month, pick a pay period, and it loads that week — no separate
               Load press (Neal, 2026-09-10). */}
           <select value={month} onChange={(e) => pickMonth(e.target.value)}
@@ -302,21 +319,21 @@ export default function NealPayCard() {
               body still shows the sales range the figure covers. */}
           <select value={transition ? TRANSITION_VALUE : monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
-            <option value={TRANSITION_VALUE}>
-              Pays {new Date(TRANSITION_PAYDAY + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · transition
-            </option>
-            {weeksInMonth.map((m) => {
-              // A PAID week is labelled by the date it was ACTUALLY paid. The
-              // two-week lag is the rule from here on; applying it to history
-              // re-dated weeks that had already settled, so the week of 24 Aug
-              // — paid 4 Sep under the old one-week rule — came back as "Pays
-              // 11 Sep" and looked owed all over again (Neal, 2026-09-10).
-              const rec = payments[m.toISOString().slice(0, 10)]
-              const label = rec && rec.amount != null
-                ? `Paid ${rec.date ? new Date(rec.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`.trim()
-                : `Pays ${paydayName(m)}`
-              return <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>{label}</option>
-            })}
+            {/* Ordered by PAY DATE, newest first — the changeover Friday sits in its
+                real chronological place (between 18 Sep and 4 Sep) instead of being
+                pinned to the top, which read as out of order (Neal, 2026-09-10). */}
+            {[...weeksInMonth.map((m) => ({ kind: 'week', m, pay: paydayFor(m) })),
+              ...(weeksInMonth.length ? [{ kind: 'transition', pay: new Date(TRANSITION_PAYDAY + 'T12:00:00') }] : [])]
+              .sort((a, b) => b.pay - a.pay)
+              .map((row) => {
+                if (row.kind === 'transition') return (
+                  <option key={TRANSITION_VALUE} value={TRANSITION_VALUE}>
+                    Pays {row.pay.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · transition
+                  </option>
+                )
+                return renderWeekOption(row.m)
+              })}
+
           </select>
           <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
             {loading ? 'Loading…' : data ? 'Refresh' : 'Load'}
@@ -332,8 +349,11 @@ export default function NealPayCard() {
           <button onClick={() => setRatesOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
             ⚙️ Rates
           </button>
-        </div>
+        </div>}
       </div>
+      {!open && (
+        <p className="mt-1 text-xs text-slate-400">Click the title to open — it doesn't load until you do.</p>
+      )}
 
       {/* The editor edits ONE schedule, so hand it the schedule in force — not the
           raw config. The config became a dated history ({schedules:[…]}) when each
@@ -342,12 +362,12 @@ export default function NealPayCard() {
           screen came up with an empty guarantee and no ladder at all (Neal,
           2026-08-27). `current` falls back to the built-in schedule, so it is never
           undefined. */}
-      {ratesOpen && <RatesEditor cfg={current} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
+      {open && ratesOpen && <RatesEditor cfg={current} onSaved={(c) => { setCfg(c); setRatesOpen(false) }} />}
 
-      {err && <p className="mt-3 text-sm font-semibold text-red-600">{err}</p>}
+      {open && err && <p className="mt-3 text-sm font-semibold text-red-600">{err}</p>}
       {!data && all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
-      {data && (
+      {open && data && (
         <>
           {beforeEffective && (
             <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
