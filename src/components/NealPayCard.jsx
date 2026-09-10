@@ -285,12 +285,12 @@ export default function NealPayCard() {
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
             {months.map((m) => <option key={monthKey(m)} value={monthKey(m)}>{monthName(m)}</option>)}
           </select>
+          {/* Pay periods are labelled by the FRIDAY THEY PAY, not the sales range —
+              a period is chosen by its payment date (Neal, 2026-09-10). The card
+              body still shows the sales range the figure covers. */}
           <select value={monday.toISOString().slice(0, 10)} onChange={(e) => pickWeek(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
             {weeksInMonth.map((m) => (
-              {/* Labelled by the FRIDAY IT PAYS, not the sales range — you pick a
-                  pay period by its payment date (Neal, 2026-09-10). The card body
-                  still shows the sales range the figure covers. */}
               <option key={m.toISOString()} value={m.toISOString().slice(0, 10)}>Pays {paydayName(m)}</option>
             ))}
           </select>
