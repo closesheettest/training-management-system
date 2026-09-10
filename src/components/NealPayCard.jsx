@@ -147,6 +147,12 @@ export default function NealPayCard() {
   const [month, setMonth] = useState(() => monthKey(mondays[0] || latestReportMonday()))
   const weeksInMonth = mondays.filter((m) => monthKey(m) === month)
 
+  // Picking a month or a pay period loads THAT week straight away (Neal,
+  // 2026-09-10). Driven off the selected Monday rather than the select handlers:
+  // pickMonth/pickWeek set state, and calling load() from the handler would run
+  // against the previous week. load() also takes a Date, not the option's string.
+  useEffect(() => { load(monday) /* eslint-disable-next-line */ }, [monday])
+
   const load = async (mon = monday) => {
     const weeksBack = weeksBackFor(mon)
     setLoading(true); setErr('')
@@ -228,8 +234,14 @@ export default function NealPayCard() {
   // as it stands now, which drops every deal that has gone Lost since.
   const frozenRow = frozen[weekStart] || null
   const liveGross = Number(data?.totals?.contract) || 0
-  const gross = frozenRow ? Number(frozenRow.gross) || 0 : liveGross
-  const drift = frozenRow && data ? liveGross - gross : 0
+  // A week that has ALREADY BEEN PAID keeps the figure it was paid on — you cannot
+  // retroactively re-price a cheque that cleared, and the drift is surfaced below
+  // instead. A week NOT yet paid values at CURRENT status, so a job that has gone
+  // Lost since comes straight back out of the total before anyone is paid on it
+  // (Neal, 2026-09-10). That is the whole point of the two-week lag.
+  const alreadyPaid = !!(payments[weekStart] && payments[weekStart].amount != null)
+  const gross = alreadyPaid && frozenRow ? Number(frozenRow.gross) || 0 : (data ? liveGross : (Number(frozenRow?.gross) || 0))
+  const drift = frozenRow && data ? liveGross - (Number(frozenRow.gross) || 0) : 0
   // How long AFTER the week ended it was captured. A same-week freeze is the figure
   // that was paid on; one taken two months later is a recompute wearing a freeze's
   // clothes, and can sit below what was actually paid.
@@ -257,6 +269,8 @@ export default function NealPayCard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Pick a month, pick a pay period, and it loads that week — no separate
+              Load press (Neal, 2026-09-10). */}
           <select value={month} onChange={(e) => pickMonth(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
             {months.map((m) => <option key={monthKey(m)} value={monthKey(m)}>{monthName(m)}</option>)}
@@ -270,9 +284,9 @@ export default function NealPayCard() {
           <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
             {loading ? 'Loading…' : data ? 'Refresh' : 'Load'}
           </button>
-          <button onClick={() => (all ? setAll(null) : loadAll())} disabled={allLoading} className="rounded-md border border-brand-navy px-3 py-1 text-xs font-bold text-brand-navy disabled:opacity-60">
-            {allLoading ? 'Adding it up…' : all ? 'Hide weekly list' : 'Every week since 1 June'}
-          </button>
+          {/* "Every week since 1 June" hidden (Neal, 2026-09-10) — the card is now
+              driven by picking a month and a pay period. loadAll() is left intact
+              so it can be switched back on by restoring this button. */}
           {(data || all) && (
             <button onClick={() => { setData(null); setAll(null); setErr('') }} className="rounded-md border border-slate-300 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50">
               ✕ Close
@@ -364,7 +378,10 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
   const [editing, setEditing] = useState(null)  // week iso being edited
   const [showLedger, setShowLedger] = useState(false)  // standalone "record a payment" open
   const earning = rows.filter((r) => r.band)
-  const paydayOf = (monday) => new Date(monday.getTime() + 11 * DAY)   // Friday after the Sun close
+  // TWO-WEEK LAG (Neal, 2026-09-10). A week no longer pays on the first Friday
+  // after it closes but on the SECOND — so cancellations have a week to land
+  // before anyone is paid on the deal. Monday + 18 days = that Friday.
+  const paydayOf = (monday) => new Date(monday.getTime() + 18 * DAY)
   const isoOf = (r) => r.monday.toISOString().slice(0, 10)
   const fmtWeek = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const fmtDate = (iso) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
