@@ -358,11 +358,15 @@ export default function NealPayCard() {
               <Cell label="Paid" value={usd(payments[weekStart].amount)} sub={payments[weekStart].date ? `paid ${new Date(payments[weekStart].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'paid'} strong />
             </div>
           ) : !dueYet ? (
-            <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
-              <Cell label="Gross sales" value="N/A" sub={`not final until ${paydayName(monday)}`} />
-              <Cell label="Band" value="—" sub="not due yet" />
-              <Cell label="Override" value="—" sub="not due yet" />
-              <Cell label="Pays out" value="—" sub={`pays ${paydayName(monday)}`} strong />
+            /* RUNNING, not hidden. N/A alone was too blunt — the figure is worth
+               seeing, it just is not final until the two-week wait clears and
+               cancellations have come out (Neal, 2026-09-10). So show where it
+               stands and label it as running. */
+            <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-amber-300 bg-amber-200 sm:grid-cols-4">
+              <Cell label="Gross sales" value={usd(gross)} sub={`running · not final until ${paydayName(monday)}`} />
+              <Cell label="Band" value={band ? pct(band.rate) : '—'} sub={band ? `${band.label} · running` : 'under 500k so far'} />
+              <Cell label="Override" value={usd(override)} sub={band ? `${pct(band.rate)} of gross · running` : 'nothing earned yet'} />
+              <Cell label="Would pay" value={usd(paid)} sub={`as it stands · pays ${paydayName(monday)}`} strong />
             </div>
           ) : (
           <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
@@ -379,8 +383,9 @@ export default function NealPayCard() {
           )}
           {!alreadyPaid && !dueYet && (
             <p className="mt-2 text-[11px] text-slate-500">
-              Sales week {weekName(monday)} — figures are held back until this week clears its
-              two-week waiting period on {paydayName(monday)}, so cancellations come out first.
+              Sales week {weekName(monday)} — <strong>running figures, not final.</strong> This week
+              clears its two-week waiting period on {paydayName(monday)}; anything cancelled before
+              then comes out of the total first.
             </p>
           )}
 
