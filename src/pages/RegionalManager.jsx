@@ -171,6 +171,8 @@ export default function RegionalManager() {
       </div>
 
       <Group title="⭐ Today's work" defaultOpen>
+        <MeasureAnyAddress />
+
         <TeamAppointments zone={manager.region} />
         <MeasurePractice zone={manager.region} />
         <NewTrainees reps={reps} token={token} onChanged={reload} />
@@ -582,6 +584,46 @@ function MeasurePractice({ zone }) {
 // already knowing the squares -- never working it out on the doorstep (Neal, 2026-09-06).
 //
 // The rep-side version of this same card is parked as "Coming soon"; the manager's is live.
+// Measure ANY address, not only one that already has an appointment.
+//
+// The Measure buttons below only exist on booked jobs, so a manager looking at a
+// roof that is not on the board yet — a referral, a neighbour, something a rep
+// just called about — had nowhere to start (Neal, 2026-09-11). Type it, open it.
+//
+// No jnid goes with it, so Roof Fusion will measure and price but the Submit to
+// JobNimbus button stays disabled: there is no job to attach a report to yet.
+// That is the honest behaviour, and the tool says so on the button.
+function MeasureAnyAddress() {
+  const [addr, setAddr] = useState('')
+  const open = () => {
+    const a = addr.trim()
+    if (!a) return
+    window.open(`${CCG_APP}/?mode=rooffusion&addr=${encodeURIComponent(a)}`, '_blank', 'noopener')
+  }
+  return (
+    <div className="mb-4 rounded-xl bg-slate-800 p-3">
+      <div className="mb-2 text-base font-bold text-white">📐 Measure a roof</div>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={addr}
+          onChange={(e) => setAddr(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') open() }}
+          placeholder="Type any address — 1273 18th St, Sarasota"
+          className="min-w-0 flex-1 rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+        />
+        <button type="button" onClick={open} disabled={!addr.trim()}
+          className="rounded-md bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:opacity-40">
+          Measure →
+        </button>
+      </div>
+      <p className="mt-1.5 text-xs text-slate-400">
+        Opens Roof Fusion on that roof. For a booked job, use the 📐 Measure button on the appointment below —
+        that one carries the job through, so the finished report can be submitted back to JobNimbus.
+      </p>
+    </div>
+  )
+}
+
 function TeamAppointments({ zone }) {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
@@ -648,13 +690,16 @@ function TeamAppointments({ zone }) {
                 </span>
               </span>
               <span className="flex shrink-0 gap-1.5">
-                {/* PARKED. A manager texted Neal asking to use this the day it appeared -- but
-                    nobody measures a live appointment until they've been through the practice
-                    set and can hold half a square (Neal, 2026-09-06). Swap back to the link
-                    when the practice list is signed off. */}
+                {/* LIVE as of 11 Sep 2026. Parked on 6 Sep until the practice roofs were
+                    signed off; Neal released it. Carries the job name, address and jnid, so
+                    Roof Fusion opens on the right roof and the finished report can be
+                    submitted straight back onto that job. */}
                 {a.address && (
-                  <span title="Coming soon — after the practice roofs"
-                    className="cursor-not-allowed rounded-md bg-slate-700/60 px-2.5 py-1 text-xs font-semibold text-slate-400">📐 Measure · coming soon</span>
+                  <a href={`${CCG_APP}/?mode=rooffusion&addr=${encodeURIComponent(a.address)}`
+                      + `&job=${encodeURIComponent(a.job_name || '')}`
+                      + `&jnid=${encodeURIComponent(a.jn_job_id || '')}`}
+                    target="_blank" rel="noreferrer"
+                    className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-500">📐 Measure</a>
                 )}
                 {a.jn_url && (
                   <a href={a.jn_url} target="_blank" rel="noreferrer"
