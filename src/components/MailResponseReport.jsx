@@ -27,6 +27,7 @@ const pf = (n) => (n == null ? '—' : `${n.toFixed(2)}%`)
 const strong = (p) => p != null && p >= 1
 
 export default function MailResponseReport() {
+  const [open, setOpen] = useState(false)
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [weeks, setWeeks] = useState(8)
@@ -34,6 +35,7 @@ export default function MailResponseReport() {
   const [openCity, setOpenCity] = useState({})
 
   useEffect(() => {
+    if (!open) return              // nothing is fetched until somebody opens it
     setData(null); setErr('')
     fetch(`${LB_ORIGIN}mail-response-report?weeks=${weeks}`)
       .then((r) => r.json())
@@ -43,24 +45,30 @@ export default function MailResponseReport() {
         if (d.weeks && d.weeks.length) setOpenWeek(d.weeks[0].week_start)
       })
       .catch((e) => setErr(e.message || 'Could not load'))
-  }, [weeks])
+  }, [open, weeks])
 
   const toggleCity = (wk, city) => setOpenCity((p) => ({ ...p, [`${wk}|${city}`]: !p[`${wk}|${city}`] }))
 
   return (
-    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-center gap-3 mb-1">
-        <h2 className="text-lg font-bold text-slate-900">📬 Mail &amp; Conversion</h2>
+    <section className="mb-6">
+      <button type="button" onClick={() => setOpen(!open)}
+        className="w-full rounded-lg bg-[#1d4ed8] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
+        📬 Mail &amp; Conversion {open ? '▾' : '▸'}
+        <div className="text-xs font-normal opacity-90">
+          What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
+          it off an inbound call. <b>Scanned QR</b> is the homeowner doing the instant quote themselves. Every
+          percentage is out of the pieces mailed into that ZIP; <b>Conversion</b> is both routes together.
+        </div>
+      </button>
+
+      {open && (
+      <div className="mt-3">
+      <div className="flex flex-wrap items-center gap-3 mb-2">
         <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}
           className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-sm">
           {[4, 8, 13, 26, 52].map((n) => <option key={n} value={n}>Last {n} weeks</option>)}
         </select>
       </div>
-      <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-        What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
-        it off an inbound call. <b>Scanned QR</b> is the homeowner doing the instant quote themselves.
-        Every percentage is out of the pieces mailed into that ZIP; <b>Conversion</b> is both routes together.
-      </p>
 
       {err && <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{err}</div>}
       {!err && data === null && <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>}
@@ -156,6 +164,8 @@ export default function MailResponseReport() {
           {' '}a homeowner who scanned the QR <i>and</i> was then booked by a setter appears in both columns.
         </div>
       )}
-    </div>
+      </div>
+      )}
+    </section>
   )
 }
