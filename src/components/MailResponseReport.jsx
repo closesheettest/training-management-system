@@ -170,6 +170,15 @@ export default function MailResponseReport() {
         )
       })}
 
+      {data && data.source_changed && (
+        <div className="mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-900">
+          <b>David's mail data last moved {new Date(data.source_changed.at).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })}</b>
+          {' — '}{data.source_changed.zips_changed} ZIP{data.source_changed.zips_changed === 1 ? '' : 's'} across{' '}
+          {data.source_changed.weeks_changed} week{data.source_changed.weeks_changed === 1 ? '' : 's'}, net{' '}
+          {data.source_changed.net_pieces > 0 ? '+' : ''}{nf(data.source_changed.net_pieces)} pieces.
+          <span className="block text-sky-700/80">Checked every night. Until this line appears, the source hasn't changed since we started recording.</span>
+        </div>
+      )}
       {data && data.captured_at && (
         <div className="text-[11px] text-slate-400 mt-2">
           Captured {new Date(data.captured_at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET ·
