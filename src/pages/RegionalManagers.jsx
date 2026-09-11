@@ -7,6 +7,7 @@ import NealPayCard from '../components/NealPayCard.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
 import MailResponseReport from '../components/MailResponseReport.jsx'
+import CompAgreementAudit from '../components/CompAgreementAudit.jsx'
 
 // Admin hub for the regional-manager program. One place to grab any
 // manager's private dashboard link ("where do I go again?") and to see,
@@ -148,6 +149,8 @@ export default function RegionalManagers() {
 
       <div className="mb-4"><NealPayCard /></div>
       <div className="mb-4"><ManagerPayReport admin /></div>
+
+      <CompAgreementAudit />
 
       <MailResponseReport />
 
