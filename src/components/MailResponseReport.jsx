@@ -59,6 +59,7 @@ export default function MailResponseReport() {
       <p className="text-xs text-slate-500 mb-3 leading-relaxed">
         What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
         it off an inbound call. <b>Scanned QR</b> is the homeowner doing the instant quote themselves.
+        Every percentage is out of the pieces mailed into that ZIP; <b>Conversion</b> is both routes together.
       </p>
 
       {err && <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{err}</div>}
@@ -78,10 +79,14 @@ export default function MailResponseReport() {
               className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 bg-slate-50 hover:bg-slate-100 text-left">
               <span className="text-sm font-bold text-slate-900">{open ? '▾' : '▸'} Week of {w.week_label}</span>
               <span className="text-xs text-slate-600">{nf(w.totals.mailed)} mailed</span>
-              <span className="text-xs text-slate-600">{nf(w.totals.called_in)} called in</span>
-              <span className="text-xs text-slate-600">{nf(w.totals.iq_pins)} scanned QR</span>
+              <span className="text-xs text-slate-600">
+                {nf(w.totals.called_in)} called in <span className="text-slate-400">({pf(w.totals.called_in_pct)})</span>
+              </span>
+              <span className="text-xs text-slate-600">
+                {nf(w.totals.iq_pins)} scanned QR <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
+              </span>
               <span className={`ml-auto text-sm font-extrabold ${strong(w.totals.responded_pct) ? 'text-green-700' : 'text-slate-900'}`}>
-                {pf(w.totals.responded_pct)} responded
+                {pf(w.totals.responded_pct)} conversion
               </span>
             </button>
 
@@ -93,7 +98,7 @@ export default function MailResponseReport() {
                     <th className="text-right font-semibold px-2 py-1.5">Mailed</th>
                     <th className="text-right font-semibold px-2 py-1.5">Called in</th>
                     <th className="text-right font-semibold px-2 py-1.5">Scanned QR</th>
-                    <th className="text-right font-semibold px-3 py-1.5">Responded</th>
+                    <th className="text-right font-semibold px-3 py-1.5">Conversion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -109,18 +114,27 @@ export default function MailResponseReport() {
                             {c.zips.length > 1 && <span className="text-slate-400 font-normal"> ({c.zips.length} ZIPs)</span>}
                           </td>
                           <td className="px-2 py-1.5 text-right tabular-nums">{nf(c.mailed)}</td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">{nf(c.called_in)}</td>
-                          <td className="px-2 py-1.5 text-right tabular-nums">{nf(c.iq_pins)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">
+                            {nf(c.called_in)}<div className="text-[11px] font-normal text-slate-400">{pf(c.called_in_pct)}</div>
+                          </td>
+                          <td className="px-2 py-1.5 text-right tabular-nums">
+                            {nf(c.iq_pins)}<div className="text-[11px] font-normal text-slate-400">{pf(c.iq_pct)}</div>
+                          </td>
                           <td className={`px-3 py-1.5 text-right tabular-nums font-bold ${strong(c.responded_pct) ? 'text-green-700' : 'text-slate-800'}`}>
                             {pf(c.responded_pct)}
+                            <div className="text-[11px] font-normal text-slate-400">{nf(c.responded)} total</div>
                           </td>
                         </tr>
                         {co && c.zips.map((z) => (
                           <tr key={z.zip} className="border-b border-slate-100 bg-slate-50/60 text-[13px]">
                             <td className="px-3 py-1 pl-8 text-slate-600">{z.zip}</td>
                             <td className="px-2 py-1 text-right tabular-nums text-slate-600">{nf(z.mailed)}</td>
-                            <td className="px-2 py-1 text-right tabular-nums text-slate-600">{nf(z.called_in)}</td>
-                            <td className="px-2 py-1 text-right tabular-nums text-slate-600">{nf(z.iq_pins)}</td>
+                            <td className="px-2 py-1 text-right tabular-nums text-slate-600">
+                              {nf(z.called_in)} <span className="text-[11px] text-slate-400">{pf(z.called_in_pct)}</span>
+                            </td>
+                            <td className="px-2 py-1 text-right tabular-nums text-slate-600">
+                              {nf(z.iq_pins)} <span className="text-[11px] text-slate-400">{pf(z.iq_pct)}</span>
+                            </td>
                             <td className={`px-3 py-1 text-right tabular-nums font-semibold ${strong(z.responded_pct) ? 'text-green-700' : 'text-slate-600'}`}>
                               {pf(z.responded_pct)}
                             </td>
