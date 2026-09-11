@@ -39,6 +39,11 @@ const json = (code, obj) => ({
 // it and turning it off would quietly change them too.
 const NOT_A_FIELD_REP = new Set([
   'neal scoppe', 'jennifer vongraupen', 'dewayne kohrn', 'nikki macella', 'william hernandez',
+  // Dustin Hunt books inbound calls as a setter; he is not on the rep comp plan
+  // either (Neal, 2026-09-11). Six people now carry is_active_sales_rep without
+  // being field reps, which is the flag's problem rather than this list's — a
+  // separate field-rep flag would stop every future send needing this list.
+  'dustin hunt',
 ])
 
 export const handler = async () => {
