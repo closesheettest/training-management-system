@@ -20,7 +20,10 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { DOCUMENTS, renderCompAgreementsPdf } from './_comp-agreements.js'
+import { sendEmail } from './_email.js'
 
+// Jennifer VonGraupen — the same person who countersigns the IC agreement.
+const COMP_SIGNED_TO = 'JennV@shingleusa.com'
 const BUCKET = 'trainee-docs'
 const json = (code, obj) => ({
   statusCode: code,
@@ -126,6 +129,30 @@ export const handler = async (event) => {
 
   await supabase.from('trainee_onboarding')
     .update({ comp_agreement_pdf_path: pdfPath, comp_pdf_error: pdfError }).eq('trainee_id', t.id)
+
+  // Send the signed copy to Jenn (Neal, 2026-09-11). It was being rendered and
+  // filed in Storage and nobody was told — the office had to go looking for a
+  // document they did not know existed. Jennifer VonGraupen already countersigns
+  // the IC agreement, so signed pay agreements land in the same inbox.
+  //
+  // Best-effort and AFTER the signature is saved: the rep has signed either way,
+  // and a mail server having a bad afternoon must never cost us the record of it.
+  if (pdfPath) {
+    try {
+      const { data: file } = await supabase.storage.from(BUCKET).download(pdfPath)
+      const content = file ? Buffer.from(await file.arrayBuffer()) : null
+      if (content) {
+        const safe = String(repName || 'Rep').replace(/[^A-Za-z0-9]+/g, '-')
+        await sendEmail(
+          COMP_SIGNED_TO,
+          `Signed Draw Program + Compensation Plan — ${repName}`,
+          `${repName} signed both pay agreements on ${new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.\n\n`
+          + `Draw Program signed as: ${drawName}\nCompensation Plan signed as: ${compName}\n\nThe signed PDF is attached.`,
+          { attachments: [{ filename: `Pay-Agreements-${safe}.pdf`, content }] },
+        )
+      }
+    } catch (e) { console.warn('comp agreement: could not email the signed copy:', e?.message) }
+  }
 
   return json(200, { ok: true, signed_at: now, pdf: !!pdfPath })
 }
