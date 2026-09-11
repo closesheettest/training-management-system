@@ -66,7 +66,7 @@ export default function MailResponseReport() {
 
       {data && !data.weeks.length && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3">
-          Nothing rolled up yet. {data.note || ''}
+          {data.note || 'Nothing rolled up yet.'}
         </div>
       )}
 
