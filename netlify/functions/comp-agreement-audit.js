@@ -31,7 +31,15 @@ const json = (code, obj) => ({
 // copies), and two active inspectors who carry the sales-rep flag. Kept here so
 // the audit counts the same people the message actually went to — an audit that
 // silently uses a different list is worse than none.
-const NOT_A_FIELD_REP = new Set(['neal scoppe', 'jennifer vongraupen', 'dewayne kohrn', 'nikki macella'])
+// William Hernandez is the TRAINER, not a sales rep — he carries the
+// is_active_sales_rep flag (which is why the 11 Sep send reached him) and tops
+// the signing leaderboards, but he is not on the rep comp plan and has nothing
+// to sign (Neal, 2026-09-11). Excluded here so he stops counting as outstanding
+// and is never nudged; the flag itself is left alone because other reports read
+// it and turning it off would quietly change them too.
+const NOT_A_FIELD_REP = new Set([
+  'neal scoppe', 'jennifer vongraupen', 'dewayne kohrn', 'nikki macella', 'william hernandez',
+])
 
 export const handler = async () => {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY
