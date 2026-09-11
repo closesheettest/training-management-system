@@ -7,9 +7,14 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 //
 // What went out in the mail each week, and the two ways a homeowner answers it:
 // they phone in and a setter books them (Viviana, Dustin, Hannah take ~95% of
-// those), or they scan the QR on the mailer and fill in the instant quote
-// themselves. Divided by the pieces mailed, that is the conversion rate — which
-// is the number that says where to mail next.
+// those), or an Instant Quote lead syncs in from JobNimbus.
+//
+// That second column is NOT a QR scan and must not be labelled as one. It counts
+// every JN contact whose source is "Instant Quote", whatever brought them to the
+// form — mailer, Facebook, the website, typing the URL. Nothing in the record
+// says how they arrived (Neal, 2026-09-11). Attributing it to the mail needs a
+// tracked parameter on the printed QR; until then the rate is a mix, and the
+// column name says so.
 //
 // Cities sorted by name, each opening to the ZIPs inside it (Neal, 2026-09-11):
 // ZIP is how mail actually drops, city is how a person reads a list.
@@ -56,8 +61,9 @@ export default function MailResponseReport() {
         📬 Mail &amp; Conversion {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
           What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
-          it off an inbound call. <b>Scanned QR</b> is the homeowner doing the instant quote themselves. Every
-          percentage is out of the pieces mailed into that ZIP. <b>Response rate</b> is both routes together ÷ pieces mailed — a response, not a sale.
+          it off an inbound call. <b>JN Sync Pin</b> is an Instant Quote lead synced in from JobNimbus —
+          however that person found the form, not only from the mailer. Every percentage is out of the pieces
+          mailed into that ZIP. <b>Response rate</b> is both together ÷ pieces mailed — a response, not a sale.
         </div>
       </button>
 
@@ -91,7 +97,7 @@ export default function MailResponseReport() {
                 {nf(w.totals.called_in)} called in <span className="text-slate-400">({pf(w.totals.called_in_pct)})</span>
               </span>
               <span className="text-xs text-slate-600">
-                {nf(w.totals.iq_pins)} scanned QR <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
+                {nf(w.totals.iq_pins)} JN sync pins <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
               <span className={`ml-auto text-sm font-extrabold ${strong(w.totals.responded_pct) ? 'text-green-700' : 'text-slate-900'}`}>
                 {pf(w.totals.responded_pct)} response rate
@@ -105,7 +111,7 @@ export default function MailResponseReport() {
                     <th className="text-left font-semibold px-3 py-1.5">City</th>
                     <th className="text-right font-semibold px-2 py-1.5">Mailed</th>
                     <th className="text-right font-semibold px-2 py-1.5">Called in</th>
-                    <th className="text-right font-semibold px-2 py-1.5">Scanned QR</th>
+                    <th className="text-right font-semibold px-2 py-1.5">JN Sync Pin</th>
                     <th className="text-right font-semibold px-3 py-1.5">Response rate</th>
                   </tr>
                 </thead>
@@ -167,7 +173,7 @@ export default function MailResponseReport() {
       {data && data.captured_at && (
         <div className="text-[11px] text-slate-400 mt-2">
           Captured {new Date(data.captured_at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET ·
-          {' '}a homeowner who scanned the QR <i>and</i> was then booked by a setter appears in both columns.
+          {' '}a homeowner with a JN sync pin who was <i>also</i> booked by a setter appears in both columns.
         </div>
       )}
       </div>
