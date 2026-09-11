@@ -61,16 +61,55 @@ export const handler = async () => {
   const field = (reps || []).filter(
     (r) => !NOT_A_FIELD_REP.has(`${r.first_name || ''} ${r.last_name || ''}`.trim().toLowerCase()),
   )
-  if (!field.length) return json(200, { ok: true, sent_to: 0, counts: {}, reps: [] })
+  // (field can legitimately be empty if every rep is excluded; classes still count)
+
+  // TRAINEES TOO. The documents also went to the people who were in class this
+  // week, and they carry no is_active_sales_rep flag — so the audit could see the
+  // field reps and nothing else, and eleven signatures were only trackable by
+  // watching Jenn's inbox (Neal, 2026-09-11).
+  //
+  // The roster is WHO SIGNED IN ON THE CLASS'S MOST RECENT TRAINING DAY, never who
+  // enrolled. Enrollment counts people who never walked in the door: the class
+  // that finished on 10 Sep had 9 enrolled, 6 who ever signed in, and 3 who
+  // finished. Reading class_id alone would have this page chasing signatures from
+  // six people who are, in Neal's words, dead to us.
+  //
+  // Picking it up from attendance rather than a stored list means the next class
+  // appears here on its own, with no second list to keep in step.
+  const since = new Date(Date.now() - 45 * 86400000).toLocaleDateString('en-CA')
+  const { data: classes } = await supabase
+    .from('classes')
+    .select('id, week_start_date, week_end_date')
+    .is('cancelled_at', null)
+    .gte('week_end_date', since)
+  const classRoster = []
+  for (const cl of classes || []) {
+    const { data: att } = await supabase
+      .from('attendance').select('trainee_id, attendance_date').eq('class_id', cl.id)
+    if (!att || !att.length) continue
+    const lastDay = att.reduce((a, r) => (r.attendance_date > a ? r.attendance_date : a), '')
+    const ids = [...new Set(att.filter((r) => r.attendance_date === lastDay).map((r) => r.trainee_id))]
+    if (!ids.length) continue
+    const { data: tr } = await supabase
+      .from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').in('id', ids)
+    for (const t of tr || []) classRoster.push({ ...t, group: `Class ${cl.week_start_date}`, last_day: lastDay })
+  }
+
+  // A trainee already flagged as a field rep is one person, not two rows.
+  const seen = new Set(field.map((r) => r.id))
+  const everyone = [
+    ...field.map((r) => ({ ...r, group: 'Field rep' })),
+    ...classRoster.filter((r) => !seen.has(r.id) && (seen.add(r.id), true)),
+  ]
 
   const { data: rows } = await supabase
     .from('trainee_onboarding')
     .select('trainee_id, comp_opened_at, comp_draw_signed_at, comp_plan_signed_at, comp_signed_at, comp_agreement_pdf_path, comp_pdf_error')
-    .in('trainee_id', field.map((r) => r.id))
+    .in('trainee_id', everyone.map((r) => r.id))
   const byId = new Map((rows || []).map((r) => [r.trainee_id, r]))
 
   const out = []
-  for (const r of field) {
+  for (const r of everyone) {
     const o = byId.get(r.id) || {}
     const draw = !!o.comp_draw_signed_at, plan = !!o.comp_plan_signed_at
     const state = o.comp_signed_at ? 'signed' : (draw || plan) ? 'partial' : o.comp_opened_at ? 'opened' : 'not_opened'
@@ -84,6 +123,7 @@ export const handler = async () => {
     out.push({
       id: r.id,
       name: `${r.first_name || ''} ${r.last_name || ''}`.trim(),
+      group: r.group,
       phone: r.phone || null,
       email: r.company_email || r.email || null,
       state,

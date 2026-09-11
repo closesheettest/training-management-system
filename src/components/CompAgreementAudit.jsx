@@ -75,7 +75,7 @@ export default function CompAgreementAudit() {
         className="w-full rounded-lg bg-[#0f766e] px-4 py-3 text-left font-semibold text-white shadow hover:opacity-95">
         ✍️ Pay &amp; draw signatures {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
-          Who has signed the Draw Program and the Inspection Compensation Plan, and who still needs chasing.
+          Field reps and this month's classes — who has signed the Draw Program and the Inspection Compensation Plan, and who still needs chasing.
           Each document is signed separately, so “started, not finished” is its own state.
         </div>
       </button>
@@ -103,7 +103,8 @@ export default function CompAgreementAudit() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-1.5 text-left font-semibold">Rep</th>
+                    <th className="px-2 py-1.5 text-left font-semibold">Name</th>
+                    <th className="px-2 py-1.5 text-left font-semibold">Group</th>
                     <th className="px-2 py-1.5 text-left font-semibold">Status</th>
                     <th className="px-2 py-1.5 text-left font-semibold">Draw</th>
                     <th className="px-2 py-1.5 text-left font-semibold">Comp plan</th>
@@ -114,6 +115,7 @@ export default function CompAgreementAudit() {
                   {d.reps.map((r) => (
                     <tr key={r.id} className="border-b border-slate-100">
                       <td className="px-2 py-1.5 font-semibold text-slate-800">{r.name}</td>
+                      <td className="px-2 py-1.5 text-xs text-slate-500">{r.group || '—'}</td>
                       <td className="px-2 py-1.5">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATE[r.state].cls}`}>{STATE[r.state].label}</span>
                       </td>
