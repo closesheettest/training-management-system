@@ -57,7 +57,7 @@ export default function MailResponseReport() {
         <div className="text-xs font-normal opacity-90">
           What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
           it off an inbound call. <b>Scanned QR</b> is the homeowner doing the instant quote themselves. Every
-          percentage is out of the pieces mailed into that ZIP; <b>Conversion</b> is both routes together.
+          percentage is out of the pieces mailed into that ZIP. <b>Response rate</b> is both routes together ÷ pieces mailed — a response, not a sale.
         </div>
       </button>
 
@@ -94,7 +94,7 @@ export default function MailResponseReport() {
                 {nf(w.totals.iq_pins)} scanned QR <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
               <span className={`ml-auto text-sm font-extrabold ${strong(w.totals.responded_pct) ? 'text-green-700' : 'text-slate-900'}`}>
-                {pf(w.totals.responded_pct)} conversion
+                {pf(w.totals.responded_pct)} response rate
               </span>
             </button>
 
@@ -106,7 +106,7 @@ export default function MailResponseReport() {
                     <th className="text-right font-semibold px-2 py-1.5">Mailed</th>
                     <th className="text-right font-semibold px-2 py-1.5">Called in</th>
                     <th className="text-right font-semibold px-2 py-1.5">Scanned QR</th>
-                    <th className="text-right font-semibold px-3 py-1.5">Conversion</th>
+                    <th className="text-right font-semibold px-3 py-1.5">Response rate</th>
                   </tr>
                 </thead>
                 <tbody>
