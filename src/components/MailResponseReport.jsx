@@ -154,6 +154,12 @@ export default function MailResponseReport() {
                 </tbody>
               </table>
             )}
+            {open && w.unmailed && w.unmailed.cities > 0 && (
+              <div className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-slate-100">
+                {w.unmailed.cities} more cities had activity this week but no mail drop
+                ({w.unmailed.called_in} called in, {w.unmailed.iq_pins} scanned QR) — not listed, but included in the week total above.
+              </div>
+            )}
           </div>
         )
       })}
