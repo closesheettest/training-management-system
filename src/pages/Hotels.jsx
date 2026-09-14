@@ -60,6 +60,9 @@ export default function Hotels() {
   // cohort in week 1 — 2 nights, Mon–Wed) and Week B (a cohort in week 2 — 3
   // nights, Mon–Thu). '' until classes load, then the nearest upcoming week.
   const [weekMon, setWeekMon] = useState('')
+  // Booked rooms whose info was never sent — in ANY recent week, not just the one
+  // on screen. See the banner below for why this has to ignore the week picker.
+  const [outstanding, setOutstanding] = useState([])
   const [trainees, setTrainees] = useState([])
   const [stays, setStays] = useState([])
   const [editingStayId, setEditingStayId] = useState(null) // id of stay being edited inline (or 'new-<trainee_id>')
@@ -103,6 +106,28 @@ export default function Hotels() {
     if (weekMon || classes.length === 0) return
     setWeekMon(defaultWeekMon(classes))
   }, [classes, weekMon])
+
+  // WHY THIS EXISTS. defaultWeekMon deliberately opens on the COMING week and
+  // skips a week already underway. So Jen opened Hotels mid-week, the page jumped
+  // to the next cohort, and last week's NINE booked-but-unsent rooms sat one ◀
+  // click behind her with nothing on screen saying they were there. She reported
+  // that she could not send the hotel information; the button existed, on a week
+  // she had no reason to look at (Neal, 2026-09-14).
+  //
+  // This looks across every recent week so an unsent room can never hide behind
+  // the week picker again.
+  const loadOutstanding = useCallback(async () => {
+    const since = addDaysISO(todayISO(), -21)
+    const { data } = await supabase
+      .from('trainee_hotel_stays')
+      .select('id, check_in, trainees(first_name, last_name)')
+      .is('info_sent_at', null)
+      .is('cancelled_at', null)
+      .gte('check_in', since)
+      .order('check_in', { ascending: true })
+    setOutstanding(data || [])
+  }, [])
+  useEffect(() => { loadOutstanding() }, [loadOutstanding])
 
   const loadForClass = useCallback(async () => {
     if (!weekMon || classes.length === 0) {
@@ -360,6 +385,26 @@ export default function Hotels() {
     }
   }
 
+  async function sendOutstanding() {
+    if (!outstanding.length) return
+    if (!confirm(`Send hotel info to ${outstanding.length} trainee${outstanding.length === 1 ? '' : 's'} who have never received it?`)) return
+    setSending(true); setFlash(null)
+    try {
+      const res = await fetch('/.netlify/functions/send-hotel-info-sms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stay_ids: outstanding.map((s) => s.id), notify_admin: true }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) setFlash({ kind: 'error', text: j.error || 'Send failed.' })
+      else {
+        setFlash({ kind: j.fail_count > 0 ? 'error' : 'success',
+                   text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${j.fail_count > 0 ? ` · ${j.fail_count} failed` : ''}.` })
+      }
+      await loadOutstanding(); await loadForClass()
+    } catch (err) { setFlash({ kind: 'error', text: err.message }) }
+    finally { setSending(false) }
+  }
+
   async function sendAllUnsent() {
     // Every booked-but-unsent room for THIS week's displayed trainees.
     const unsent = trainees.map((t) => stayFor(t)).filter((s) => s && !s.info_sent_at && !s.cancelled_at)
@@ -467,6 +512,33 @@ export default function Hotels() {
           the right dates), then <strong>Send hotel info to everyone</strong> in one shot.
         </p>
       </header>
+
+      {outstanding.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-amber-900">
+                🏨 {outstanding.length} booked room{outstanding.length === 1 ? '' : 's'} — hotel info never sent
+              </div>
+              <div className="mt-0.5 text-xs text-amber-800">
+                {outstanding.slice(0, 6).map((s) => `${s.trainees?.first_name || ''} ${s.trainees?.last_name || ''}`.trim()).filter(Boolean).join(' · ')}
+                {outstanding.length > 6 ? ` · +${outstanding.length - 6} more` : ''}
+              </div>
+              <div className="mt-1 text-[11px] text-amber-700">
+                These may be on a different week than the one shown below — this sends them all.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={sendOutstanding}
+              disabled={sending}
+              className="shrink-0 rounded-md bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-40"
+            >
+              {sending ? 'Sending…' : `Send hotel info to ${outstanding.length}`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Week navigator */}
       <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
