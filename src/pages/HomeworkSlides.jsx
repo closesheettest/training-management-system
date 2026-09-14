@@ -95,6 +95,34 @@ export default function HomeworkSlides() {
         without looking — that&rsquo;s the whole job tonight.
       </p>
 
+      {/* THE RECORDING BELONGS HERE, not in a Wednesday text. The Wednesday send
+          skipped Rebecca Sweney entirely — presentation_sent_at was null, so she
+          went out into the field for a week without the pitch to listen to, and
+          nobody knew until she was asked for it by name (Neal, 2026-09-14).
+          A trainee doing their homework should never have to have received a text
+          to hear how it is delivered. */}
+      <div className="mt-5 rounded-xl border border-brand-navy/25 bg-slate-50 p-4">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          Hear it delivered
+        </p>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-slate-600">
+          The whole presentation, start to finish. Play it while you read along — the
+          words matter, so learn it the way it&rsquo;s delivered rather than your own
+          version of it.
+        </p>
+        <audio
+          controls
+          preload="none"
+          className="mt-3 w-full"
+          src="https://yfmzktvmlfeqcubnvhxr.supabase.co/storage/v1/object/public/training-audio/full-presentation.mp3"
+        >
+          Your browser can&rsquo;t play audio —{' '}
+          <a href="https://yfmzktvmlfeqcubnvhxr.supabase.co/storage/v1/object/public/training-audio/full-presentation.mp3">
+            open the recording
+          </a>.
+        </audio>
+      </div>
+
       <div className="mt-5 space-y-2">
         {rows.map((d) => {
           const isOpen = openId === d.id
