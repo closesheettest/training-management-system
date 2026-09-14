@@ -91,6 +91,17 @@ function CollapsibleSection({ sectionClass, headingClass, title, defaultOpen = f
 // Group Messages "All active sales reps" scope filters by this flag, so
 // the list shown here is exactly who'd be reached by a company-wide blast.
 
+// Reps type their own address, so the city arrives as "midland park" as often as
+// "Midland Park". Title-case it for the roster rather than making the office read
+// someone's typing (Neal, 2026-09-14).
+function homeCity(t) {
+  const city = String(t.city || '').trim()
+  if (!city) return null
+  const nice = city.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  const st = String(t.state || '').trim().toUpperCase()
+  return st ? `${nice}, ${st}` : nice
+}
+
 export default function ActiveReps() {
   const { regionNames } = useRegions()
   const [active, setActive] = useState([])
@@ -1830,6 +1841,14 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
               <span className="ml-1 text-[10px] uppercase tracking-wide text-slate-400">personal</span>
             </>
           ) : null}
+          {homeCity(t) && (
+            <>
+              {' · '}
+              <span className="text-slate-700" title="Where this rep lives — from their own info form.">
+                🏠 {homeCity(t)}
+              </span>
+            </>
+          )}
           {' · '}{classLabel}
         </div>
         {active && (
