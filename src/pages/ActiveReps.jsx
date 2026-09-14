@@ -118,6 +118,8 @@ export default function ActiveReps() {
   // no-show). Effectively dead leads. Kept around for record-keeping
   // and the rare "actually they did make it, promote them anyway" case.
   const [dropouts, setDropouts] = useState([])
+  // trainee_id -> how many days they signed in, for recent classes only.
+  const [recentAttendance, setRecentAttendance] = useState({})
   // Reps flagged "no longer a sales rep" but admin hasn't yet finished
   // cleaning them up in GHL / RepCard / etc. Surfaced as a separate
   // section with a checklist + "✓ All cleanup done" button.
@@ -661,7 +663,7 @@ export default function ActiveReps() {
     ),
   )
   const notYetActiveFiltered = filterList(notYetActive)
-  const dropoutsFiltered = filterList(dropouts)
+  const dropoutsFiltered = filterList(dropouts).filter((t) => !justFinishedIds.has(t.id))
   const nonFieldFiltered = filterList(nonField)
 
   // Group active reps by region for the field-section render below.
@@ -926,6 +928,45 @@ export default function ActiveReps() {
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
   // "Re-send update-info request" button.
+  // WHY: a graduate who was never activated lands in "Non-active reps" beside
+  // no-shows from six months ago, and is invisible. Michael Carraggi-Willan
+  // finished Week B on 10 Sep and sat there until William noticed he was missing
+  // from the ride-along picker four days later (Neal, 2026-09-14).
+  //
+  // Attendance is what separates the two: somebody who SIGNED IN and whose class
+  // has since ended is waiting on a decision, not gone.
+  useEffect(() => {
+    const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10)
+    supabase
+      .from('attendance')
+      .select('trainee_id, attendance_date')
+      .gte('attendance_date', since)
+      .then(({ data }) => {
+        const by = {}
+        for (const r of data || []) {
+          by[r.trainee_id] = (by[r.trainee_id] || new Set())
+          by[r.trainee_id].add(r.attendance_date)
+        }
+        setRecentAttendance(Object.fromEntries(Object.entries(by).map(([k, v]) => [k, v.size])))
+      })
+      .catch(() => {})
+  }, [])
+
+  // Finished a class recently, signed in at least once, still not active.
+  // These need a decision — activate them, or leave them for the next class.
+  const justFinished = useMemo(() => {
+    const cutoff = new Date(Date.now() - 45 * 86400000)
+    return dropouts.filter((t) => {
+      if (!recentAttendance[t.id]) return false
+      const wk = t.classes?.week_end_date
+      if (!wk) return false
+      const parts = String(wk).slice(0, 10).split('-').map(Number)
+      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false
+      return new Date(parts[0], parts[1] - 1, parts[2]) >= cutoff
+    })
+  }, [dropouts, recentAttendance])
+  const justFinishedIds = useMemo(() => new Set(justFinished.map((t) => t.id)), [justFinished])
+
   const neverUpdatedCount = useMemo(
     () => active.filter((t) => !t.info_updated_at).length,
     [active],
@@ -1612,6 +1653,33 @@ export default function ActiveReps() {
           </ul>
         )}
       </CollapsibleSection>
+
+      {justFinished.length > 0 && (
+        <CollapsibleSection
+          sectionClass="rounded-lg border border-amber-300 bg-amber-50 p-5"
+          headingClass="text-lg font-semibold text-amber-900"
+          title={`🎓 Finished training — waiting on a decision (${justFinished.length})`}
+          forceOpen
+        >
+          <p className="mt-1 text-xs text-amber-800">
+            They signed in to a class that has now ended, and they are still not active reps — so
+            they show on <strong>no</strong> list: not the trainee ride-along picker (their class
+            week is over) and not the rep roster (they were never activated).
+            Either <strong>Add as active rep</strong>, or leave them for the next class.
+          </p>
+          <ul className="mt-3 divide-y divide-amber-200">
+            {justFinished.map((t) => (
+              <RepRow
+                key={t.id}
+                t={t}
+                active={false}
+                saving={savingId === t.id}
+                onPromote={() => toggle(t, true)}
+              />
+            ))}
+          </ul>
+        </CollapsibleSection>
+      )}
 
       <CollapsibleSection
         sectionClass="rounded-lg border border-slate-200 bg-slate-50 p-5"
