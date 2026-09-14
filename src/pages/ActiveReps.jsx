@@ -663,6 +663,45 @@ export default function ActiveReps() {
     ),
   )
   const notYetActiveFiltered = filterList(notYetActive)
+  // WHY: a graduate who was never activated lands in "Non-active reps" beside
+  // no-shows from six months ago, and is invisible. Michael Carraggi-Willan
+  // finished Week B on 10 Sep and sat there until William noticed he was missing
+  // from the ride-along picker four days later (Neal, 2026-09-14).
+  //
+  // Attendance is what separates the two: somebody who SIGNED IN and whose class
+  // has since ended is waiting on a decision, not gone.
+  useEffect(() => {
+    const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10)
+    supabase
+      .from('attendance')
+      .select('trainee_id, attendance_date')
+      .gte('attendance_date', since)
+      .then(({ data }) => {
+        const by = {}
+        for (const r of data || []) {
+          by[r.trainee_id] = (by[r.trainee_id] || new Set())
+          by[r.trainee_id].add(r.attendance_date)
+        }
+        setRecentAttendance(Object.fromEntries(Object.entries(by).map(([k, v]) => [k, v.size])))
+      })
+      .catch(() => {})
+  }, [])
+
+  // Finished a class recently, signed in at least once, still not active.
+  // These need a decision — activate them, or leave them for the next class.
+  const justFinished = useMemo(() => {
+    const cutoff = new Date(Date.now() - 45 * 86400000)
+    return dropouts.filter((t) => {
+      if (!recentAttendance[t.id]) return false
+      const wk = t.classes?.week_end_date
+      if (!wk) return false
+      const parts = String(wk).slice(0, 10).split('-').map(Number)
+      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false
+      return new Date(parts[0], parts[1] - 1, parts[2]) >= cutoff
+    })
+  }, [dropouts, recentAttendance])
+  const justFinishedIds = useMemo(() => new Set(justFinished.map((t) => t.id)), [justFinished])
+
   const dropoutsFiltered = filterList(dropouts).filter((t) => !justFinishedIds.has(t.id))
   const nonFieldFiltered = filterList(nonField)
 
@@ -928,45 +967,6 @@ export default function ActiveReps() {
   // How many active reps still haven't responded to the update-info
   // blast (info_updated_at IS NULL). Shown as a chip + powers the bulk
   // "Re-send update-info request" button.
-  // WHY: a graduate who was never activated lands in "Non-active reps" beside
-  // no-shows from six months ago, and is invisible. Michael Carraggi-Willan
-  // finished Week B on 10 Sep and sat there until William noticed he was missing
-  // from the ride-along picker four days later (Neal, 2026-09-14).
-  //
-  // Attendance is what separates the two: somebody who SIGNED IN and whose class
-  // has since ended is waiting on a decision, not gone.
-  useEffect(() => {
-    const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10)
-    supabase
-      .from('attendance')
-      .select('trainee_id, attendance_date')
-      .gte('attendance_date', since)
-      .then(({ data }) => {
-        const by = {}
-        for (const r of data || []) {
-          by[r.trainee_id] = (by[r.trainee_id] || new Set())
-          by[r.trainee_id].add(r.attendance_date)
-        }
-        setRecentAttendance(Object.fromEntries(Object.entries(by).map(([k, v]) => [k, v.size])))
-      })
-      .catch(() => {})
-  }, [])
-
-  // Finished a class recently, signed in at least once, still not active.
-  // These need a decision — activate them, or leave them for the next class.
-  const justFinished = useMemo(() => {
-    const cutoff = new Date(Date.now() - 45 * 86400000)
-    return dropouts.filter((t) => {
-      if (!recentAttendance[t.id]) return false
-      const wk = t.classes?.week_end_date
-      if (!wk) return false
-      const parts = String(wk).slice(0, 10).split('-').map(Number)
-      if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false
-      return new Date(parts[0], parts[1] - 1, parts[2]) >= cutoff
-    })
-  }, [dropouts, recentAttendance])
-  const justFinishedIds = useMemo(() => new Set(justFinished.map((t) => t.id)), [justFinished])
-
   const neverUpdatedCount = useMemo(
     () => active.filter((t) => !t.info_updated_at).length,
     [active],
