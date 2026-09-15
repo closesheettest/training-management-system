@@ -42,7 +42,9 @@
 // Required env: SUPABASE_URL, SUPABASE_SECRET_KEY, GHL_PIT_TOKEN,
 // GHL_LOCATION_ID, plus optional PUBLIC_SITE_URL / URL.
 //
-// Returns: { ok, processed_classes, sent, skipped, errors }.
+// Returns: { ok, processed_classes, sent, skipped, errors, rosters }.
+// `rosters` lists any class whose homework went to a CARRIED-FORWARD roster
+// because today had no classroom to sign in at, and which day it came from.
 
 import { createClient } from '@supabase/supabase-js'
 import { sendSmsViaGhl } from './_ghl.js'
@@ -131,6 +133,7 @@ export const handler = async (event) => {
 
   let sent = 0
   const skipped = []
+  const rosters = []
   const errors = []
   let processedClasses = 0
 
@@ -180,11 +183,23 @@ export const handler = async (event) => {
       continue
     }
 
-    // 3. Find trainees who attended today. The user's strict-attendance
-    //    rule means no-shows don't get homework — they're not continuing.
-    const { data: attendance, error: aErr } = await supabase
+    // 3. Who gets tonight's homework. Normally: whoever signed in today — the
+    //    strict-attendance rule, so a no-show isn't handed work they're not
+    //    doing.
+    //
+    //    But not every day of the class has a classroom to sign in at. Week A's
+    //    field days have no kiosk, and a week can finish early (Neal cut Week A
+    //    a day short on 2026-09-15). On those days NOBODY has an attendance row,
+    //    and the homework simply never went out — Day 4's never had, since it
+    //    lands on a field Thursday. So when today has no attendance at all, fall
+    //    back to the roster from the most recent day of this class week that DID
+    //    — the same "who is still in this class" rule the trainee feed uses for
+    //    William's picker. A no-show still drops off, because they are absent
+    //    from that day too.
+    const SEL = 'trainee_id, attendance_date, trainees(id, first_name, phone, email, company_email, company_email_password)'
+    const { data: todayRows, error: aErr } = await supabase
       .from('attendance')
-      .select('trainee_id, trainees(id, first_name, phone, email, company_email, company_email_password)')
+      .select(SEL)
       .eq('class_id', cls.id)
       .eq('attendance_date', todayIso)
       .eq('confirmed', true)
@@ -192,9 +207,30 @@ export const handler = async (event) => {
       errors.push({ class_id: cls.id, error: aErr.message })
       continue
     }
-    if (!attendance || attendance.length === 0) {
-      skipped.push({ class_id: cls.id, day_number: dayNumber, reason: 'Nobody attended today' })
+    let attendance = todayRows || []
+    let rosterFrom = todayIso
+    if (attendance.length === 0) {
+      const { data: prior } = await supabase
+        .from('attendance')
+        .select(SEL)
+        .eq('class_id', cls.id)
+        .gte('attendance_date', cls.week_start_date)
+        .lt('attendance_date', todayIso)
+        .eq('confirmed', true)
+        .order('attendance_date', { ascending: false })
+      const last = (prior || [])[0]?.attendance_date || null
+      if (last) {
+        attendance = (prior || []).filter((r) => r.attendance_date === last)
+        rosterFrom = last
+      }
+    }
+    if (attendance.length === 0) {
+      skipped.push({ class_id: cls.id, day_number: dayNumber, reason: 'Nobody has attended this class yet' })
       continue
+    }
+
+    if (rosterFrom !== todayIso) {
+      rosters.push({ class_id: cls.id, day_number: dayNumber, roster_from: rosterFrom, count: attendance.length })
     }
 
     // 4. For each attended trainee, send homework SMS (if not already
@@ -277,7 +313,7 @@ export const handler = async (event) => {
   console.log(
     `cron-training-homework: ${processedClasses} class(es), sent=${sent}, skipped=${skipped.length}, errors=${errors.length}`,
   )
-  return json(200, { ok: true, processed_classes: processedClasses, sent, skipped, errors })
+  return json(200, { ok: true, processed_classes: processedClasses, sent, skipped, errors, rosters })
 }
 
 // ────────────────────────────────────────────────────────────────────

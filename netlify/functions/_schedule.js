@@ -21,6 +21,7 @@
 // `_`-prefixed helper module — not a Netlify endpoint.
 
 import { isLateStartDate, lateStartHourET } from './_late-start.js'
+import { isNoClassDate } from './_no-class.js'
 
 // Fallback only. The live timetable is app_settings.training_timetable, edited at
 // /timetable — one row, shared with the trainee-facing pages, so the hours a
@@ -71,6 +72,10 @@ export function phaseForDate(weekStartDate, today) {
 // The hour ET that classroom starts for this cohort on this date, or null when
 // it isn't a classroom day (field days, the middle weekend, Week B Friday).
 export function classStartHourET(weekStartDate, today, startHours = FALLBACK_START_ET) {
+  // A date the office has called off. Checked before the timetable, because the
+  // timetable describes the standing week and cannot know that THIS cohort
+  // finished early. No class day → no policing at all, same as a field day.
+  if (isNoClassDate(today)) return null
   const phase = phaseForDate(weekStartDate, today)
   if (!phase) return null
   const dow = new Date(`${today}T12:00:00Z`).getUTCDay()
