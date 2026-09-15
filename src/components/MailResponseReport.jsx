@@ -64,6 +64,9 @@ export default function MailResponseReport() {
           it off an inbound call. <b>JN Sync Pin</b> is an Instant Quote lead synced in from JobNimbus —
           however that person found the form, not only from the mailer. Every percentage is out of the pieces
           mailed into that ZIP. <b>Response rate</b> is both together ÷ pieces mailed — a response, not a sale.
+          <br /><b>An answer is credited to the drop that caused it</b>, which is the week <i>before</i> it came in —
+          mail takes about a week to land and get read. So the newest week shows what went out, and its answers
+          appear on the week above it.
         </div>
       </button>
 
@@ -99,9 +102,19 @@ export default function MailResponseReport() {
               <span className="text-xs text-slate-600">
                 {nf(w.totals.iq_pins)} JN sync pins <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
-              <span className={`ml-auto text-sm font-extrabold ${strong(w.totals.responded_pct) ? 'text-green-700' : 'text-slate-900'}`}>
-                {pf(w.totals.responded_pct)} response rate
-              </span>
+              {w.totals.mailed > 0 && w.totals.responded === 0 ? (
+                // A fresh drop with no answers yet is not a 0% response rate, it is a
+                // question nobody has had time to answer. Printing 0.00% beside 47,360
+                // pieces reads as a failed mailer (Neal, 2026-09-15) — the answers are
+                // on the week above, where the lag credits them.
+                <span className="ml-auto text-xs font-semibold text-amber-700">
+                  just mailed — answers land on the week above
+                </span>
+              ) : (
+                <span className={`ml-auto text-sm font-extrabold ${strong(w.totals.responded_pct) ? 'text-green-700' : 'text-slate-900'}`}>
+                  {pf(w.totals.responded_pct)} response rate
+                </span>
+              )}
             </button>
 
             {open && (
