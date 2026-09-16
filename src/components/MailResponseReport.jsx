@@ -24,6 +24,10 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 // last_mailed_date, one date per property that gets overwritten every time that
 // house is mailed again. Asked live in October, August shrinks. The nightly
 // capture keeps history his table structurally cannot.
+// A call that reaches a human and does not produce an appointment is the most
+// expensive thing in the funnel — everything upstream already worked. Green only
+// once better than half of callers get booked.
+const strongSched = (p) => typeof p === 'number' && p >= 50
 const nf = (n) => (n == null ? '—' : Number(n).toLocaleString())
 const pf = (n) => (n == null ? '—' : `${n.toFixed(2)}%`)
 
@@ -66,6 +70,9 @@ export default function MailResponseReport() {
           the lead afterwards, which is why it is a bigger number than the open Instant Quote pins
           on the map (those are only the ones nobody has knocked yet). Every percentage is out of the pieces
           mailed into that ZIP. <b>Response rate</b> is both together ÷ pieces mailed — a response, not a sale.
+          <br /><b>Phoned</b> counts homeowners who rang a tracking number printed on a mailer, and
+          <b> scheduled</b> is how many of those ended up with an appointment — people, not calls,
+          so someone ringing three times before anyone picks up counts once.
           <br /><b>An answer is credited to the drop that caused it</b>, which is the week <i>before</i> it came in —
           mail takes about a week to land and get read. So the newest week shows what went out, and its answers
           appear on the week above it.
@@ -104,6 +111,21 @@ export default function MailResponseReport() {
               <span className="text-xs text-slate-600">
                 {nf(w.totals.iq_pins)} instant quotes <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
+              {/* The half that was missing: of the people who phoned the number on
+                  the mailer, how many ended up with an appointment. Percentages
+                  are of PEOPLE, not calls — one homeowner ringing three times
+                  before anyone picks up is one lead. */}
+              {w.phone && w.phone.calls > 0 && (
+                <span className="text-xs text-slate-600">
+                  {nf(w.phone.callers)} phoned{' '}
+                  <span className="text-slate-400">({w.phone.missed > 0 ? `${w.phone.missed} missed` : 'all answered'})</span>
+                  {' · '}
+                  <b className={strongSched(w.phone.scheduled_pct) ? 'text-green-700' : 'text-slate-900'}>
+                    {nf(w.phone.scheduled)} scheduled
+                  </b>{' '}
+                  <span className="text-slate-400">({pf(w.phone.scheduled_pct)})</span>
+                </span>
+              )}
               {w.totals.mailed > 0 && w.totals.responded === 0 ? (
                 // A fresh drop with no answers yet is not a 0% response rate, it is a
                 // question nobody has had time to answer. Printing 0.00% beside 47,360
