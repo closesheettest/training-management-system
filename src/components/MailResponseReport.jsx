@@ -61,8 +61,10 @@ export default function MailResponseReport() {
         📬 Mail &amp; Conversion {open ? '▾' : '▸'}
         <div className="text-xs font-normal opacity-90">
           What we mailed, and who answered — by ZIP, grouped under the city. <b>Called in</b> is a setter booking
-          it off an inbound call. <b>JN Sync Pin</b> is an Instant Quote lead synced in from JobNimbus —
-          however that person found the form, not only from the mailer. Every percentage is out of the pieces
+          it off an inbound call. <b>Instant Quote</b> is a homeowner who filled the form in themselves — however they found
+          it, not only from the mailer. It counts <b>every one ever received</b>, whatever happened to
+          the lead afterwards, which is why it is a bigger number than the open Instant Quote pins
+          on the map (those are only the ones nobody has knocked yet). Every percentage is out of the pieces
           mailed into that ZIP. <b>Response rate</b> is both together ÷ pieces mailed — a response, not a sale.
           <br /><b>An answer is credited to the drop that caused it</b>, which is the week <i>before</i> it came in —
           mail takes about a week to land and get read. So the newest week shows what went out, and its answers
@@ -100,7 +102,7 @@ export default function MailResponseReport() {
                 {nf(w.totals.called_in)} called in <span className="text-slate-400">({pf(w.totals.called_in_pct)})</span>
               </span>
               <span className="text-xs text-slate-600">
-                {nf(w.totals.iq_pins)} JN sync pins <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
+                {nf(w.totals.iq_pins)} instant quotes <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
               {w.totals.mailed > 0 && w.totals.responded === 0 ? (
                 // A fresh drop with no answers yet is not a 0% response rate, it is a
@@ -124,7 +126,7 @@ export default function MailResponseReport() {
                     <th className="text-left font-semibold px-3 py-1.5">City</th>
                     <th className="text-right font-semibold px-2 py-1.5">Mailed</th>
                     <th className="text-right font-semibold px-2 py-1.5">Called in</th>
-                    <th className="text-right font-semibold px-2 py-1.5">JN Sync Pin</th>
+                    <th className="text-right font-semibold px-2 py-1.5">Instant Quote</th>
                     <th className="text-right font-semibold px-3 py-1.5">Response rate</th>
                   </tr>
                 </thead>
@@ -176,7 +178,7 @@ export default function MailResponseReport() {
             {open && w.unmailed && w.unmailed.cities > 0 && (
               <div className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-slate-100">
                 {w.unmailed.cities} more cities had activity this week but no mail drop
-                ({w.unmailed.called_in} called in, {w.unmailed.iq_pins} scanned QR) — not listed, but included in the week total above.
+                ({w.unmailed.called_in} called in, {w.unmailed.iq_pins} instant quotes) — not listed, but included in the week total above.
               </div>
             )}
           </div>
@@ -195,7 +197,7 @@ export default function MailResponseReport() {
       {data && data.captured_at && (
         <div className="text-[11px] text-slate-400 mt-2">
           Captured {new Date(data.captured_at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET ·
-          {' '}a homeowner with a JN sync pin who was <i>also</i> booked by a setter appears in both columns.
+          {' '}a homeowner who filled in an instant quote and was <i>also</i> booked by a setter appears in both columns.
         </div>
       )}
       </div>
