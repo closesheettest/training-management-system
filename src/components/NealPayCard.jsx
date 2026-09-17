@@ -76,6 +76,14 @@ function reportableMondays() {
 
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 const monthName = (d) => d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+// GROUP BY THE MONTH IT PAYS, NOT THE MONTH IT WAS SOLD.
+//
+// Every option in the list is labelled "Pays <date>", so the month above it has to
+// mean the same thing. It did not: the weeks were grouped by the sales week's own
+// Monday, and with an 18-day lag a week beginning 31 Aug pays 18 Sep. Choosing
+// "September 2026" showed two paydays when three fall in September, and the
+// missing one was filed under August with a September label on it
+// (Neal, 2026-09-17).
 // "Jun 1 – 7". Built from the week's MONDAY, so the card, the dropdown and the table
 // can never disagree. The API returns its range as instants — Monday 00:00 ET to
 // Sunday 23:59:59 ET — and that end lands on Monday in UTC, so formatting it off the
@@ -165,9 +173,9 @@ export default function NealPayCard() {
   }, [])
   const mondays = reportableMondays()
   const [monday, setMonday] = useState(() => mondays[0] || latestReportMonday())
-  const months = [...new Map(mondays.map((m) => [monthKey(m), m])).values()]
-  const [month, setMonth] = useState(() => monthKey(mondays[0] || latestReportMonday()))
-  const weeksInMonth = mondays.filter((m) => monthKey(m) === month)
+  const months = [...new Map(mondays.map((m) => [monthKey(paydayFor(m)), m])).values()]
+  const [month, setMonth] = useState(() => monthKey(paydayFor(mondays[0] || latestReportMonday())))
+  const weeksInMonth = mondays.filter((m) => monthKey(paydayFor(m)) === month)
 
   // Picking a month or a pay period loads THAT week straight away (Neal,
   // 2026-09-10). Driven off the selected Monday rather than the select handlers:
@@ -234,7 +242,7 @@ export default function NealPayCard() {
 
   const pickMonth = (k) => {
     setMonth(k)
-    const first = mondays.find((m) => monthKey(m) === k)
+    const first = mondays.find((m) => monthKey(paydayFor(m)) === k)
     if (first) { setMonday(first); load(first) }
   }
   // One place that builds a week's <option>, so the sorted list and the old
@@ -312,7 +320,7 @@ export default function NealPayCard() {
               Load press (Neal, 2026-09-10). */}
           <select value={month} onChange={(e) => pickMonth(e.target.value)}
             className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700">
-            {months.map((m) => <option key={monthKey(m)} value={monthKey(m)}>{monthName(m)}</option>)}
+            {months.map((m) => <option key={monthKey(paydayFor(m))} value={monthKey(paydayFor(m))}>{monthName(paydayFor(m))}</option>)}
           </select>
           {/* Pay periods are labelled by the FRIDAY THEY PAY, not the sales range —
               a period is chosen by its payment date (Neal, 2026-09-10). The card
