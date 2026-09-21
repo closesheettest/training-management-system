@@ -32,15 +32,21 @@ const COLS = 'id, first_name, last_name, phone, email, region, week_b_hold, week
 // Zone → the manager they should go to. Their field_manager_id is not set, and a
 // message telling someone to "get with your manager" without naming them is a
 // message that gets ignored.
+//
+// This is now only the FALLBACK. The real name comes from the roster — the same
+// lookup that decides who gets the heads-up — because a hard-coded list goes
+// stale and then does the exact thing the paragraph above warns about: Zone 1
+// said "your regional manager" long after Anthony took it (Neal, 2026-09-21).
 const ZONE_MANAGER = {
   'Zone 1': 'your regional manager',
   'Zone 2': 'Richard',
   'Zone 3': 'Chad',
   'Zone 4': 'Sam',
 }
+const mgrName = (t) => t.manager_first_name || ZONE_MANAGER[t.region] || 'your manager'
 
 function smsFor(t) {
-  const mgr = ZONE_MANAGER[t.region] || 'your manager'
+  const mgr = mgrName(t)
   return [
     `Hi ${t.first_name}, it's U.S. Shingle.`,
     ``,
@@ -53,7 +59,7 @@ function smsFor(t) {
 }
 
 function emailFor(t) {
-  const mgr = ZONE_MANAGER[t.region] || 'your manager'
+  const mgr = mgrName(t)
   return {
     subject: 'Your second week of training',
     body: [
@@ -120,8 +126,19 @@ export const handler = async (event) => {
   const { data: held, error } = await q
   if (error) return { statusCode: 500, body: JSON.stringify({ ok: false, error: error.message }) }
 
+  // One lookup per region, reused for both the trainee's copy and the heads-up,
+  // so the name they are sent to and the person who hears about it are the same
+  // by construction.
+  const mgrCache = {}
+  const lookupMgr = async (region) => {
+    if (!(region in mgrCache)) mgrCache[region] = await managerFor(supabase, region)
+    return mgrCache[region]
+  }
+
   const out = []
   for (const t of held || []) {
+    const mgr = await lookupMgr(t.region)
+    if (mgr?.first_name) t.manager_first_name = mgr.first_name
     const sms = smsFor(t)
     const mail = emailFor(t)
     const row = { name: `${t.first_name} ${t.last_name}`, region: t.region, phone: t.phone, email: t.email, sms, subject: mail.subject, email_body: mail.body }
@@ -149,7 +166,7 @@ export const handler = async (event) => {
   const byRegion = {}
   for (const r of out) (byRegion[r.region] = byRegion[r.region] || []).push(r.name)
   for (const [region, names] of Object.entries(byRegion)) {
-    const m = await managerFor(supabase, region)
+    const m = await lookupMgr(region)          // already resolved above; no second round trip
     if (!m) { managers.push({ region, error: 'no manager set for this zone' }); continue }
     const note = managerNoteFor(names, region)
     const row = { region, manager: `${m.first_name} ${m.last_name}`, sms_to: m.sms_to, email_to: m.email_to, about: names, message: note }
