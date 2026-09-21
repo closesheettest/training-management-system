@@ -2,7 +2,9 @@
 //
 // Tells a trainee who has been HELD from Week B why, and what gets them back in.
 //
-// Being held is not the same as being dropped, and the message has to say so:
+// It names the actual failure — nothing worked on the map since they left
+// training, which is what this is really about (Neal, 2026-09-21) — and being
+// held is not the same as being dropped, so the message has to say so too:
 // there IS a way back, it is a full week of real effort in the field, and their
 // manager will help them get there. Sending nothing leaves someone who finished
 // Week A watching the Monday text arrive for everyone else and drawing their own
@@ -42,7 +44,7 @@ function smsFor(t) {
   return [
     `Hi ${t.first_name}, it's U.S. Shingle.`,
     ``,
-    `Your second week of training is on hold for now. The map didn't show the minimum effort in the field this past week, and second week is for people who are working it.`,
+    `Since you left training there's been zero effort in the field — the map shows not one door worked. Second week is for people who are out there doing it, so yours is on hold.`,
     ``,
     `This isn't a no. Put in a full week of real effort out there and you're back in for week two.`,
     ``,
@@ -57,9 +59,9 @@ function emailFor(t) {
     body: [
       `Hi ${t.first_name},`,
       ``,
-      `Your second week of training is on hold for now.`,
+      `Your second week of training is on hold.`,
       ``,
-      `The map didn't show the minimum effort in the field this past week. Second week is for people who are working it, so we're holding your spot rather than moving you into it.`,
+      `Since you left training there has been zero effort in the field — the map shows not one door worked. Second week is for people who are out there doing it, so we're holding your spot rather than moving you into it.`,
       ``,
       `This isn't a no, and it isn't the end of the road. Put in a full week of real effort in the field and you're back in for week two.`,
       ``,
@@ -81,7 +83,7 @@ function managerNoteFor(names, region) {
   return [
     `Heads up — ${names.join(' and ')} ${names.length > 1 ? 'have' : 'has'} just been told their second week of training is on hold.`,
     ``,
-    `What they were told: the map didn't show the minimum effort in the field this past week, it isn't a no, and a full week of real effort puts them back in for week two. They were told to get with you.`,
+    `What they were told: since they left training the map shows zero effort in the field — not one door worked — it isn't a no, and a full week of real effort puts them back in for week two. They were told to get with you.`,
     ``,
     `Whether they stay is your call. If you want them back in for week two, say the word.`,
   ].join('\n')
