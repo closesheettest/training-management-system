@@ -71,11 +71,19 @@ export const handler = async (event) => {
     // Only run on Fridays (unless forced) — a cohort's Week A ends Friday.
     if (!force && dowET() !== 5) return json(200, { ok: true, mode: 'cron', skipped: 'not_friday', today })
     const thisMon = mondayOfISO(today)
-    // Cohorts whose Week A started this Monday (so today = their Week A Friday).
+    // Cohorts whose Week A ran THIS WEEK (so today = their Week A Friday).
+    //
+    // Matched across the whole week, not on Monday exactly. A Week A does not
+    // always start on a Monday — this one was moved to Wednesday (Neal,
+    // 2026-09-21) — and an equality test on Monday silently drops that cohort:
+    // no Week B confirmation, for eleven people, with nothing logged to say why.
+    // Everything downstream already normalises with mondayOfISO.
+    const friOfWeek = addDaysISO(thisMon, 4)
     const { data: classes } = await supabase
       .from('classes')
       .select('id, region, week_start_date, week_end_date, cancelled_at, attendance_only, locations(name, city, state)')
-      .eq('week_start_date', thisMon)
+      .gte('week_start_date', thisMon)
+      .lte('week_start_date', friOfWeek)
       .is('cancelled_at', null)
       .eq('attendance_only', false)
     const results = []
