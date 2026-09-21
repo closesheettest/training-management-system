@@ -204,6 +204,11 @@ export async function runGroupSend(body) {
       // token as {link} — a company-wide "go sign these" blast needs no new
       // links minted and no second list to keep in step (Neal, 2026-09-09).
       signlink: t.registration_token ? `${siteUrl}/comp-agreement/${t.registration_token}` : '',
+      // Yes/no on a class. Used when a message has to be ANSWERED rather than
+      // just read — a reschedule the office needs a headcount for. Same token
+      // again, and it writes confirmation_status, so the answer lands on the
+      // class roster instead of in someone's texts (Neal, 2026-09-21).
+      confirmlink: t.registration_token ? `${siteUrl}/confirm/${t.registration_token}` : '',
     }
     if (wantSms && t.phone) {
       taskFactories.push(async () => {
