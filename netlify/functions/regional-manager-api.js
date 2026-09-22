@@ -339,6 +339,15 @@ export const handler = async (event) => {
     const { status, body: out } = await ccgRecordsApi(region, { action: 'list-appointments', view: body.view })
     return json(status, out)
   }
+  // Hand ONE appointment to another zone. Overlapping territory (Zone 1 and
+  // Zone 2 both cover Orlando) means the right rep is sometimes on another
+  // team; this moves that appointment and nothing else (Neal, 2026-09-22).
+  if (action === 'transfer-appointment') {
+    const { status, body: out } = await ccgRecordsApi(region, {
+      action: 'transfer-appointment', appt_id: body.appt_id, jn_job_id: body.jn_job_id, to_zone: body.to_zone,
+    })
+    return json(status, out)
+  }
   // Assign an Owner + Sales Rep to a setter appointment (proxied to CCG, which
   // writes both to the JobNimbus job + stamps the local row).
   if (action === 'assign-appointment') {

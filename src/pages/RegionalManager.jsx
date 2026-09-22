@@ -1471,6 +1471,67 @@ function WeeklyReport({ token }) {
 // Setter-booked appointments in this zone that landed on the manager with NO
 // sales rep. Manager picks an Owner + a Sales Rep → writes both to the JN job.
 // Proxied through regional-manager-api → CCG manager-records-api.
+// GIVE ONE APPOINTMENT TO ANOTHER TEAM.
+//
+// Zones overlap — Zone 1 and Zone 2 both cover Orlando — so the nearest rep is
+// sometimes on another team. This hands over that ONE appointment: no zone
+// boundary moves, nothing is automatic, and the next booking at that address
+// routes exactly as it does now (Neal, 2026-09-22: "it has to be that the
+// regional manager manually assigns it... and it's only for that appointment").
+//
+// Collapsed to a single link until it's wanted, because the common case is
+// still assigning it to your own rep.
+function TransferZone({ apptId, jobId, zone, who, token, onDone }) {
+  const [open, setOpen] = useState(false)
+  const [to, setTo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const others = ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4'].filter((z) => z !== zone)
+  if (!jobId) return null
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="mt-1 text-[11.5px] font-bold text-slate-500 underline hover:text-slate-700">
+        ↔ Give this one to another team
+      </button>
+    )
+  }
+  const go = async () => {
+    if (!to) return
+    if (!window.confirm(`Hand ${who || 'this appointment'} to ${to}?\n\nOnly this appointment moves. Your zone doesn't change.`)) return
+    setBusy(true); setErr('')
+    try {
+      const r = await fetch('/.netlify/functions/regional-manager-api', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'transfer-appointment', token, appt_id: apptId || undefined, jn_job_id: jobId, to_zone: to }),
+      })
+      const o = await r.json().catch(() => ({}))
+      if (!o.ok) { setErr(o.error || 'Could not transfer it.'); setBusy(false); return }
+      onDone()
+    } catch { setErr('Network error.'); setBusy(false) }
+  }
+  return (
+    <div className="mt-1 rounded-md border border-slate-300 bg-white p-2">
+      <div className="text-[11.5px] font-bold text-slate-600">Give this appointment to:</div>
+      <div className="mt-1 flex items-center gap-2">
+        <select value={to} onChange={(e) => setTo(e.target.value)} disabled={busy}
+          className="rounded border border-slate-300 px-2 py-1 text-[12.5px]">
+          <option value="">Select a team…</option>
+          {others.map((z) => <option key={z} value={z}>{z}</option>)}
+        </select>
+        <button type="button" onClick={go} disabled={!to || busy}
+          className="rounded bg-slate-700 px-3 py-1 text-[12.5px] font-bold text-white disabled:opacity-50">
+          {busy ? '…' : 'Transfer'}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setErr('') }} disabled={busy}
+          className="text-[12px] text-slate-500 underline">Cancel</button>
+      </div>
+      <div className="mt-1 text-[11px] text-slate-500">Only this appointment. Your zone and its counties don't change.</div>
+      {err && <div className="mt-1 text-[11.5px] font-bold text-rose-600">{err}</div>}
+    </div>
+  )
+}
+
 // Split-view map for Assign Appointments: RED = the manager's senior sales reps
 // (home pins), BLUE = appointments that still need assigning (geocoded from
 // their address). Helps the manager assign the nearest rep.
@@ -1675,6 +1736,7 @@ function AssignAppointments({ token }) {
                     <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
                     <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
                     {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
+                    <TransferZone apptId={a.id} jobId={a.jn_job_id} zone={d.zone} who={a.homeowner_name} token={token} onDone={() => load(view)} />
                   </div>
                 ))}
                 {viv.length > 0 && (
@@ -1690,6 +1752,7 @@ function AssignAppointments({ token }) {
                         <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
                         {it.is_goback && <div className="text-[11.5px] text-orange-700">📋 Review visit — {it.appt_note || 'go-back'}. Assign a rep so it isn't missed.</div>}
                         {editRow(it, 'Assign')}
+                        <TransferZone jobId={it.jn_job_id} zone={d.zone} who={it.homeowner} token={token} onDone={() => load(view)} />
                       </div>
                     ))}
                   </div>
