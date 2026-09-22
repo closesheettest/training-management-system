@@ -56,6 +56,15 @@ export default function ClassDetail() {
   const [editingLocation, setEditingLocation] = useState(false)
   const [locationDraft, setLocationDraft] = useState('')
   const [editingWeek, setEditingWeek] = useState(false)
+  // The weekday the class actually starts, for the confirmation badges. A week
+  // that gets moved must not still say "Monday".
+  const startDayLabel = (() => {
+    const d = cls?.week_start_date;
+    if (!d) return 'on the first day';
+    const [y, m, day] = String(d).slice(0, 10).split('-').map(Number);
+    if (!y) return 'on the first day';
+    return new Date(Date.UTC(y, m - 1, day)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+  })();
   const [weekDraft, setWeekDraft] = useState({ start: '', end: '', schedule: '' })
   const [editingTraineeId, setEditingTraineeId] = useState(null)
   const [traineeDraft, setTraineeDraft] = useState(null)
@@ -1627,6 +1636,7 @@ export default function ClassDetail() {
           the normal 3-bucket grouping by registration status. */}
       {cls.attendance_only ? (
         <TraineeGroup
+          startDayLabel={startDayLabel}
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           paperworkDetailsById={paperworkDetails}
@@ -1692,6 +1702,7 @@ export default function ClassDetail() {
         { title: 'Not sent yet', emoji: '⚪', color: 'slate', items: notSent, empty: 'All trainees have been sent their link.' },
       ].map((group) => (
         <TraineeGroup
+          startDayLabel={startDayLabel}
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           paperworkDetailsById={paperworkDetails}
@@ -1736,6 +1747,7 @@ export default function ClassDetail() {
           renders when there's at least one. */}
       {holdingHere.length > 0 && (
         <TraineeGroup
+          startDayLabel={startDayLabel}
           onSendPaperwork={sendPaperworkLink}
           paperworkById={paperwork}
           paperworkDetailsById={paperworkDetails}
@@ -1935,6 +1947,7 @@ export default function ClassDetail() {
 }
 
 function TraineeGroup({
+  startDayLabel,
   paperworkById,
   paperworkDetailsById,
   onSendPaperwork,
@@ -2041,19 +2054,29 @@ function TraineeGroup({
                           📅 Week B confirmation sent: {new Date(t.week_b_confirm_sent_at).toLocaleString()}
                         </div>
                       )}
+                      {/* "coming Monday" was hard-coded. A week that gets moved — this
+                          one shifted to a Wednesday start — then told three people who
+                          HAD confirmed that they were coming on a day nobody is running
+                          (Neal, 2026-09-22). Read the day off the class. */}
                       {t.confirmation_status === 'confirmed' && (
                         <div className="mt-0.5 text-xs font-semibold text-green-700">
-                          ✅ Confirmed — coming Monday
+                          ✅ Confirmed — coming {startDayLabel}
+                          {t.confirmation_at ? ` · ${new Date(t.confirmation_at).toLocaleString()}` : ''}
                         </div>
                       )}
                       {t.confirmation_status === 'declined' && (
                         <div className="mt-0.5 text-xs font-semibold text-red-700">
                           ❌ Declined — can't make it
+                          {t.confirmation_at ? ` · ${new Date(t.confirmation_at).toLocaleString()}` : ''}
                         </div>
                       )}
-                      {!t.confirmation_status && t.week_b_confirm_sent_at && (
+                      {/* Awaiting used to depend on week_b_confirm_sent_at alone, so a
+                          reschedule sent as a group message showed NOTHING for anyone who
+                          had not replied — the seven people you most need to see. Any
+                          message that asked them to confirm counts. */}
+                      {!t.confirmation_status && (t.week_b_confirm_sent_at || t.last_group_message_sent_at) && (
                         <div className="mt-0.5 text-xs font-semibold text-amber-700">
-                          ⏳ Awaiting their Week B reply
+                          ⏳ Asked to confirm {new Date(t.week_b_confirm_sent_at || t.last_group_message_sent_at).toLocaleDateString()} — no reply yet
                         </div>
                       )}
                       {!t.confirmation_status && !t.week_b_confirm_sent_at && t.last_reminder_sent_at && (
