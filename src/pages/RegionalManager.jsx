@@ -1551,7 +1551,13 @@ function AssignAppointments({ token }) {
     fetch('/.netlify/functions/rep-zones?include_inactive=1').then((r) => r.json()).then((j) => setAllReps(j.reps || [])).catch(() => {})
   }, [])
   // The manager's SENIOR reps in this zone that have home coordinates → red pins.
-  const srReps = useMemo(() => allReps.filter((r) => d && r.zone === d.zone && String(r.rep_level || '').toLowerCase() === 'senior' && typeof r.latitude === 'number' && typeof r.longitude === 'number'), [allReps, d])
+  // r.active matters: the fetch above asks for include_inactive=1 on purpose, so a
+  // departed rep's deals can still be reassigned elsewhere on this page. This list
+  // is the opposite — who can be GIVEN work today — and without the check a rep who
+  // left stayed pinned on the assign map, indistinguishable from someone working.
+  // Rene Thomas sat on Zone 2's map as a senior rep long after she stopped being one
+  // (Neal, 2026-09-22: "I see Renee on there as an active rep and we know she is not").
+  const srReps = useMemo(() => allReps.filter((r) => d && r.zone === d.zone && r.active && String(r.rep_level || '').toLowerCase() === 'senior' && typeof r.latitude === 'number' && typeof r.longitude === 'number'), [allReps, d])
   // Appointments still needing a rep (with an address to geocode) → blue pins.
   const needItems = useMemo(() => {
     // Backlog rows carry their address inside the JN job name (e.g. "123 Main St
