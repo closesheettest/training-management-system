@@ -173,8 +173,6 @@ export default function RegionalManager() {
       <Group title="⭐ Today's work" defaultOpen>
         <MeasureAnyAddress />
 
-        <TeamAppointments zone={manager.region} />
-        <MeasurePractice zone={manager.region} />
         <NewTrainees reps={reps} token={token} onChanged={reload} />
         <CancelReviews zone={manager.region} />
         <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
@@ -495,87 +493,6 @@ function HarvestActivityReport({ zone }) {
   )
 }
 
-// Single-zone Appointments → Sales — renders with the EXACT same look as the
-// company-wide admin report (AllApptConversion in RegionalManagers.jsx), just
-// scoped to this manager's one zone via zone-appt-conversion (same data shape
-// as one of the admin's zones[] entries).
-// ── Roofs to measure (practice) ─────────────────────────────────────
-// The manager's share of the open hand-measure backlog, each one deep-linking into Roof
-// Fusion. Renders NOTHING until the verified numbers are loaded and the list is published —
-// a list you can work before there is a right answer to score against is just unscored work
-// (Neal, 2026-09-06).
-function MeasurePractice({ zone }) {
-  const [data, setData] = useState(null)
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(true)
-
-  useEffect(() => {
-    let live = true
-    setBusy(true)
-    fetch(LB_ORIGIN + 'measure-practice?zone=' + encodeURIComponent(zone))
-      .then((r) => r.json())
-      .then((j) => { if (!live) return; if (j.ok) setData(j); else setErr(j.error || 'Could not load.') })
-      .catch(() => { if (live) setErr('Network error.') })
-      .finally(() => { if (live) setBusy(false) })
-    return () => { live = false }
-  }, [zone])
-
-  if (busy || err) return null
-  if (!data || data.published !== true || !data.count) return null   // hidden until published
-
-  const done = data.summary?.done || 0
-  const pct = data.count ? Math.round((100 * done) / data.count) : 0
-
-  return (
-    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-      <div className="mb-1 flex flex-wrap items-center gap-2">
-        <span className="text-base font-bold text-white">📐 Roofs to measure</span>
-        <span className="text-sm text-slate-300">{done} of {data.count} done</span>
-        <a href="https://claude.ai/code/artifact/62d8900a-f958-4486-8f7b-907443d41f71" target="_blank" rel="noreferrer"
-          className="ml-auto rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">How to trace →</a>
-      </div>
-      <p className="mb-3 text-xs text-slate-400">
-        Land within <b className="text-slate-200">half a square</b> of the number on file. Square the corner till the
-        guide goes green, line a 45° ray up the hip, then walk the red line for daylight.
-      </p>
-      <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
-        <div className="h-full rounded-full bg-emerald-500" style={{ width: pct + '%' }} />
-      </div>
-
-      {data.jobs.map((j) => (
-        <div key={j.jnid} className={`mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 ${j.done ? 'bg-slate-800/40' : 'bg-slate-800/70'}`}>
-          <span className="min-w-0 flex-1">
-            <span className={`block text-sm font-semibold ${j.done ? 'text-slate-400 line-through' : 'text-white'}`}>
-              {j.job_name}
-              {/* No verified number to score against — say WHY, but don't tell them not to
-                  trace it. Roofr declined these for canopy; that does not mean WE can't do
-                  them, and once the map fits the building rather than the parcel most are
-                  perfectly traceable. Measure it, it just won't be scored (Neal, 2026-09-07). */}
-              {j.tree_cover && (
-                <span className="ml-2 whitespace-nowrap rounded bg-amber-900/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300"
-                  title="Roofr wouldn't do this one, so there's no number to check against. Trace it anyway — if the canopy really does hide it, use Too much tree cover in Roof Fusion.">
-                  🌳 no number to check — measure it anyway
-                </span>
-              )}
-            </span>
-            <span className="block truncate text-xs text-slate-300">
-              {j.address || 'no address on the job'}
-              {j.product_type ? <> · {j.product_type}</> : null}
-            </span>
-          </span>
-          <span className="flex shrink-0 gap-1.5">
-            {!j.done && j.address && (
-              <a href={CCG_APP + j.measure_url} target="_blank" rel="noreferrer"
-                className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-500">📐 Measure</a>
-            )}
-            <a href={j.jn_url} target="_blank" rel="noreferrer"
-              className="rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">JN</a>
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ── This week's appointments ────────────────────────────────────────
 // Everybody on the manager's team, grouped by day, straight out of JobNimbus.
@@ -624,96 +541,6 @@ function MeasureAnyAddress() {
   )
 }
 
-function TeamAppointments({ zone }) {
-  const [loading, setLoading] = useState(true)
-  const [data, setData] = useState(null)
-  const [err, setErr] = useState('')
-  const [span, setSpan] = useState('next7')
-
-  const load = async (sp) => {
-    setLoading(true); setErr('')
-    let lastErr = ''
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(LB_ORIGIN + 'week-appointments?zone=' + encodeURIComponent(zone) + '&span=' + sp)
-        const d = await res.json()
-        if (d && d.ok) { setData(d); setLoading(false); return }
-        lastErr = d?.error || 'Could not load.'
-      } catch { lastErr = 'Network error.' }
-      if (attempt < 2) await new Promise((r) => setTimeout(r, 1200))
-    }
-    setErr(lastErr); setLoading(false)
-  }
-  useEffect(() => { load(span) /* eslint-disable-next-line */ }, [zone, span])
-
-  const spans = [['next7', 'Next 7 days'], ['week', 'This week'], ['nextweek', 'Next week']]
-  // Only render days that have something, plus today even when it's empty — a manager
-  // scrolling past five blank days stops reading the card.
-  const days = (data?.days || []).filter((d) => d.appts.length || d.is_today)
-
-  return (
-    <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-base font-bold text-white">🗓️ Appointments this week</span>
-        {data && <span className="text-sm text-slate-300">{data.totals.appts} appointment{data.totals.appts === 1 ? '' : 's'} · {data.scope.rep_count} rep{data.scope.rep_count === 1 ? '' : 's'}</span>}
-        <span className="w-full text-xs text-slate-400">Measure each roof ahead of time so the rep walks in prepared.</span>
-        <span className="ml-auto flex gap-1">
-          {spans.map(([k, label]) => (
-            <button key={k} onClick={() => setSpan(k)}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold ${span === k ? 'bg-yellow-400 text-slate-900' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}>{label}</button>
-          ))}
-        </span>
-      </div>
-
-      {loading && <p className="text-sm text-slate-300">Loading from JobNimbus…</p>}
-      {err && <p className="text-sm text-red-300">{err} <button onClick={() => load(span)} className="underline">Try again</button></p>}
-      {!loading && !err && !days.some((d) => d.appts.length) && (
-        <p className="text-sm text-slate-300">No appointments on the books for your team in this window.</p>
-      )}
-
-      {!loading && !err && days.map((d) => (
-        <div key={d.date} className="mb-3">
-          <div className={`mb-1.5 flex items-center gap-2 border-b pb-1 ${d.is_today ? 'border-yellow-400/60' : 'border-slate-700'}`}>
-            <span className={`text-sm font-bold ${d.is_today ? 'text-yellow-300' : 'text-slate-200'}`}>{d.label}</span>
-            <span className="text-xs text-slate-400">{d.appts.length || 'nothing booked'}{d.appts.length ? (d.appts.length === 1 ? ' appointment' : ' appointments') : ''}</span>
-          </div>
-          {d.appts.map((a) => (
-            <div key={a.task_id || a.jn_job_id} className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-800/70 px-3 py-2">
-              <span className="w-16 shrink-0 text-sm font-bold text-yellow-200">{a.time_et}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-white">{a.job_name}</span>
-                <span className="block truncate text-xs text-slate-300">
-                  {a.address || 'no address on the job'}
-                  {a.rep_name ? <> · <span className="text-slate-200">{a.rep_name}</span></> : null}
-                  {a.status ? <> · {a.status}</> : null}
-                  {a.type && a.type !== 'Appointment' ? <> · {a.type}</> : null}
-                </span>
-              </span>
-              <span className="flex shrink-0 gap-1.5">
-                {/* LIVE as of 11 Sep 2026. Parked on 6 Sep until the practice roofs were
-                    signed off; Neal released it. Carries the job name, address and jnid, so
-                    Roof Fusion opens on the right roof and the finished report can be
-                    submitted straight back onto that job. */}
-                {a.address && (
-                  <a href={`${CCG_APP}/?mode=rooffusion&addr=${encodeURIComponent(a.address)}`
-                      + `&job=${encodeURIComponent(a.job_name || '')}`
-                      + `&jnid=${encodeURIComponent(a.jn_job_id || '')}`}
-                    target="_blank" rel="noreferrer"
-                    className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-500">📐 Measure</a>
-                )}
-                {a.jn_url && (
-                  <a href={a.jn_url} target="_blank" rel="noreferrer"
-                    className="rounded-md bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-100 hover:bg-slate-600">JN</a>
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
-      ))}
-      {data?.week && <p className="mt-1 text-xs text-slate-400">{data.week.start_et} → {data.week.end_et} (Eastern)</p>}
-    </div>
-  )
-}
 
 // ── This week's appointments ends ───────────────────────────────────
 function ApptConversion({ zone }) {
