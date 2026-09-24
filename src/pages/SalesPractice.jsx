@@ -1,0 +1,448 @@
+// /sales-practice — Sales Training Customer (trainer-only, PIN-gated in App.jsx).
+//
+// The trainer runs this in class: picks the trainee who is up, an AI homeowner
+// and a section, and the trainee gives the IN-HOME PRESENTATION out loud (not the
+// door pitch). The homeowner answers by voice (Gemini Live, src/lib/geminiLive.js)
+// and sees whichever slide the rep has up. When they end, the transcript is
+// graded against the sales script word for word (practice-grade-background) and
+// saved to the trainee. Trainees never get a link to this page.
+//
+// Homeowners, sections and the deck: src/lib/salesPractice.js.
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase.js'
+import { LiveHomeowner } from '../lib/geminiLive.js'
+import { PERSONAS, SECTIONS, DECK, personaByKey, sectionByKey, homeownerPrompt, slideSrc } from '../lib/salesPractice.js'
+
+const PIN_KEY = 'sp_admin_ok_pin'
+const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
+
+async function api(payload) {
+  const r = await fetch('/.netlify/functions/practice-api', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: readPin(), ...payload }),
+  })
+  return r.json().catch(() => ({ ok: false, error: 'Network error' }))
+}
+
+const fmtWhen = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const fmtDur = (s) => (s == null ? '' : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`)
+const scoreColor = (n) => (n == null ? 'text-slate-400' : n >= 90 ? 'text-emerald-600' : n >= 75 ? 'text-lime-600' : n >= 60 ? 'text-amber-600' : 'text-red-600')
+
+export default function SalesPractice() {
+  const [stage, setStage] = useState('setup') // setup | live | report
+  const [classes, setClasses] = useState([])
+  const [traineeId, setTraineeId] = useState('')
+  const [personaKey, setPersonaKey] = useState(PERSONAS[0].key)
+  const [sectionKey, setSectionKey] = useState('full')
+  const [reportId, setReportId] = useState(null)
+  const [history, setHistory] = useState([])
+
+  useEffect(() => { document.title = 'Sales Training Customer — TMS' }, [])
+
+  // Classes running now or in the last three weeks, with their enrolled trainees.
+  useEffect(() => {
+    const today = new Date()
+    const from = new Date(today.getTime() - 21 * 864e5).toISOString().slice(0, 10)
+    const to = new Date(today.getTime() + 7 * 864e5).toISOString().slice(0, 10)
+    supabase.from('classes')
+      .select('id, region, week_start_date, week_end_date, attendance_only, trainees!class_id(id, first_name, last_name, enrolled)')
+      .gte('week_end_date', from).lte('week_start_date', to)
+      .order('week_start_date', { ascending: false })
+      .then(({ data }) => setClasses((data || []).filter((c) => !c.attendance_only)))
+  }, [])
+
+  const loadHistory = () => api({ action: 'list' }).then((d) => { if (d.ok) setHistory(d.sessions) })
+  useEffect(() => { loadHistory() }, [])
+
+  const trainees = useMemo(() => {
+    const out = []
+    for (const c of classes) for (const t of c.trainees || []) {
+      if (t.enrolled === false) continue
+      out.push({ id: t.id, name: `${t.first_name} ${t.last_name}`.trim(), class_id: c.id, cls: `${c.region || 'Class'} · week of ${c.week_start_date}` })
+    }
+    return out
+  }, [classes])
+  const trainee = trainees.find((t) => t.id === traineeId) || null
+
+  if (stage === 'live') {
+    return (
+      <LiveSession
+        persona={personaByKey(personaKey)} section={sectionByKey(sectionKey)} trainee={trainee}
+        onDone={(id) => { setReportId(id); setStage(id ? 'report' : 'setup'); loadHistory() }}
+      />
+    )
+  }
+  if (stage === 'report') {
+    return <Report id={reportId} onBack={() => { setStage('setup'); loadHistory() }} />
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <h1 className="text-2xl font-bold text-brand-navy">Sales Training Customer</h1>
+      <p className="mt-1 text-sm text-slate-600">
+        A trainee gives the in-home presentation out loud to an AI homeowner who talks back. When they finish, it is graded
+        against the sales script and saved to the trainee. Put it on the projector so the class learns from each run.
+      </p>
+
+      <Step n="1" title="Who is presenting?">
+        <select value={traineeId} onChange={(e) => setTraineeId(e.target.value)} className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2">
+          <option value="">No trainee: trainer try-out (still saved)</option>
+          {classes.map((c) => (
+            <optgroup key={c.id} label={`${c.region || 'Class'} · week of ${c.week_start_date}`}>
+              {(c.trainees || []).filter((t) => t.enrolled !== false)
+                .sort((a, b) => a.first_name.localeCompare(b.first_name))
+                .map((t) => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </Step>
+
+      <Step n="2" title="Pick the homeowner">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {PERSONAS.map((p) => (
+            <button key={p.key} type="button" onClick={() => setPersonaKey(p.key)}
+              className={`rounded-xl border p-4 text-left transition ${personaKey === p.key ? 'border-brand-navy bg-brand-navy-50 ring-2 ring-brand-navy' : 'border-slate-200 bg-white hover:border-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-brand-navy">{p.tagline}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.difficulty === 'Hard' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{p.difficulty}</span>
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">{p.name}</div>
+              <div className="mt-2 text-sm text-slate-700">{p.blurb}</div>
+            </button>
+          ))}
+        </div>
+      </Step>
+
+      <Step n="3" title="What are they practicing?">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {SECTIONS.map((s) => (
+            <label key={s.key} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${sectionKey === s.key ? 'border-brand-navy bg-brand-navy-50' : 'border-slate-200 bg-white'}`}>
+              <input type="radio" name="section" checked={sectionKey === s.key} onChange={() => setSectionKey(s.key)} className="mt-1" />
+              <span><span className="font-semibold text-slate-800">{s.label}</span><span className="block text-xs text-slate-500">{s.desc}</span></span>
+            </label>
+          ))}
+        </div>
+      </Step>
+
+      <div className="mt-6 flex flex-wrap items-center gap-4">
+        <button type="button" onClick={() => setStage('live')} className="rounded-lg bg-brand-red px-6 py-3 text-lg font-bold text-white shadow hover:bg-brand-red-dark">
+          🏠 Sit down at the table
+        </button>
+        <span className="text-xs text-slate-500">Chrome or Edge on a laptop. A headset works best; on speakers, keep the volume moderate so the homeowner doesn’t hear themselves.</span>
+      </div>
+
+      <History sessions={history} onOpen={(id) => { setReportId(id); setStage('report') }} />
+    </div>
+  )
+}
+
+function Step({ n, title, children }) {
+  return (
+    <section className="mt-6">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">{n}. {title}</h2>
+      {children}
+    </section>
+  )
+}
+
+// ── The live presentation ────────────────────────────────────────────────────
+function LiveSession({ persona, section, trainee, onDone }) {
+  const [status, setStatus] = useState('starting')
+  const [err, setErr] = useState('')
+  const [entries, setEntries] = useState([])
+  const [level, setLevel] = useState(0)
+  const [page, setPage] = useState(section.key === 'survey' || section.key === 'full' ? 0 : section.firstSlide) // 0 = no slide yet (intro/survey)
+  const [closeSilence, setCloseSilence] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const liveRef = useRef(null)
+  const logRef = useRef(null)
+
+  useEffect(() => {
+    const live = new LiveHomeowner({
+      systemPrompt: homeownerPrompt(persona, section.key),
+      voice: persona.voice,
+      getToken: async () => {
+        const r = await fetch('/.netlify/functions/practice-token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: readPin() }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!d.ok) throw new Error(d.error || 'Could not start a session.')
+        return d
+      },
+      on: { status: setStatus, transcript: setEntries, level: setLevel, error: setErr, closeSilence: setCloseSilence },
+    })
+    liveRef.current = live
+    live.start().catch((e) => { setErr(e.name === 'NotAllowedError' ? 'The browser blocked the microphone. Allow it (the icon in the address bar) and try again.' : e.message); setStatus('error') })
+    return () => { if (liveRef.current === live) live.stop() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tell the homeowner which slide is up whenever it changes (and at the start).
+  useEffect(() => {
+    if (!page) return
+    const d = DECK.find((x) => x.page === page)
+    liveRef.current?.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= 29)
+  }, [page])
+
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }) }, [entries])
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') setPage((p) => Math.min(DECK.length, p + 1))
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') setPage((p) => Math.max(1, p - 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const end = async () => {
+    if (saving) return
+    setSaving(true)
+    const out = liveRef.current.stop()
+    liveRef.current = null
+    if (!out.entries.some((e) => e.who === 'rep')) {
+      if (!window.confirm('Nothing the rep said was picked up. Save it anyway? (Cancel = throw it away)')) { onDone(null); return }
+    }
+    const d = await api({
+      action: 'save',
+      session: {
+        trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
+        persona_key: persona.key, section: section.key,
+        started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence,
+      },
+    })
+    if (!d.ok) { setErr(`Could not save: ${d.error}`); setSaving(false); return }
+    onDone(d.id)
+  }
+
+  const statusLabel = {
+    starting: 'Getting the microphone…', connecting: 'Connecting to the homeowner…', listening: '🎙️ Listening',
+    speaking: `🗣️ ${persona.speaker} is talking`, silence: '🤫 Silence after the ask…', error: 'Stopped',
+  }[status] || status
+
+  return (
+    <div className="mx-auto max-w-7xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{section.label}</div>
+          <h1 className="text-xl font-bold text-brand-navy">{trainee?.name || 'Trainer try-out'} → {persona.name} <span className="font-normal text-slate-500">({persona.tagline})</span></h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700">
+            <span>{statusLabel}</span>
+            <span className="h-2 w-16 overflow-hidden rounded bg-slate-300"><span className="block h-full bg-emerald-500 transition-all" style={{ width: `${Math.round(level * 100)}%` }} /></span>
+          </div>
+          <button type="button" onClick={() => { setMuted((m) => { liveRef.current?.setMuted(!m); return !m }) }}
+            className={`rounded-md border px-3 py-1.5 text-sm font-semibold ${muted ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 text-slate-600'}`}>
+            {muted ? '🔇 Mic paused' : 'Pause mic'}
+          </button>
+          <button type="button" onClick={end} disabled={saving} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+            {saving ? 'Saving…' : '⏹ End & grade'}
+          </button>
+        </div>
+      </div>
+      {err && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{err}</div>}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div>
+          {page === 0 ? (
+            <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
+              <div className="text-5xl">☕</div>
+              <div className="mt-3 text-xl font-bold text-brand-navy">At the kitchen table</div>
+              <p className="mt-2 max-w-md text-sm text-slate-600">Intro and customer survey: no slides yet. {persona.speaker} and their spouse are sitting across from you. Start whenever you’re ready.</p>
+              {section.key !== 'survey' && <button type="button" onClick={() => setPage(1)} className="mt-4 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Start the slide show →</button>}
+            </div>
+          ) : (
+            <img src={slideSrc(page)} alt={`Slide ${page}`} className="w-full rounded-xl border border-slate-200 bg-white shadow-sm" />
+          )}
+          <div className="mt-2 flex items-center justify-between text-sm">
+            <button type="button" onClick={() => setPage((p) => Math.max(section.key === 'full' ? 0 : 1, p - 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">← Back</button>
+            <span className="text-slate-500">{page ? `Deck page ${page} of ${DECK.length} · ${DECK[page - 1]?.script}` : 'No slide'} · ← → keys work</span>
+            <button type="button" onClick={() => setPage((p) => Math.min(DECK.length, p + 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">Next →</button>
+          </div>
+          {closeSilence && (
+            <div className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${closeSilence.held ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+              {closeSilence.held ? `✓ Held the silence after the ask (${closeSilence.seconds}s)` : `✗ Spoke again ${closeSilence.seconds}s after the ask, before the homeowner answered`}
+            </div>
+          )}
+        </div>
+        <div ref={logRef} className="h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 text-sm">
+          {!entries.length && <p className="text-slate-400">What’s said shows up here as it happens.</p>}
+          {entries.map((e, i) => e.who === 'slide'
+            ? <div key={i} className="my-2 text-center text-[11px] uppercase tracking-wide text-slate-400">{e.text.replace(/^Slide on screen: /, '')}</div>
+            : (
+              <div key={i} className={`my-1.5 ${e.who === 'rep' ? 'text-right' : ''}`}>
+                <span className={`inline-block max-w-[90%] rounded-2xl px-3 py-1.5 text-left ${e.who === 'rep' ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-800'}`}>
+                  <span className="block text-[10px] font-bold uppercase opacity-60">{e.who === 'rep' ? 'Rep' : persona.speaker}</span>
+                  {e.text}
+                </span>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── The report card ──────────────────────────────────────────────────────────
+function Report({ id, onBack }) {
+  const [s, setS] = useState(null)
+  const [err, setErr] = useState('')
+  const [showT, setShowT] = useState(false)
+  const [nonce, setNonce] = useState(0) // bump to poll again after "Try again"
+
+  useEffect(() => {
+    let stop = false, timer
+    const tick = async () => {
+      const d = await api({ action: 'get', id })
+      if (stop) return
+      if (!d.ok) { setErr(d.error); return }
+      setS(d.session)
+      if (d.session.grade_status === 'pending') timer = setTimeout(tick, 3000)
+    }
+    tick()
+    return () => { stop = true; clearTimeout(timer) }
+  }, [id, nonce])
+
+  const regrade = async () => { await api({ action: 'regrade', id }); setNonce((n) => n + 1) }
+
+  if (err) return <div className="p-6 text-red-600">{err}</div>
+  if (!s) return <div className="p-6 text-slate-500">Loading…</div>
+  const p = personaByKey(s.persona_key)
+  const r = s.report || {}
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <button type="button" onClick={onBack} className="text-sm font-semibold text-brand-navy">← Back to Sales Training Customer</button>
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{sectionByKey(s.section).label} · {fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}</div>
+          <h1 className="text-2xl font-bold text-brand-navy">{s.trainee_name} → {p.tagline}</h1>
+          {s.trainer_name && <div className="text-xs text-slate-500">Run by {s.trainer_name}</div>}
+        </div>
+        {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
+      </div>
+
+      {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading against the script… (usually under a minute)</div>}
+      {s.grade_status === 'failed' && (
+        <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Grading didn’t work: {s.grade_error}
+          <button type="button" onClick={regrade} className="ml-3 rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white">Try again</button>
+        </div>
+      )}
+
+      {s.grade_status === 'done' && (
+        <>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-slate-800">{r.summary}</p>
+            {r.outcome && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold">How it ended:</span> {r.outcome}</p>}
+            {s.close_silence && (
+              <p className={`mt-2 text-sm font-semibold ${s.close_silence.held ? 'text-emerald-700' : 'text-red-700'}`}>
+                {s.close_silence.held ? `✓ Held the silence after asking for the business (${s.close_silence.seconds}s)` : `✗ Spoke again ${s.close_silence.seconds}s after asking for the business. The script says: do not speak until they do.`}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Card title="🔧 Fix these first" tone="red"><ol className="list-decimal space-y-1 pl-5">{(r.top_fixes || []).map((x, i) => <li key={i}>{x}</li>)}</ol></Card>
+            <Card title="💪 What went well" tone="green"><ul className="list-disc space-y-1 pl-5">{(r.strengths || []).map((x, i) => <li key={i}>{x}</li>)}</ul></Card>
+          </div>
+
+          {(r.objections || []).length > 0 && (
+            <Card title="🛑 Objections">
+              <div className="space-y-3">
+                {r.objections.map((o, i) => (
+                  <div key={i} className="border-b border-slate-100 pb-2 last:border-0">
+                    <div className="font-semibold text-slate-800">“{o.objection}” <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${o.handled === 'well' ? 'bg-emerald-50 text-emerald-700' : o.handled === 'partly' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{o.handled}</span></div>
+                    <div className="text-sm text-slate-600"><span className="font-semibold">They said:</span> {o.what_rep_said}</div>
+                    <div className="text-sm text-slate-800"><span className="font-semibold">Say instead:</span> {o.say_instead}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card title="📋 Part by part">
+            <div className="space-y-2">
+              {(r.parts || []).map((x, i) => (
+                <div key={i} className="grid grid-cols-[1fr_auto] gap-2 border-b border-slate-100 pb-2 last:border-0">
+                  <div>
+                    <div className="font-semibold text-slate-800">{x.part}</div>
+                    {(x.missed || []).length > 0 && <div className="text-sm text-red-700">Missed: {x.missed.join(' · ')}</div>}
+                    {(x.covered || []).length > 0 && <div className="text-xs text-slate-500">Covered: {x.covered.join(' · ')}</div>}
+                  </div>
+                  <div className={`text-lg font-bold ${scoreColor(x.score * 10)}`}>{x.score}/10</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {(r.verbatim || []).length > 0 && (
+            <Card title="📖 Not word for word">
+              <div className="space-y-2 text-sm">
+                {r.verbatim.map((v, i) => (
+                  <div key={i}><div className="text-slate-800"><span className="font-semibold">Script:</span> “{v.script_says}”</div><div className="text-slate-500"><span className="font-semibold">Said:</span> “{v.rep_said}”</div></div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {r.used_their_answers && <Card title="👂 Used what the homeowner told them?"><p className="text-sm">{r.used_their_answers}</p></Card>}
+        </>
+      )}
+
+      <div className="mt-4">
+        <button type="button" onClick={() => setShowT((v) => !v)} className="text-sm font-semibold text-brand-navy">{showT ? 'Hide' : 'Show'} full transcript</button>
+        {showT && (
+          <div className="mt-2 space-y-1 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+            {(s.transcript || []).map((e, i) => e.who === 'slide'
+              ? <div key={i} className="text-center text-[11px] uppercase text-slate-400">{e.text}</div>
+              : <div key={i}><span className="font-bold">{e.who === 'rep' ? 'Rep' : p.speaker}:</span> {e.text}</div>)}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Card({ title, tone, children }) {
+  const border = tone === 'red' ? 'border-red-200' : tone === 'green' ? 'border-emerald-200' : 'border-slate-200'
+  return (
+    <section className={`mt-4 rounded-xl border ${border} bg-white p-4`}>
+      <h2 className="mb-2 font-bold text-brand-navy">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+// ── Past sessions ────────────────────────────────────────────────────────────
+function History({ sessions, onOpen }) {
+  const [who, setWho] = useState('')
+  const list = who ? sessions.filter((s) => s.trainee_id === who) : sessions
+  const names = [...new Map(sessions.filter((s) => s.trainee_id).map((s) => [s.trainee_id, s.trainee_name])).entries()]
+  if (!sessions.length) return null
+  return (
+    <section className="mt-10">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Past practice ({list.length})</h2>
+        <select value={who} onChange={(e) => setWho(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <option value="">Everyone</option>
+          {names.map(([id, n]) => <option key={id} value={id}>{n}</option>)}
+        </select>
+      </div>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {list.map((s) => (
+          <button key={s.id} type="button" onClick={() => onOpen(s.id)} className="grid w-full grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-4 py-2 text-left last:border-0 hover:bg-slate-50">
+            <span>
+              <span className="font-semibold text-slate-800">{s.trainee_name}</span>
+              <span className="text-slate-500"> → {personaByKey(s.persona_key).tagline} · {sectionByKey(s.section).label}</span>
+              <span className="block text-xs text-slate-400">{fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}{s.trainer_name ? ` · ${s.trainer_name}` : ''}</span>
+            </span>
+            <span className={`text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? s.score : s.grade_status === 'pending' ? '…' : '—'}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}

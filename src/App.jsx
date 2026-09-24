@@ -51,6 +51,7 @@ import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
 import HomeworkSlides from './pages/HomeworkSlides.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
+import SalesPractice from './pages/SalesPractice.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
@@ -185,6 +186,8 @@ export default function App() {
               see and the source of the daily sign-in test. */}
           <Route path="/slide-points" element={<RouteGate pageKey="setup.training_days"><SlidePoints /></RouteGate>} />
           <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
+          {/* Sales Training Customer: trainer-only (trainees never get this link). PIN re-checked by its functions. */}
+          <Route path="/sales-practice" element={<RouteGate pageKey="setup.training_days"><PinGate title="Sales Training Customer" storageKey="sp_admin_ok" keepPin><SalesPractice /></PinGate></RouteGate>} />
         </Route>
       </Routes>
       </RegionsProvider>
@@ -226,6 +229,7 @@ function AdminLayout() {
     // points, all slides at once.
     { key: 'setup.training_days', to: '/slide-points', label: 'Slide Points' },
     { key: 'setup.field_trainee', to: '/field-trainee', label: 'Field Trainee' },
+    { key: 'setup.training_days', to: '/sales-practice', label: 'Sales Training Customer' },
   ].filter((it) => show(it.key))
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },

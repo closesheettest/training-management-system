@@ -8,7 +8,10 @@ import { useEffect, useState } from 'react'
 
 const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/'
 
-export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', children }) {
+// keepPin: also hold the PIN for this tab so the page can hand it to its own
+// server functions, which re-check it (Sales Training Customer spends Gemini
+// money per call). Session-only, cleared on Lock.
+export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', keepPin = false, children }) {
   const [unlocked, setUnlocked] = useState(() => {
     try { return sessionStorage.getItem(storageKey) === '1' } catch { return false }
   })
@@ -27,7 +30,10 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   }).then((r) => r.json())
 
   const doUnlock = (nm) => {
-    try { sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', nm || '') } catch { /* private mode */ }
+    try {
+      sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', nm || '')
+      if (keepPin) sessionStorage.setItem(storageKey + '_pin', pin)
+    } catch { /* private mode */ }
     setWho(nm || ''); setUnlocked(true); setPin(''); setConfirm(''); setName('')
   }
 
@@ -61,7 +67,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   }
 
   const lock = () => {
-    try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + '_name') } catch { /* ignore */ }
+    try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + '_name'); sessionStorage.removeItem(storageKey + '_pin') } catch { /* ignore */ }
     setUnlocked(false); setStep('pin'); setName(''); setPin(''); setConfirm(''); setErr('')
   }
   const startOver = () => { setStep('pin'); setPin(''); setConfirm(''); setName(''); setErr('') }
