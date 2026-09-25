@@ -1562,13 +1562,14 @@ function AssignAppointments({ token }) {
                     <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
                     <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
                     <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
+                    {a.was_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ Was assigned to {a.was_rep}, who has left. Give it to a working rep.</div>}
                     {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
                     <TransferZone apptId={a.id} jobId={a.jn_job_id} zone={d.zone} who={a.homeowner_name} token={token} onDone={() => load(view)} />
                   </div>
                 ))}
                 {viv.length > 0 && (
                   <div className="mt-4">
-                    <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — currently on Viviana / inactive reps ({viv.length})</div>
+                    <div className="mb-1 text-xs font-bold text-slate-600">🗂️ Need a rep — on Viviana, or a rep who has left ({viv.length})</div>
                     {viv.map((it) => (
                       <div key={it.key} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
                         <div className="flex items-center justify-between gap-2">
@@ -1576,7 +1577,9 @@ function AssignAppointments({ token }) {
                           {it.is_goback && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">{it.appt_note || 'Go-back'}</span>}
                         </div>
                         {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
-                        <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}</div>
+                        <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}{it.departed_rep ? ' (left)' : ''}</div>
+                        {it.missed && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ MISSED: {it.departed_rep || it.owner_name} had left, so nobody went. Give it to a rep to call and reschedule.</div>}
+                        {!it.missed && it.departed_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ {it.departed_rep} has left. Give it to a working rep.</div>}
                         {it.is_goback && <div className="text-[11.5px] text-orange-700">📋 Review visit — {it.appt_note || 'go-back'}. Assign a rep so it isn't missed.</div>}
                         {editRow(it, 'Assign')}
                         <TransferZone jobId={it.jn_job_id} zone={d.zone} who={it.homeowner} token={token} onDone={() => load(view)} />
