@@ -16,9 +16,35 @@ export const handler = async (event) => {
   if (!key) return json(500, { ok: false, error: 'The Gemini key is not set up yet (GEMINI_API_KEY in Netlify).' })
   let body
   try { body = JSON.parse(event.body || '{}') } catch { return json(400, { ok: false, error: 'bad JSON' }) }
+  const model = process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live'
+  const textModel = process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash'
+
+  // { check: true } — setup check, no PIN: does Google accept the key, and do the
+  // voice + grading models we are set to use exist for it? Answers yes/no and
+  // model names only; never echoes the key. Costs nothing (lists models).
+  if (body.check) {
+    const names = []
+    let pageToken = '', status = 0, err = ''
+    for (let i = 0; i < 10; i++) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200${pageToken ? `&pageToken=${pageToken}` : ''}`, { headers: { 'x-goog-api-key': key } })
+      status = r.status
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { err = d.error?.message || String(r.status); break }
+      for (const m of d.models || []) names.push(String(m.name || '').replace(/^models\//, ''))
+      if (!d.nextPageToken) break
+      pageToken = d.nextPageToken
+    }
+    return json(200, {
+      ok: !err, key_accepted: !err, status, error: err || undefined,
+      live_model: model, live_model_found: names.includes(model),
+      text_model: textModel, text_model_found: names.includes(textModel),
+      live_models_available: names.filter((n) => /live|native-audio/i.test(n)),
+      flash_models_available: names.filter((n) => /flash/i.test(n) && !/live|audio|tts|image/i.test(n)).slice(0, 12),
+    })
+  }
+
   if (!(await verifyTrainerPin(body.pin))) return json(401, { ok: false, error: 'Sign in again (PIN not recognized).' })
 
-  const model = process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live'
   const now = Date.now()
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
     method: 'POST',
