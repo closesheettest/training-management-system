@@ -99,17 +99,31 @@ ${silence}
 Grade it. Scores: 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back to the script. Be specific and quote the rep. For every "say instead", use the script's own words where one applies. Write in plain, direct language a trainer can read out to the rep.`
 
   try {
-    const model = process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash'
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: REPORT_SCHEMA, temperature: 0.2 },
-      }),
-    })
-    const d = await r.json().catch(() => ({}))
-    if (!r.ok) { await fail(`Gemini: ${d.error?.message || r.status}`); return }
+    // BUSY IS NORMAL. The first real grading run (25 Sep) came back "This model is
+    // currently experiencing high demand". A background function has 15 minutes,
+    // so wait and retry, then fall back to another Flash model, before giving up.
+    const models = [...new Set([process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'])]
+    const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms))
+    let d = null, lastErr = ''
+    outer: for (const model of models) {
+      for (const wait of [0, 8000, 25000]) {
+        if (wait) await sleep(wait)
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json', responseSchema: REPORT_SCHEMA, temperature: 0.2 },
+          }),
+        })
+        const j = await r.json().catch(() => ({}))
+        if (r.ok) { d = j; break outer }
+        lastErr = `${model}: ${j.error?.message || r.status}`
+        const busy = r.status === 429 || r.status >= 500 || /demand|overload|unavailable|try again/i.test(j.error?.message || '')
+        if (!busy) break // a real error (bad request, unknown model): next model, no point retrying this one
+      }
+    }
+    if (!d) { await fail(`Gemini: ${lastErr}`); return }
     const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
     const report = JSON.parse(text)
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
