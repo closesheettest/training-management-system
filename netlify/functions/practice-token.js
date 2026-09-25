@@ -14,14 +14,14 @@ import WebSocketImpl from 'ws'
 import { verifyTrainerPin, json } from './_practice-auth.js'
 import { mintToken } from './_practice-gemini.js'
 import { liveSetup, LIVE_WS_URL } from '../../src/lib/geminiLive.js'
-import { PERSONAS, homeownerPrompt } from '../../src/lib/salesPractice.js'
+import { PERSONAS, personaByKey, homeownerPrompt } from '../../src/lib/salesPractice.js'
 
 // A real Live session exactly as the page opens one: token → WebSocket → setup
 // (the shared liveSetup) → say something → expect the homeowner's voice and
 // words back. Proves the voice path without a trainer at a laptop. A few cents.
-async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0, section = 'survey', opener = '') {
+async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0, section = 'survey', opener = '', personaKey = '') {
   const token = await mintToken(key)
-  const p = PERSONAS[0]
+  const p = personaKey ? personaByKey(personaKey) : PERSONAS[0]
   return await new Promise((resolve) => {
     const res = { steps: ['token ok'], setup_ok: false, audio_chunks: 0, homeowner_said: '', probe_usage: probeUsage }
     const ws = new WebSocketImpl(`${LIVE_WS_URL}?access_token=${encodeURIComponent(token)}`)
@@ -89,7 +89,7 @@ export const handler = async (event) => {
 
   if (body.check === 'live') {
     if (!process.env.CRON_SECRET || body.secret !== process.env.CRON_SECRET) return json(401, { ok: false, error: 'secret required' })
-    try { return json(200, await liveSmokeTest(key, model, !!body.usage, Math.min(60, Number(body.silence) || 0), String(body.section || 'survey'), String(body.opener || '').slice(0, 400))) } catch (e) { return json(200, { ok: false, error: e.message }) }
+    try { return json(200, await liveSmokeTest(key, model, !!body.usage, Math.min(60, Number(body.silence) || 0), String(body.section || 'survey'), String(body.opener || '').slice(0, 400), String(body.persona || ''))) } catch (e) { return json(200, { ok: false, error: e.message }) }
   }
 
   // { check: true } — setup check, no PIN: does Google accept the key, and do the
