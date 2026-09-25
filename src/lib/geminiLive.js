@@ -33,6 +33,27 @@ function fromBase64Pcm(b64) {
   return f32
 }
 
+// The first message of a Live session. Shared with the server-side smoke test
+// (practice-token { check:'live' }) so what we test is what the page sends.
+export function liveSetup({ model, systemPrompt, voice, handle }) {
+  return {
+    setup: {
+      model: `models/${model}`,
+      generationConfig: {
+        responseModalities: ['AUDIO'],
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+      contextWindowCompression: { slidingWindow: {} },
+      sessionResumption: handle ? { handle } : {},
+    },
+  }
+}
+
+export const LIVE_WS_URL = WS_URL
+
 export class LiveHomeowner {
   // getToken: async () => ({ token, model })
   // on: { status(s), transcript(entries), level(0..1), error(msg), closeSilence({held,seconds}) }
@@ -75,20 +96,7 @@ export class LiveHomeowner {
     const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(token)}`)
     this.ws = ws
     ws.onopen = () => {
-      ws.send(JSON.stringify({
-        setup: {
-          model: `models/${model}`,
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.voice } } },
-          },
-          systemInstruction: { parts: [{ text: this.systemPrompt }] },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          contextWindowCompression: { slidingWindow: {} },
-          sessionResumption: this.handle ? { handle: this.handle } : {},
-        },
-      }))
+      ws.send(JSON.stringify(liveSetup({ model, systemPrompt: this.systemPrompt, voice: this.voice, handle: this.handle })))
     }
     ws.onmessage = async (ev) => {
       const raw = typeof ev.data === 'string' ? ev.data : await ev.data.text()
