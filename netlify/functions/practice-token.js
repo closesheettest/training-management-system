@@ -38,7 +38,7 @@ async function mintToken(key) {
 // A real Live session exactly as the page opens one: token → WebSocket → setup
 // (the shared liveSetup) → say something → expect the homeowner's voice and
 // words back. Proves the voice path without a trainer at a laptop. A few cents.
-async function liveSmokeTest(key, model, probeUsage = false) {
+async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0) {
   const token = await mintToken(key)
   const p = PERSONAS[0]
   return await new Promise((resolve) => {
@@ -66,6 +66,13 @@ async function liveSmokeTest(key, model, probeUsage = false) {
       if (m.setupComplete) {
         res.setup_ok = true
         res.steps.push('setup accepted')
+        // Billing probe: stream N seconds of mic SILENCE (16 kHz PCM zeros, as a
+        // quiet room sends) before speaking, to see whether Google bills it.
+        if (silenceSec > 0) {
+          const chunk = Buffer.alloc(3200).toString('base64') // 100 ms of 16-bit zeros
+          for (let k = 0; k < silenceSec * 10; k++) ws.send(JSON.stringify({ realtimeInput: { audio: { data: chunk, mimeType: 'audio/pcm;rate=16000' } } }))
+          res.steps.push(`sent ${silenceSec}s of silence`)
+        }
         // The page's slide note, sent exactly as geminiLive.sendSlide sends it.
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[Slide now showing: Why U.S. Shingle: 15 years in business, veteran owned.] (stage info only: do not respond to this)' }] }], turnComplete: false } }))
         res.steps.push('slide note sent')
@@ -101,7 +108,7 @@ export const handler = async (event) => {
 
   if (body.check === 'live') {
     if (!process.env.CRON_SECRET || body.secret !== process.env.CRON_SECRET) return json(401, { ok: false, error: 'secret required' })
-    try { return json(200, await liveSmokeTest(key, model, !!body.usage)) } catch (e) { return json(200, { ok: false, error: e.message }) }
+    try { return json(200, await liveSmokeTest(key, model, !!body.usage, Math.min(60, Number(body.silence) || 0))) } catch (e) { return json(200, { ok: false, error: e.message }) }
   }
 
   // { check: true } — setup check, no PIN: does Google accept the key, and do the
