@@ -410,6 +410,13 @@ function Report({ id, onBack }) {
                   )
                 })()}
               </div>
+              {r.questions && (r.questions.answered_with_question + r.questions.just_answered) > 0 && (
+                <p className="mt-2 text-sm">
+                  When the homeowner asked a question, the rep came back with a question{' '}
+                  <span className="font-bold">{r.questions.answered_with_question} of {r.questions.answered_with_question + r.questions.just_answered}</span> times
+                  {r.questions.just_answered ? <span className="text-amber-700"> · just answered {r.questions.just_answered} (control handed over)</span> : null}
+                </p>
+              )}
               <p className="mt-2 text-sm text-slate-700">{r.control.summary}</p>
               {(r.control.lost_moments || []).length > 0 && (
                 <div className="mt-3 space-y-2">

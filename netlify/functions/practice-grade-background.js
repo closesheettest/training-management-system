@@ -182,6 +182,21 @@ export const handler = async (event) => {
   const countQ = (who) => (row.transcript || []).filter((t) => t.who === who)
     .reduce((n, t) => n + (String(t.text || '').match(/\?/g) || []).length, 0)
   const questions = { rep: countQ('rep'), homeowner: countQ('homeowner') }
+  // THE HOMEOWNER ASKED, THE REP JUST ANSWERED = control handed over (Neal,
+  // 25 Sep). For every homeowner turn with a question in it, did the rep's next
+  // turn ask one back? Counted here so the grade can't wave it through.
+  const turns = (row.transcript || []).filter((t) => t.who === 'rep' || t.who === 'homeowner')
+  const handovers = []
+  let answeredWithQ = 0
+  turns.forEach((t, i) => {
+    if (t.who !== 'homeowner' || !String(t.text || '').includes('?')) return
+    const reply = turns.slice(i + 1).find((x) => x.who === 'rep')
+    if (!reply) return
+    if (String(reply.text || '').includes('?')) answeredWithQ++
+    else handovers.push({ homeowner: String(t.text).slice(0, 200), rep: String(reply.text).slice(0, 200) })
+  })
+  questions.answered_with_question = answeredWithQ
+  questions.just_answered = handovers.length
   const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice IN-HOME PRESENTATION (kitchen table, both spouses present).
@@ -192,7 +207,10 @@ SO GRADE ON POINTS, NOT WORDS:
 - A point is COVERED if the homeowner clearly got the idea, however the rep said it: their own words, a story, a question, any order, even out of the slide it belongs to.
 - NEVER mark anything down for not matching the script's wording. Do not quote script lines at the rep as "what you should have said" unless they missed the point entirely.
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
-- CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control, and answering a question WITH a question takes control back.
+- CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control.
+- WHEN THE HOMEOWNER ASKS A QUESTION, the rep must answer it and then take control back WITH A QUESTION of their own (or answer a question with a question). A rep who just answers, with no question back, has GIVEN UP CONTROL, and that must cost them on the control score. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep came back with a question ${questions.answered_with_question} times and just answered ${questions.just_answered} times. The just-answered ones (homeowner, then the rep's reply):
+${handovers.slice(0, 12).map((h, i) => `  ${i + 1}. HOMEOWNER: ${h.homeowner}\n     REP: ${h.rep}`).join('\n') || '  (none)'}
+  Use these for "lost_moments", each with the question the rep should have come back with.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
 WHAT WAS PRACTICED: ${section.label}.${rng ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
