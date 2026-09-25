@@ -153,6 +153,10 @@ export const SECTIONS = [
   { key: 'energy', label: 'Slides 17–21: the Energy Saver package', desc: 'Attic heat, R-38, duct sealing, radiant barrier, the savings. ~10 min.', range: [17, 21] },
   { key: 'close', label: 'The close', desc: 'Payment options, ask for the business, handle the objection. ~10 min.', range: [22, 23] },
   { key: 'slide', label: 'One slide', desc: 'Pick any one slide and drill it. ~3–5 min.', range: null, picker: true },
+  // CONTROL DRILL (Neal, 25 Sep): 5 minutes, one slide, a homeowner who keeps
+  // asking relevant questions to take control. Scored only on how often the rep
+  // took control back with a relevant question of their own.
+  { key: 'control', label: 'Control drill (5 min)', desc: 'Pick a slide. The homeowner fires relevant questions to take control; scored on how often the rep keeps it.', range: null, picker: true },
 ]
 // First deck page for a script slide number (slide 12 starts on page 13, etc.).
 export function deckPageFor(n) {
@@ -160,10 +164,12 @@ export function deckPageFor(n) {
   return d ? d.page : 1
 }
 export function sectionByKey(k) {
-  const m = String(k || '').match(/^slide:(\d+)$/)
+  const m = String(k || '').match(/^(slide|control):(\d+)$/)
   if (m) {
-    const n = parseInt(m[1], 10)
-    return { key: k, label: `One slide: Slide ${n}`, desc: '', range: [n, n], firstSlide: deckPageFor(n) }
+    const n = parseInt(m[2], 10)
+    return m[1] === 'control'
+      ? { key: k, label: `Control drill: Slide ${n}`, desc: '', range: [n, n], firstSlide: deckPageFor(n), drill: true, seconds: 300 }
+      : { key: k, label: `One slide: Slide ${n}`, desc: '', range: [n, n], firstSlide: deckPageFor(n) }
   }
   const sec = SECTIONS.find((x) => x.key === k) || SECTIONS[0]
   return { ...sec, firstSlide: sec.range ? deckPageFor(sec.range[0]) : 0 }
@@ -221,6 +227,14 @@ ${persona.facts.map((f) => '- ' + f).join('\n')}
 HOW YOU ACT: ${persona.behavior}
 
 AT THE CLOSE: ${persona.close}
+${sec.drill ? `
+THIS IS A 5-MINUTE CONTROL DRILL. Your goal is to take control of the conversation away from the rep BY ASKING QUESTIONS. Whoever asks the questions controls the conversation.
+- Ask a question in almost every reply, pushy and difficult, in your personality.
+- Every question MUST be relevant: about what the rep just said, the slide on screen, the company, the price, the roof, or a claim they just made. Never random or off-topic.
+- If the rep just answers without asking you anything back, press on with another question (a follow-up, or a new angle on the same topic).
+- If the rep answers briefly and then asks YOU a good, relevant question, answer it honestly in character, then look for the next chance to ask your own.
+- Do not end the conversation or agree to anything big; keep testing them for the full five minutes.
+` : ''}
 
 SITUATION: ${where}
 

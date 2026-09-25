@@ -78,7 +78,7 @@ export default function SalesPractice() {
     return out
   }, [classes, reps])
   const classIds = useMemo(() => new Set(classes.flatMap((c) => (c.trainees || []).map((t) => t.id))), [classes])
-  const effectiveSection = sectionKey === 'slide' ? (slideN ? `slide:${slideN}` : '') : sectionKey
+  const effectiveSection = (sectionKey === 'slide' || sectionKey === 'control') ? (slideN ? `${sectionKey}:${slideN}` : '') : sectionKey
   const trainee = trainees.find((t) => t.id === traineeId) || null
 
   if (stage === 'live') {
@@ -146,7 +146,7 @@ export default function SalesPractice() {
             </label>
           ))}
         </div>
-        {sectionKey === 'slide' && (
+        {(sectionKey === 'slide' || sectionKey === 'control') && (
           <select value={slideN} onChange={(e) => setSlideN(e.target.value)} className="mt-3 w-full max-w-md rounded-md border border-slate-300 px-3 py-2">
             <option value="">Pick the slide…</option>
             {slidePoints.map((d) => {
@@ -190,6 +190,19 @@ function LiveSession({ persona, section, trainee, onDone }) {
   const [muted, setMuted] = useState(false)
   const liveRef = useRef(null)
   const logRef = useRef(null)
+  const endRef = useRef(null)
+  // Timed sections (the 5-minute control drill): count down from the moment the
+  // homeowner is connected, then end and grade on their own.
+  const [left, setLeft] = useState(section.seconds || null)
+  const started = status === 'listening' || status === 'speaking' || status === 'silence'
+  useEffect(() => {
+    if (!section.seconds || !started) return
+    const t = setInterval(() => setLeft((x) => {
+      if (x <= 1) { clearInterval(t); endRef.current?.(); return 0 }
+      return x - 1
+    }), 1000)
+    return () => clearInterval(t)
+  }, [section.seconds, started])
 
   useEffect(() => {
     const live = new LiveHomeowner({
@@ -230,7 +243,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
   }, [])
 
   const end = async () => {
-    if (saving) return
+    if (saving || !liveRef.current) return
     setSaving(true)
     const out = liveRef.current.stop()
     liveRef.current = null
@@ -249,6 +262,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
     onDone(d.id)
   }
 
+  endRef.current = end
   const statusLabel = {
     starting: 'Getting the microphone…', connecting: 'Connecting to the homeowner…', listening: '🎙️ Listening',
     speaking: `🗣️ ${persona.speaker} is talking`, silence: '🤫 Silence after the ask…', error: 'Stopped',
@@ -262,6 +276,11 @@ function LiveSession({ persona, section, trainee, onDone }) {
           <h1 className="text-xl font-bold text-brand-navy">{trainee?.name || 'Trainer try-out'} → {persona.name} <span className="font-normal text-slate-500">({persona.tagline})</span></h1>
         </div>
         <div className="flex items-center gap-3">
+          {left != null && (
+            <div className={`rounded-full px-3 py-1.5 text-lg font-black tabular-nums ${left <= 30 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}>
+              ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+            </div>
+          )}
           <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700">
             <span>{statusLabel}</span>
             <span className="h-2 w-16 overflow-hidden rounded bg-slate-300"><span className="block h-full bg-emerald-500 transition-all" style={{ width: `${Math.round(level * 100)}%` }} /></span>
@@ -374,7 +393,9 @@ function Report({ id, onBack }) {
         </div>
       )}
 
-      {s.grade_status === 'done' && (
+      {s.grade_status === 'done' && r.drill && <DrillReport r={r} speaker={p.speaker} />}
+
+      {s.grade_status === 'done' && !r.drill && (
         <>
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-slate-800">{r.summary}</p>
@@ -498,6 +519,39 @@ function Report({ id, onBack }) {
         )}
       </div>
     </div>
+  )
+}
+
+// The control drill's card: kept control X of Y, then every exchange.
+function DrillReport({ r, speaker }) {
+  const pct = r.total ? Math.round((100 * r.kept) / r.total) : null
+  const chip = { kept: ['✅ Kept control', 'bg-emerald-50 text-emerald-700'], gave_up: ['❌ Gave up control', 'bg-red-50 text-red-700'], off_topic: ['⚠️ Off-topic question', 'bg-amber-50 text-amber-800'] }
+  return (
+    <>
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="text-2xl font-black text-brand-navy">Kept control {r.kept} of {r.total} time{r.total !== 1 ? 's' : ''}{pct != null ? ` (${pct}%)` : ''}</div>
+        <div className="mt-1 text-sm text-slate-600">Gave it up {r.gave_up} · off-topic question back {r.off_topic}</div>
+        <p className="mt-2 text-slate-800">{r.summary}</p>
+      </div>
+      {(r.tips || []).length > 0 && (
+        <Card title="🔧 Habits to build" tone="red"><ol className="list-decimal space-y-1 pl-5">{r.tips.map((x, i) => <li key={i}>{x}</li>)}</ol></Card>
+      )}
+      <Card title="🎯 Every question, and what the rep did">
+        <div className="space-y-3">
+          {(r.pairs || []).map((x, i) => (
+            <div key={i} className="border-b border-slate-100 pb-2 text-sm last:border-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="text-slate-600"><span className="font-semibold">{speaker}:</span> “{x.homeowner}”</div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip[x.verdict][1]}`}>{chip[x.verdict][0]}</span>
+              </div>
+              <div className="text-slate-800"><span className="font-semibold">Rep:</span> “{x.rep}”</div>
+              {x.why && <div className="text-xs text-slate-500">{x.why}</div>}
+              {x.better_question && <div className="text-slate-900"><span className="font-semibold">Come back with:</span> {x.better_question}</div>}
+            </div>
+          ))}
+        </div>
+      </Card>
+    </>
   )
 }
 

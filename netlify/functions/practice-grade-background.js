@@ -151,6 +151,105 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   return out.join('\n\n')
 }
 
+// BUSY IS NORMAL. The first real grading run (25 Sep) came back "This model is
+// currently experiencing high demand". A background function has 15 minutes,
+// so wait and retry, then fall back to another Flash model, before giving up.
+async function geminiJson(prompt, schema) {
+  const models = [...new Set([process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'])]
+  const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms))
+  let lastErr = ''
+  for (const model of models) {
+    for (const wait of [0, 8000, 25000]) {
+      if (wait) await sleep(wait)
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.2 },
+        }),
+      })
+      const j = await r.json().catch(() => ({}))
+      if (r.ok) return JSON.parse((j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join(''))
+      lastErr = `${model}: ${j.error?.message || r.status}`
+      const busy = r.status === 429 || r.status >= 500 || /demand|overload|unavailable|try again/i.test(j.error?.message || '')
+      if (!busy) break // a real error (bad request, unknown model): next model, no point retrying this one
+    }
+  }
+  throw new Error(`Gemini: ${lastErr}`)
+}
+
+// CONTROL DRILL (Neal, 25 Sep): five minutes on one slide with a homeowner who
+// keeps asking questions to take control. Every homeowner question is paired
+// with the rep's reply HERE (so none can be skipped) and the model only rules on
+// each pair. The score is plain arithmetic: kept ÷ total.
+const DRILL_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    verdicts: {
+      type: 'ARRAY',
+      description: 'Exactly one entry per numbered exchange, in order',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          n: { type: 'INTEGER' },
+          verdict: { type: 'STRING', description: 'kept | gave_up | off_topic' },
+          why: { type: 'STRING', description: 'One short sentence' },
+          better_question: { type: 'STRING', description: 'For gave_up / off_topic: a RELEVANT question the rep could have come back with. Empty for kept.' },
+        },
+        required: ['n', 'verdict', 'why', 'better_question'],
+      },
+    },
+    summary: { type: 'STRING', description: '2-3 plain sentences on how the rep handled the pressure' },
+    tips: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Up to 3 habits to build, most important first' },
+  },
+  required: ['verdicts', 'summary', 'tips'],
+}
+
+async function gradeDrill(sb, row, persona, section, id) {
+  const turns = (row.transcript || []).filter((t) => t.who === 'rep' || t.who === 'homeowner')
+  const pairs = []
+  turns.forEach((t, i) => {
+    if (t.who !== 'homeowner' || !String(t.text || '').includes('?')) return
+    const reply = turns.slice(i + 1).find((x) => x.who === 'rep')
+    const next = turns[i + 1]
+    // The rep's reply is the rep turn right after this question (not one after a
+    // later homeowner turn, which would pair the wrong exchange).
+    if (!reply || next !== reply) return
+    pairs.push({ homeowner: String(t.text).trim(), rep: String(reply.text).trim() })
+  })
+  if (!pairs.length) {
+    const report = { drill: true, pairs: [], kept: 0, gave_up: 0, off_topic: 0, total: 0, summary: 'The homeowner never got a question answered in this run (nothing to score). Run it again for the full five minutes.', tips: [] }
+    await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: null, report }).eq('id', id)
+    return
+  }
+  const prompt = `You are judging a CONTROL DRILL for a roofing sales rep at U.S. Shingle. For five minutes on ${section.label}, an AI homeowner (${persona.name}, "${persona.tagline}") kept asking questions to take control of the conversation. In our method the person asking the questions controls the conversation.
+
+For EACH numbered exchange below (a homeowner question, then the rep's reply), give one verdict:
+- "kept": the rep answered (briefly is best) and then took control back WITH A QUESTION OF THEIR OWN that is RELEVANT to what is being discussed, steering toward their point or the slide.
+- "gave_up": the rep just answered, explained, defended or argued, with no question back. Control handed to the homeowner.
+- "off_topic": the rep did ask a question back, but it had nothing to do with the conversation (a random deflection, an "out of the box" question). This also gives up control.
+A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
+
+THE EXCHANGES:
+${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}`).join('\n')}`
+  const out = await geminiJson(prompt, DRILL_SCHEMA)
+  const byN = new Map((out.verdicts || []).map((v) => [Number(v.n), v]))
+  const scored = pairs.map((p, i) => {
+    const v = byN.get(i + 1) || {}
+    const verdict = ['kept', 'gave_up', 'off_topic'].includes(v.verdict) ? v.verdict : 'gave_up'
+    return { ...p, verdict, why: v.why || '', better_question: verdict === 'kept' ? '' : (v.better_question || '') }
+  })
+  const kept = scored.filter((x) => x.verdict === 'kept').length
+  const report = {
+    drill: true, pairs: scored, total: scored.length, kept,
+    gave_up: scored.filter((x) => x.verdict === 'gave_up').length,
+    off_topic: scored.filter((x) => x.verdict === 'off_topic').length,
+    summary: out.summary || '', tips: out.tips || [],
+  }
+  await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report }).eq('id', id)
+}
+
 export const handler = async (event) => {
   let body
   try { body = JSON.parse(event.body || '{}') } catch { return }
@@ -164,6 +263,10 @@ export const handler = async (event) => {
 
   const persona = personaByKey(row.persona_key)
   const section = sectionByKey(row.section)
+  if (section.drill) {
+    try { await gradeDrill(sb, row, persona, section, body.id) } catch (e) { await fail(e.message || 'grading failed') }
+    return
+  }
   const lines = (row.transcript || []).map((t) =>
     t.who === 'slide' ? `   [${t.text}]` : `${t.who === 'rep' ? 'REP' : 'HOMEOWNER'}: ${t.text}`).join('\n')
   const silence = row.close_silence
@@ -235,33 +338,7 @@ ${silence}
 Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep.`
 
   try {
-    // BUSY IS NORMAL. The first real grading run (25 Sep) came back "This model is
-    // currently experiencing high demand". A background function has 15 minutes,
-    // so wait and retry, then fall back to another Flash model, before giving up.
-    const models = [...new Set([process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'])]
-    const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms))
-    let d = null, lastErr = ''
-    outer: for (const model of models) {
-      for (const wait of [0, 8000, 25000]) {
-        if (wait) await sleep(wait)
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: 'POST',
-          headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: 'application/json', responseSchema: REPORT_SCHEMA, temperature: 0.2 },
-          }),
-        })
-        const j = await r.json().catch(() => ({}))
-        if (r.ok) { d = j; break outer }
-        lastErr = `${model}: ${j.error?.message || r.status}`
-        const busy = r.status === 429 || r.status >= 500 || /demand|overload|unavailable|try again/i.test(j.error?.message || '')
-        if (!busy) break // a real error (bad request, unknown model): next model, no point retrying this one
-      }
-    }
-    if (!d) { await fail(`Gemini: ${lastErr}`); return }
-    const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
-    const report = JSON.parse(text)
+    const report = await geminiJson(prompt, REPORT_SCHEMA)
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
     if (notReached) report.not_reached = notReached
     report.questions = questions
