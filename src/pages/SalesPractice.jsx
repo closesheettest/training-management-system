@@ -4,7 +4,7 @@
 // and a section, and the trainee gives the IN-HOME PRESENTATION out loud (not the
 // door pitch). The homeowner answers by voice (Gemini Live, src/lib/geminiLive.js)
 // and sees whichever slide the rep has up. When they end, the transcript is
-// graded against the sales script word for word (practice-grade-background) and
+// graded on POINTS (Slide Points), not words (practice-grade-background) and
 // saved to the trainee. Trainees never get a link to this page.
 //
 // Homeowners, sections and the deck: src/lib/salesPractice.js.
@@ -80,8 +80,8 @@ export default function SalesPractice() {
     <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-bold text-brand-navy">Sales Training Customer</h1>
       <p className="mt-1 text-sm text-slate-600">
-        A trainee gives the in-home presentation out loud to an AI homeowner who talks back. When they finish, it is graded
-        against the sales script and saved to the trainee. Put it on the projector so the class learns from each run.
+        A trainee gives the in-home presentation out loud to an AI homeowner who talks back. When they finish, it is graded on
+        whether they brought out each slide’s points (from Slide Points), in their own words, and saved to the trainee. Put it on the projector so the class learns from each run.
       </p>
 
       <Step n="1" title="Who is presenting?">
@@ -333,7 +333,7 @@ function Report({ id, onBack }) {
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
 
-      {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading against the script… (usually 1–2 minutes; a full presentation can take 3)</div>}
+      {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading the presentation… (usually 1–2 minutes; a full presentation can take 3)</div>}
       {s.grade_status === 'failed' && (
         <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Grading didn’t work: {s.grade_error}
@@ -387,11 +387,17 @@ function Report({ id, onBack }) {
             </div>
           </Card>
 
-          {(r.verbatim || []).length > 0 && (
-            <Card title="📖 Not word for word">
+          {(r.good_questions || []).length > 0 && (
+            <Card title="✅ Questions that worked" tone="green">
+              <ul className="list-disc space-y-1 pl-5 text-sm">{r.good_questions.map((q, i) => <li key={i}>{q}</li>)}</ul>
+            </Card>
+          )}
+
+          {(r.facts_wrong || []).length > 0 && (
+            <Card title="⚠️ Facts to get right">
               <div className="space-y-2 text-sm">
-                {r.verbatim.map((v, i) => (
-                  <div key={i}><div className="text-slate-800"><span className="font-semibold">Script:</span> “{v.script_says}”</div><div className="text-slate-500"><span className="font-semibold">Said:</span> “{v.rep_said}”</div></div>
+                {r.facts_wrong.map((f, i) => (
+                  <div key={i}><div className="text-slate-500"><span className="font-semibold">Said:</span> “{f.rep_said}”</div><div className="text-slate-800"><span className="font-semibold">Correct:</span> {f.correct}</div></div>
                 ))}
               </div>
             </Card>
