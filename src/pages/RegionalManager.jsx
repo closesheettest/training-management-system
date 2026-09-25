@@ -3979,20 +3979,20 @@ function TraineeActivity({ link, since, name }) {
                       </button>
                       {openDay === x.date && (
                         <div className="border-t border-slate-700 px-3 py-2 text-[12.5px]">
-                          {x.stops.map((st, i) => (
+                          {(x.stops || []).map((st, i) => (
                             <div key={i} className="flex gap-3 border-b border-slate-800 py-1 last:border-0">
                               <span className="w-16 shrink-0 text-slate-400">{st.time}</span>
                               <span className="flex-1">{st.where || 'Map pin'}{st.who ? <span className="text-slate-400"> · {st.who}</span> : null}</span>
                               <span className={st.good ? 'font-bold text-emerald-300' : 'text-slate-300'}>{st.what}</span>
                             </div>
                           ))}
-                          {!x.stops.length && <div className="text-slate-400">Opened the map but logged no doors.</div>}
+                          {!(x.stops || []).length && <div className="text-slate-400">Opened the map but logged no doors.</div>}
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-                {d.signed.length > 0 && (
+                {(d.signed || []).length > 0 && (
                   <div className="mt-4">
                     <div className="font-semibold text-emerald-300">✍️ Inspections signed</div>
                     {d.signed.map((x, i) => <div key={i} className="text-[12.5px] text-slate-300">{x.when} · {x.homeowner}{x.city ? `, ${x.city}` : ''}</div>)}
