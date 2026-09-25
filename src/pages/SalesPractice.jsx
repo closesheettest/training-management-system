@@ -34,40 +34,57 @@ export default function SalesPractice() {
   const [traineeId, setTraineeId] = useState('')
   const [personaKey, setPersonaKey] = useState(PERSONAS[0].key)
   const [sectionKey, setSectionKey] = useState('full')
+  const [slideN, setSlideN] = useState('')           // for "One slide"
+  const [reps, setReps] = useState([])
+  const [slidePoints, setSlidePoints] = useState([]) // Slide Points rows, for the one-slide picker
   const [reportId, setReportId] = useState(null)
   const [history, setHistory] = useState([])
 
   useEffect(() => { document.title = 'Sales Training Customer — TMS' }, [])
 
-  // Classes running now or in the last three weeks, with their enrolled trainees.
+  // WHO CAN PRESENT: every active sales rep, plus trainees in a class that is
+  // running today (Neal, 25 Sep). Reps practise too, not only trainees.
   useEffect(() => {
-    const today = new Date()
-    const from = new Date(today.getTime() - 21 * 864e5).toISOString().slice(0, 10)
-    const to = new Date(today.getTime() + 7 * 864e5).toISOString().slice(0, 10)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     supabase.from('classes')
-      .select('id, region, week_start_date, week_end_date, attendance_only, trainees!class_id(id, first_name, last_name, enrolled)')
-      .gte('week_end_date', from).lte('week_start_date', to)
+      .select('id, region, week_start_date, week_end_date, attendance_only, cancelled_at, trainees!class_id(id, first_name, last_name, enrolled)')
+      .lte('week_start_date', today).gte('week_end_date', today)
       .order('week_start_date', { ascending: false })
-      .then(({ data }) => setClasses((data || []).filter((c) => !c.attendance_only)))
+      .then(({ data }) => setClasses((data || []).filter((c) => !c.attendance_only && !c.cancelled_at)))
+    supabase.from('trainees')
+      .select('id, first_name, last_name, region')
+      .eq('is_active_sales_rep', true)
+      .order('first_name')
+      .then(({ data }) => setReps(data || []))
+    supabase.from('training_days').select('title, subject, on_slide').order('position')
+      .then(({ data }) => setSlidePoints((data || []).filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()))))
   }, [])
 
   const loadHistory = () => api({ action: 'list' }).then((d) => { if (d.ok) setHistory(d.sessions) })
   useEffect(() => { loadHistory() }, [])
 
   const trainees = useMemo(() => {
-    const out = []
+    const out = [], seen = new Set()
     for (const c of classes) for (const t of c.trainees || []) {
-      if (t.enrolled === false) continue
-      out.push({ id: t.id, name: `${t.first_name} ${t.last_name}`.trim(), class_id: c.id, cls: `${c.region || 'Class'} · week of ${c.week_start_date}` })
+      if (t.enrolled === false || seen.has(t.id)) continue
+      seen.add(t.id)
+      out.push({ id: t.id, name: `${t.first_name} ${t.last_name}`.trim(), class_id: c.id })
+    }
+    for (const r of reps) {
+      if (seen.has(r.id)) continue
+      seen.add(r.id)
+      out.push({ id: r.id, name: `${r.first_name} ${r.last_name}`.trim(), class_id: null })
     }
     return out
-  }, [classes])
+  }, [classes, reps])
+  const classIds = useMemo(() => new Set(classes.flatMap((c) => (c.trainees || []).map((t) => t.id))), [classes])
+  const effectiveSection = sectionKey === 'slide' ? (slideN ? `slide:${slideN}` : '') : sectionKey
   const trainee = trainees.find((t) => t.id === traineeId) || null
 
   if (stage === 'live') {
     return (
       <LiveSession
-        persona={personaByKey(personaKey)} section={sectionByKey(sectionKey)} trainee={trainee}
+        persona={personaByKey(personaKey)} section={sectionByKey(effectiveSection)} trainee={trainee}
         onDone={(id) => { setReportId(id); setStage(id ? 'report' : 'setup'); loadHistory() }}
       />
     )
@@ -86,14 +103,21 @@ export default function SalesPractice() {
 
       <Step n="1" title="Who is presenting?">
         <select value={traineeId} onChange={(e) => setTraineeId(e.target.value)} className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2">
-          <option value="">No trainee: trainer try-out (still saved)</option>
+          <option value="">Nobody listed: trainer try-out (still saved)</option>
           {classes.map((c) => (
-            <optgroup key={c.id} label={`${c.region || 'Class'} · week of ${c.week_start_date}`}>
+            <optgroup key={c.id} label={`Trainees · ${c.region || 'Class'} · week of ${c.week_start_date}`}>
               {(c.trainees || []).filter((t) => t.enrolled !== false)
                 .sort((a, b) => a.first_name.localeCompare(b.first_name))
                 .map((t) => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
             </optgroup>
           ))}
+          {reps.some((r) => !classIds.has(r.id)) && (
+            <optgroup label="Active sales reps">
+              {reps.filter((r) => !classIds.has(r.id)).map((r) => (
+                <option key={r.id} value={r.id}>{r.first_name} {r.last_name}{r.region ? ` · ${r.region}` : ''}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </Step>
 
@@ -122,10 +146,19 @@ export default function SalesPractice() {
             </label>
           ))}
         </div>
+        {sectionKey === 'slide' && (
+          <select value={slideN} onChange={(e) => setSlideN(e.target.value)} className="mt-3 w-full max-w-md rounded-md border border-slate-300 px-3 py-2">
+            <option value="">Pick the slide…</option>
+            {slidePoints.map((d) => {
+              const n = parseInt(String(d.subject).match(/\d+/)[0], 10)
+              return <option key={d.subject} value={n}>{d.subject}: {d.title}</option>
+            })}
+          </select>
+        )}
       </Step>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
-        <button type="button" onClick={() => setStage('live')} className="rounded-lg bg-brand-red px-6 py-3 text-lg font-bold text-white shadow hover:bg-brand-red-dark">
+        <button type="button" onClick={() => setStage('live')} disabled={!effectiveSection} className="rounded-lg bg-brand-red px-6 py-3 text-lg font-bold text-white shadow hover:bg-brand-red-dark disabled:opacity-50">
           🏠 Sit down at the table
         </button>
         <span className="text-xs text-slate-500">Chrome or Edge on a laptop. A headset works best; on speakers, keep the volume moderate so the homeowner doesn’t hear themselves.</span>
@@ -151,7 +184,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
   const [level, setLevel] = useState(0)
-  const [page, setPage] = useState(section.key === 'survey' ? 0 : section.firstSlide) // 0 = no slide yet (intro/survey only)
+  const [page, setPage] = useState(section.firstSlide) // 0 = no slide (intro + survey)
   const [closeSilence, setCloseSilence] = useState(null)
   const [saving, setSaving] = useState(false)
   const [muted, setMuted] = useState(false)

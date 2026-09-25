@@ -3,6 +3,7 @@
 // the manual VERBATIM, never a paraphrase. If the PDF changes, regenerate this:
 //   pdftotext -layout public/sales-pitch/sales-script.pdf -
 // (strip leading spaces). The underscore keeps Netlify from deploying it as a function.
+import { sectionByKey } from '../../src/lib/salesPractice.js'
 
 export const SALES_SCRIPT = `
 Sales Script
@@ -444,17 +445,21 @@ More Estimates
 CALL YOUR MANAGER AND SELL THEM A ROOF.
 `
 
-// The part of the script a practice section is graded against.
-export function scriptForSection(section) {
+// The part of the script behind a practice section: used by the grader for
+// FACTS only (wording is never graded). Slides are cut by their headings
+// ("Slide 6", "Slide 13 and 14", "Slide 17 to 21"), so any range works.
+export function scriptForSection(sectionKey) {
   const s = SALES_SCRIPT
-  const cut = (from, to) => {
-    const a = from ? s.indexOf(from) : 0
-    const b = to ? s.indexOf(to) : s.length
-    return s.slice(a < 0 ? 0 : a, b < 0 ? s.length : b).trim()
-  }
-  if (section === 'survey') return cut(null, 'Presentation:')
-  if (section === 'why_today') return cut('Slide 6', 'Slide 8')
-  if (section === 'close') return cut('Slide 22', null) + '\n\n' + MORE_ESTIMATES_REBUTTAL.trim()
-  // full = the slide show only; the warm-up is a separate section.
-  return cut('Presentation:', null) + '\n\n' + MORE_ESTIMATES_REBUTTAL.trim()
+  const sec = sectionByKey(sectionKey)
+  if (!sec.range) return s.slice(0, Math.max(0, s.indexOf('Presentation:'))).trim() // intro + survey
+  const [a, b] = sec.range
+  const heads = [...s.matchAll(/^Slide (\d+)/gm)]
+  const parts = []
+  heads.forEach((h, i) => {
+    const n = parseInt(h[1], 10)
+    if (n === 12) return // Permalock: no longer offered (Neal, 25 Sep); never graded or quoted
+    if (n >= a && n <= b) parts.push(s.slice(h.index, i + 1 < heads.length ? heads[i + 1].index : s.length).trim())
+  })
+  const text = parts.join('\n\n') || s
+  return b >= 22 ? `${text}\n\n${MORE_ESTIMATES_REBUTTAL.trim()}` : text
 }

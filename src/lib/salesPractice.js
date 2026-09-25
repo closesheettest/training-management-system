@@ -136,17 +136,42 @@ export const PERSONAS = [
 
 export const personaByKey = (k) => PERSONAS.find((p) => p.key === k) || PERSONAS[0]
 
+// Every practice section is a range of SCRIPT slide numbers (the numbering the
+// sales script and the Slide Points page use; the deck has more pages than that,
+// see DECK). The page opens on the first one, the homeowner is told what came
+// before, and the grader checks the Slide Points in that range. survey has no
+// slides. "slide:N" is a single slide (Neal, 25 Sep: practise 1-5, 6-7, the
+// energy package, or one slide on its own).
 export const SECTIONS = [
   // Full = the slide show only. The warm-up (intro + customer survey) is taken as
   // already done and is never graded here; it has its own section (Neal, 25 Sep).
-  { key: 'full', label: 'Full presentation (slide show)', desc: 'Warm-up and survey already done. Slide 1 through asking for the business. 30–60 min.', firstSlide: 1, lastSlide: 31 },
-  { key: 'survey', label: 'Intro + customer survey', desc: 'The “Fair enough?” intro and the survey questions. ~10–15 min.', firstSlide: 1, lastSlide: 1 },
-  { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', firstSlide: 6, lastSlide: 7 },
-  { key: 'close', label: 'The close', desc: 'Payment options, ask for the business, handle the objection. ~10 min.', firstSlide: 29, lastSlide: 31 },
+  { key: 'full', label: 'Full presentation (slide show)', desc: 'Warm-up and survey already done. Slide 1 through asking for the business. 30–60 min.', range: [1, 23] },
+  { key: 'survey', label: 'Intro + customer survey', desc: 'The “Fair enough?” intro and the survey questions. ~10–15 min.', range: null },
+  { key: 'slides_1_5', label: 'Slides 1–5: the company', desc: 'Company, license, insurance, “you already need a roof”, experience. ~10–15 min.', range: [1, 5] },
+  { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', range: [6, 7] },
+  { key: 'slides_8_16', label: 'Slides 8–16: products, install & warranty', desc: 'What we offer, the installation process, colors, our work, jobsite prep, warranty. ~15 min.', range: [8, 16] },
+  { key: 'energy', label: 'Slides 17–21: the Energy Saver package', desc: 'Attic heat, R-38, duct sealing, radiant barrier, the savings. ~10 min.', range: [17, 21] },
+  { key: 'close', label: 'The close', desc: 'Payment options, ask for the business, handle the objection. ~10 min.', range: [22, 23] },
+  { key: 'slide', label: 'One slide', desc: 'Pick any one slide and drill it. ~3–5 min.', range: null, picker: true },
 ]
-export const sectionByKey = (k) => SECTIONS.find((s) => s.key === k) || SECTIONS[0]
+// First deck page for a script slide number (slide 12 starts on page 13, etc.).
+export function deckPageFor(n) {
+  const d = DECK.find((x) => parseInt((String(x.script).match(/\d+/) || [])[0], 10) === n)
+  return d ? d.page : 1
+}
+export function sectionByKey(k) {
+  const m = String(k || '').match(/^slide:(\d+)$/)
+  if (m) {
+    const n = parseInt(m[1], 10)
+    return { key: k, label: `One slide: Slide ${n}`, desc: '', range: [n, n], firstSlide: deckPageFor(n) }
+  }
+  const sec = SECTIONS.find((x) => x.key === k) || SECTIONS[0]
+  return { ...sec, firstSlide: sec.range ? deckPageFor(sec.range[0]) : 0 }
+}
 
-// public/practice-slides/s-NN.jpg, rendered from sales-pitch/why-us-shingle-slides.pdf.
+// public/practice-slides/s-NN.jpg = the deck on the SALES REP DASHBOARD
+// (us-shingle-rep-dashboard/presentation/), the one reps actually present from,
+// with the renewed license + insurance certificates. Copy it again if it changes.
 // Each deck page mapped to the script slide it belongs to, and what the
 // homeowner can see on it (the AI is told on every slide change).
 export const DECK = [
@@ -157,12 +182,14 @@ export const DECK = [
   { page: 5, script: 'Slide 5', seen: 'Chuck in a truck vs. a real roofing company: skydiving, experience, volume, crews, supplier pricing, manufacturer.' },
   { page: 6, script: 'Slide 6', seen: 'Why replace your roof with us today: insurance savings, electric savings, material & labor price increases, supplier incentives.' },
   { page: 7, script: 'Slide 7', seen: 'Low Bid Price Match Guarantee: match a lower bid and refund 10% of the difference.' },
-  { page: 8, script: 'Slide 8', seen: 'What can we offer: asphalt shingle, tile, metal (exposed fastener and standing seam), aluminum shingle and more.' },
+  { page: 8, script: 'Slide 8', seen: 'What can we offer: asphalt shingle, tile, metal (exposed fastener and standing seam) and more.' },
   { page: 9, script: 'Slide 9', seen: 'Our installation process: permits, photos, jobsite foreman, dump trailers, full tear-off, peel-and-stick underlayment, rotted wood, cleanup, final walk-through.' },
   { page: 10, script: 'Slide 10', seen: 'Shingle color charts (GAF Timberline HDZ).' },
   { page: 11, script: 'Slide 11', seen: '“Wide variety of colors to choose from.”' },
   { page: 12, script: 'Slide 11', seen: 'Metal roof color chart with emissivity ratings.' },
-  ...[13, 14, 15, 16, 17, 18, 19, 20, 21].map((p) => ({ page: p, script: p <= 14 ? 'Slide 12' : 'Slides 13–14', seen: 'Photos of finished U.S. Shingle metal-roof installs on real homes.' })),
+  // Pages 13–21 are install photos. The script's slide 12 (Permalock) has no page:
+  // we no longer offer Permalock (Neal, 25 Sep), so it is never mentioned.
+  ...[13, 14, 15, 16, 17, 18, 19, 20, 21].map((p) => ({ page: p, script: 'Slides 13–14', seen: 'Photos of finished U.S. Shingle metal-roof installs on real homes.' })),
   { page: 22, script: 'Slide 15', seen: 'Jobsite prep: a tarp where the dump trailer goes, plywood protecting the garage door.' },
   { page: 23, script: 'Slide 16', seen: 'Our product and company warranty: free 10-year no-leak guarantee, transfers if you sell.' },
   ...[24, 25, 26, 27, 28].map((p) => ({ page: p, script: 'Slides 17–21', seen: 'Energy Saver Package: attic heat, ductwork in the attic, R-38 insulation, duct sealing, radiant barrier.' })),
@@ -178,9 +205,10 @@ export function homeownerPrompt(persona, section) {
   const where = {
     full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
     survey: 'The rep has just sat down at your kitchen table with an iPad. Today they will only do the intro and ask you survey questions; the slides come later.',
-    why_today: 'The rep has already done the intro, the survey and slides 1–5 (company, license, insurance, "you must replace your roof", experience). You liked it fine. They are now on slide 6 about why to do it now, then slide 7, the Low Bid Match Guarantee.',
     close: 'The rep has already done the whole presentation (company, license, products, installation, warranty, the energy package). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',
-  }[sec.key]
+  }[sec.key] || (sec.range
+    ? `You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions (you answered with YOUR FACTS above, so they know those things)${sec.range[0] > 1 ? ` and has already presented slides 1–${sec.range[0] - 1}; you were fine with it so far` : ''}. Now they are presenting ${sec.range[0] === sec.range[1] ? `slide ${sec.range[0]}` : `slides ${sec.range[0]}–${sec.range[1]}`}. Do not expect or ask for the survey again.`
+    : '')
 
   const spouse = persona.name.split(/\s*&\s*/).map((n) => n.split(/\s+/)[0]).find((n) => n !== persona.speaker) || 'your spouse'
   return `You are role-playing a Florida homeowner in a sales-training exercise for a roofing company called U.S. Shingle. A new sales rep is practicing the in-home presentation on you, out loud, while their trainer watches. Stay in character the entire time. Never mention that you are an AI, never coach the rep, never break character, and never narrate stage directions.

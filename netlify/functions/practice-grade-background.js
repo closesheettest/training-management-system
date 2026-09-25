@@ -117,12 +117,14 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
     .filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()) && String(d.on_slide || '').trim())
     .map((d) => ({ n: parseInt(String(d.subject).match(/\d+/)[0], 10), label: `${d.subject}: ${d.title}`, pts: String(d.on_slide).split(/\s*·\s*/).filter(Boolean) }))
   const block = (label, pts) => `${label}\n${pts.map((x) => `  - ${x}`).join('\n')}`
-  const range = { survey: [0, 0], why_today: [6, 7], close: [22, 23], full: [1, 99] }[sectionKey] || [1, 99]
+  const range = sectionByKey(sectionKey).range || [0, -1]
   const out = []
   // Full is the slide show only: the warm-up is taken as done and never graded there.
   if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
-  if (sectionKey === 'close' || (sectionKey === 'full' && maxSlide >= 23)) out.push(block('Closing the deal', CLOSE_EXTRA))
+  if (range[1] >= 23 && Math.min(range[1], maxSlide) >= 22) out.push(block('Closing the deal', CLOSE_EXTRA))
+  // A slide with no Slide Points row yet: grade the ideas of its script section.
+  if (!out.length && range[1] >= range[0]) out.push('No Slide Points checklist exists for this part yet. Judge whether the rep brought out the KEY IDEAS of THE SCRIPT section below (not its wording).')
   return out.join('\n\n')
 }
 
@@ -145,9 +147,13 @@ export const handler = async (event) => {
     ? `\nMEASURED AT THE CLOSE: after the rep asked for the decision, they ${row.close_silence.held ? `stayed silent until the homeowner answered (${row.close_silence.seconds}s)` : `spoke again after ${row.close_silence.seconds}s, before the homeowner answered`}. The script says: stop speaking, do NOT speak again for ANY reason until after they do.`
     : ''
 
-  const reached = row.section === 'full' ? furthestSlide(row.transcript) : 99
+  // Grade what was reached: from the section's first slide to the furthest one
+  // the rep actually presented. A drill that stops early is not failed on the rest.
+  const rng = section.range
+  let reached = 99
+  if (rng && rng[1] > rng[0]) { const f = furthestSlide(row.transcript); reached = f >= rng[0] ? f : rng[1] }
   const points = await pointsForSection(sb, row.section, reached)
-  const notReached = row.section === 'full' && reached < 23 ? `Slides ${reached + 1}–23 and the close` : ''
+  const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice IN-HOME PRESENTATION (kitchen table, both spouses present).
 
@@ -159,7 +165,7 @@ SO GRADE ON POINTS, NOT WORDS:
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
-WHAT WAS PRACTICED: ${section.label}.${row.section === 'full' ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
+WHAT WAS PRACTICED: ${section.label}.${rng ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
 
 THE HOMEOWNER (an AI role-play): ${persona.name}, "${persona.tagline}". ${persona.blurb}
 What a good rep does with this homeowner: ${persona.close}
