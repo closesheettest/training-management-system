@@ -445,12 +445,30 @@ More Estimates
 CALL YOUR MANAGER AND SELL THEM A ROOF.
 `
 
+// The front-door free-roof-inspection pitch
+// (public/sales-pitch/free-inspection-pitch.docx), for the "door" practice.
+export const DOOR_PITCH = `
+Hi my name is ____ I'm stopping by because we sent you something in the mail in regards to your roof.
+We sent this to you because according to county records you are at high risk of the insurance company dropping you JUST BECAUSE OF THE AGE OF YOUR ROOF!
+Let me ask you one question, if you were to get the letter tomorrow from the insurance. Would you rather have just the option of coming out of pocket to replace your roof or would you like the added option of showing them an inspection report where they would leave you alone?
+Great, that is exactly why I'm here, we are here to get you scheduled for a no cost roof inspection. If there is no damage we will provide you an official inspection certificate that says you have 5+ years of life left in your roof. This will make them leave you alone.
+One of these 3 things are going to happen:
+We find you have no damage and you are now protected against the letter.
+We find that you have enough wear and tear that we can't give you the certificate but have many options for you.
+We find Storm Damage and a public adjuster will fight to get your insurance to pay for it.
+Last question I have is if the PA finds that you have enough storm damage to get the insurance company to pay for it. Do you want them starting right away to get you your new roof?
+(you are asking this because if they say yes then get the PA forms signed as well)
+You will need the insurance company and policy number to get these signed.
+When doing this, if they don't have that information available right then and there back it up and say that is fine, why don't we just do the inspection and if you have storm damage I can come back and get that information. Time kills all deals so get some kind of commitment.
+`
+
 // The part of the script behind a practice section: used by the grader for
 // FACTS only (wording is never graded). Slides are cut by their headings
 // ("Slide 6", "Slide 13 and 14", "Slide 17 to 21"), so any range works.
 export function scriptForSection(sectionKey) {
   const s = SALES_SCRIPT
   const sec = sectionByKey(sectionKey)
+  if (sec.door) return DOOR_PITCH.trim()
   if (!sec.range) return s.slice(0, Math.max(0, s.indexOf('Presentation:'))).trim() // intro + survey
   const [a, b] = sec.range
   const heads = [...s.matchAll(/^Slide (\d+)/gm)]

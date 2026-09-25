@@ -279,6 +279,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (!section.firstSlide) return // door / survey: no slides
       if (e.key === 'ArrowRight' || e.key === 'PageDown') setPage((p) => Math.min(DECK.length, p + 1))
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') setPage((p) => Math.max(1, p - 1))
     }
@@ -341,20 +342,27 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
         <div>
           {page === 0 ? (
+            section.door ? (
+              <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
+                <div className="text-5xl">🚪</div>
+                <div className="mt-3 text-xl font-bold text-brand-navy">At the front door</div>
+                <p className="mt-2 max-w-md text-sm text-slate-600">You just knocked. {persona.speaker} opens the door; they got our mailer about their roof but weren’t expecting you. Get them to say yes to the free roof inspection.</p>
+              </div>
+            ) : (
             <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
               <div className="text-5xl">☕</div>
               <div className="mt-3 text-xl font-bold text-brand-navy">At the kitchen table</div>
               <p className="mt-2 max-w-md text-sm text-slate-600">Intro and customer survey: no slides yet. {persona.speaker} and their spouse are sitting across from you. Start whenever you’re ready.</p>
-              {section.key !== 'survey' && <button type="button" onClick={() => setPage(1)} className="mt-4 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Start the slide show →</button>}
             </div>
+            )
           ) : (
             <img src={slideSrc(page)} alt={`Slide ${page}`} className="w-full rounded-xl border border-slate-200 bg-white shadow-sm" />
           )}
-          <div className="mt-2 flex items-center justify-between text-sm">
+          {section.firstSlide > 0 && <div className="mt-2 flex items-center justify-between text-sm">
             <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">← Back</button>
             <span className="text-slate-500">{page ? `Deck page ${page} of ${DECK.length} · ${DECK[page - 1]?.script}` : 'No slide'} · ← → keys work</span>
             <button type="button" onClick={() => setPage((p) => Math.min(DECK.length, p + 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">Next →</button>
-          </div>
+          </div>}
           {closeSilence && (
             <div className={`mt-3 rounded-md px-3 py-2 text-sm font-semibold ${closeSilence.held ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
               {closeSilence.held ? `✓ Held the silence after the ask (${closeSilence.seconds}s)` : `✗ Spoke again ${closeSilence.seconds}s after the ask, before the homeowner answered`}

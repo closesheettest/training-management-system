@@ -112,6 +112,16 @@ const SURVEY_POINTS = [
   'Which problems they have (leaks, mold, insurance cost, damage, maintenance, energy cost, quality)',
   'Pre-close: would they want to know about saving by starting sooner; opposed to starting right away if the price or term fits?',
 ]
+// The front-door free-roof-inspection pitch, as points (what has to land at the door).
+const DOOR_POINTS = [
+  'Opener: who they are, and that we sent them something in the mail about their roof',
+  'Why: county records put them at high risk of the insurance company dropping them just because of the roof\'s age',
+  'The question: if the insurance letter came tomorrow, only paying out of pocket, or also an inspection report that makes them leave you alone?',
+  'The offer: a no-cost roof inspection; no damage = an official certificate of 5+ years of life left, which keeps the insurance off their back',
+  'The 3 outcomes: no damage (protected) · wear and tear (options) · storm damage (a public adjuster fights to get insurance to pay)',
+  'Pre-close: if the PA finds storm damage, do they want to start right away? If yes, the PA forms need the insurance company + policy number',
+  'Commitment: if the policy info is not handy, do the inspection anyway and come back for it. Leave with a yes (time kills all deals)',
+]
 const CLOSE_EXTRA = [
   'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
   'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
@@ -145,6 +155,7 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   const out = []
   // Full is the slide show only: the warm-up is taken as done and never graded there.
   if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
+  if (sectionKey === 'door') out.push(block('The door pitch (free roof inspection)', DOOR_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
   if (range[1] >= 23 && Math.min(range[1], maxSlide) >= 22) out.push(block('Closing the deal', CLOSE_EXTRA))
   // A slide with no Slide Points row yet: grade the ideas of its script section.
@@ -326,7 +337,7 @@ export const handler = async (event) => {
   questions.just_answered = handovers.length
   const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
-  const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice IN-HOME PRESENTATION (kitchen table, both spouses present).
+  const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
 
 HOW WE SELL: question-based selling. It is a conversation, not a script. The rep's job on each part is to BRING OUT ITS POINTS so the homeowner understands and agrees with them, ideally by asking questions that let the homeowner get there themselves. Every homeowner is different, so the order, the wording and the route will differ every time.
 

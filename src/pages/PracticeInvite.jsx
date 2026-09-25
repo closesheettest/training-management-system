@@ -70,8 +70,12 @@ export default function PracticeInvite() {
       <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
         <li>Use <b>Chrome</b> on a laptop or tablet, somewhere quiet. <b>Headphones</b> work best.</li>
         <li>When Chrome asks to use the <b>microphone</b>, click <b>Allow</b>.</li>
-        <li>The slides are on screen: use <b>Next / Back</b> (or the arrow keys) as you present.</li>
-        <li>Talk to them like you’re at their kitchen table. When you finish, click <b>End &amp; grade</b>.</li>
+        {section.door
+          ? <li>You’re at their <b>front door</b>: they got our mailer but weren’t expecting you. Get a yes to the free roof inspection. When you finish, click <b>End &amp; grade</b>.</li>
+          : <>
+            <li>The slides are on screen: use <b>Next / Back</b> (or the arrow keys) as you present.</li>
+            <li>Talk to them like you’re at their kitchen table. When you finish, click <b>End &amp; grade</b>.</li>
+          </>}
       </ul>
       <button type="button" onClick={() => setStage('live')} className="mt-6 w-full rounded-lg bg-brand-red px-6 py-3 text-lg font-bold text-white shadow hover:bg-brand-red-dark">
         🏠 Start the practice
