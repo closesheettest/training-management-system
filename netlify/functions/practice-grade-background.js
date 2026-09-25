@@ -16,7 +16,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey, DECK } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, DECK, OBJECTION_METHOD } from '../../src/lib/salesPractice.js'
 
 const REPORT_SCHEMA = {
   type: 'OBJECT',
@@ -79,9 +79,11 @@ const REPORT_SCHEMA = {
         type: 'OBJECT',
         properties: {
           objection: { type: 'STRING' },
-          handled: { type: 'STRING', description: 'well | partly | poorly | missed' },
+          handled: { type: 'STRING', description: 'well | partly | poorly | missed, judged ONLY by the objection method' },
+          parked: { type: 'BOOLEAN', description: 'true if the rep parked it for later instead of answering on the spot' },
+          came_back: { type: 'STRING', description: 'For parked ones: yes (answered later) | no (reached that part, never answered) | not reached. For answered-on-the-spot ones: n/a' },
           what_rep_said: { type: 'STRING' },
-          say_instead: { type: 'STRING', description: 'Use the script / deck wording where it applies' },
+          say_instead: { type: 'STRING', description: 'How to handle it by the method (often a park + question), using the deck/script facts where they apply' },
         },
         required: ['objection', 'handled', 'what_rep_said', 'say_instead'],
       },
@@ -262,7 +264,7 @@ For EACH numbered exchange below (a homeowner question, then the rep's reply), g
 - "gave_up": the rep just answered, explained, defended or argued, with no question back. Control handed to the homeowner.
 - "off_topic": the rep asked a question back that had nothing to do with the conversation AND did not lead anywhere: a random deflection. This also gives up control.
 IMPORTANT: a question that looks unrelated is NOT off-topic if it is the first step of a line of questions that gets to a point within the next few exchanges (e.g. asking how long their mortgage took to get approved, then how many times the bank came back for more paperwork, then landing on "so the finance companies that approved us put us through the same thing: they did your homework for you"). Read WHERE THE REP WENT NEXT for each exchange; if the question was building to a point, it is "kept".
-A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
+A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. PARKING counts as kept: acknowledging the question, saying when it will be covered, and asking the homeowner to hold it ("can we hold that till we get there?"), then back to the point with a question. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
 
 THE EXCHANGES:
 ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.after.length ? `\n   (where the rep went next: ${p.after.join(' | ')})` : ''}`).join('\n')}`
@@ -349,6 +351,9 @@ SO GRADE ON POINTS, NOT WORDS:
 - WHEN THE HOMEOWNER ASKS A QUESTION, the rep must answer it and then take control back WITH A QUESTION of their own (or answer a question with a question). A rep who just answers, with no question back, has GIVEN UP CONTROL, and that must cost them on the control score. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep came back with a question ${questions.answered_with_question} times and just answered ${questions.just_answered} times. The just-answered ones (homeowner, then the rep's reply):
 ${handovers.slice(0, 12).map((h, i) => `  ${i + 1}. HOMEOWNER: ${h.homeowner}\n     REP: ${h.rep}`).join('\n') || '  (none)'}
   Use these for "lost_moments", each with the question the rep should have come back with.
+- OBJECTIONS are judged ONLY by the company's method:
+${OBJECTION_METHOD}
+  An objection is handled "well" only when all four steps happen. PARKING a concern that belongs to a later slide is the RIGHT move (it keeps control); never mark a rep down for not answering it on the spot. But a parked concern the rep never came back to, once they reached that part, is a miss. Answering early by jumping ahead to later material is a control mistake.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
 WHAT WAS PRACTICED: ${section.label}.${rng ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.

@@ -214,6 +214,16 @@ export const DECK = [
 ]
 export const slideSrc = (page) => `/practice-slides/s-${String(page).padStart(2, '0')}.jpg`
 
+// NEAL'S OBJECTION METHOD (2026-09-25). One wording, used by the homeowner (when
+// to concede) and the grader (what "handled well" means), so they never disagree.
+// Step 3 is deliberately NOT "answer it": on slide 1 you do not jump to products
+// because Frank asked; you park it and keep control.
+export const OBJECTION_METHOD = `1. ACKNOWLEDGE the concern (don't argue with it or brush it off).
+2. ISOLATE it ("Other than that, is there anything else on your mind?").
+3. ANSWER IT NOW ONLY IF IT BELONGS TO WHAT THEY ARE ON. Otherwise PARK IT: say when it will be covered and get the homeowner's OK to hold it ("That's exactly what we'll get to when I show you the products in a few minutes. Can we hold that till then so I don't skip anything important?"). Jumping ahead to answer it early gives away control.
+4. CONFIRM WITH A QUESTION AND TAKE IT BACK: get their agreement ("Does that make sense?", "Fair enough?"), then return to the current point with the rep's own question.
+A parked concern must be answered later, when the rep reaches that part.`
+
 // The homeowner's instructions for the live voice session.
 export function homeownerPrompt(persona, section) {
   const sec = sectionByKey(section)
@@ -252,7 +262,10 @@ RULES FOR REALISM:
 - Talk like a real person ${sec.door ? 'standing in their doorway' : 'at a kitchen table'}: short, natural sentences, "um", "well", "yeah". Usually 1–3 sentences. Longer only when your personality calls for it.
 - Answer the rep's questions honestly per your facts. Answer tie-down questions ("wouldn't you agree?", "fair enough?", "make sense?") in character.
 - Do not volunteer the script's points for the rep. Make them do the work.
-- THE REP CAN WIN. This is training, and it must be winnable. When the rep overcomes an objection in an acceptable way (they understood your real concern, answered it honestly, and got your agreement with a question), CONCEDE: "okay, that's fair", and let them move forward. Stay difficult in your personality, but never refuse to budge against a good answer. The rep should lose only by handling things badly.
+- THE REP CAN WIN. This is training, and it must be winnable. The company teaches this way to handle an objection:
+${OBJECTION_METHOD}
+  When the rep does this well, CONCEDE ("okay, that's fair") and let them move forward. Stay difficult in your personality, but never refuse to budge against a good answer. The rep should lose only by handling things badly.
+- PARKING IS FAIR. If the rep parks your concern the right way (acknowledges it, tells you when they will cover it, asks you to hold it), accept it and do not raise it again until they get to that part. If they reach that part and still don't address it, bring it up then. Do NOT accept being brushed off with no promise of when.
 - SETTLED MEANS SETTLED. Remember what has been covered. Once the rep has answered a concern and you have accepted it ("okay", "that makes sense", "fair enough"), do not bring it up again unless the rep later says something that contradicts it. Real homeowners move on: raise a DIFFERENT concern, ask about what is on the screen, or just listen. Repeating an answered objection is the least realistic thing you can do.
 - React to what is on the screen when the rep shows a slide (you'll get a note like "[Slide now showing: ...]"). Those notes are silent stage info: never read them aloud or answer them directly.
 - When the rep asks you to choose between two prices (the close), think about it for a moment before answering.

@@ -523,7 +523,9 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
               <div className="space-y-3">
                 {r.objections.map((o, i) => (
                   <div key={i} className="border-b border-slate-100 pb-2 last:border-0">
-                    <div className="font-semibold text-slate-800">“{o.objection}” <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${o.handled === 'well' ? 'bg-emerald-50 text-emerald-700' : o.handled === 'partly' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{o.handled}</span></div>
+                    <div className="font-semibold text-slate-800">“{o.objection}” <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${o.handled === 'well' ? 'bg-emerald-50 text-emerald-700' : o.handled === 'partly' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{o.handled}</span>
+                      {o.parked && <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${o.came_back === 'no' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>🅿️ parked{o.came_back === 'yes' ? ' · came back ✓' : o.came_back === 'no' ? ' · never came back' : o.came_back === 'not reached' ? ' · not reached yet' : ''}</span>}
+                    </div>
                     <div className="text-sm text-slate-600"><span className="font-semibold">They said:</span> {o.what_rep_said}</div>
                     <div className="text-sm text-slate-800"><span className="font-semibold">Say instead:</span> {o.say_instead}</div>
                   </div>
