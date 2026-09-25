@@ -63,6 +63,9 @@ async function liveSmokeTest(key, model) {
       if (m.setupComplete) {
         res.setup_ok = true
         res.steps.push('setup accepted')
+        // The page's slide note, sent exactly as geminiLive.sendSlide sends it.
+        ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[Slide now showing: Why U.S. Shingle: 15 years in business, veteran owned.] (stage info only: do not respond to this)' }] }], turnComplete: false } }))
+        res.steps.push('slide note sent')
         ws.send(JSON.stringify({ realtimeInput: { text: "Hi, I'm Mike from U.S. Shingle. Thanks for having me. Mind if I ask you a couple of questions about the house?" } }))
         return
       }
