@@ -235,6 +235,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
   const [level, setLevel] = useState(0)
+  const [micName, setMicName] = useState('')
   const [page, setPage] = useState(section.firstSlide) // 0 = no slide (intro + survey)
   const [closeSilence, setCloseSilence] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -260,7 +261,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
       systemPrompt: homeownerPrompt(persona, section.key),
       voice: persona.voice,
       getToken: fetchToken,
-      on: { status: setStatus, transcript: setEntries, level: setLevel, error: setErr, closeSilence: setCloseSilence },
+      on: { status: setStatus, transcript: setEntries, level: setLevel, error: setErr, closeSilence: setCloseSilence, mic: setMicName },
     })
     liveRef.current = live
     live.start().catch((e) => { setErr(e.name === 'NotAllowedError' ? 'The browser blocked the microphone. Allow it (the icon in the address bar) and try again.' : e.message); setStatus('error') })
@@ -341,6 +342,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
           </button>
         </div>
       </div>
+      {micName && <div className="mt-1 text-xs text-slate-500">🎙️ Using: <b>{micName}</b> <span className="text-slate-400">(wrong one? pick it from the mic icon in Chrome&rsquo;s address bar, then restart)</span></div>}
       {err && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{err}</div>}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">

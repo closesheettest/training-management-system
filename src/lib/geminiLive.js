@@ -15,7 +15,8 @@
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained'
 const CLOSE_HOLD_MS = 5000
-const VOICE_RMS = 0.02 // mic level that counts as the rep talking
+const VOICE_RMS = 0.02 // mic level that counts as the rep talking (after auto-gain)
+const TARGET_RMS = 0.1  // what auto-gain aims normal speech at
 // While the homeowner is talking, the mic also hears them through the speakers
 // and Google took that as the rep interrupting ("Yeah, I'm familiar with" — cut
 // off, Neal's first run 25 Sep). Below this level during playback we send
@@ -69,7 +70,9 @@ export function liveSetup({ model, systemPrompt, voice, handle }) {
       // checkStall's 4s nudge instead. Low noise still doesn't count as speech.
       realtimeInputConfig: {
         automaticActivityDetection: {
-          startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+          // (START_SENSITIVITY_LOW was set to ignore room noise, but with quiet
+          // AirPods/laptop mics it ignored the rep too. Google's default now,
+          // with auto-gain making speech loud enough.)
           // HIGH end-sensitivity treats room noise as not-speech sooner (the boss
           // demo sat ~30s waiting for an end); 1.3s keeps it from cutting off a
           // rep who pauses to think (0.7s did). The ✋ button covers the rest.
@@ -112,6 +115,8 @@ export class LiveHomeowner {
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     })
+    // Which mic Chrome picked (AirPods vs the laptop's), shown on screen.
+    this.on.mic?.(this.stream.getAudioTracks()[0]?.label || '')
     this.inCtx = new AudioContext({ sampleRate: 16000 })
     this.outCtx = new AudioContext({ sampleRate: 24000 })
     await this.inCtx.audioWorklet.addModule('/practice-mic-worklet.js')
@@ -223,15 +228,37 @@ export class LiveHomeowner {
 
   sendSlide(seen) {
     this.ws.send(JSON.stringify({
-      clientContent: { turns: [{ role: 'user', parts: [{ text: `[Slide now showing: ${seen}] (stage info only: do not respond to this)` }] }], turnComplete: false },
+      // "Don't use it until the rep does": Frank opened with "15 years" before a
+      // word was said about it (Neal, 25 Sep).
+      clientContent: { turns: [{ role: 'user', parts: [{ text: `[Slide now showing: ${seen}] (stage info only: do not respond to this, and do not mention or react to anything on the slide until the rep talks about it)` }] }], turnComplete: false },
     }))
   }
 
   onMic(f32) {
     let sum = 0
     for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i]
-    const rms = Math.sqrt(sum / f32.length)
-    this.on.level?.(Math.min(1, rms * 8))
+    const raw = Math.sqrt(sum / f32.length)
+    // AUTO-GAIN. AirPods and laptop mics came in so low in Chrome that Google
+    // often didn't notice anyone had started talking (Neal, 25 Sep: "the meter
+    // doesn't go up"). When there is speech-level sound, ease the gain toward
+    // a healthy level (up to 8x); never boost near-silence, so the room hiss
+    // stays quiet. Everything after this (echo guard, voice detection, meter,
+    // what Google hears) uses the boosted signal.
+    if (!this.gain) this.gain = 1
+    if (raw > 0.004) {
+      const want = Math.max(1, Math.min(8, TARGET_RMS / raw))
+      this.gain += (want - this.gain) * (want < this.gain ? 0.3 : 0.05) // drop fast, rise slow
+    }
+    if (this.gain !== 1) {
+      const boosted = new Float32Array(f32.length)
+      for (let i = 0; i < f32.length; i++) boosted[i] = Math.max(-1, Math.min(1, f32[i] * this.gain))
+      f32 = boosted
+    }
+    const rms = raw * this.gain
+    // Meter on a decibel scale (-55 dB = empty, -10 dB = full): normal speech
+    // now fills most of the bar instead of a sliver.
+    const db = 20 * Math.log10(Math.max(rms, 1e-6))
+    this.on.level?.(Math.max(0, Math.min(1, (db + 55) / 45)))
     const now = performance.now()
     const echoing = this.playing.size > 0 && rms < ECHO_RMS
     if (echoing) f32 = new Float32Array(f32.length) // the homeowner's own voice coming back: send silence
