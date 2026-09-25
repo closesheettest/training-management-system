@@ -137,7 +137,9 @@ export const PERSONAS = [
 export const personaByKey = (k) => PERSONAS.find((p) => p.key === k) || PERSONAS[0]
 
 export const SECTIONS = [
-  { key: 'full', label: 'Full presentation', desc: 'Intro, survey, every slide, ask for the business. 45–90 min.', firstSlide: 1, lastSlide: 31 },
+  // Full = the slide show only. The warm-up (intro + customer survey) is taken as
+  // already done and is never graded here; it has its own section (Neal, 25 Sep).
+  { key: 'full', label: 'Full presentation (slide show)', desc: 'Warm-up and survey already done. Slide 1 through asking for the business. 30–60 min.', firstSlide: 1, lastSlide: 31 },
   { key: 'survey', label: 'Intro + customer survey', desc: 'The “Fair enough?” intro and the survey questions. ~10–15 min.', firstSlide: 1, lastSlide: 1 },
   { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', firstSlide: 6, lastSlide: 7 },
   { key: 'close', label: 'The close', desc: 'Payment options, ask for the business, handle the objection. ~10 min.', firstSlide: 29, lastSlide: 31 },
@@ -174,7 +176,7 @@ export const slideSrc = (page) => `/practice-slides/s-${String(page).padStart(2,
 export function homeownerPrompt(persona, section) {
   const sec = sectionByKey(section)
   const where = {
-    full: 'The rep has just sat down at your kitchen table with an iPad. They will do an intro, ask you survey questions, walk through a slide show, then ask for the business.',
+    full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
     survey: 'The rep has just sat down at your kitchen table with an iPad. Today they will only do the intro and ask you survey questions; the slides come later.',
     why_today: 'The rep has already done the intro, the survey and slides 1–5 (company, license, insurance, "you must replace your roof", experience). You liked it fine. They are now on slide 6 about why to do it now, then slide 7, the Low Bid Match Guarantee.',
     close: 'The rep has already done the whole presentation (company, license, products, installation, warranty, the energy package). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',

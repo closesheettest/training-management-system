@@ -151,7 +151,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
   const [level, setLevel] = useState(0)
-  const [page, setPage] = useState(section.key === 'survey' || section.key === 'full' ? 0 : section.firstSlide) // 0 = no slide yet (intro/survey)
+  const [page, setPage] = useState(section.key === 'survey' ? 0 : section.firstSlide) // 0 = no slide yet (intro/survey only)
   const [closeSilence, setCloseSilence] = useState(null)
   const [saving, setSaving] = useState(false)
   const [muted, setMuted] = useState(false)
@@ -257,7 +257,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
             <img src={slideSrc(page)} alt={`Slide ${page}`} className="w-full rounded-xl border border-slate-200 bg-white shadow-sm" />
           )}
           <div className="mt-2 flex items-center justify-between text-sm">
-            <button type="button" onClick={() => setPage((p) => Math.max(section.key === 'full' ? 0 : 1, p - 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">← Back</button>
+            <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">← Back</button>
             <span className="text-slate-500">{page ? `Deck page ${page} of ${DECK.length} · ${DECK[page - 1]?.script}` : 'No slide'} · ← → keys work</span>
             <button type="button" onClick={() => setPage((p) => Math.min(DECK.length, p + 1))} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold">Next →</button>
           </div>

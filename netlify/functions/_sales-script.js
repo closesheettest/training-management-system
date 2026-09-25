@@ -455,5 +455,6 @@ export function scriptForSection(section) {
   if (section === 'survey') return cut(null, 'Presentation:')
   if (section === 'why_today') return cut('Slide 6', 'Slide 8')
   if (section === 'close') return cut('Slide 22', null) + '\n\n' + MORE_ESTIMATES_REBUTTAL.trim()
-  return s.trim() + '\n\n' + MORE_ESTIMATES_REBUTTAL.trim()
+  // full = the slide show only; the warm-up is a separate section.
+  return cut('Presentation:', null) + '\n\n' + MORE_ESTIMATES_REBUTTAL.trim()
 }

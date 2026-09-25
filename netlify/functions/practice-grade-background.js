@@ -115,7 +115,8 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   const block = (label, pts) => `${label}\n${pts.map((x) => `  - ${x}`).join('\n')}`
   const range = { survey: [0, 0], why_today: [6, 7], close: [22, 23], full: [1, 99] }[sectionKey] || [1, 99]
   const out = []
-  if (sectionKey === 'survey' || sectionKey === 'full') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
+  // Full is the slide show only: the warm-up is taken as done and never graded there.
+  if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
   if (sectionKey === 'close' || (sectionKey === 'full' && maxSlide >= 23)) out.push(block('Closing the deal', CLOSE_EXTRA))
   return out.join('\n\n')
@@ -154,7 +155,7 @@ SO GRADE ON POINTS, NOT WORDS:
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
-WHAT WAS PRACTICED: ${section.label}.${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
+WHAT WAS PRACTICED: ${section.label}.${row.section === 'full' ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
 
 THE HOMEOWNER (an AI role-play): ${persona.name}, "${persona.tagline}". ${persona.blurb}
 What a good rep does with this homeowner: ${persona.close}
