@@ -294,10 +294,19 @@ function Report({ id, onBack }) {
 
   useEffect(() => {
     let stop = false, timer
+    // KEEP ASKING. One failed check (a network blip, the laptop napping, a deploy
+    // mid-grade) used to end the polling, and the card sat on "Grading…" while the
+    // grade was already saved (Neal's first run, 25 Sep). Errors now just retry.
+    let misses = 0
     const tick = async () => {
-      const d = await api({ action: 'get', id })
+      let d
+      try { d = await api({ action: 'get', id }) } catch { d = { ok: false } }
       if (stop) return
-      if (!d.ok) { setErr(d.error); return }
+      if (!d.ok) {
+        if (++misses >= 20) { setErr(d.error || 'Could not load this session.'); return }
+        timer = setTimeout(tick, 4000); return
+      }
+      misses = 0
       setS(d.session)
       if (d.session.grade_status === 'pending') timer = setTimeout(tick, 3000)
     }
@@ -324,7 +333,7 @@ function Report({ id, onBack }) {
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
 
-      {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading against the script… (usually under a minute)</div>}
+      {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading against the script… (usually 1–2 minutes; a full presentation can take 3)</div>}
       {s.grade_status === 'failed' && (
         <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Grading didn’t work: {s.grade_error}
