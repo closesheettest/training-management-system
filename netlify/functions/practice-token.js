@@ -38,11 +38,11 @@ async function mintToken(key) {
 // A real Live session exactly as the page opens one: token → WebSocket → setup
 // (the shared liveSetup) → say something → expect the homeowner's voice and
 // words back. Proves the voice path without a trainer at a laptop. A few cents.
-async function liveSmokeTest(key, model) {
+async function liveSmokeTest(key, model, probeUsage = false) {
   const token = await mintToken(key)
   const p = PERSONAS[0]
   return await new Promise((resolve) => {
-    const res = { steps: ['token ok'], setup_ok: false, audio_chunks: 0, homeowner_said: '' }
+    const res = { steps: ['token ok'], setup_ok: false, audio_chunks: 0, homeowner_said: '', probe_usage: probeUsage }
     const ws = new WebSocketImpl(`${LIVE_WS_URL}?access_token=${encodeURIComponent(token)}`)
     let done = false
     const finish = (extra) => {
@@ -52,7 +52,7 @@ async function liveSmokeTest(key, model) {
       try { ws.close() } catch { /* already closed */ }
       resolve({ ...res, ...extra })
     }
-    const timer = setTimeout(() => finish({ ok: false, error: 'timed out after 20s' }), 20000)
+    const timer = setTimeout(() => finish({ ok: false, error: 'timed out after 25s' }), 25000)
     ws.on('open', () => {
       res.steps.push('socket open')
       ws.send(JSON.stringify(liveSetup({ model, systemPrompt: homeownerPrompt(p, 'survey'), voice: p.voice })))
@@ -60,6 +60,9 @@ async function liveSmokeTest(key, model) {
     ws.on('message', (buf) => {
       let m
       try { m = JSON.parse(buf.toString()) } catch { return }
+      // Record exactly what Google reports for billing, so the cost shown on
+      // each practice is real, not guessed.
+      if (m.usageMetadata) (res.usage = res.usage || []).push({ turn: (res.turns || 0) + 1, ...m.usageMetadata })
       if (m.setupComplete) {
         res.setup_ok = true
         res.steps.push('setup accepted')
@@ -73,7 +76,14 @@ async function liveSmokeTest(key, model) {
       if (!sc) return
       for (const part of sc.modelTurn?.parts || []) if (part.inlineData?.data) res.audio_chunks++
       if (sc.outputTranscription?.text) res.homeowner_said += sc.outputTranscription.text
-      if (sc.turnComplete) finish({ ok: res.audio_chunks > 0 })
+      if (sc.turnComplete) {
+        res.turns = (res.turns || 0) + 1
+        if (res.turns === 1 && res.probe_usage) {
+          ws.send(JSON.stringify({ realtimeInput: { text: 'Great. How long have you owned the home?' } }))
+          return
+        }
+        finish({ ok: res.audio_chunks > 0 })
+      }
     })
     ws.on('close', (code, reason) => finish({ ok: res.audio_chunks > 0, close_code: code, close_reason: String(reason || '') }))
     ws.on('error', (e) => finish({ ok: false, error: e.message }))
@@ -91,7 +101,7 @@ export const handler = async (event) => {
 
   if (body.check === 'live') {
     if (!process.env.CRON_SECRET || body.secret !== process.env.CRON_SECRET) return json(401, { ok: false, error: 'secret required' })
-    try { return json(200, await liveSmokeTest(key, model)) } catch (e) { return json(200, { ok: false, error: e.message }) }
+    try { return json(200, await liveSmokeTest(key, model, !!body.usage)) } catch (e) { return json(200, { ok: false, error: e.message }) }
   }
 
   // { check: true } — setup check, no PIN: does Google accept the key, and do the

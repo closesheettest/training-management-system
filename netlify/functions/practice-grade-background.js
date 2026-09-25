@@ -216,7 +216,11 @@ async function gradeDrill(sb, row, persona, section, id) {
     // The rep's reply is the rep turn right after this question (not one after a
     // later homeowner turn, which would pair the wrong exchange).
     if (!reply || next !== reply) return
-    pairs.push({ homeowner: String(t.text).trim(), rep: String(reply.text).trim() })
+    // Where the rep went over the next few turns: a question that looks out of
+    // the blue is fine if it is the first step of a line of questions that gets
+    // to a point (Neal's mortgage questions landing on "the banks vetted us").
+    const after = turns.slice(i + 2, i + 7).map((x) => `${x.who === 'rep' ? 'REP' : 'HOMEOWNER'}: ${String(x.text).trim().slice(0, 220)}`)
+    pairs.push({ homeowner: String(t.text).trim(), rep: String(reply.text).trim(), after })
   })
   if (!pairs.length) {
     const report = { drill: true, pairs: [], kept: 0, gave_up: 0, off_topic: 0, total: 0, summary: 'The homeowner never got a question answered in this run (nothing to score). Run it again for the full five minutes.', tips: [] }
@@ -228,17 +232,19 @@ async function gradeDrill(sb, row, persona, section, id) {
 For EACH numbered exchange below (a homeowner question, then the rep's reply), give one verdict:
 - "kept": the rep answered (briefly is best) and then took control back WITH A QUESTION OF THEIR OWN that is RELEVANT to what is being discussed, steering toward their point or the slide.
 - "gave_up": the rep just answered, explained, defended or argued, with no question back. Control handed to the homeowner.
-- "off_topic": the rep did ask a question back, but it had nothing to do with the conversation (a random deflection, an "out of the box" question). This also gives up control.
+- "off_topic": the rep asked a question back that had nothing to do with the conversation AND did not lead anywhere: a random deflection. This also gives up control.
+IMPORTANT: a question that looks unrelated is NOT off-topic if it is the first step of a line of questions that gets to a point within the next few exchanges (e.g. asking how long their mortgage took to get approved, then how many times the bank came back for more paperwork, then landing on "so the finance companies that approved us put us through the same thing: they did your homework for you"). Read WHERE THE REP WENT NEXT for each exchange; if the question was building to a point, it is "kept".
 A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
 
 THE EXCHANGES:
-${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}`).join('\n')}`
+${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.after.length ? `\n   (where the rep went next: ${p.after.join(' | ')})` : ''}`).join('\n')}`
   const out = await geminiJson(prompt, DRILL_SCHEMA)
   const byN = new Map((out.verdicts || []).map((v) => [Number(v.n), v]))
   const scored = pairs.map((p, i) => {
     const v = byN.get(i + 1) || {}
     const verdict = ['kept', 'gave_up', 'off_topic'].includes(v.verdict) ? v.verdict : 'gave_up'
-    return { ...p, verdict, why: v.why || '', better_question: verdict === 'kept' ? '' : (v.better_question || '') }
+    const { after, ...pp } = p // eslint-disable-line no-unused-vars
+    return { ...pp, verdict, why: v.why || '', better_question: verdict === 'kept' ? '' : (v.better_question || '') }
   })
   const kept = scored.filter((x) => x.verdict === 'kept').length
   const report = {
