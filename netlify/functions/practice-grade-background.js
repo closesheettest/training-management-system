@@ -18,6 +18,35 @@ import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
 import { personaByKey, sectionByKey, DECK, OBJECTION_METHOD } from '../../src/lib/salesPractice.js'
 
+// Two audiences (Neal, 25 Sep). The REP, doing a practice from a link on their
+// own, sees only `encouragement`: no grade, all build-up. The trainer/manager
+// sees everything, plus `manager_plan`, a coaching plan for what to work on.
+const ENCOURAGEMENT_SCHEMA = {
+  type: 'OBJECT',
+  description: 'WRITTEN TO THE REP, who sees ONLY this (Neal, 25 Sep: build them up, never break them down). No score, no grade, no numbers, no "missed", "poorly", "wrong", "failed" or "weak". Warm, confident, specific.',
+  properties: {
+    opening: { type: 'STRING', description: '1-2 sentences of genuine, specific praise to open with' },
+    wins: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-3 real things they did well, quoting their own words where possible' },
+    level_up: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-3 "To make it even better, try ..." points, each with the exact words or question they could use next time' },
+    closing: { type: 'STRING', description: 'One encouraging closing line' },
+  },
+  required: ['opening', 'wins', 'level_up', 'closing'],
+}
+const MANAGER_PLAN_SCHEMA = {
+  type: 'OBJECT',
+  description: 'FOR THE MANAGER, a coaching plan: direct and specific',
+  properties: {
+    focus: { type: 'STRING', description: 'The ONE thing this rep most needs to work on, in a sentence' },
+    assign: {
+      type: 'ARRAY',
+      description: 'Up to 3 practice assignments from what this tool offers (control drill on slide N, one slide N, a section, the door pitch, an easier or harder homeowner), each with why',
+      items: { type: 'OBJECT', properties: { practice: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['practice', 'why'] },
+    },
+    ride_along: { type: 'STRING', description: 'What to watch for when the manager is next with this rep in a real home' },
+  },
+  required: ['focus', 'assign', 'ride_along'],
+}
+
 const REPORT_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -89,8 +118,10 @@ const REPORT_SCHEMA = {
       },
     },
     used_their_answers: { type: 'STRING', description: 'Did the rep tie back what the homeowner told them in the survey (insurance cost, electric bill, allergies, forever home...)? Examples.' },
+    encouragement: ENCOURAGEMENT_SCHEMA,
+    manager_plan: MANAGER_PLAN_SCHEMA,
   },
-  required: ['score', 'summary', 'outcome', 'strengths', 'top_fixes', 'parts', 'control', 'facts_wrong', 'good_questions', 'objections', 'used_their_answers'],
+  required: ['score', 'summary', 'outcome', 'strengths', 'top_fixes', 'parts', 'control', 'facts_wrong', 'good_questions', 'objections', 'used_their_answers', 'encouragement', 'manager_plan'],
 }
 
 // The checklist the rep is graded on. Slides come from the Slide Points page
@@ -232,8 +263,10 @@ const DRILL_SCHEMA = {
     },
     summary: { type: 'STRING', description: '2-3 plain sentences on how the rep handled the pressure' },
     tips: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Up to 3 habits to build, most important first' },
+    encouragement: ENCOURAGEMENT_SCHEMA,
+    manager_plan: MANAGER_PLAN_SCHEMA,
   },
-  required: ['verdicts', 'summary', 'tips'],
+  required: ['verdicts', 'summary', 'tips', 'encouragement', 'manager_plan'],
 }
 
 async function gradeDrill(sb, row, persona, section, id) {
@@ -266,6 +299,8 @@ For EACH numbered exchange below (a homeowner question, then the rep's reply), g
 IMPORTANT: a question that looks unrelated is NOT off-topic if it is the first step of a line of questions that gets to a point within the next few exchanges (e.g. asking how long their mortgage took to get approved, then how many times the bank came back for more paperwork, then landing on "so the finance companies that approved us put us through the same thing: they did your homework for you"). Read WHERE THE REP WENT NEXT for each exchange; if the question was building to a point, it is "kept".
 A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. PARKING counts as kept: acknowledging the question, saying when it will be covered, and asking the homeowner to hold it ("can we hold that till we get there?"), then back to the point with a question. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
 
+Also write "encouragement" (the only thing the REP sees: warm, specific, no score, nothing negative; improvements as "to make it even better, try ...") and "manager_plan" (direct coaching for their manager, with practice to assign).
+
 THE EXCHANGES:
 ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.after.length ? `\n   (where the rep went next: ${p.after.join(' | ')})` : ''}`).join('\n')}`
   const out = await geminiJson(prompt, DRILL_SCHEMA)
@@ -282,6 +317,7 @@ ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.
     gave_up: scored.filter((x) => x.verdict === 'gave_up').length,
     off_topic: scored.filter((x) => x.verdict === 'off_topic').length,
     summary: out.summary || '', tips: out.tips || [],
+    encouragement: out.encouragement || null, manager_plan: out.manager_plan || null,
   }
   await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report: withCost(report, row.report) }).eq('id', id)
 }
@@ -375,7 +411,7 @@ ${lines}
 """
 ${silence}
 
-Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep.`
+Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep. The "encouragement" section is the only thing the REP sees: write it TO them, warm and specific, with no score and nothing negative; frame every improvement as "to make it even better, try ...". The "manager_plan" is for their manager: be direct about what to work on and what practice to assign.`
 
   try {
     const report = await geminiJson(prompt, REPORT_SCHEMA)

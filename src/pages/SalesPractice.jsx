@@ -458,6 +458,8 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
         </div>
       )}
 
+      {s.grade_status === 'done' && <CoachingPlan r={r} />}
+
       {s.grade_status === 'done' && r.drill && <DrillReport r={r} speaker={p.speaker} />}
 
       {s.grade_status === 'done' && !r.drill && (
@@ -586,6 +588,40 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
         )}
       </div>
     </div>
+  )
+}
+
+// FOR THE MANAGER: what this rep needs to work on and what to assign next, plus
+// exactly what the rep was told (a link practice shows them only that, no grade).
+function CoachingPlan({ r }) {
+  const [showRep, setShowRep] = useState(false)
+  const m = r.manager_plan, e = r.encouragement
+  if (!m && !e) return null
+  return (
+    <section className="mt-4 rounded-xl border-2 border-brand-navy bg-white p-4">
+      <h2 className="font-bold text-brand-navy">🧭 Coaching plan (manager view)</h2>
+      {m?.focus && <p className="mt-1 text-slate-800"><b>Work on:</b> {m.focus}</p>}
+      {(m?.assign || []).length > 0 && (
+        <div className="mt-2">
+          <div className="text-sm font-semibold text-slate-700">Assign next:</div>
+          <ul className="list-disc pl-5 text-sm text-slate-800">{m.assign.map((a, i) => <li key={i}><b>{a.practice}</b>: {a.why}</li>)}</ul>
+        </div>
+      )}
+      {m?.ride_along && <p className="mt-2 text-sm text-slate-700"><b>On a ride-along, watch for:</b> {m.ride_along}</p>}
+      {e && (
+        <div className="mt-3">
+          <button type="button" onClick={() => setShowRep((v) => !v)} className="text-sm font-semibold text-brand-navy">{showRep ? 'Hide' : 'Show'} what the rep was told</button>
+          {showRep && (
+            <div className="mt-2 rounded-lg bg-emerald-50 p-3 text-sm text-slate-800">
+              <p>{e.opening}</p>
+              {(e.wins || []).length > 0 && <ul className="mt-1 list-disc pl-5">{e.wins.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+              {(e.level_up || []).length > 0 && <ul className="mt-1 list-disc pl-5">{e.level_up.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+              <p className="mt-1 font-semibold">{e.closing}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

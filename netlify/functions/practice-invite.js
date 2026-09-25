@@ -30,7 +30,23 @@ export const handler = async (event) => {
   }
   if (body.action === 'get') {
     if (status !== 'done') return json(400, { ok: false, error: 'This practice has not been done yet.' })
-    return json(200, { ok: true, session: row })
+    // The rep sees NO grade (Neal, 25 Sep): send only the encouraging write-up,
+    // never the score or the detailed grading, so it can't be dug out of the page.
+    const r = row.report || {}
+    return json(200, { ok: true, session: {
+      trainee_name: row.trainee_name, persona_key: row.persona_key, section: row.section,
+      started_at: row.started_at, duration_sec: row.duration_sec, transcript: row.transcript,
+      grade_status: row.grade_status === 'failed' ? 'failed' : row.grade_status,
+      grade_error: row.grade_status === 'failed' ? 'Your feedback could not be written this time. Your trainer can see your practice.' : null,
+      encouragement: r.encouragement || null,
+      // Missed points DO go to the rep (Neal: "those are important"), per part,
+      // covered and missed, but with no per-part score. Drill: each exchange's
+      // verdict and the question to come back with, but no percentage.
+      parts: (r.parts || []).map((x) => ({ part: x.part, covered: x.covered || [], missed: x.missed || [] })),
+      not_reached: r.not_reached || null,
+      drill: !!r.drill,
+      pairs: r.drill ? (r.pairs || []).map((x) => ({ homeowner: x.homeowner, rep: x.rep, verdict: x.verdict, better_question: x.better_question })) : undefined,
+    } })
   }
   if (!open) return json(410, { ok: false, error: status === 'expired' ? 'This practice link has expired. Ask your trainer for a new one.' : 'This practice has already been done.' })
 

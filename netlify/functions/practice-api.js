@@ -95,7 +95,7 @@ export const handler = async (event) => {
     const first = name.split(/\s+/)[0]
     const persona = personaByKey(v.persona_key)
     const sms = `${first}, ${who.name || 'your trainer'} set you up a sales practice: present ${sec.label.toLowerCase()} to an AI homeowner (${persona.tagline.toLowerCase()}). Use a laptop or tablet in Chrome, ideally with headphones. Your link (good for 48 hours): ${link}`
-    const html = `${first},\n\n${who.name || 'Your trainer'} set you up a sales practice with Sales Training Customer.\n\nYou'll present ${sec.label} out loud to an AI homeowner (${persona.name}, ${persona.tagline.toLowerCase()}), who talks back. When you finish you get a report card.\n\nUse a laptop or tablet in Chrome, ideally with headphones, somewhere quiet. Your private link, good for 48 hours:\n\n${link}\n\nU.S. Shingle & Metal`
+    const html = `${first},\n\n${who.name || 'Your trainer'} set you up a sales practice with Sales Training Customer.\n\nYou'll present ${sec.label} out loud to an AI homeowner (${persona.name}, ${persona.tagline.toLowerCase()}), who talks back. When you finish you get feedback on how it went.\n\nUse a laptop or tablet in Chrome, ideally with headphones, somewhere quiet. Your private link, good for 48 hours:\n\n${link}\n\nU.S. Shingle & Metal`
     const [smsR, emailR] = await Promise.all([
       phone ? sendSmsViaGhl(phone, sms, { firstName: first, lastName: name.split(/\s+/).slice(1).join(' ') || 'Practice' }) : Promise.resolve({ ok: false, error: 'no phone' }),
       email ? sendEmail(email, 'Your sales practice link — U.S. Shingle & Metal', html) : Promise.resolve({ ok: false, error: 'no email' }),
