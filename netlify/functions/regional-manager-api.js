@@ -309,6 +309,8 @@ export const handler = async (event) => {
       return {
         ...r, pregrad,
         training_week: pregrad ? trainingWeek(startByClass[r.class_id]) : null,
+        // For "Activity since class" on the trainee card.
+        class_start: pregrad ? (startByClass[r.class_id] || null) : null,
         rep_level: pregrad ? 'pregrad' : r.rep_level,
         // jobnimbus_id is authoritative; phone is the fallback that covers anyone
         // not yet provisioned in JobNimbus (see fetchDoorDispatcherLinks).

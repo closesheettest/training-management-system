@@ -1829,6 +1829,9 @@ function NewTrainees({ reps, token, onChanged }) {
                      className="rounded-md bg-sky-500 px-2.5 py-1 text-[12px] font-bold text-white">💬 Text</a>
                 </>
               )}
+              {r.door_dispatcher_link && r.pregrad && (
+                <TraineeActivity link={r.door_dispatcher_link} since={r.class_start} name={r.first_name} />
+              )}
               {r.door_dispatcher_link && (
                 <>
                   <a href={r.door_dispatcher_link} target="_blank" rel="noreferrer"
@@ -3908,3 +3911,68 @@ function RepsTable({ token, reps, onChanged }) {
 }
 
 
+
+// "Activity since class" on a trainee's card (Neal, 2026-09-25): what they have
+// done on the DoorDispatcher map each day since their class started. Reads CCG
+// harvest-rep-activity with the trainee's own map token (from their map link).
+function TraineeActivity({ link, since, name }) {
+  const [open, setOpen] = useState(false)
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  const load = async () => {
+    setOpen((v) => !v)
+    if (d || open) return
+    try {
+      const rt = new URL(link).searchParams.get('rt')
+      const q = new URLSearchParams({ rt: rt || '', ...(since ? { since } : {}) })
+      const res = await fetch(`https://free-roof-inspections.netlify.app/.netlify/functions/harvest-rep-activity?${q}`)
+      const j = await res.json()
+      if (!j.ok) throw new Error(j.error || 'Could not load')
+      setD(j)
+    } catch (e) { setErr(e.message) }
+  }
+  const nice = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })
+  return (
+    <span className="contents">
+      <button type="button" onClick={load} className="rounded-md border border-amber-400/60 px-2.5 py-1 text-[12px] font-bold text-amber-200">
+        📈 Activity since class {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div className="order-last mt-2 w-full basis-full rounded-lg border border-slate-600 bg-slate-900/60 p-3 text-[12.5px] text-slate-100">
+          {err && <div className="text-red-300">{err}</div>}
+          {!err && !d && <div className="text-slate-400">Loading…</div>}
+          {d && (
+            <>
+              <div className="font-bold">{name}&rsquo;s map activity since {since ? nice(since) : 'the last two weeks'}</div>
+              {!d.days.length && <div className="mt-1 text-amber-200">Nothing on the map yet. They haven&rsquo;t worked a door since class.</div>}
+              {d.days.length > 0 && (
+                <>
+                  <div className="mt-1 text-slate-300">
+                    {d.totals.days_active} day{d.totals.days_active !== 1 ? 's' : ''} out · <b>{d.totals.doors}</b> doors · {d.totals.not_home} not home · <b>{d.totals.appt}</b> appointments · <b>{d.totals.insp_sold}</b> inspections signed · {d.totals.not_interested} not interested
+                  </div>
+                  <table className="mt-2 w-full text-left">
+                    <thead className="text-slate-400"><tr><th className="py-0.5">Day</th><th>Doors</th><th>Not home</th><th>Appts</th><th>Signed</th><th>Not int.</th><th>On the map</th></tr></thead>
+                    <tbody>
+                      {d.days.map((x) => (
+                        <tr key={x.date} className="border-t border-slate-700">
+                          <td className="py-0.5">{nice(x.date)}</td><td>{x.doors}</td><td>{x.not_home}</td><td>{x.appt}</td><td>{x.insp_sold}</td><td>{x.not_interested}</td>
+                          <td className="text-slate-400">{x.first}–{x.last}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+              {d.signed.length > 0 && (
+                <div className="mt-2">
+                  <div className="font-semibold text-emerald-300">✍️ Inspections signed</div>
+                  {d.signed.map((x, i) => <div key={i} className="text-slate-300">{x.when} · {x.homeowner}{x.city ? `, ${x.city}` : ''}</div>)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </span>
+  )
+}
