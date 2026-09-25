@@ -96,13 +96,17 @@ const CLOSE_EXTRA = [
 // A run that ends at slide 4 is graded on slides 1-4, not failed on 5-23
 // (Neal's first run scored 0/10 on nineteen slides he never reached).
 export function furthestSlide(transcript) {
-  let max = 0
+  // A slide counts as reached only if the rep SPOKE while it was up. Flipping to
+  // slide 4 and ending the session a second later is not presenting slide 4.
+  let max = 0, current = 0
   for (const t of transcript || []) {
-    if (t.who !== 'slide') continue
-    const page = parseInt((String(t.text).match(/deck page (\d+)/) || [])[1], 10)
-    const d = DECK.find((x) => x.page === page)
-    const n = parseInt((String(d?.script || '').match(/\d+/) || [])[0], 10) || (page >= 30 ? 23 : 0)
-    if (n > max) max = n
+    if (t.who === 'slide') {
+      const page = parseInt((String(t.text).match(/deck page (\d+)/) || [])[1], 10)
+      const d = DECK.find((x) => x.page === page)
+      current = parseInt((String(d?.script || '').match(/\d+/) || [])[0], 10) || (page >= 30 ? 23 : 0)
+    } else if (t.who === 'rep' && String(t.text || '').trim().split(/\s+/).length >= 4 && current > max) {
+      max = current
+    }
   }
   return max
 }
