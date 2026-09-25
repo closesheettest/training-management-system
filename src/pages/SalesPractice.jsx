@@ -80,6 +80,19 @@ export default function SalesPractice() {
   const classIds = useMemo(() => new Set(classes.flatMap((c) => (c.trainees || []).map((t) => t.id))), [classes])
   const effectiveSection = (sectionKey === 'slide' || sectionKey === 'control') ? (slideN ? `${sectionKey}:${slideN}` : '') : sectionKey
   const trainee = trainees.find((t) => t.id === traineeId) || null
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkForm, setLinkForm] = useState({ name: '', phone: '', email: '' })
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkMsg, setLinkMsg] = useState(null)
+  const sendLink = async () => {
+    setLinkBusy(true); setLinkMsg(null)
+    const d = await api({ action: 'invite', invite: { ...linkForm, trainee_id: trainee?.id || null, class_id: trainee?.class_id || null, persona_key: personaKey, section: effectiveSection } })
+    setLinkBusy(false)
+    if (!d.ok) { setLinkMsg({ err: true, text: d.error || 'Could not send.' }); return }
+    const how = [d.sms && 'texted', d.email && 'emailed'].filter(Boolean).join(' and ')
+    setLinkMsg({ err: !how, text: how ? `Link ${how}. It works for 48 hours; the result shows up in Past practice.` : `The link was made but neither the text nor the email went through (${d.sms_error || ''} ${d.email_error || ''}). Copy it and send it yourself:`, link: d.link })
+    loadHistory()
+  }
 
   if (stage === 'live') {
     return (
@@ -161,8 +174,35 @@ export default function SalesPractice() {
         <button type="button" onClick={() => setStage('live')} disabled={!effectiveSection} className="rounded-lg bg-brand-red px-6 py-3 text-lg font-bold text-white shadow hover:bg-brand-red-dark disabled:opacity-50">
           🏠 Sit down at the table
         </button>
+        <button type="button" onClick={() => { setLinkOpen((v) => !v); setLinkMsg(null); setLinkForm({ name: '', phone: '', email: '' }) }} disabled={!effectiveSection}
+          className="rounded-lg border-2 border-brand-navy px-5 py-2.5 font-bold text-brand-navy hover:bg-brand-navy-50 disabled:opacity-50">
+          📲 Send practice link
+        </button>
         <span className="text-xs text-slate-500">Chrome or Edge on a laptop. A headset works best; on speakers, keep the volume moderate so the homeowner doesn’t hear themselves.</span>
       </div>
+      {linkOpen && (
+        <div className="mt-3 max-w-xl rounded-xl border border-slate-200 bg-white p-4">
+          <div className="font-bold text-brand-navy">Send {trainee ? trainee.name : 'someone'} a private practice link</div>
+          <p className="mt-1 text-sm text-slate-600">
+            They do this practice ({sectionByKey(effectiveSection).label}, {personaByKey(personaKey).tagline.toLowerCase()}) on their own laptop or tablet.
+            {trainee ? ' Their cell and email on file are used; fill these in only to send somewhere else.' : ' For someone not in the list, enter their name and cell and/or email.'}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {!trainee && <input value={linkForm.name} onChange={(e) => setLinkForm({ ...linkForm, name: e.target.value })} placeholder="Name" className="rounded-md border border-slate-300 px-2 py-1.5" />}
+            <input value={linkForm.phone} onChange={(e) => setLinkForm({ ...linkForm, phone: e.target.value })} placeholder={trainee ? 'Cell (on file)' : 'Cell'} className="rounded-md border border-slate-300 px-2 py-1.5" />
+            <input value={linkForm.email} onChange={(e) => setLinkForm({ ...linkForm, email: e.target.value })} placeholder={trainee ? 'Email (on file)' : 'Email'} className="rounded-md border border-slate-300 px-2 py-1.5" />
+          </div>
+          <button type="button" onClick={sendLink} disabled={linkBusy} className="mt-3 rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+            {linkBusy ? 'Sending…' : 'Text + email the link'}
+          </button>
+          {linkMsg && (
+            <div className={`mt-3 text-sm font-semibold ${linkMsg.err ? 'text-red-700' : 'text-emerald-700'}`}>
+              {linkMsg.text}
+              {linkMsg.link && <div className="mt-1 break-all font-normal text-slate-600">{linkMsg.link}</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       <History sessions={history} onOpen={(id) => { setReportId(id); setStage('report') }} />
     </div>
@@ -179,7 +219,18 @@ function Step({ n, title, children }) {
 }
 
 // ── The live presentation ────────────────────────────────────────────────────
-function LiveSession({ persona, section, trainee, onDone }) {
+const trainerToken = async () => {
+  const r = await fetch('/.netlify/functions/practice-token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: readPin() }),
+  })
+  const d = await r.json().catch(() => ({}))
+  if (!d.ok) throw new Error(d.error || 'Could not start a session.')
+  return d
+}
+
+// The live presentation. Used by the trainer page and by the practice link page
+// (src/pages/PracticeInvite.jsx), which pass their own fetchToken / saveSession.
+export function LiveSession({ persona, section, trainee, onDone, fetchToken = trainerToken, saveSession = null }) {
   const [status, setStatus] = useState('starting')
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
@@ -208,14 +259,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
     const live = new LiveHomeowner({
       systemPrompt: homeownerPrompt(persona, section.key),
       voice: persona.voice,
-      getToken: async () => {
-        const r = await fetch('/.netlify/functions/practice-token', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: readPin() }),
-        })
-        const d = await r.json().catch(() => ({}))
-        if (!d.ok) throw new Error(d.error || 'Could not start a session.')
-        return d
-      },
+      getToken: fetchToken,
       on: { status: setStatus, transcript: setEntries, level: setLevel, error: setErr, closeSilence: setCloseSilence },
     })
     liveRef.current = live
@@ -250,19 +294,17 @@ function LiveSession({ persona, section, trainee, onDone }) {
     if (!out.entries.some((e) => e.who === 'rep')) {
       if (!window.confirm('Nothing the rep said was picked up. Save it anyway? (Cancel = throw it away)')) { onDone(null); return }
     }
-    const d = await api({
-      action: 'save',
-      session: {
-        trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
-        persona_key: persona.key, section: section.key,
-        started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
-      },
-    })
+    const session = {
+      trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
+      persona_key: persona.key, section: section.key,
+      started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
+    }
+    const d = saveSession ? await saveSession(session) : await api({ action: 'save', session })
     if (!d.ok) { setErr(`Could not save: ${d.error}`); setSaving(false); return }
     onDone(d.id)
   }
 
-  endRef.current = end
+  useEffect(() => { endRef.current = end })
   const statusLabel = {
     starting: 'Getting the microphone…', connecting: 'Connecting to the homeowner…', listening: '🎙️ Listening',
     speaking: `🗣️ ${persona.speaker} is talking`, silence: '🤫 Silence after the ask…', error: 'Stopped',
@@ -338,7 +380,9 @@ function LiveSession({ persona, section, trainee, onDone }) {
 }
 
 // ── The report card ──────────────────────────────────────────────────────────
-function Report({ id, onBack }) {
+const trainerLoad = (id) => api({ action: 'get', id })
+
+export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
   const [s, setS] = useState(null)
   const [err, setErr] = useState('')
   const [showT, setShowT] = useState(false)
@@ -352,7 +396,7 @@ function Report({ id, onBack }) {
     let misses = 0
     const tick = async () => {
       let d
-      try { d = await api({ action: 'get', id }) } catch { d = { ok: false } }
+      try { d = await load(id) } catch { d = { ok: false } }
       if (stop) return
       if (!d.ok) {
         if (++misses >= 20) { setErr(d.error || 'Could not load this session.'); return }
@@ -364,7 +408,7 @@ function Report({ id, onBack }) {
     }
     tick()
     return () => { stop = true; clearTimeout(timer) }
-  }, [id, nonce])
+  }, [id, nonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const regrade = async () => { await api({ action: 'regrade', id }); setNonce((n) => n + 1) }
 
@@ -375,7 +419,7 @@ function Report({ id, onBack }) {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <button type="button" onClick={onBack} className="text-sm font-semibold text-brand-navy">← Back to Sales Training Customer</button>
+      {onBack && <button type="button" onClick={onBack} className="text-sm font-semibold text-brand-navy">← Back to Sales Training Customer</button>}
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{sectionByKey(s.section).label} · {fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}</div>
@@ -385,11 +429,18 @@ function Report({ id, onBack }) {
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
 
+      {s.grade_status === 'invited' && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-slate-700">
+          📲 Practice link sent{r.invite?.phone ? ` to ${r.invite.phone}` : ''}{r.invite?.email ? `${r.invite?.phone ? ' and' : ' to'} ${r.invite.email}` : ''}.
+          Waiting for them to do it{r.invite?.expires_at ? ` (link good until ${fmtWhen(r.invite.expires_at)} ET)` : ''}.
+          {r.invite?.token && <div className="mt-2 break-all text-xs text-slate-500">Link: https://trainingmanagementsys.netlify.app/practice/{r.invite.token}</div>}
+        </div>
+      )}
       {s.grade_status === 'pending' && <div className="mt-6 rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">📝 Grading the presentation… (usually 1–2 minutes; a full presentation can take 3)</div>}
       {s.grade_status === 'failed' && (
         <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Grading didn’t work: {s.grade_error}
-          <button type="button" onClick={regrade} className="ml-3 rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white">Try again</button>
+          {canRegrade && <button type="button" onClick={regrade} className="ml-3 rounded-md bg-red-600 px-3 py-1 text-xs font-bold text-white">Try again</button>}
         </div>
       )}
 
@@ -589,7 +640,7 @@ function History({ sessions, onOpen }) {
               <span className="block text-xs text-slate-400">{fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}{s.trainer_name ? ` · ${s.trainer_name}` : ''}</span>
             </span>
             <span className="text-right">
-              <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : '—'}</span>
+              <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : s.grade_status === 'invited' ? '📲' : '—'}</span>
               <span className="block text-[11px] text-slate-400" title="What Google charged for the conversation and the grading">{s.cost != null ? `$${Number(s.cost).toFixed(2)}` : 'cost n/a'}</span>
             </span>
           </button>

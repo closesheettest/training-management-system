@@ -10,6 +10,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { verifyTrainerPin, json } from './_practice-auth.js'
 import { liveCost } from './_practice-prices.js'
+import { randomBytes } from 'crypto'
+import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
+import { personaByKey, sectionByKey } from '../../src/lib/salesPractice.js'
+
+const SITE = 'https://trainingmanagementsys.netlify.app'
+const INVITE_HOURS = 48
 
 const LIST_COLS = 'id, trainee_id, trainee_name, class_id, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score, cost:report->cost'
 
@@ -54,6 +61,46 @@ export const handler = async (event) => {
       }).catch(() => {})
     }
     return json(200, { ok: true, id: data.id })
+  }
+
+  // PRACTICE LINK (Neal, 25 Sep): the trainer sets up a session and texts +
+  // emails someone a private link to do it on their own device (the owner, a rep
+  // on Zoom). The session row is created now as 'invited'; the link's token lives
+  // on report.invite. It works for INVITE_HOURS and until the practice is saved.
+  if (body.action === 'invite') {
+    const v = body.invite || {}
+    const sec = sectionByKey(v.section)
+    if (!v.section || (!sec.range && v.section !== 'survey')) return json(400, { ok: false, error: 'Pick what they are practicing.' })
+    let name = String(v.name || '').trim(), phone = String(v.phone || '').trim(), email = String(v.email || '').trim()
+    if (v.trainee_id) {
+      const { data: t } = await sb.from('trainees').select('first_name, last_name, phone, email, company_email').eq('id', v.trainee_id).maybeSingle()
+      if (t) {
+        name = name || `${t.first_name} ${t.last_name}`.trim()
+        phone = phone || t.phone || ''
+        email = email || t.company_email || t.email || ''
+      }
+    }
+    if (!name) return json(400, { ok: false, error: 'Who is it for? Enter their name.' })
+    if (!phone && !email) return json(400, { ok: false, error: 'Enter a cell number or an email to send the link to.' })
+    const token = randomBytes(18).toString('base64url')
+    const expires = new Date(Date.now() + INVITE_HOURS * 3600 * 1000).toISOString()
+    const { data: row, error } = await sb.from('sales_practice_sessions').insert({
+      trainee_id: v.trainee_id || null, trainee_name: name, class_id: v.class_id || null,
+      trainer_name: who.name || null, persona_key: String(v.persona_key || ''), section: v.section,
+      grade_status: 'invited', transcript: [],
+      report: { invite: { token, expires_at: expires, phone: phone || null, email: email || null, sent_by: who.name || null } },
+    }).select('id').single()
+    if (error) return json(500, { ok: false, error: error.message })
+    const link = `${SITE}/practice/${token}`
+    const first = name.split(/\s+/)[0]
+    const persona = personaByKey(v.persona_key)
+    const sms = `${first}, ${who.name || 'your trainer'} set you up a sales practice: present ${sec.label.toLowerCase()} to an AI homeowner (${persona.tagline.toLowerCase()}). Use a laptop or tablet in Chrome, ideally with headphones. Your link (good for 48 hours): ${link}`
+    const html = `${first},\n\n${who.name || 'Your trainer'} set you up a sales practice with Sales Training Customer.\n\nYou'll present ${sec.label} out loud to an AI homeowner (${persona.name}, ${persona.tagline.toLowerCase()}), who talks back. When you finish you get a report card.\n\nUse a laptop or tablet in Chrome, ideally with headphones, somewhere quiet. Your private link, good for 48 hours:\n\n${link}\n\nU.S. Shingle & Metal`
+    const [smsR, emailR] = await Promise.all([
+      phone ? sendSmsViaGhl(phone, sms, { firstName: first, lastName: name.split(/\s+/).slice(1).join(' ') || 'Practice' }) : Promise.resolve({ ok: false, error: 'no phone' }),
+      email ? sendEmail(email, 'Your sales practice link — U.S. Shingle & Metal', html) : Promise.resolve({ ok: false, error: 'no email' }),
+    ])
+    return json(200, { ok: true, id: row.id, link, sms: !!smsR?.ok, email: !!emailR?.ok, sms_error: smsR?.ok ? undefined : smsR?.error, email_error: emailR?.ok ? undefined : emailR?.error })
   }
 
   if (body.action === 'regrade') {

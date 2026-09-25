@@ -12,28 +12,9 @@
 //      GEMINI_LIVE_MODEL / GEMINI_TEXT_MODEL optional. CRON_SECRET gates 'live'.
 import WebSocketImpl from 'ws'
 import { verifyTrainerPin, json } from './_practice-auth.js'
+import { mintToken } from './_practice-gemini.js'
 import { liveSetup, LIVE_WS_URL } from '../../src/lib/geminiLive.js'
 import { PERSONAS, homeownerPrompt } from '../../src/lib/salesPractice.js'
-
-// One-use token. Google's auth_tokens call takes uses + expiry times; it
-// rejected the "liveConnectConstraints" block the docs showed ("Unknown name
-// ... at 'auth_token'", first real run 2026-09-25), so the token is not pinned
-// to a model. It is single-use and dies in a minute if no session starts.
-async function mintToken(key) {
-  const now = Date.now()
-  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/auth_tokens', {
-    method: 'POST',
-    headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      uses: 1,
-      expireTime: new Date(now + 30 * 60 * 1000).toISOString(),
-      newSessionExpireTime: new Date(now + 60 * 1000).toISOString(),
-    }),
-  })
-  const d = await r.json().catch(() => ({}))
-  if (!r.ok || !d.name) throw new Error(`Gemini refused the token: ${d.error?.message || r.status}`)
-  return d.name
-}
 
 // A real Live session exactly as the page opens one: token → WebSocket → setup
 // (the shared liveSetup) → say something → expect the homeowner's voice and

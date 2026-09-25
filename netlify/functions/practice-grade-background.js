@@ -163,7 +163,7 @@ function withCost(report, prev) {
   const u = prev?.usage || {}
   const grades = [...(u.grades || []), { in: lastGradeUsage.in, out: lastGradeUsage.out }]
   const total = liveCost(u.live) + grades.reduce((n, g) => n + gradeCost(g.in, g.out), 0)
-  return { ...report, usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
+  return { ...report, ...(prev?.invite ? { invite: prev.invite } : {}), usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
 }
 
 async function geminiJson(prompt, schema) {
