@@ -49,21 +49,24 @@ export function liveSetup({ model, systemPrompt, voice, handle }) {
       model: `models/${model}`,
       generationConfig: {
         responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+        // Locked to U.S. English: a line of Neal's was transcribed in German (25 Sep).
+        speechConfig: { languageCode: 'en-US', voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
       },
       systemInstruction: { parts: [{ text: systemPrompt }] },
       inputAudioTranscription: {},
       outputAudioTranscription: {},
       contextWindowCompression: { slidingWindow: {} },
       sessionResumption: handle ? { handle } : {},
-      // End the rep's turn after ~0.7s of quiet, and don't let low noise count as
-      // the rep starting to talk: in a noisy room the default kept waiting for an
-      // end of speech that never came, and the page just said "Listening".
+      // When the rep's turn ends. 0.7s with HIGH end-sensitivity (tried 25 Sep to
+      // fix stalls) cut reps off mid-thought: "great great question" [breath] and
+      // the homeowner talked over the rest. Question-based reps pause while they
+      // think, so wait ~1.2s and end less eagerly; genuine stalls are caught by
+      // checkStall's 4s nudge instead. Low noise still doesn't count as speech.
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
-          endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-          silenceDurationMs: 700,
+          endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+          silenceDurationMs: 1200,
         },
       },
     },
