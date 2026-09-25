@@ -155,12 +155,12 @@ function RepReport({ token, persona, section, name }) {
       {s.drill && (s.pairs || []).some((x) => x.verdict !== 'kept') && (
         <section className={`${box} border-slate-200`}>
           <h2 className="font-bold text-brand-navy">🎯 Taking control back</h2>
-          <p className="text-sm text-slate-500">Moments to come back with a question next time.</p>
+          <p className="text-sm text-slate-500">A straight answer is fine; these are the moments to lead back with a question soon after.</p>
           <div className="mt-2 space-y-3">
             {s.pairs.filter((x) => x.verdict !== 'kept').map((x, i) => (
               <div key={i} className="text-sm">
                 <div className="text-slate-600"><b>{persona.speaker}:</b> “{x.homeowner}”</div>
-                <div className="font-semibold text-red-600">✗ You answered without a question back</div>
+                <div className="font-semibold text-red-600">✗ Control drifted to the homeowner here</div>
                 {x.better_question && <div className="text-slate-900"><b>Try:</b> {x.better_question}</div>}
               </div>
             ))}

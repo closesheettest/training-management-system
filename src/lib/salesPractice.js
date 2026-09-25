@@ -309,6 +309,7 @@ export const OBJECTION_METHOD = `1. ACKNOWLEDGE the concern (don't argue with it
 2. ISOLATE it ("Other than that, is there anything else on your mind?").
 3. ANSWER IT NOW ONLY IF IT BELONGS TO WHAT THEY ARE ON. Otherwise PARK IT: say when it will be covered and get the homeowner's OK to hold it ("That's exactly what we'll get to when I show you the products in a few minutes. Can we hold that till then so I don't skip anything important?"). Jumping ahead to answer it early gives away control.
 4. CONFIRM WITH A QUESTION AND TAKE IT BACK: get their agreement ("Does that make sense?", "Fair enough?"), then return to the current point with the rep's own question.
+Balance: a short, straight answer in statements is fine when a question deserves one. Control is kept as long as the rep leads back with a question soon after; it is lost only when the rep keeps answering without ever leading.
 A parked concern must be answered later, when the rep reaches that part.`
 
 // The homeowner's instructions for the live voice session.

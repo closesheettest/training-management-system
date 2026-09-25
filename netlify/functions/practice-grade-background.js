@@ -294,7 +294,7 @@ async function gradeDrill(sb, row, persona, section, id) {
 
 For EACH numbered exchange below (a homeowner question, then the rep's reply), give one verdict:
 - "kept": the rep answered (briefly is best) and then took control back WITH A QUESTION OF THEIR OWN that is RELEVANT to what is being discussed, steering toward their point or the slide.
-- "gave_up": the rep just answered, explained, defended or argued, with no question back. Control handed to the homeowner.
+- "gave_up": the rep answered, explained, defended or argued and did NOT lead back with a question in this reply OR soon after (see where the rep went next), so the homeowner kept steering. A short straight answer followed by the rep leading again within a turn or two is "kept": there is a balance, and not every answer needs a question stapled on (Neal, 25 Sep).
 - "off_topic": the rep asked a question back that had nothing to do with the conversation AND did not lead anywhere: a random deflection. This also gives up control.
 IMPORTANT: a question that looks unrelated is NOT off-topic if it is the first step of a line of questions that gets to a point within the next few exchanges (e.g. asking how long their mortgage took to get approved, then how many times the bank came back for more paperwork, then landing on "so the finance companies that approved us put us through the same thing: they did your homework for you"). Read WHERE THE REP WENT NEXT for each exchange; if the question was building to a point, it is "kept".
 A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. PARKING counts as kept: acknowledging the question, saying when it will be covered, and asking the homeowner to hold it ("can we hold that till we get there?"), then back to the point with a question. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
@@ -362,14 +362,19 @@ export const handler = async (event) => {
   // 25 Sep). For every homeowner turn with a question in it, did the rep's next
   // turn ask one back? Counted here so the grade can't wave it through.
   const turns = (row.transcript || []).filter((t) => t.who === 'rep' || t.who === 'homeowner')
+  // THE BALANCE (Neal, 25 Sep): a straight answer is fine, even good, when the
+  // question deserves one, AS LONG AS the rep leads back with a question within
+  // their next turn or two. Control is lost when they keep answering without
+  // leading. So a homeowner question counts as a hand-over only if NEITHER of
+  // the rep's next two turns asks one (it used to be just the next turn).
   const handovers = []
   let answeredWithQ = 0
   turns.forEach((t, i) => {
     if (t.who !== 'homeowner' || !String(t.text || '').includes('?')) return
-    const reply = turns.slice(i + 1).find((x) => x.who === 'rep')
-    if (!reply) return
-    if (String(reply.text || '').includes('?')) answeredWithQ++
-    else handovers.push({ homeowner: String(t.text).slice(0, 200), rep: String(reply.text).slice(0, 200) })
+    const next2 = turns.slice(i + 1).filter((x) => x.who === 'rep').slice(0, 2)
+    if (!next2.length) return
+    if (next2.some((x) => String(x.text || '').includes('?'))) answeredWithQ++
+    else handovers.push({ homeowner: String(t.text).slice(0, 200), rep: next2.map((x) => String(x.text).slice(0, 160)).join(' … ') })
   })
   questions.answered_with_question = answeredWithQ
   questions.just_answered = handovers.length
@@ -384,7 +389,7 @@ SO GRADE ON POINTS, NOT WORDS:
 - NEVER mark anything down for not matching the script's wording. Do not quote script lines at the rep as "what you should have said" unless they missed the point entirely.
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
 - CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control.
-- WHEN THE HOMEOWNER ASKS A QUESTION, the rep must answer it and then take control back WITH A QUESTION of their own (or answer a question with a question). A rep who just answers, with no question back, has GIVEN UP CONTROL, and that must cost them on the control score. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep came back with a question ${questions.answered_with_question} times and just answered ${questions.just_answered} times. The just-answered ones (homeowner, then the rep's reply):
+- WHEN THE HOMEOWNER ASKS A QUESTION there is a BALANCE. A straight answer in statements is fine, even good, when the question deserves one; the rep keeps control as long as they lead back with a question of their own within their next turn or two. Control is LOST when the rep keeps answering question after question without leading back, gives long defensive explanations, or lets the homeowner steer to a new topic; that must cost them on the control score. Never mark down a single short, straight answer that is followed by the rep leading again. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep led back with a question within two turns ${questions.answered_with_question} times and did not ${questions.just_answered} times. The ones where they did not (homeowner, then the rep's next two replies):
 ${handovers.slice(0, 12).map((h, i) => `  ${i + 1}. HOMEOWNER: ${h.homeowner}\n     REP: ${h.rep}`).join('\n') || '  (none)'}
   Use these for "lost_moments", each with the question the rep should have come back with.
 - OBJECTIONS are judged ONLY by the company's method:

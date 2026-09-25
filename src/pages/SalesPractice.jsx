@@ -500,9 +500,9 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
               </div>
               {r.questions && (r.questions.answered_with_question + r.questions.just_answered) > 0 && (
                 <p className="mt-2 text-sm">
-                  When the homeowner asked a question, the rep came back with a question{' '}
+                  When the homeowner asked a question, the rep led back with a question within two turns{' '}
                   <span className="font-bold">{r.questions.answered_with_question} of {r.questions.answered_with_question + r.questions.just_answered}</span> times
-                  {r.questions.just_answered ? <span className="text-amber-700"> · just answered {r.questions.just_answered} (control handed over)</span> : null}
+                  {r.questions.just_answered ? <span className="text-amber-700"> · kept answering without leading {r.questions.just_answered} (control drifted)</span> : null}
                 </p>
               )}
               <p className="mt-2 text-sm text-slate-700">{r.control.summary}</p>
