@@ -749,13 +749,17 @@ export default function ActiveReps() {
         og.reps = og.reps.filter((r) => r.id !== t.id)
       }
     }
+    // A manager can be NON-FIELD staff (Neal manages Zone 2 but is filed as
+    // non_field with no region of his own). They aren't in the field list, so
+    // Zone 2 read "no manager"; take zone managers from the non-field list too.
+    for (const t of nonField) if (t.managed_region && !ensure(t.managed_region).manager) ensure(t.managed_region).manager = t
     return Array.from(groups.values()).sort((a, b) => {
       // "No region yet" always sinks to the bottom of the alpha list.
       if (a.region === '__no_region') return 1
       if (b.region === '__no_region') return -1
       return a.region.localeCompare(b.region)
     })
-  }, [activeFiltered])
+  }, [activeFiltered, nonField])
 
   // CSV download for the active field reps section.
   //
@@ -885,6 +889,9 @@ export default function ActiveReps() {
         og.reps = og.reps.filter((r) => r.id !== t.id)
       }
     }
+    // Non-field zone managers (see activeByRegionGroups): the roster export
+    // said Zone 2 had "(no manager assigned)" while Neal manages it.
+    for (const t of nonField) if (t.managed_region && !ensure(t.managed_region).manager) ensure(t.managed_region).manager = t
     const ordered = Array.from(groups.values()).sort((a, b) => {
       if (a.region === '__no_region') return 1
       if (b.region === '__no_region') return -1
@@ -999,11 +1006,11 @@ export default function ActiveReps() {
   // be assigned. Revoking an existing manager re-opens that zone.
   const zonesWithManager = useMemo(() => {
     const set = new Set()
-    for (const t of active) {
+    for (const t of [...active, ...nonField]) {
       if (t.managed_region && isZoneName(t.managed_region)) set.add(t.managed_region)
     }
     return set
-  }, [active])
+  }, [active, nonField])
   const TOTAL_ZONES = Object.keys(ZONE_COUNTIES).length
   const allZonesAssigned = zonesWithManager.size >= TOTAL_ZONES
 
@@ -1011,11 +1018,11 @@ export default function ActiveReps() {
   // who they report to at a glance — not just under the group header.
   const managerNameByRegion = useMemo(() => {
     const m = {}
-    for (const t of active) {
+    for (const t of [...nonField, ...active]) { // field manager wins if both
       if (t.managed_region) m[t.managed_region] = `${t.first_name || ''} ${t.last_name || ''}`.trim()
     }
     return m
-  }, [active])
+  }, [active, nonField])
   // Available zones (no manager yet) — drives the AssignManagerModal
   // dropdown so the only things in the picker are zones admin can
   // actually pick.
