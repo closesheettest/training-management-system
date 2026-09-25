@@ -19,7 +19,7 @@ import { PERSONAS, homeownerPrompt } from '../../src/lib/salesPractice.js'
 // A real Live session exactly as the page opens one: token → WebSocket → setup
 // (the shared liveSetup) → say something → expect the homeowner's voice and
 // words back. Proves the voice path without a trainer at a laptop. A few cents.
-async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0) {
+async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0, section = 'survey', opener = '') {
   const token = await mintToken(key)
   const p = PERSONAS[0]
   return await new Promise((resolve) => {
@@ -36,7 +36,7 @@ async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0) {
     const timer = setTimeout(() => finish({ ok: false, error: 'timed out after 25s' }), 25000)
     ws.on('open', () => {
       res.steps.push('socket open')
-      ws.send(JSON.stringify(liveSetup({ model, systemPrompt: homeownerPrompt(p, 'survey'), voice: p.voice })))
+      ws.send(JSON.stringify(liveSetup({ model, systemPrompt: homeownerPrompt(p, section), voice: p.voice })))
     })
     ws.on('message', (buf) => {
       let m
@@ -57,7 +57,7 @@ async function liveSmokeTest(key, model, probeUsage = false, silenceSec = 0) {
         // The page's slide note, sent exactly as geminiLive.sendSlide sends it.
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[Slide now showing: Why U.S. Shingle: 15 years in business, veteran owned.] (stage info only: do not respond to this)' }] }], turnComplete: false } }))
         res.steps.push('slide note sent')
-        ws.send(JSON.stringify({ realtimeInput: { text: "Hi, I'm Mike from U.S. Shingle. Thanks for having me. Mind if I ask you a couple of questions about the house?" } }))
+        ws.send(JSON.stringify({ realtimeInput: { text: opener || "Hi, I'm Mike from U.S. Shingle. Thanks for having me. Mind if I ask you a couple of questions about the house?" } }))
         return
       }
       const sc = m.serverContent
@@ -89,7 +89,7 @@ export const handler = async (event) => {
 
   if (body.check === 'live') {
     if (!process.env.CRON_SECRET || body.secret !== process.env.CRON_SECRET) return json(401, { ok: false, error: 'secret required' })
-    try { return json(200, await liveSmokeTest(key, model, !!body.usage, Math.min(60, Number(body.silence) || 0))) } catch (e) { return json(200, { ok: false, error: e.message }) }
+    try { return json(200, await liveSmokeTest(key, model, !!body.usage, Math.min(60, Number(body.silence) || 0), String(body.section || 'survey'), String(body.opener || '').slice(0, 400))) } catch (e) { return json(200, { ok: false, error: e.message }) }
   }
 
   // { check: true } — setup check, no PIN: does Google accept the key, and do the
