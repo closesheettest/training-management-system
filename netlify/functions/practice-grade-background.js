@@ -15,7 +15,7 @@
 //      SUPABASE_URL, SUPABASE_SECRET_KEY, CRON_SECRET.
 import { createClient } from '@supabase/supabase-js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, DECK } from '../../src/lib/salesPractice.js'
 
 const REPORT_SCHEMA = {
   type: 'OBJECT',
@@ -92,7 +92,22 @@ const CLOSE_EXTRA = [
   'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
   'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
 ]
-export async function pointsForSection(sb, sectionKey) {
+// How far the rep got: the highest script slide number they put on screen.
+// A run that ends at slide 4 is graded on slides 1-4, not failed on 5-23
+// (Neal's first run scored 0/10 on nineteen slides he never reached).
+export function furthestSlide(transcript) {
+  let max = 0
+  for (const t of transcript || []) {
+    if (t.who !== 'slide') continue
+    const page = parseInt((String(t.text).match(/deck page (\d+)/) || [])[1], 10)
+    const d = DECK.find((x) => x.page === page)
+    const n = parseInt((String(d?.script || '').match(/\d+/) || [])[0], 10) || (page >= 30 ? 23 : 0)
+    if (n > max) max = n
+  }
+  return max
+}
+
+export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   const { data } = await sb.from('training_days').select('position, title, subject, on_slide').order('position')
   const slides = (data || [])
     .filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()) && String(d.on_slide || '').trim())
@@ -101,8 +116,8 @@ export async function pointsForSection(sb, sectionKey) {
   const range = { survey: [0, 0], why_today: [6, 7], close: [22, 23], full: [1, 99] }[sectionKey] || [1, 99]
   const out = []
   if (sectionKey === 'survey' || sectionKey === 'full') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
-  for (const sl of slides) if (sl.n >= range[0] && sl.n <= range[1]) out.push(block(sl.label, sl.pts))
-  if (sectionKey === 'close' || sectionKey === 'full') out.push(block('Closing the deal', CLOSE_EXTRA))
+  for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
+  if (sectionKey === 'close' || (sectionKey === 'full' && maxSlide >= 23)) out.push(block('Closing the deal', CLOSE_EXTRA))
   return out.join('\n\n')
 }
 
@@ -125,7 +140,9 @@ export const handler = async (event) => {
     ? `\nMEASURED AT THE CLOSE: after the rep asked for the decision, they ${row.close_silence.held ? `stayed silent until the homeowner answered (${row.close_silence.seconds}s)` : `spoke again after ${row.close_silence.seconds}s, before the homeowner answered`}. The script says: stop speaking, do NOT speak again for ANY reason until after they do.`
     : ''
 
-  const points = await pointsForSection(sb, row.section)
+  const reached = row.section === 'full' ? furthestSlide(row.transcript) : 99
+  const points = await pointsForSection(sb, row.section, reached)
+  const notReached = row.section === 'full' && reached < 23 ? `Slides ${reached + 1}–23 and the close` : ''
 
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice IN-HOME PRESENTATION (kitchen table, both spouses present).
 
@@ -137,7 +154,7 @@ SO GRADE ON POINTS, NOT WORDS:
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
-WHAT WAS PRACTICED: ${section.label}. Grade only the parts listed in THE POINTS; nothing outside them.
+WHAT WAS PRACTICED: ${section.label}.${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
 
 THE HOMEOWNER (an AI role-play): ${persona.name}, "${persona.tagline}". ${persona.blurb}
 What a good rep does with this homeowner: ${persona.close}
@@ -187,6 +204,7 @@ Score = how well the points were brought out plus how well the conversation was 
     const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
     const report = JSON.parse(text)
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
+    if (notReached) report.not_reached = notReached
     await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report }).eq('id', body.id)
   } catch (e) {
     await fail(e.message || 'grading failed')

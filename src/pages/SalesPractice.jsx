@@ -346,6 +346,7 @@ function Report({ id, onBack }) {
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-slate-800">{r.summary}</p>
             {r.outcome && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold">How it ended:</span> {r.outcome}</p>}
+            {r.not_reached && <p className="mt-2 text-sm text-slate-500"><span className="font-semibold">Not reached (not graded):</span> {r.not_reached}</p>}
             {s.close_silence && (
               <p className={`mt-2 text-sm font-semibold ${s.close_silence.held ? 'text-emerald-700' : 'text-red-700'}`}>
                 {s.close_silence.held ? `✓ Held the silence after asking for the business (${s.close_silence.seconds}s)` : `✗ Spoke again ${s.close_silence.seconds}s after asking for the business. The script says: do not speak until they do.`}
