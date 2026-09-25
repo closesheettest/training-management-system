@@ -255,7 +255,7 @@ function LiveSession({ persona, section, trainee, onDone }) {
       session: {
         trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
         persona_key: persona.key, section: section.key,
-        started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence,
+        started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
       },
     })
     if (!d.ok) { setErr(`Could not save: ${d.error}`); setSaving(false); return }
@@ -380,7 +380,7 @@ function Report({ id, onBack }) {
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{sectionByKey(s.section).label} · {fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}</div>
           <h1 className="text-2xl font-bold text-brand-navy">{s.trainee_name} → {p.tagline}</h1>
-          {s.trainer_name && <div className="text-xs text-slate-500">Run by {s.trainer_name}</div>}
+          {s.trainer_name && <div className="text-xs text-slate-500">Run by {s.trainer_name}{r.cost != null ? ` · cost $${Number(r.cost).toFixed(2)}` : ''}</div>}
         </div>
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
@@ -588,7 +588,10 @@ function History({ sessions, onOpen }) {
               <span className="text-slate-500"> → {personaByKey(s.persona_key).tagline} · {sectionByKey(s.section).label}</span>
               <span className="block text-xs text-slate-400">{fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}{s.trainer_name ? ` · ${s.trainer_name}` : ''}</span>
             </span>
-            <span className={`text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? s.score : s.grade_status === 'pending' ? '…' : '—'}</span>
+            <span className="text-right">
+              <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : '—'}</span>
+              <span className="block text-[11px] text-slate-400" title="What Google charged for the conversation and the grading">{s.cost != null ? `$${Number(s.cost).toFixed(2)}` : 'cost n/a'}</span>
+            </span>
           </button>
         ))}
       </div>

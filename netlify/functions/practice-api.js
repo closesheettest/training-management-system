@@ -9,8 +9,9 @@
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY, CRON_SECRET (authorizes the grader call).
 import { createClient } from '@supabase/supabase-js'
 import { verifyTrainerPin, json } from './_practice-auth.js'
+import { liveCost } from './_practice-prices.js'
 
-const LIST_COLS = 'id, trainee_id, trainee_name, class_id, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score'
+const LIST_COLS = 'id, trainee_id, trainee_name, class_id, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score, cost:report->cost'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'POST only' })
@@ -37,6 +38,8 @@ export const handler = async (event) => {
       duration_sec: Math.max(0, Math.round((ended - started) / 1000)),
       transcript,
       close_silence: s.close_silence || null,
+      // Cost rides on the report; the grader keeps it and adds its own share.
+      report: s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : null,
       grade_status: transcript.some((t) => t.who === 'rep') ? 'pending' : 'failed',
       grade_error: transcript.some((t) => t.who === 'rep') ? null : 'Nothing the rep said was picked up, so there is nothing to grade.',
     }

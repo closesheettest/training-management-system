@@ -91,6 +91,9 @@ export class LiveHomeowner {
     this.armedClose = false      // rep just asked for the decision
     this.holding = null          // { askEndAt, chunks:[] } while holding the reply
     this.closeSilence = null
+    // Google's billed usage, summed per turn (each turn re-counts the whole
+    // conversation so far, which is how it is billed).
+    this.usage = { textIn: 0, audioIn: 0, audioOut: 0, textOut: 0, turns: 0 }
   }
 
   async start() {
@@ -164,6 +167,14 @@ export class LiveHomeowner {
       // A slide put up before the connection was ready (the opening slide).
       if (first && this.pendingSlide) { this.sendSlide(this.pendingSlide); this.pendingSlide = null }
       return
+    }
+    if (m.usageMetadata) {
+      const u = m.usageMetadata, sum = (arr, mod) => (arr || []).filter((x) => x.modality === mod).reduce((n, x) => n + (x.tokenCount || 0), 0)
+      this.usage.textIn += sum(u.promptTokensDetails, 'TEXT')
+      this.usage.audioIn += sum(u.promptTokensDetails, 'AUDIO')
+      this.usage.audioOut += sum(u.responseTokensDetails, 'AUDIO')
+      this.usage.textOut += sum(u.responseTokensDetails, 'TEXT') + (u.thoughtsTokenCount || 0)
+      this.usage.turns++
     }
     if (m.sessionResumptionUpdate?.resumable && m.sessionResumptionUpdate.newHandle) this.handle = m.sessionResumptionUpdate.newHandle
     if (m.goAway) { try { this.ws.close() } catch { /* reconnect in onclose */ } return }
@@ -291,6 +302,6 @@ export class LiveHomeowner {
     for (const t of this.stream?.getTracks() || []) t.stop()
     try { this.inCtx?.close() } catch { /* ignore */ }
     try { this.outCtx?.close() } catch { /* ignore */ }
-    return { entries: this.entries.filter((e) => e.text && e.text.trim()), startedAt: this.startedAt, endedAt: new Date(), closeSilence: this.closeSilence }
+    return { entries: this.entries.filter((e) => e.text && e.text.trim()), startedAt: this.startedAt, endedAt: new Date(), closeSilence: this.closeSilence, usage: this.usage }
   }
 }

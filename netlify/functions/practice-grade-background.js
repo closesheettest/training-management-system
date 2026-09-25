@@ -14,6 +14,7 @@
 // Env: GEMINI_API_KEY, GEMINI_TEXT_MODEL (optional, default gemini-3.8-flash),
 //      SUPABASE_URL, SUPABASE_SECRET_KEY, CRON_SECRET.
 import { createClient } from '@supabase/supabase-js'
+import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
 import { personaByKey, sectionByKey, DECK } from '../../src/lib/salesPractice.js'
 
@@ -154,6 +155,17 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
 // BUSY IS NORMAL. The first real grading run (25 Sep) came back "This model is
 // currently experiencing high demand". A background function has 15 minutes,
 // so wait and retry, then fall back to another Flash model, before giving up.
+// Grading tokens used by this invocation (one grade per background run).
+const lastGradeUsage = { in: 0, out: 0 }
+// Keep what the run cost to talk (saved by practice-api) and ADD this grade to
+// it: a re-grade costs money too.
+function withCost(report, prev) {
+  const u = prev?.usage || {}
+  const grades = [...(u.grades || []), { in: lastGradeUsage.in, out: lastGradeUsage.out }]
+  const total = liveCost(u.live) + grades.reduce((n, g) => n + gradeCost(g.in, g.out), 0)
+  return { ...report, usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
+}
+
 async function geminiJson(prompt, schema) {
   const models = [...new Set([process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'])]
   const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms))
@@ -170,7 +182,12 @@ async function geminiJson(prompt, schema) {
         }),
       })
       const j = await r.json().catch(() => ({}))
-      if (r.ok) return JSON.parse((j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join(''))
+      if (r.ok) {
+        const um = j.usageMetadata || {}
+        lastGradeUsage.in += um.promptTokenCount || 0
+        lastGradeUsage.out += (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0)
+        return JSON.parse((j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join(''))
+      }
       lastErr = `${model}: ${j.error?.message || r.status}`
       const busy = r.status === 429 || r.status >= 500 || /demand|overload|unavailable|try again/i.test(j.error?.message || '')
       if (!busy) break // a real error (bad request, unknown model): next model, no point retrying this one
@@ -224,7 +241,7 @@ async function gradeDrill(sb, row, persona, section, id) {
   })
   if (!pairs.length) {
     const report = { drill: true, pairs: [], kept: 0, gave_up: 0, off_topic: 0, total: 0, summary: 'The homeowner never got a question answered in this run (nothing to score). Run it again for the full five minutes.', tips: [] }
-    await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: null, report }).eq('id', id)
+    await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: null, report: withCost(report, row.report) }).eq('id', id)
     return
   }
   const prompt = `You are judging a CONTROL DRILL for a roofing sales rep at U.S. Shingle. For five minutes on ${section.label}, an AI homeowner (${persona.name}, "${persona.tagline}") kept asking questions to take control of the conversation. In our method the person asking the questions controls the conversation.
@@ -253,13 +270,14 @@ ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.
     off_topic: scored.filter((x) => x.verdict === 'off_topic').length,
     summary: out.summary || '', tips: out.tips || [],
   }
-  await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report }).eq('id', id)
+  await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report: withCost(report, row.report) }).eq('id', id)
 }
 
 export const handler = async (event) => {
   let body
   try { body = JSON.parse(event.body || '{}') } catch { return }
   if (!process.env.CRON_SECRET || body.secret !== process.env.CRON_SECRET || !body.id) return
+  lastGradeUsage.in = 0; lastGradeUsage.out = 0 // a warm function instance is reused between runs
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
   const fail = (msg) => sb.from('sales_practice_sessions').update({ grade_status: 'failed', grade_error: String(msg).slice(0, 500) }).eq('id', body.id)
 
@@ -348,7 +366,7 @@ Score = roughly HALF how well the points landed, HALF who controlled the convers
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
     if (notReached) report.not_reached = notReached
     report.questions = questions
-    await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report }).eq('id', body.id)
+    await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report: withCost(report, row.report) }).eq('id', body.id)
   } catch (e) {
     await fail(e.message || 'grading failed')
   }
