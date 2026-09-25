@@ -1823,8 +1823,9 @@ function NewTrainees({ reps, token, onChanged }) {
             <div className="mt-2 flex flex-wrap gap-2">
               {r.phone && (
                 <>
+                  {/* The number itself, still tap-to-call (Neal: show the actual number, not "Call"). */}
                   <a href={`tel:${tel(r.phone)}`}
-                     className="rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-bold text-white">📞 Call</a>
+                     className="rounded-md bg-emerald-500 px-2.5 py-1 text-[12px] font-bold text-white">📞 {r.phone}</a>
                   <a href={`sms:${tel(r.phone)}`}
                      className="rounded-md bg-sky-500 px-2.5 py-1 text-[12px] font-bold text-white">💬 Text</a>
                 </>
@@ -3912,16 +3913,18 @@ function RepsTable({ token, reps, onChanged }) {
 
 
 
-// "Activity since class" on a trainee's card (Neal, 2026-09-25): what they have
-// done on the DoorDispatcher map each day since their class started. Reads CCG
-// harvest-rep-activity with the trainee's own map token (from their map link).
+// "Activity since class" on a trainee's card (Neal, 2026-09-25): a REP ACTIVITY
+// REPORT for that trainee (not their map): totals, each day, and every stop
+// with its address and outcome, since their class started. Opens over the
+// dashboard. Data: CCG harvest-rep-activity with the trainee's own map token.
 function TraineeActivity({ link, since, name }) {
   const [open, setOpen] = useState(false)
   const [d, setD] = useState(null)
   const [err, setErr] = useState('')
-  const load = async () => {
-    setOpen((v) => !v)
-    if (d || open) return
+  const [openDay, setOpenDay] = useState(null)
+  const show = async () => {
+    setOpen(true)
+    if (d) return
     try {
       const rt = new URL(link).searchParams.get('rt')
       const q = new URLSearchParams({ rt: rt || '', ...(since ? { since } : {}) })
@@ -3929,50 +3932,77 @@ function TraineeActivity({ link, since, name }) {
       const j = await res.json()
       if (!j.ok) throw new Error(j.error || 'Could not load')
       setD(j)
+      if (j.days.length) setOpenDay(j.days[j.days.length - 1].date) // newest day open
     } catch (e) { setErr(e.message) }
   }
   const nice = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })
+  const stat = (n, label, strong) => (
+    <div className="rounded-lg bg-slate-800 px-3 py-2 text-center">
+      <div className={`text-xl font-black ${strong ? 'text-emerald-300' : 'text-white'}`}>{n}</div>
+      <div className="text-[11px] text-slate-400">{label}</div>
+    </div>
+  )
   return (
-    <span className="contents">
-      <button type="button" onClick={load} className="rounded-md border border-amber-400/60 px-2.5 py-1 text-[12px] font-bold text-amber-200">
-        📈 Activity since class {open ? '▴' : '▾'}
+    <>
+      <button type="button" onClick={show} className="rounded-md bg-amber-400 px-2.5 py-1 text-[12px] font-bold text-slate-900">
+        📈 Activity report
       </button>
       {open && (
-        <div className="order-last mt-2 w-full basis-full rounded-lg border border-slate-600 bg-slate-900/60 p-3 text-[12.5px] text-slate-100">
-          {err && <div className="text-red-300">{err}</div>}
-          {!err && !d && <div className="text-slate-400">Loading…</div>}
-          {d && (
-            <>
-              <div className="font-bold">{name}&rsquo;s map activity since {since ? nice(since) : 'the last two weeks'}</div>
-              {!d.days.length && <div className="mt-1 text-amber-200">Nothing on the map yet. They haven&rsquo;t worked a door since class.</div>}
-              {d.days.length > 0 && (
-                <>
-                  <div className="mt-1 text-slate-300">
-                    {d.totals.days_active} day{d.totals.days_active !== 1 ? 's' : ''} out · <b>{d.totals.doors}</b> doors · {d.totals.not_home} not home · <b>{d.totals.appt}</b> appointments · <b>{d.totals.insp_sold}</b> inspections signed · {d.totals.not_interested} not interested
-                  </div>
-                  <table className="mt-2 w-full text-left">
-                    <thead className="text-slate-400"><tr><th className="py-0.5">Day</th><th>Doors</th><th>Not home</th><th>Appts</th><th>Signed</th><th>Not int.</th><th>On the map</th></tr></thead>
-                    <tbody>
-                      {d.days.map((x) => (
-                        <tr key={x.date} className="border-t border-slate-700">
-                          <td className="py-0.5">{nice(x.date)}</td><td>{x.doors}</td><td>{x.not_home}</td><td>{x.appt}</td><td>{x.insp_sold}</td><td>{x.not_interested}</td>
-                          <td className="text-slate-400">{x.first}–{x.last}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-              {d.signed.length > 0 && (
-                <div className="mt-2">
-                  <div className="font-semibold text-emerald-300">✍️ Inspections signed</div>
-                  {d.signed.map((x, i) => <div key={i} className="text-slate-300">{x.when} · {x.homeowner}{x.city ? `, ${x.city}` : ''}</div>)}
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4" onClick={() => setOpen(false)}>
+          <div className="mt-6 w-full max-w-3xl rounded-2xl bg-slate-900 p-5 text-slate-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-amber-300">Rep activity report</div>
+                <h3 className="text-xl font-bold">{d?.name || name}: since class{since ? ` (${nice(since)})` : ''}</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-800">✕ Close</button>
+            </div>
+            {err && <div className="mt-3 text-red-300">{err}</div>}
+            {!err && !d && <div className="mt-3 text-slate-400">Loading…</div>}
+            {d && (
+              <>
+                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {stat(d.totals.days_active, 'days out')}
+                  {stat(d.totals.doors || 0, 'doors')}
+                  {stat(d.totals.not_home || 0, 'not home')}
+                  {stat(d.totals.appt || 0, 'appointments', true)}
+                  {stat(d.totals.insp_sold || 0, 'inspections', true)}
+                  {stat(d.totals.not_interested || 0, 'not interested')}
                 </div>
-              )}
-            </>
-          )}
+                {!d.days.length && <div className="mt-4 rounded-lg bg-amber-500/10 p-3 text-amber-200">Nothing on the map yet. They haven&rsquo;t worked a door since class started.</div>}
+                <div className="mt-4 space-y-2">
+                  {[...d.days].reverse().map((x) => (
+                    <div key={x.date} className="rounded-lg border border-slate-700">
+                      <button type="button" onClick={() => setOpenDay(openDay === x.date ? null : x.date)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left">
+                        <span className="font-bold">{nice(x.date)} <span className="font-normal text-slate-400">· {x.first}–{x.last}</span></span>
+                        <span className="text-[12.5px] text-slate-300">{x.doors} doors · {x.not_home} not home · <b className="text-emerald-300">{x.appt} appt · {x.insp_sold} signed</b> {openDay === x.date ? '▴' : '▾'}</span>
+                      </button>
+                      {openDay === x.date && (
+                        <div className="border-t border-slate-700 px-3 py-2 text-[12.5px]">
+                          {x.stops.map((st, i) => (
+                            <div key={i} className="flex gap-3 border-b border-slate-800 py-1 last:border-0">
+                              <span className="w-16 shrink-0 text-slate-400">{st.time}</span>
+                              <span className="flex-1">{st.where || 'Map pin'}{st.who ? <span className="text-slate-400"> · {st.who}</span> : null}</span>
+                              <span className={st.good ? 'font-bold text-emerald-300' : 'text-slate-300'}>{st.what}</span>
+                            </div>
+                          ))}
+                          {!x.stops.length && <div className="text-slate-400">Opened the map but logged no doors.</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {d.signed.length > 0 && (
+                  <div className="mt-4">
+                    <div className="font-semibold text-emerald-300">✍️ Inspections signed</div>
+                    {d.signed.map((x, i) => <div key={i} className="text-[12.5px] text-slate-300">{x.when} · {x.homeowner}{x.city ? `, ${x.city}` : ''}</div>)}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
-    </span>
+    </>
   )
 }
