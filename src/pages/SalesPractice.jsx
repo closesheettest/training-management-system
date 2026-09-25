@@ -387,6 +387,45 @@ function Report({ id, onBack }) {
             )}
           </div>
 
+          {r.control && (
+            <Card title="🎯 Who controlled the conversation">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className={`text-3xl font-black ${scoreColor(r.control.score * 10)}`}>{r.control.score}/10</div>
+                <div className="text-sm font-semibold text-slate-700">
+                  {r.control.who === 'rep' ? 'The rep was in control' : r.control.who === 'homeowner' ? 'The homeowner was in control' : 'Control went back and forth'}
+                </div>
+                {r.questions && (() => {
+                  const tot = Math.max(1, r.questions.rep + r.questions.homeowner)
+                  return (
+                    <div className="min-w-[220px] flex-1">
+                      <div className="flex h-3 overflow-hidden rounded bg-slate-200">
+                        <div className="bg-brand-navy" style={{ width: `${(100 * r.questions.rep) / tot}%` }} />
+                        <div className="bg-amber-400" style={{ width: `${(100 * r.questions.homeowner) / tot}%` }} />
+                      </div>
+                      <div className="mt-1 flex justify-between text-xs text-slate-500">
+                        <span>Rep asked {r.questions.rep} question{r.questions.rep !== 1 ? 's' : ''}</span>
+                        <span>Homeowner asked {r.questions.homeowner}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+              <p className="mt-2 text-sm text-slate-700">{r.control.summary}</p>
+              {(r.control.lost_moments || []).length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Where control slipped</div>
+                  {r.control.lost_moments.map((m, i) => (
+                    <div key={i} className="border-l-2 border-amber-300 pl-3 text-sm">
+                      <div className="text-slate-600"><span className="font-semibold">Homeowner:</span> “{m.homeowner_said}”</div>
+                      <div className="text-slate-600"><span className="font-semibold">Rep:</span> {m.rep_did}</div>
+                      <div className="text-slate-900"><span className="font-semibold">Take it back:</span> {m.take_it_back}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Card title="🔧 Fix these first" tone="red"><ol className="list-decimal space-y-1 pl-5">{(r.top_fixes || []).map((x, i) => <li key={i}>{x}</li>)}</ol></Card>
             <Card title="💪 What went well" tone="green"><ul className="list-disc space-y-1 pl-5">{(r.strengths || []).map((x, i) => <li key={i}>{x}</li>)}</ul></Card>

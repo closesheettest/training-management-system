@@ -48,6 +48,29 @@ const REPORT_SCHEMA = {
         required: ['rep_said', 'correct'],
       },
     },
+    control: {
+      type: 'OBJECT',
+      description: 'WHO CONTROLLED THE CONVERSATION. The person asking the questions is the person in control.',
+      properties: {
+        score: { type: 'INTEGER', description: '0-10: how much the REP controlled the conversation' },
+        who: { type: 'STRING', description: 'rep | homeowner | even' },
+        summary: { type: 'STRING', description: '1-2 sentences on who was steering and how' },
+        lost_moments: {
+          type: 'ARRAY',
+          description: 'Moments the homeowner took control (asking the questions, the rep answering or defending). Up to 4, most important first.',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              homeowner_said: { type: 'STRING' },
+              rep_did: { type: 'STRING' },
+              take_it_back: { type: 'STRING', description: 'A QUESTION the rep could have asked to take control back' },
+            },
+            required: ['homeowner_said', 'rep_did', 'take_it_back'],
+          },
+        },
+      },
+      required: ['score', 'who', 'summary', 'lost_moments'],
+    },
     good_questions: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Questions the rep asked that got the homeowner to arrive at a point themselves (quote them)' },
     objections: {
       type: 'ARRAY',
@@ -64,7 +87,7 @@ const REPORT_SCHEMA = {
     },
     used_their_answers: { type: 'STRING', description: 'Did the rep tie back what the homeowner told them in the survey (insurance cost, electric bill, allergies, forever home...)? Examples.' },
   },
-  required: ['score', 'summary', 'outcome', 'strengths', 'top_fixes', 'parts', 'facts_wrong', 'good_questions', 'objections', 'used_their_answers'],
+  required: ['score', 'summary', 'outcome', 'strengths', 'top_fixes', 'parts', 'control', 'facts_wrong', 'good_questions', 'objections', 'used_their_answers'],
 }
 
 // The checklist the rep is graded on. Slides come from the Slide Points page
@@ -153,6 +176,12 @@ export const handler = async (event) => {
   let reached = 99
   if (rng && rng[1] > rng[0]) { const f = furthestSlide(row.transcript); reached = f >= rng[0] ? f : rng[1] }
   const points = await pointsForSection(sb, row.section, reached)
+  // WHO ASKED THE QUESTIONS, counted, not judged: speech-to-text punctuates
+  // questions, so count them per side. Whoever asks the questions is in control
+  // of the conversation (Neal, 25 Sep); the model grades control with this in hand.
+  const countQ = (who) => (row.transcript || []).filter((t) => t.who === who)
+    .reduce((n, t) => n + (String(t.text || '').match(/\?/g) || []).length, 0)
+  const questions = { rep: countQ('rep'), homeowner: countQ('homeowner') }
   const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice IN-HOME PRESENTATION (kitchen table, both spouses present).
@@ -163,6 +192,7 @@ SO GRADE ON POINTS, NOT WORDS:
 - A point is COVERED if the homeowner clearly got the idea, however the rep said it: their own words, a story, a question, any order, even out of the slide it belongs to.
 - NEVER mark anything down for not matching the script's wording. Do not quote script lines at the rep as "what you should have said" unless they missed the point entirely.
 - DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
+- CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control, and answering a question WITH a question takes control back.
 - Reward: good questions, tie-downs that get agreement, using what the homeowner said in the survey later (their insurance cost, electric bill, forever home, allergies), adapting to this personality, handling objections, keeping control of the conversation without being rude, and a professional tone.
 
 WHAT WAS PRACTICED: ${section.label}.${rng ? ' The warm-up and customer survey were ALREADY DONE before this started (the homeowner has answered them); never grade or mention them as missing. The rep may still use what the homeowner told them in the survey.' : ''}${notReached ? ` The run ended at slide ${reached}: ${notReached} were NOT REACHED. Do not grade them, list them, or count them against the score; judge the parts that were reached.` : ''} Grade only the parts listed in THE POINTS; nothing outside them.
@@ -184,7 +214,7 @@ ${lines}
 """
 ${silence}
 
-Score = how well the points were brought out plus how well the conversation was handled. 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep.`
+Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep.`
 
   try {
     // BUSY IS NORMAL. The first real grading run (25 Sep) came back "This model is
@@ -216,6 +246,7 @@ Score = how well the points were brought out plus how well the conversation was 
     const report = JSON.parse(text)
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
     if (notReached) report.not_reached = notReached
+    report.questions = questions
     await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report }).eq('id', body.id)
   } catch (e) {
     await fail(e.message || 'grading failed')
