@@ -16,6 +16,14 @@
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained'
 const CLOSE_HOLD_MS = 5000
 const VOICE_RMS = 0.02 // mic level that counts as the rep talking
+// While the homeowner is talking, the mic also hears them through the speakers
+// and Google took that as the rep interrupting ("Yeah, I'm familiar with" — cut
+// off, Neal's first run 25 Sep). Below this level during playback we send
+// silence instead; a rep actually talking over them is well above it.
+const ECHO_RMS = 0.06
+// The rep stopped talking this long ago and nobody answered: nudge the
+// homeowner (Neal had to ask "Frank, are you still there?" four times in 20 min).
+const STALL_MS = 4000
 
 function toBase64(int16) {
   const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength)
@@ -48,6 +56,16 @@ export function liveSetup({ model, systemPrompt, voice, handle }) {
       outputAudioTranscription: {},
       contextWindowCompression: { slidingWindow: {} },
       sessionResumption: handle ? { handle } : {},
+      // End the rep's turn after ~0.7s of quiet, and don't let low noise count as
+      // the rep starting to talk: in a noisy room the default kept waiting for an
+      // end of speech that never came, and the page just said "Listening".
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+          endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+          silenceDurationMs: 700,
+        },
+      },
     },
   }
 }
@@ -87,7 +105,28 @@ export class LiveHomeowner {
     this.tap = new AudioWorkletNode(this.inCtx, 'mic-tap')
     this.tap.port.onmessage = (e) => this.onMic(e.data)
     src.connect(this.tap)
+    this.watchdog = setInterval(() => this.checkStall(), 1000)
     await this.connect()
+  }
+
+  // Rep finished, nobody answered. First nudge: audioStreamEnd, which tells Google
+  // the rep's audio has paused so it closes the turn. If that still gets nothing,
+  // say it outright as a (silent) stage note that completes the turn.
+  checkStall() {
+    if (!this.ready || this.holding || this.playing.size || this.muted) return
+    const now = performance.now()
+    const last = [...this.entries].reverse().find((e) => e.who !== 'slide')
+    if (!last || last.who !== 'rep') { this.nudges = 0; return }
+    if (this.lastVoiceAt > (this.lastNudgeAt || 0)) this.nudges = 0 // the rep spoke again since the last nudge
+    if (now - this.lastVoiceAt < STALL_MS || now - (this.lastNudgeAt || 0) < 5000) return
+    if ((this.nudges || 0) >= 2) return
+    this.lastNudgeAt = now
+    this.nudges = (this.nudges || 0) + 1
+    if (this.nudges === 1) {
+      this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }))
+    } else {
+      this.ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[The rep has stopped talking and is waiting for you. Respond now, in character, to what they just said.] (stage info only)' }] }], turnComplete: true } }))
+    }
   }
 
   async connect() {
@@ -172,7 +211,9 @@ export class LiveHomeowner {
     const rms = Math.sqrt(sum / f32.length)
     this.on.level?.(Math.min(1, rms * 8))
     const now = performance.now()
-    if (rms > VOICE_RMS) {
+    const echoing = this.playing.size > 0 && rms < ECHO_RMS
+    if (echoing) f32 = new Float32Array(f32.length) // the homeowner's own voice coming back: send silence
+    if (rms > VOICE_RMS && !echoing) {
       this.lastVoiceAt = now
       // Rep broke the silence while we were holding the homeowner's answer.
       if (this.holding && now - this.holding.askEndAt > 400) {
@@ -243,6 +284,7 @@ export class LiveHomeowner {
 
   stop() {
     this.closedByUser = true
+    clearInterval(this.watchdog)
     try { this.ws?.close() } catch { /* ignore */ }
     this.stopPlayback()
     try { this.tap?.disconnect() } catch { /* ignore */ }
