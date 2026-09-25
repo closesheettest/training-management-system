@@ -24,6 +24,11 @@ const ECHO_RMS = 0.06
 // The rep stopped talking this long ago and nobody answered: nudge the
 // homeowner (Neal had to ask "Frank, are you still there?" four times in 20 min).
 const STALL_MS = 4000
+// NB: this is mic-volume based on purpose. The rep's words (transcription)
+// arrive in one burst AFTER Google ends their turn, not while they talk, so a
+// words-based nudge would fire mid-sentence. For a noisy room, where the level
+// never drops and Frank can sit silent (~30s in the demo with the boss, 25 Sep),
+// the fix is the "✋ Your turn" button and the end-of-speech setting below.
 
 function toBase64(int16) {
   const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength)
@@ -65,8 +70,11 @@ export function liveSetup({ model, systemPrompt, voice, handle }) {
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
-          endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
-          silenceDurationMs: 1200,
+          // HIGH end-sensitivity treats room noise as not-speech sooner (the boss
+          // demo sat ~30s waiting for an end); 1.3s keeps it from cutting off a
+          // rep who pauses to think (0.7s did). The ✋ button covers the rest.
+          endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+          silenceDurationMs: 1300,
         },
       },
     },
@@ -292,6 +300,19 @@ export class LiveHomeowner {
   }
 
   setMuted(v) { this.muted = !!v }
+
+  // "✋ Your turn": the rep says they're done. Close their turn now, whatever
+  // the room noise is doing, and make sure the homeowner answers.
+  yourTurn() {
+    if (!this.ready || this.ws?.readyState !== 1) return
+    this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }))
+    setTimeout(() => {
+      const last = [...this.entries].reverse().find((e) => e.who !== 'slide')
+      if (this.ready && !this.playing.size && last && last.who === 'rep') {
+        this.ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: '[The rep has finished and is waiting for you. Respond now, in character, to what they just said.] (stage info only)' }] }], turnComplete: true } }))
+      }
+    }, 1500)
+  }
 
   status(s) { if (s !== this._s) { this._s = s; this.on.status?.(s) } }
   fail(msg) { this.status('error'); this.on.error?.(msg); this.stop() }

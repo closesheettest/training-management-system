@@ -328,6 +328,10 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
             <span>{statusLabel}</span>
             <span className="h-2 w-16 overflow-hidden rounded bg-slate-300"><span className="block h-full bg-emerald-500 transition-all" style={{ width: `${Math.round(level * 100)}%` }} /></span>
           </div>
+          <button type="button" onClick={() => liveRef.current?.yourTurn()} title="Done talking? Tap so the homeowner answers now (handy in a noisy room)."
+            className="rounded-md border-2 border-emerald-600 px-3 py-1.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50">
+            ✋ Your turn
+          </button>
           <button type="button" onClick={() => { setMuted((m) => { liveRef.current?.setMuted(!m); return !m }) }}
             className={`rounded-md border px-3 py-1.5 text-sm font-semibold ${muted ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-300 text-slate-600'}`}>
             {muted ? '🔇 Mic paused' : 'Pause mic'}
