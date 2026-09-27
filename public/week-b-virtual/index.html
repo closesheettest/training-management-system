@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Week B Virtual Training — U.S. Shingle &amp; Metal</title>
+<!-- Week B Virtual Training (Neal, 2026-09-27). The deck built for teaching Week B
+     on Zoom: Mon warm-up, Tue slides 1-7, Wed 8-16, Thu 17-23 + the full run.
+     Slides are images (s-01.jpg … s-58.jpg); the bottom-right corner of each is
+     left empty for the presenter's camera circle in Keynote. The Keynote file
+     itself lives on Neal's Mac; this page is for viewing and sharing. -->
+<style>
+  :root { --navy:#0d1b2e; --gold:#f5b50a; --ink:#e2e8f0; --muted:#94a3b8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--navy); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { padding:14px 16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; border-bottom:2px solid var(--gold); }
+  h1 { margin:0; font-size:18px; letter-spacing:.02em; }
+  h1 span { color:var(--gold); }
+  .days { display:flex; flex-wrap:wrap; gap:6px; }
+  .days button, .dl { background:#16263d; color:var(--ink); border:1px solid #2b4263; border-radius:8px; padding:7px 11px; font-weight:700; font-size:13px; cursor:pointer; text-decoration:none; }
+  .days button.on { background:var(--gold); color:var(--navy); border-color:var(--gold); }
+  main { max-width:1280px; margin:0 auto; padding:14px 16px 28px; }
+  .stage { position:relative; background:#000; border-radius:10px; overflow:hidden; }
+  .stage img { display:block; width:100%; height:auto; }
+  .nav { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+  .nav button { background:#16263d; color:var(--ink); border:1px solid #2b4263; border-radius:8px; padding:9px 16px; font-weight:700; font-size:14px; cursor:pointer; }
+  .count { color:var(--muted); font-size:13px; text-align:center; }
+  .strip { display:flex; gap:6px; overflow-x:auto; margin-top:12px; padding-bottom:6px; }
+  .strip img { height:54px; border-radius:4px; opacity:.55; cursor:pointer; border:2px solid transparent; }
+  .strip img.on { opacity:1; border-color:var(--gold); }
+  .note { color:var(--muted); font-size:12.5px; margin-top:10px; line-height:1.5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Week B <span>Virtual Training</span></h1>
+  <div class="days" id="days"></div>
+  <a class="dl" href="Week-B-Virtual-Training.pdf" download>⬇ Download PDF</a>
+</header>
+<main>
+  <div class="stage"><img id="slide" alt="Slide"></div>
+  <div class="nav">
+    <button id="prev">← Back</button>
+    <div class="count" id="count"></div>
+    <button id="next">Next →</button>
+  </div>
+  <div class="strip" id="strip"></div>
+  <p class="note">← → keys flip slides. The empty bottom-right corner is where the presenter's camera sits when it's taught live from Keynote.</p>
+</main>
+<script>
+  var TOTAL = 58;
+  var DAYS = [
+    { label: 'Mon · The Warm-Up', start: 1 },
+    { label: 'Tue · Slides 1–7', start: 10 },
+    { label: 'Wed · Slides 8–16', start: 26 },
+    { label: 'Thu · Slides 17–23 + full run', start: 45 },
+  ];
+  var n = 1;
+  var src = function (i) { return 's-' + String(i).padStart(2, '0') + '.jpg'; };
+  var dayOf = function (i) { var d = 0; DAYS.forEach(function (x, k) { if (i >= x.start) d = k; }); return d; };
+  var days = document.getElementById('days'), strip = document.getElementById('strip');
+  DAYS.forEach(function (d, k) {
+    var b = document.createElement('button'); b.textContent = d.label;
+    b.onclick = function () { go(d.start); }; days.appendChild(b);
+  });
+  for (var i = 1; i <= TOTAL; i++) {
+    (function (i) {
+      var t = document.createElement('img'); t.src = src(i); t.loading = 'lazy'; t.alt = 'Slide ' + i;
+      t.onclick = function () { go(i); }; strip.appendChild(t);
+    })(i);
+  }
+  function go(i) {
+    n = Math.max(1, Math.min(TOTAL, i));
+    document.getElementById('slide').src = src(n);
+    var d = dayOf(n);
+    document.getElementById('count').textContent = DAYS[d].label + ' · slide ' + n + ' of ' + TOTAL;
+    [].forEach.call(days.children, function (b, k) { b.className = k === d ? 'on' : ''; });
+    [].forEach.call(strip.children, function (t, k) { t.className = k === n - 1 ? 'on' : ''; });
+    strip.children[n - 1].scrollIntoView({ block: 'nearest', inline: 'center' });
+    try { history.replaceState(null, '', '#' + n); } catch (e) {}
+  }
+  document.getElementById('prev').onclick = function () { go(n - 1); };
+  document.getElementById('next').onclick = function () { go(n + 1); };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') go(n + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(n - 1);
+  });
+  go(parseInt(location.hash.slice(1), 10) || 1);
+</script>
+</body>
+</html>

@@ -31,6 +31,7 @@ export const CATEGORIES = [
   'Day 2',
   'Day 3',
   'Day 4',
+  'Week B',
   'Training overview & resources',
   'Trainee-facing (post-grad)',
   'Internal admin',
@@ -187,6 +188,20 @@ export const HOSTED_PAGES = [
     category: 'Day 3',
   },
 
+  // ─────────────────────── Week B ───────────────────────
+  {
+    slug: 'week-b-virtual',
+    title: 'Week B Virtual Training',
+    url: '/week-b-virtual/',
+    description:
+      'The Week B deck built for teaching on Zoom (2026-09-27): Mon the warm-up (purpose, control ' +
+      'points, the intro and customer survey from the manual), Tue slides 1-7, Wed slides 8-16, Thu ' +
+      'slides 17-23 plus the full run-through. Each script slide shows its Slide Points and then the ' +
+      'real presentation slide. Day buttons, arrow keys and a PDF download. Taught live from the ' +
+      'Keynote file on Neal\'s Mac, whose bottom-right corner is kept clear for the camera circle.',
+    created: '2026-09-27',
+    category: 'Week B',
+  },
   // ─────────────────────── Training overview & resources ───────────────────────
   {
     slug: 'training-itinerary',
