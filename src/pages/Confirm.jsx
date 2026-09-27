@@ -86,6 +86,11 @@ export default function Confirm() {
     if (error) { setErrorMsg(error.message); setStatus('choose'); return }
     setTrainee((prev) => ({ ...prev, confirmation_status: choice, confirmation_at: new Date().toISOString() }))
     setStatus('done')
+    // Confirmed virtual Week B → text + email the presentation and the
+    // slide-by-slide page so they're ready for the first morning (sent once).
+    if (choice === 'confirmed' && virtual && week === 'B') {
+      fetch('/.netlify/functions/send-week-b-prep', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, rep: repLink }) }).catch(() => {})
+    }
   }
 
   if (status === 'loading') return <div style={S.wrap}><p style={{ textAlign: 'center', color: '#64748b', padding: '60px 0' }}>Loading…</p></div>
@@ -202,6 +207,9 @@ export default function Confirm() {
           style={{ ...S.btn, background: choice === 'declined' ? '#fef2f2' : '#fff', color: choice === 'declined' ? '#991b1b' : '#334155', border: `2px solid ${choice === 'declined' ? '#f87171' : '#cbd5e1'}` }}>
           {choice === 'declined' ? "✗ You marked can't make it" : "❌ I can't make it"}
         </button>
+        {choice === 'confirmed' && virtual && week === 'B' && !isPreview && (
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#166534', fontWeight: 600 }}>📚 We just texted and emailed you the full presentation and the slide-by-slide breakdown. Review them before the first session.</p>
+        )}
         {choice && !isPreview && (
           <p style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>Changed your mind? Tap the other option.{trainee?.confirmation_at ? ` · ${new Date(trainee.confirmation_at).toLocaleString()}` : ''}</p>
         )}
