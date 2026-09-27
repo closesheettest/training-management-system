@@ -65,6 +65,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     'Score out of 100: about HALF is the points landing, and HALF is who controlled the conversation.',
     'STAY ON SCRIPT: not word for word, but the script’s ANGLE and POINTS. Each point has to be made the way the script makes it (same argument, same reasoning, same kind of question). A point made from a different angle counts half at most, and anything improvised that isn’t in the script costs points. Both are listed as “Off script” on the report. Wrong facts are flagged.',
     'Control: whoever asks the questions is in control. A short, straight answer is fine as long as the rep leads back with a question within their next two replies.',
+    'LET THEM SAY IT: a question that puts the point in the homeowner’s mouth (“It sounds like you’re trying to say experience matters?”) lands it strongest. If the homeowner says it, it’s gospel; if the rep says it, it’s up for interpretation.',
     'Objections are judged by the method: acknowledge, isolate, answer it only if it belongs on this slide (otherwise park it and get their OK), then confirm with a question. A parked concern has to be answered later.',
     'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
     ...(sec.range && sec.range[1] >= 23 ? ['After asking for the business, the rep has to stay SILENT: the homeowner waits 5 seconds to see if they do.'] : []),
