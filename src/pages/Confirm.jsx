@@ -130,7 +130,7 @@ export default function Confirm() {
       {virtual ? (<>
       <div style={S.card}>
         <div style={S.h2}>🎥 Where: on Zoom</div>
-        <div style={{ color: '#475569', fontSize: 14 }}>Week B is held virtually. Join from a quiet spot with your camera on, and use your full name in Zoom.</div>
+        <div style={{ color: '#475569', fontSize: 14 }}>Week B is held virtually. Join from a stationary location (not driving), somewhere quiet, with your camera on and your full name showing in Zoom.</div>
         {zoomUrl
           ? <a href={zoomUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 10, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '10px 16px', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>🎥 Join the Zoom</a>
           : <div style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>The Zoom link will be here before class starts.</div>}
@@ -145,7 +145,7 @@ export default function Confirm() {
       </div>
       <div style={{ ...S.card, background: '#fffbeb', border: '1px solid #fde68a' }}>
         <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14 }}>⏰ Please join 5 minutes early</div>
-        <div style={{ color: '#78350f', fontSize: 13.5, marginTop: 3 }}>Class starts on time. Camera on, full name showing, ready to participate.</div>
+        <div style={{ color: '#78350f', fontSize: 13.5, marginTop: 3 }}>Class starts on time. Parked or at a desk, not driving. Camera on, full name showing, ready to learn.</div>
       </div>
       </>) : (<>
       {/* Location + directions */}
