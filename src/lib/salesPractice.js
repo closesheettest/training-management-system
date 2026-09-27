@@ -377,6 +377,22 @@ export const CLOSE_EXTRA = [
   'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
   'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
 ]
+// THE IMPULSE FACTOR: FIGS (Neal, 27 Sep). Every homeowner buys on one impulse:
+// Fear of loss, Indifference, Greed, or Sense of urgency. The rep has to find it
+// with their questions and sell to it. In a FULL presentation the homeowner is
+// secretly given one; at the end the rep is asked which it was.
+export const IMPULSES = [
+  { key: 'fear', label: 'Fear of loss', short: 'F',
+    act: `What drives you is FEAR OF LOSS: losing something you have. The insurance company dropping you, a leak ruining the ceiling and floors, getting burned by a contractor again, your family not being safe in a storm. Your worries keep coming back to "what if…" and to protection. You lean in on credibility, the license and insurance, the warranty and "will you be around?". Price matters less than feeling protected.` },
+  { key: 'indifference', label: 'Indifference', short: 'I',
+    act: `What drives you is INDIFFERENCE: you don't feel strongly about the roof yet. "It's been fine so far", "we'll get to it eventually", "I don't know, whatever you think". Low energy, short answers, easily sidetracked, no strong opinions on colors or options. You only warm up when the rep makes you actually CARE: helps you see what waiting costs, or connects the roof to something that matters to you.` },
+  { key: 'greed', label: 'Greed', short: 'G',
+    act: `What drives you is GREED, in the everyday sense: you want the best DEAL and the most value. You perk up at savings: the insurance discount, energy savings, the Low-Bid Price Match, anything "free", financing terms, what you get for the money. You ask about discounts and "what's the best you can do?", and you like hearing the numbers.` },
+  { key: 'urgency', label: 'Sense of urgency', short: 'S',
+    act: `What drives you is a SENSE OF URGENCY: you need this done SOON. There is a deadline behind it (the insurance renewal, hurricane season, a leak getting worse, family visiting, a sale or refinance coming up). You ask "how soon can you start?", "how long does it take?", "can you get the permit fast?". Speed and scheduling matter more to you than anything else.` },
+]
+export const impulseByKey = (k) => IMPULSES.find((x) => x.key === k) || null
+
 // NEAL'S OBJECTION METHOD (2026-09-25). One wording, used by the homeowner (when
 // to concede) and the grader (what "handled well" means), so they never disagree.
 // Step 3 is deliberately NOT "answer it": on slide 1 you do not jump to products
@@ -389,8 +405,9 @@ Balance: a short, straight answer in statements is fine when a question deserves
 A parked concern must be answered later, when the rep reaches that part.`
 
 // The homeowner's instructions for the live voice session.
-export function homeownerPrompt(persona, section) {
+export function homeownerPrompt(persona, section, impulse = null) {
   const sec = sectionByKey(section)
+  const imp = impulseByKey(impulse)
   const where = {
     full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
     door: 'You are at home and someone knocks on your FRONT DOOR. You open it and a young roofing rep is standing there. You do not know them. You got a mailer from U.S. Shingle about your roof a few days ago but barely looked at it. You are standing in the doorway and did not plan on a conversation. The rep is here to get you to agree to a free roof inspection. Your spouse is inside the house; for a free inspection you can decide yourself, so never say you need to ask them.',
@@ -415,7 +432,12 @@ ${persona.facts.map((f) => '- ' + f).join('\n')}
 HOW YOU ACT: ${persona.behavior}
 
 ${sec.door ? `AT THE DOOR: ${persona.door}` : `AT THE CLOSE: ${persona.close}`}
-${sec.drill ? `
+${imp ? `
+YOUR IMPULSE FACTOR (secret). ${imp.act}
+- This is the ONE thing driving you through the whole presentation. If your facts above suggest other motives, they are secondary to this one.
+- NEVER name it or say what it is. Let it show naturally in your answers, your reactions and the questions you ask. When the rep asks good, open questions ("What worries you most about the roof?", "What would make this a no-brainer?", "What's the timeline you're working with?") it comes out clearly; if they never ask, it only shows in small hints.
+- If the rep ties their close to it, that is what moves you most.
+` : ''}${sec.drill ? `
 THIS IS A 5-MINUTE CONTROL DRILL. Your goal is to take control of the conversation away from the rep BY ASKING QUESTIONS. Whoever asks the questions controls the conversation.
 - Ask a question in almost every reply, pushy and difficult, in your personality.
 - Every question MUST be relevant: about what the rep just said, the slide on screen, the company, the price, the roof, or a claim they just made. Never random or off-topic.

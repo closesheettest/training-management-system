@@ -21,7 +21,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, impulseByKey, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
 
 // Two audiences (Neal, 25 Sep). The REP, doing a practice from a link on their
 // own, sees only `encouragement`: no grade, all build-up. The trainer/manager
@@ -82,6 +82,16 @@ const REPORT_SCHEMA = {
         type: 'OBJECT',
         properties: { rep_said: { type: 'STRING' }, correct: { type: 'STRING' } },
         required: ['rep_said', 'correct'],
+      },
+    },
+    impulse_read: {
+      type: 'OBJECT',
+      description: 'ONLY when THE IMPULSE FACTOR section is given: how the rep did at finding and using it.',
+      properties: {
+        clues: { type: 'ARRAY', items: { type: 'STRING' }, description: 'The 2-4 moments where the homeowner revealed it, quoted' },
+        uncovered: { type: 'STRING', description: 'Which rep questions drew it out, or that they never really asked' },
+        used_in_close: { type: 'STRING', description: 'Did the rep tie the close to it? Quote it if so' },
+        tip: { type: 'STRING', description: 'One question the rep could ask next time to find it faster' },
       },
     },
     control: {
@@ -178,7 +188,7 @@ function withCost(report, prev) {
   const u = prev?.usage || {}
   const grades = [...(u.grades || []), { in: lastGradeUsage.in, out: lastGradeUsage.out }]
   const total = liveCost(u.live) + grades.reduce((n, g) => n + gradeCost(g.in, g.out), 0)
-  return { ...report, ...(prev?.invite ? { invite: prev.invite } : {}), usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
+  return { ...report, ...(prev?.invite ? { invite: prev.invite } : {}), ...(prev?.impulse ? { impulse: { ...prev.impulse, ...(report.impulse || {}) } } : {}), usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
 }
 
 async function geminiJson(prompt, schema) {
@@ -359,6 +369,12 @@ export const handler = async (event) => {
   questions.just_answered = handovers.length
   const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
+  // FIGS: the homeowner's secret impulse factor and the rep's guess (full presentation).
+  const imp = row.report?.impulse && impulseByKey(row.report.impulse.actual)
+  const guessed = impulseByKey(row.report?.impulse?.guess)
+  const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. Also mention it in the manager_plan, and in "encouragement" in a positive way.
+
+` : ''
   // Everything except the warm-up is graded on staying on script (angle + points).
   const onScript = row.section !== 'survey'
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
@@ -395,7 +411,7 @@ THE SCRIPT (${onScript ? 'the ANGLE and the points for each part, and the source
 ${scriptForSection(row.section)}
 """
 
-THE TRANSCRIPT (speech-to-text, so ignore small transcription errors; [brackets] are the slide the rep had on screen):
+${impulseText}THE TRANSCRIPT (speech-to-text, so ignore small transcription errors; [brackets] are the slide the rep had on screen):
 """
 ${lines}
 """

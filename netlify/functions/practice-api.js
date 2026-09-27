@@ -46,7 +46,8 @@ export const handler = async (event) => {
       transcript,
       close_silence: s.close_silence || null,
       // Cost rides on the report; the grader keeps it and adds its own share.
-      report: s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : null,
+      // The FIGS impulse the homeowner was given + the rep's guess ride on the report too.
+      report: { ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}), ...(['fear', 'indifference', 'greed', 'urgency'].includes(s.impulse?.actual) ? { impulse: { actual: s.impulse.actual, guess: String(s.impulse.guess || 'unsure').slice(0, 20) } } : {}) },
       grade_status: transcript.some((t) => t.who === 'rep') ? 'pending' : 'failed',
       grade_error: transcript.some((t) => t.who === 'rep') ? null : 'Nothing the rep said was picked up, so there is nothing to grade.',
     }

@@ -5,7 +5,7 @@
 // Everything else is the trainer page's LiveSession and Report.
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { LiveSession } from './SalesPractice.jsx'
+import { LiveSession, ImpulseCard } from './SalesPractice.jsx'
 import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
 
 const call = (token, payload) => fetch('/.netlify/functions/practice-invite', {
@@ -134,6 +134,8 @@ function RepReport({ token, persona, section, name }) {
           <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-800">{e.level_up.map((x, i) => <li key={i}>{x}</li>)}</ul>
         </section>
       )}
+
+      {s.impulse && <ImpulseCard imp={s.impulse} read={s.impulse_read} forRep />}
 
       {missedAny && (
         <section className={`${box} border-slate-200`}>

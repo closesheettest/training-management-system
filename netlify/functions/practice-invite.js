@@ -39,6 +39,8 @@ export const handler = async (event) => {
       grade_status: row.grade_status === 'failed' ? 'failed' : row.grade_status,
       grade_error: row.grade_status === 'failed' ? 'Your feedback could not be written this time. Your trainer can see your practice.' : null,
       encouragement: r.encouragement || null,
+      impulse: r.impulse || null,
+      impulse_read: r.impulse_read ? { clues: r.impulse_read.clues || [], tip: r.impulse_read.tip || '' } : null,
       // Missed points DO go to the rep (Neal: "those are important"), per part,
       // covered and missed, but with no per-part score. Drill: each exchange's
       // verdict and the question to come back with, but no percentage.
@@ -68,7 +70,7 @@ export const handler = async (event) => {
       transcript, close_silence: s.close_silence || null,
       grade_status: spoke ? 'pending' : 'failed',
       grade_error: spoke ? null : 'Nothing the presenter said was picked up, so there is nothing to grade.',
-      report: { invite: { ...inv, used_at: new Date().toISOString() }, ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}) },
+      report: { invite: { ...inv, used_at: new Date().toISOString() }, ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}), ...(['fear', 'indifference', 'greed', 'urgency'].includes(s.impulse?.actual) ? { impulse: { actual: s.impulse.actual, guess: String(s.impulse.guess || 'unsure').slice(0, 20) } } : {}) },
     }).eq('id', row.id)
     if (error) return json(500, { ok: false, error: error.message })
     if (spoke) {

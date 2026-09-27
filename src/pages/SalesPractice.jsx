@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, IMPULSES, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -69,6 +69,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
     ...(sec.range && sec.range[1] >= 23 ? ['After asking for the business, the rep has to stay SILENT: the homeowner waits 5 seconds to see if they do.'] : []),
     'If the run stops early, only the slides the rep actually presented are graded.',
+    ...(sectionKey === 'full' ? ['IMPULSE FACTOR (FIGS): the homeowner is secretly driven by one of Fear of loss, Indifference, Greed or Sense of urgency. When the rep ends, they are asked which it was. The report shows whether they got it, where it showed, the questions that drew it out, and whether the close was tied to it.'] : []),
   ]
 
   return (
@@ -89,6 +90,27 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
       <div className="mt-4 font-bold text-brand-navy">How it’s graded</div>
       <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">{how.map((h) => <li key={h}>{h}</li>)}</ul>
       <p className="mt-3 text-xs text-slate-500">The rep sees encouragement and the points they missed, with no score. You see the full grade and a coaching plan. Slide points come from the Slide Points page; edit them there and the next grade follows.</p>
+    </div>
+  )
+}
+
+export function ImpulseCard({ imp, read, forRep = false }) {
+  if (!imp?.actual) return null
+  const actual = impulseByKey(imp.actual), guess = impulseByKey(imp.guess)
+  const right = guess && guess.key === actual?.key
+  return (
+    <div className={`rounded-xl border p-4 ${right ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="font-bold text-brand-navy">🎯 The impulse factor (FIGS)</div>
+      <div className="mt-1 text-slate-800">
+        The homeowner was driven by <b>{actual?.label}</b>. {forRep ? 'You' : 'The rep'} said <b>{guess ? guess.label : 'not sure'}</b>{' '}
+        {right ? <span className="font-bold text-emerald-700">✅ Got it</span> : <span className="font-bold text-amber-700">{forRep ? '· next time, listen for the clues below' : '❌ Missed it'}</span>}
+      </div>
+      {(read?.clues || []).length > 0 && (
+        <div className="mt-2 text-sm text-slate-700"><b>Where it showed:</b><ul className="list-disc pl-5">{read.clues.map((c, i) => <li key={i}>{c}</li>)}</ul></div>
+      )}
+      {read?.uncovered && <p className="mt-1 text-sm text-slate-700"><b>Questions that drew it out:</b> {read.uncovered}</p>}
+      {read?.used_in_close && <p className="mt-1 text-sm text-slate-700"><b>Used in the close:</b> {read.used_in_close}</p>}
+      {read?.tip && <p className="mt-1 text-sm text-slate-700"><b>{forRep ? 'Try asking:' : 'Question to find it faster:'}</b> {read.tip}</p>}
     </div>
   )
 }
@@ -306,6 +328,10 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   const [closeSilence, setCloseSilence] = useState(null)
   const [saving, setSaving] = useState(false)
   const [muted, setMuted] = useState(false)
+  // FIGS (Neal, 27 Sep): a full presentation secretly gives the homeowner one
+  // impulse factor; at the end the rep is asked which it was.
+  const [impulse] = useState(() => (section.key === 'full' ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null))
+  const [guessFor, setGuessFor] = useState(null) // the stopped session, waiting for the rep's answer
   const liveRef = useRef(null)
   const logRef = useRef(null)
   const endRef = useRef(null)
@@ -324,7 +350,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
 
   useEffect(() => {
     const live = new LiveHomeowner({
-      systemPrompt: homeownerPrompt(persona, section.key),
+      systemPrompt: homeownerPrompt(persona, section.key, impulse),
       voice: persona.voice,
       getToken: fetchToken,
       on: { status: setStatus, transcript: setEntries, level: setLevel, error: setErr, closeSilence: setCloseSilence, mic: setMicName },
@@ -362,10 +388,17 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
     if (!out.entries.some((e) => e.who === 'rep')) {
       if (!window.confirm('Nothing the rep said was picked up. Save it anyway? (Cancel = throw it away)')) { onDone(null); return }
     }
+    if (impulse) { setSaving(false); setGuessFor(out); return } // ask the rep first, then save
+    await finish(out, null)
+  }
+
+  const finish = async (out, guess) => {
+    setSaving(true)
     const session = {
       trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
       persona_key: persona.key, section: section.key,
       started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
+      ...(impulse ? { impulse: { actual: impulse, guess: guess || 'unsure' } } : {}),
     }
     const d = saveSession ? await saveSession(session) : await api({ action: 'save', session })
     if (!d.ok) { setErr(`Could not save: ${d.error}`); setSaving(false); return }
@@ -377,6 +410,27 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
     starting: 'Getting the microphone…', connecting: 'Connecting to the homeowner…', listening: '🎙️ Listening',
     speaking: `🗣️ ${persona.speaker} is talking`, silence: '🤫 Silence after the ask…', error: 'Stopped',
   }[status] || status
+
+  if (guessFor) {
+    return (
+      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+        <div className="text-4xl">🎯</div>
+        <h2 className="mt-2 text-xl font-bold text-brand-navy">One last question</h2>
+        <p className="mt-1 text-slate-600">What was {persona.speaker}&rsquo;s <b>impulse factor</b>? What was really driving them?</p>
+        <div className="mt-4 grid gap-2">
+          {IMPULSES.map((x) => (
+            <button key={x.key} type="button" disabled={saving} onClick={() => finish(guessFor, x.key)}
+              className="rounded-lg border-2 border-brand-navy px-4 py-3 text-lg font-bold text-brand-navy hover:bg-brand-navy-50 disabled:opacity-50">
+              <span className="mr-2 rounded bg-brand-navy px-2 py-0.5 text-sm text-white">{x.short}</span>{x.label}
+            </button>
+          ))}
+          <button type="button" disabled={saving} onClick={() => finish(guessFor, 'unsure')} className="mt-1 text-sm font-semibold text-slate-500 underline">I&rsquo;m not sure</button>
+        </div>
+        {saving && <p className="mt-3 text-sm text-slate-500">Saving and grading…</p>}
+        {err && <p className="mt-3 text-sm font-semibold text-red-700">{err}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -546,6 +600,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
             )}
           </div>
 
+          <ImpulseCard imp={r.impulse} read={r.impulse_read} />
           {r.control && (
             <Card title="🎯 Who controlled the conversation">
               <div className="flex flex-wrap items-center gap-4">
