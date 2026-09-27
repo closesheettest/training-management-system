@@ -1694,10 +1694,13 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
               <div className="mb-2 text-sm font-extrabold uppercase tracking-wide">🏢 Company total</div>
               <div className="grid gap-1 text-sm">
                 {/* Per-bucket: every column header (Apt · Sold · % · $) for Harvest, IQ, BTR */}
-                {[['Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt', 'harvAvg'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt', 'compAvg'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt', 'btrAvg']].map(([lbl, ap, sl, pc, amt, av]) => (
+                {[['Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt', 'harvAvg', 'harvSat'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt', 'compAvg', 'compSat'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt', 'btrAvg', 'btrSat']].map(([lbl, ap, sl, pc, amt, av, st]) => (
                   <div key={lbl} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                     <span className="w-16 font-bold">{lbl}</span>
                     <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals[ap]}</b></span>
+                    {/* Sit rate per lead source (Neal, 27 Sep): how many of this source's
+                        appointments actually sat. The % after Sold is closes per SIT. */}
+                    <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals[st] ?? '—'}</b>{data.totals[st] != null && data.totals[ap] ? <span className="text-[11px] opacity-70"> ({Math.round((100 * data.totals[st]) / data.totals[ap])}%)</span> : null}</span>
                     <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals[sl]}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals[pc]}%</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals[amt] || 0).toLocaleString()}</b></span>
