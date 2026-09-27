@@ -383,15 +383,28 @@ export const CLOSE_EXTRA = [
 // secretly given one; at the end the rep is asked which it was.
 export const IMPULSES = [
   { key: 'fear', label: 'Fear of loss', short: 'F',
+    tell: `"Yeah, I know I need to make a decision, because I don't want this price to go away." / "I just don't want to lose my insurance over this roof."`,
     act: `What drives you is FEAR OF LOSS: losing something you have. The insurance company dropping you, a leak ruining the ceiling and floors, getting burned by a contractor again, your family not being safe in a storm. Your worries keep coming back to "what if…" and to protection. You lean in on credibility, the license and insurance, the warranty and "will you be around?". Price matters less than feeling protected.` },
   { key: 'indifference', label: 'Indifference', short: 'I',
+    tell: `"Honestly, I'm not in any rush. It is what it is." / "Whatever you think is fine, I don't really have a preference."`,
     act: `What drives you is INDIFFERENCE: you don't feel strongly about the roof yet. "It's been fine so far", "we'll get to it eventually", "I don't know, whatever you think". Low energy, short answers, easily sidetracked, no strong opinions on colors or options. You only warm up when the rep makes you actually CARE: helps you see what waiting costs, or connects the roof to something that matters to you.` },
   { key: 'greed', label: 'Greed', short: 'G',
+    tell: `"So what's the best deal you can do for me?" / "I want the most I can get for my money. Is there a discount if I do it today?"`,
     act: `What drives you is GREED, in the everyday sense: you want the best DEAL and the most value. You perk up at savings: the insurance discount, energy savings, the Low-Bid Price Match, anything "free", financing terms, what you get for the money. You ask about discounts and "what's the best you can do?", and you like hearing the numbers.` },
   { key: 'urgency', label: 'Sense of urgency', short: 'S',
+    tell: `"We need this done fast. The insurance gave us a deadline." / "How soon can you get started? We can't wait on this."`,
     act: `What drives you is a SENSE OF URGENCY: you need this done SOON. There is a deadline behind it (the insurance renewal, hurricane season, a leak getting worse, family visiting, a sale or refinance coming up). You ask "how soon can you start?", "how long does it take?", "can you get the permit fast?". Speed and scheduling matter more to you than anything else.` },
 ]
 export const impulseByKey = (k) => IMPULSES.find((x) => x.key === k) || null
+// How plainly the homeowner shows their impulse, by level. Easy practice lets a
+// new rep learn to hear it; the hard ones make them dig for it with questions.
+export const IMPULSE_VISIBILITY = {
+  'Very easy': '  ALMOST IN THEIR FACE. Say a line like the ones below out loud, clearly, at least 3 times during the presentation, whether or not the rep asks. Anyone listening should be able to name it.',
+  Easy: '  EASY TO SPOT. Say a line like the ones below 2 or 3 times, clearly. A good question brings it out right away.',
+  Medium: '  NOTICEABLE. Show it once or twice in clear hints, not word for word. It comes out plainly only when the rep asks a good, open question about what matters to you.',
+  Hard: '  SUBTLE. Only small hints on your own. It comes out clearly ONLY when the rep asks a good, open question (what worries you, what would make this a no-brainer, what timeline you are on). If they never ask, a careful listener could still catch it once.',
+  'Very hard': '  WELL HIDDEN. Your other worries and objections come first and can point the wrong way. The impulse comes out only after the rep asks two or more good, open questions and really listens; then say it once, clearly.',
+}
 
 // NEAL'S OBJECTION METHOD (2026-09-25). One wording, used by the homeowner (when
 // to concede) and the grader (what "handled well" means), so they never disagree.
@@ -435,7 +448,10 @@ ${sec.door ? `AT THE DOOR: ${persona.door}` : `AT THE CLOSE: ${persona.close}`}
 ${imp ? `
 YOUR IMPULSE FACTOR (secret). ${imp.act}
 - This is the ONE thing driving you through the whole presentation. If your facts above suggest other motives, they are secondary to this one.
-- NEVER name it or say what it is. Let it show naturally in your answers, your reactions and the questions you ask. When the rep asks good, open questions ("What worries you most about the roof?", "What would make this a no-brainer?", "What's the timeline you're working with?") it comes out clearly; if they never ask, it only shows in small hints.
+- NEVER name it ("my impulse is greed"). It shows in your answers, your reactions and the questions you ask.
+- HOW OBVIOUS IT IS depends on your difficulty (${persona.difficulty}):
+${IMPULSE_VISIBILITY[persona.difficulty] || IMPULSE_VISIBILITY.Medium}
+  The kind of thing you say when it shows: ${imp.tell}
 - If the rep ties their close to it, that is what moves you most.
 ` : ''}${sec.drill ? `
 THIS IS A 5-MINUTE CONTROL DRILL. Your goal is to take control of the conversation away from the rep BY ASKING QUESTIONS. Whoever asks the questions controls the conversation.
