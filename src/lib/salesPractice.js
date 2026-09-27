@@ -242,7 +242,11 @@ export const SECTIONS = [
   // (public/sales-pitch/free-inspection-pitch.docx). No slides; the win is the
   // homeowner agreeing to the free inspection.
   { key: 'door', label: 'Door pitch: free roof inspection', desc: 'At the front door. Mailer, insurance risk, the free inspection, the 3 outcomes, get the commitment. ~5 min.', range: null, door: true },
-  { key: 'survey', label: 'Intro + customer survey', desc: 'The “Fair enough?” intro and the survey questions. ~10–15 min.', range: null },
+  // THE WARM-UP (Neal, 27 Sep): the survey sheet from the training manual is on
+  // screen as the rep's notes, but the point is NOT to read it out. Find common
+  // ground and their wants and needs through normal conversation, so they relax
+  // and open their minds before the presentation.
+  { key: 'survey', label: 'Warm-up: intro + customer survey', desc: 'Build common ground, find their wants and needs in normal conversation, get them relaxed and open for the presentation. The survey from the manual is on screen. ~10–15 min.', range: null, surveySheet: true },
   { key: 'slides_1_5', label: 'Slides 1–5: the company', desc: 'Company, license, insurance, “you already need a roof”, experience. ~10–15 min.', range: [1, 5] },
   { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', range: [6, 7] },
   { key: 'slides_8_16', label: 'Slides 8–16: products, install & warranty', desc: 'What we offer, the installation process, colors, our work, jobsite prep, warranty. ~15 min.', range: [8, 16] },
@@ -318,7 +322,11 @@ export function homeownerPrompt(persona, section) {
   const where = {
     full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
     door: 'You are at home and someone knocks on your FRONT DOOR. You open it and a young roofing rep is standing there. You do not know them. You got a mailer from U.S. Shingle about your roof a few days ago but barely looked at it. You are standing in the doorway and did not plan on a conversation. The rep is here to get you to agree to a free roof inspection. Your spouse is inside the house; for a free inspection you can decide yourself, so never say you need to ask them.',
-    survey: 'The rep has just sat down at your kitchen table with an iPad. Today they will only do the intro and ask you survey questions; the slides come later.',
+    survey: `The rep has just sat down at your kitchen table with an iPad. Today is only the WARM-UP: the intro and getting to know you (the rep has a customer survey in front of them, which you cannot see); the slides come later.
+THE WARM-UP IS ABOUT RAPPORT. You start out a little guarded, the way anyone is with a salesperson at their table. How much you relax depends on the rep:
+- If it feels like a friendly, NORMAL CONVERSATION (they find common ground with you, react to what you say, share a little about themselves, ask natural follow-ups about your home, your neighborhood, your plans), you relax: longer answers, a laugh, you volunteer things you were not asked (a leak you noticed, the insurance renewal letter, a neighbor's new roof). By the end you are comfortable and curious to see what they have.
+- If they fire questions off a list like a form, one after another without reacting to your answers, you stay polite but short and a bit guarded, and you get impatient ("Is this going to take long?").
+Answer every question truthfully from YOUR FACTS, in your personality. Do not rush the rep toward the slides.`,
     close: 'The rep has already done the whole presentation (company, license, products, installation, warranty, the energy package). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',
   }[sec.key] || (sec.range
     ? `You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions (you answered with YOUR FACTS above, so they know those things)${sec.range[0] > 1 ? ` and has already presented slides 1–${sec.range[0] - 1}; you were fine with it so far` : ''}. Now they are presenting ${sec.range[0] === sec.range[1] ? `slide ${sec.range[0]}` : `slides ${sec.range[0]}–${sec.range[1]}`}. Do not expect or ask for the survey again.`

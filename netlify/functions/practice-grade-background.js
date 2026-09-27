@@ -133,6 +133,15 @@ const INTRO_POINTS = [
   'Ask permission to ask questions first, so the estimate fits what they want ("Fair enough?")',
   'Not here to sell them a roof: they already know they need one',
 ]
+// The PURPOSE of the warm-up (Neal, 27 Sep): common ground, their wants and needs
+// through normal conversation, a relaxed homeowner with an open mind. These come
+// first; the survey questions are the content that should surface along the way.
+const WARMUP_POINTS = [
+  'Created common ground: found things in common, related to their answers, shared a little of themselves',
+  'Found their wants and needs in a casual, natural conversation (not reading questions off a list like a form)',
+  'Listened and followed up on what they said instead of jumping to the next question',
+  'The homeowner relaxed and opened up by the end: ready and open-minded for the presentation',
+]
 const SURVEY_POINTS = [
   'What caught their eye (mailer / Facebook ad)',
   'How long they have owned it and how old the roof was when they bought',
@@ -187,7 +196,7 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   const range = sectionByKey(sectionKey).range || [0, -1]
   const out = []
   // Full is the slide show only: the warm-up is taken as done and never graded there.
-  if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('Customer Survey', SURVEY_POINTS))
+  if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('The warm-up: purpose (weigh this most)', WARMUP_POINTS), block('Customer Survey: what should come out of the conversation', SURVEY_POINTS))
   if (sectionKey === 'door') out.push(block('The door pitch (free roof inspection)', DOOR_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
   if (range[1] >= 23 && Math.min(range[1], maxSlide) >= 22) out.push(block('Closing the deal', CLOSE_EXTRA))

@@ -354,6 +354,11 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
                 <div className="mt-3 text-xl font-bold text-brand-navy">At the front door</div>
                 <p className="mt-2 max-w-md text-sm text-slate-600">You just knocked. {persona.speaker} opens the door; they got our mailer about their roof but weren’t expecting you. Get them to say yes to the free roof inspection.</p>
               </div>
+            ) : section.surveySheet ? (
+              <div>
+                <img src="/practice-slides/s-survey.jpg" alt="Customer Survey" className="w-full rounded-xl border border-slate-200 bg-white shadow-sm" />
+                <p className="mt-2 text-sm text-slate-600">☕ <b>The warm-up.</b> Your survey from the manual, for your eyes only. Don&rsquo;t read it like a form: find common ground with {persona.speaker} and their spouse, learn their wants and needs through normal conversation, and get them relaxed and open before the presentation.</p>
+              </div>
             ) : (
             <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
               <div className="text-5xl">☕</div>
