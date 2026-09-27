@@ -14,6 +14,11 @@ import { HOSTED_PAGES, CATEGORIES, WEEKS } from '../lib/hosted_pages.js'
 // Add new entries by editing src/lib/hosted_pages.js. Pick the most
 // specific category — CATEGORIES export there is the canonical list.
 
+const SECTION_TONE = {
+  Presentations: { border: 'border-sky-300', head: 'bg-sky-50', week: 'bg-sky-100 text-sky-900' },
+  Homework: { border: 'border-amber-300', head: 'bg-amber-50', week: 'bg-amber-100 text-amber-900' },
+}
+
 export default function HostedPages() {
   const [copiedSlug, setCopiedSlug] = useState(null)
   const [query, setQuery] = useState('')
@@ -185,20 +190,22 @@ export default function HostedPages() {
         <section
           key={g.category}
           id={`group-${slugify(g.category)}`}
-          className="space-y-3"
+          className={`overflow-hidden rounded-xl border-2 ${SECTION_TONE[g.category]?.border || 'border-slate-200'} bg-white`}
         >
+          {/* Each section is its own box with its own colour, so Presentations
+              and Homework never read as one list (Neal, 2026-09-27). */}
           <button type="button" onClick={() => toggleCat(g.category)}
-            className="flex w-full items-baseline gap-3 border-b border-slate-200 pb-2 text-left hover:border-brand-navy">
+            className={`flex w-full items-baseline gap-3 px-4 py-3 text-left ${SECTION_TONE[g.category]?.head || 'bg-slate-50'}`}>
             <span className="w-4 text-slate-500">{isOpen(g.category) ? '▾' : '▸'}</span>
             <h2 className="text-xl font-semibold text-slate-900">{g.category}</h2>
             <span className="text-sm text-slate-500">
               {g.items.filter((x) => !x.placeholder).length} page{g.items.filter((x) => !x.placeholder).length === 1 ? '' : 's'}
             </span>
           </button>
-          {isOpen(g.category) && <ul className="space-y-3">
+          {isOpen(g.category) && <ul className="space-y-3 p-4">
             {g.items.map((p, idx) => {
               const weekHead = p.week && (idx === 0 || g.items[idx - 1].week !== p.week)
-                ? <li key={`h-${p.week}`} className="pt-2 text-sm font-bold uppercase tracking-wide text-brand-navy">{p.week}</li> : null
+                ? <li key={`h-${p.week}`} className={`${idx ? 'mt-5' : ''} rounded-md px-3 py-1.5 text-sm font-extrabold uppercase tracking-wide ${SECTION_TONE[g.category]?.week || 'bg-slate-100 text-slate-700'}`}>{p.week}</li> : null
               if (p.placeholder) return <Fragment key={p.slug}>{weekHead}<li className="text-sm text-slate-400">Nothing here yet.</li></Fragment>
               const full = siteOrigin() + p.url
               const copied = copiedSlug === p.slug
