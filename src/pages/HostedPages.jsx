@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { HOSTED_PAGES, CATEGORIES } from '../lib/hosted_pages.js'
+import { Fragment, useMemo, useState } from 'react'
+import { HOSTED_PAGES, CATEGORIES, WEEKS } from '../lib/hosted_pages.js'
 
 // /hosted-pages — directory of every standalone HTML page we've shipped
 // in public/. Each one has a "hidden URL" (not linked from main nav)
@@ -80,11 +80,22 @@ export default function HostedPages() {
     const out = []
     for (const [cat, list] of byCat) {
       if (list.length === 0) continue
-      list.sort((a, b) => (b.created || '').localeCompare(a.created || ''))
+      // Week-organized sections (Presentations, Homework): by week, then day.
+      // Everything else: newest first, as before.
+      if (list.some((p) => p.week)) {
+        const wk = (p) => { const i = WEEKS.indexOf(p.week); return i < 0 ? 99 : i }
+        list.sort((a, b) => wk(a) - wk(b) || (a.order ?? 99) - (b.order ?? 99))
+        // A week with nothing in it yet still shows, so the layout reads the same
+        // in every section ("Week B · nothing here yet").
+        if (!query.trim()) for (const w of WEEKS) if (!list.some((p) => p.week === w)) list.push({ placeholder: true, week: w, slug: `none-${cat}-${w}` })
+        list.sort((a, b) => wk(a) - wk(b) || (a.order ?? 99) - (b.order ?? 99))
+      } else {
+        list.sort((a, b) => (b.created || '').localeCompare(a.created || ''))
+      }
       out.push({ category: cat, items: list })
     }
     return out
-  }, [filtered])
+  }, [filtered, query])
 
   const totalCount = HOSTED_PAGES.length
   const filteredCount = filtered.length
@@ -96,7 +107,7 @@ export default function HostedPages() {
         <p className="mt-2 text-slate-600">
           Standalone HTML pages we've published — typically one-off resource
           pages texted to trainees (sales pitches with downloadable docs) or
-          single-page internal docs. Grouped by training day + use case so
+          single-page internal docs. Presentations and homework are grouped by week (A, then B) and day, so
           the right link is one scroll away.
         </p>
       </header>
@@ -144,7 +155,7 @@ export default function HostedPages() {
               onClick={() => { if (!openCats.has(g.category)) toggleCat(g.category) }}
               className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:border-brand-navy hover:text-brand-navy"
             >
-              {g.category} <span className="ml-1 text-slate-400">({g.items.length})</span>
+              {g.category} <span className="ml-1 text-slate-400">({g.items.filter((x) => !x.placeholder).length})</span>
             </a>
           ))}
           <button type="button" onClick={() => saveOpen(new Set(groups.map((g) => g.category)))}
@@ -181,16 +192,18 @@ export default function HostedPages() {
             <span className="w-4 text-slate-500">{isOpen(g.category) ? '▾' : '▸'}</span>
             <h2 className="text-xl font-semibold text-slate-900">{g.category}</h2>
             <span className="text-sm text-slate-500">
-              {g.items.length} page{g.items.length === 1 ? '' : 's'}
+              {g.items.filter((x) => !x.placeholder).length} page{g.items.filter((x) => !x.placeholder).length === 1 ? '' : 's'}
             </span>
           </button>
           {isOpen(g.category) && <ul className="space-y-3">
-            {g.items.map((p) => {
+            {g.items.map((p, idx) => {
+              const weekHead = p.week && (idx === 0 || g.items[idx - 1].week !== p.week)
+                ? <li key={`h-${p.week}`} className="pt-2 text-sm font-bold uppercase tracking-wide text-brand-navy">{p.week}</li> : null
+              if (p.placeholder) return <Fragment key={p.slug}>{weekHead}<li className="text-sm text-slate-400">Nothing here yet.</li></Fragment>
               const full = siteOrigin() + p.url
               const copied = copiedSlug === p.slug
               return (
-                <li
-                  key={p.slug}
+                <Fragment key={p.slug}>{weekHead}<li
                   className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -230,7 +243,7 @@ export default function HostedPages() {
                       </button>
                     </div>
                   </div>
-                </li>
+                </li></Fragment>
               )
             })}
           </ul>}

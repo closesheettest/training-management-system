@@ -27,15 +27,15 @@
 // groups entries by category and renders the groups in this order.
 // Anything with a category not listed here falls into "Other".
 export const CATEGORIES = [
-  'Day 1',
-  'Day 2',
-  'Day 3',
-  'Day 4',
-  'Week B',
+  'Presentations',
+  'Homework',
   'Training overview & resources',
   'Trainee-facing (post-grad)',
   'Internal admin',
 ]
+// Inside Presentations and Homework, pages sit under their training week, in day
+// order (Neal, 2026-09-27: "separated by each week ... more of a format").
+export const WEEKS = ['Week A', 'Week B']
 
 export const HOSTED_PAGES = [
   // ─────────────────────── Day 1 ───────────────────────
@@ -50,7 +50,9 @@ export const HOSTED_PAGES = [
       '(replaces the old Instant Roof Quote pitch). Deep-link to any slide via #/N (e.g. /day-1-slides/#/30 ' +
       'jumps to the harvesting script). Trainees can also pull it up on their phones for review.',
     created: '2026-05-30',
-    category: 'Day 1',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 1,
   },
   {
     slug: 'day-1-homework',
@@ -65,7 +67,9 @@ export const HOSTED_PAGES = [
       'last week). Includes Save-as-PDF for the scripts. SMS\'d at 4:30 PM after Day 1 ' +
       'ends; quiz on this content fires Day 2 morning at kiosk sign-in.',
     created: '2026-06-01',
-    category: 'Day 1',
+    category: 'Homework',
+    week: 'Week A',
+    order: 1,
   },
   // The legacy 118-slide "Day 1 Retail Training" PDF entry used to live
   // here. Removed 2026-06-02 per Neal — superseded by the new
@@ -90,7 +94,9 @@ export const HOSTED_PAGES = [
       'Coated Metal, Tilcor, Tile) with wind/warranty/pitch specs and the insurance ' +
       'category badge. Closes on the cheat-sheet table and the tomorrow-morning quiz reminder.',
     created: '2026-05-31',
-    category: 'Day 2',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 2,
   },
   {
     slug: 'day-2-homework',
@@ -102,7 +108,9 @@ export const HOSTED_PAGES = [
       'slide 1-5 quotes from training pages 37-41, plus links to the Products PDF and the ' +
       'full Day 1 training deck. Quiz on Products fires Day 3 morning at kiosk sign-in.',
     created: '2026-05-27',
-    category: 'Day 2',
+    category: 'Homework',
+    week: 'Week A',
+    order: 2,
   },
 
   // ─────────────────────── Day 3 ───────────────────────
@@ -119,7 +127,9 @@ export const HOSTED_PAGES = [
       'FINANCING: the waterfall (Upgrade Financial → Service Finance → PACE → credit repair), ' +
       'protect-credit-first, PACE criteria, no prepayment penalties. (Tech/apps moved to Day 4.)',
     created: '2026-06-02',
-    category: 'Day 3',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 3,
   },
   {
     slug: 'day-3-homework',
@@ -130,7 +140,9 @@ export const HOSTED_PAGES = [
       'the products now available on the rep dashboard (Products → Products Review — wind rating, warranty, ' +
       'min pitch, insurance angle). SMS links the dashboard (us-shingle-rep-dashboard.netlify.app) plus this page.',
     created: '2026-06-17',
-    category: 'Day 3',
+    category: 'Homework',
+    week: 'Week A',
+    order: 3,
   },
   // ─────────────────────── Day 4 (role-play AM → tech PM) ───────────────────────
   {
@@ -145,7 +157,9 @@ export const HOSTED_PAGES = [
       'Contact → Job → Appointment → Estimate → Edit Job (Roof Price ONLY, email non-negotiable). Ends on ' +
       'tonight\'s setup + practice-deal homework. Projector deck, advance with a clicker.',
     created: '2026-06-18',
-    category: 'Day 4',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 4,
   },
   {
     slug: 'day-4-homework',
@@ -157,7 +171,9 @@ export const HOSTED_PAGES = [
       'Contact (location=test) → Job → Appt 5:30 PM → estimate ($39,450 across Exposed Fastener / Insulation / ' +
       'Radiant Barrier) → Edit Job fields (1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
     created: '2026-06-17',
-    category: 'Day 4',
+    category: 'Homework',
+    week: 'Week A',
+    order: 4,
   },
   {
     slug: 'tools-training',
@@ -170,7 +186,9 @@ export const HOSTED_PAGES = [
       'common pitfalls, setup steps. Used in the Day 4 AFTERNOON tech block (after the ' +
       'morning role-play); reps return to this page while running the practice-deal homework.',
     created: '2026-05-28',
-    category: 'Day 4',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 4.5,
   },
 
   {
@@ -185,7 +203,9 @@ export const HOSTED_PAGES = [
       'Ends with a whole-week recap section that runs right before the final test — gold highlights = ' +
       'the exact testable facts. Projector deck, F for fullscreen, advance with a clicker.',
     created: '2026-06-05',
-    category: 'Day 3',
+    category: 'Presentations',
+    week: 'Week A',
+    order: 3.5,
   },
 
   // ─────────────────────── Week B ───────────────────────
@@ -200,7 +220,9 @@ export const HOSTED_PAGES = [
       'real presentation slide. Day buttons, arrow keys and a PDF download. Taught live from the ' +
       'Keynote file on Neal\'s Mac, whose bottom-right corner is kept clear for the camera circle.',
     created: '2026-09-27',
-    category: 'Week B',
+    category: 'Presentations',
+    week: 'Week B',
+    order: 1,
   },
   // ─────────────────────── Training overview & resources ───────────────────────
   {
@@ -227,7 +249,9 @@ export const HOSTED_PAGES = [
       'Texted and emailed to the Week A class on 2026-08-25 alongside the written script PDF ' +
       '(/sales-pitch/sales-script.pdf). This is the link to hand a trainee who asks for "the presentation".',
     created: '2026-08-25',
-    category: 'Training overview & resources',
+    category: 'Homework',
+    week: 'Week A',
+    order: 2.5,
   },
   {
     slug: 'sales-pitch',
