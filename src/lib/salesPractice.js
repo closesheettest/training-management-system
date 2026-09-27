@@ -305,6 +305,51 @@ export const DECK = [
 ]
 export const slideSrc = (page) => `/practice-slides/s-${String(page).padStart(2, '0')}.jpg`
 
+// The checklist the rep is graded on. Shared: the grader uses it, and the setup
+// page shows it under the chosen tile, so what the trainer reads is what is graded. Slides come from the Slide Points page
+// (training_days.on_slide, " · "-separated). The intro and the customer survey
+// have no slide there, so their points are the PURPOSE of each part of the
+// script, not its wording.
+export const INTRO_POINTS = [
+  'Set the agenda: who we are, take photos, show all the options, guaranteed 30-day price',
+  'Ask permission to ask questions first, so the estimate fits what they want ("Fair enough?")',
+  'Not here to sell them a roof: they already know they need one',
+]
+// The PURPOSE of the warm-up (Neal, 27 Sep): common ground, their wants and needs
+// through normal conversation, a relaxed homeowner with an open mind. These come
+// first; the survey questions are the content that should surface along the way.
+export const WARMUP_POINTS = [
+  'Created common ground: found things in common, related to their answers, shared a little of themselves',
+  'Found their wants and needs in a casual, natural conversation (not reading questions off a list like a form)',
+  'Listened and followed up on what they said instead of jumping to the next question',
+  'The homeowner relaxed and opened up by the end: ready and open-minded for the presentation',
+]
+export const SURVEY_POINTS = [
+  'What caught their eye (mailer / Facebook ad)',
+  'How long they have owned it and how old the roof was when they bought',
+  'Why this home / neighborhood; forever home or moving soon',
+  'Upgrades done or planned',
+  'How they feel about their homeowners insurance, and what they pay',
+  'Highest and lowest electric bill (with the "sounds unrelated, I will explain" setup)',
+  'How long the roof has been a concern, and why they had us out today',
+  'The 2 most important qualities when choosing a company',
+  'Which problems they have (leaks, mold, insurance cost, damage, maintenance, energy cost, quality)',
+  'Pre-close: would they want to know about saving by starting sooner; opposed to starting right away if the price or term fits?',
+]
+// The front-door free-roof-inspection pitch, as points (what has to land at the door).
+export const DOOR_POINTS = [
+  'Opener: who they are, and that we sent them something in the mail about their roof',
+  'Why: county records put them at high risk of the insurance company dropping them just because of the roof\'s age',
+  'The question: if the insurance letter came tomorrow, only paying out of pocket, or also an inspection report that makes them leave you alone?',
+  'The offer: a no-cost roof inspection; no damage = an official certificate of 5+ years of life left, which keeps the insurance off their back',
+  'The 3 outcomes: no damage (protected) · wear and tear (options) · storm damage (a public adjuster fights to get insurance to pay)',
+  'Pre-close: if the PA finds storm damage, do they want to start right away? If yes, the PA forms need the insurance company + policy number',
+  'Commitment: if the policy info is not handy, do the inspection anyway and come back for it. Leave with a yes (time kills all deals)',
+]
+export const CLOSE_EXTRA = [
+  'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
+  'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
+]
 // NEAL'S OBJECTION METHOD (2026-09-25). One wording, used by the homeowner (when
 // to concede) and the grader (what "handled well" means), so they never disagree.
 // Step 3 is deliberately NOT "answer it": on slide 1 you do not jump to products

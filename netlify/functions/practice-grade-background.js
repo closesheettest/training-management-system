@@ -16,7 +16,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey, DECK, OBJECTION_METHOD } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
 
 // Two audiences (Neal, 25 Sep). The REP, doing a practice from a link on their
 // own, sees only `encouragement`: no grade, all build-up. The trainer/manager
@@ -124,50 +124,6 @@ const REPORT_SCHEMA = {
   required: ['score', 'summary', 'outcome', 'strengths', 'top_fixes', 'parts', 'control', 'facts_wrong', 'good_questions', 'objections', 'used_their_answers', 'encouragement', 'manager_plan'],
 }
 
-// The checklist the rep is graded on. Slides come from the Slide Points page
-// (training_days.on_slide, " · "-separated). The intro and the customer survey
-// have no slide there, so their points are the PURPOSE of each part of the
-// script, not its wording.
-const INTRO_POINTS = [
-  'Set the agenda: who we are, take photos, show all the options, guaranteed 30-day price',
-  'Ask permission to ask questions first, so the estimate fits what they want ("Fair enough?")',
-  'Not here to sell them a roof: they already know they need one',
-]
-// The PURPOSE of the warm-up (Neal, 27 Sep): common ground, their wants and needs
-// through normal conversation, a relaxed homeowner with an open mind. These come
-// first; the survey questions are the content that should surface along the way.
-const WARMUP_POINTS = [
-  'Created common ground: found things in common, related to their answers, shared a little of themselves',
-  'Found their wants and needs in a casual, natural conversation (not reading questions off a list like a form)',
-  'Listened and followed up on what they said instead of jumping to the next question',
-  'The homeowner relaxed and opened up by the end: ready and open-minded for the presentation',
-]
-const SURVEY_POINTS = [
-  'What caught their eye (mailer / Facebook ad)',
-  'How long they have owned it and how old the roof was when they bought',
-  'Why this home / neighborhood; forever home or moving soon',
-  'Upgrades done or planned',
-  'How they feel about their homeowners insurance, and what they pay',
-  'Highest and lowest electric bill (with the "sounds unrelated, I will explain" setup)',
-  'How long the roof has been a concern, and why they had us out today',
-  'The 2 most important qualities when choosing a company',
-  'Which problems they have (leaks, mold, insurance cost, damage, maintenance, energy cost, quality)',
-  'Pre-close: would they want to know about saving by starting sooner; opposed to starting right away if the price or term fits?',
-]
-// The front-door free-roof-inspection pitch, as points (what has to land at the door).
-const DOOR_POINTS = [
-  'Opener: who they are, and that we sent them something in the mail about their roof',
-  'Why: county records put them at high risk of the insurance company dropping them just because of the roof\'s age',
-  'The question: if the insurance letter came tomorrow, only paying out of pocket, or also an inspection report that makes them leave you alone?',
-  'The offer: a no-cost roof inspection; no damage = an official certificate of 5+ years of life left, which keeps the insurance off their back',
-  'The 3 outcomes: no damage (protected) · wear and tear (options) · storm damage (a public adjuster fights to get insurance to pay)',
-  'Pre-close: if the PA finds storm damage, do they want to start right away? If yes, the PA forms need the insurance company + policy number',
-  'Commitment: if the policy info is not handy, do the inspection anyway and come back for it. Leave with a yes (time kills all deals)',
-]
-const CLOSE_EXTRA = [
-  'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
-  'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
-]
 // How far the rep got: the highest script slide number they put on screen.
 // A run that ends at slide 4 is graded on slides 1-4, not failed on 5-23
 // (Neal's first run scored 0/10 on nineteen slides he never reached).

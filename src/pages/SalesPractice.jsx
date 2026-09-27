@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, personaByKey, sectionByKey, homeownerPrompt, slideSrc } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -27,6 +27,68 @@ async function api(payload) {
 const fmtWhen = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const fmtDur = (s) => (s == null ? '' : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`)
 const scoreColor = (n) => (n == null ? 'text-slate-400' : n >= 90 ? 'text-emerald-600' : n >= 75 ? 'text-lime-600' : n >= 60 ? 'text-amber-600' : 'text-red-600')
+
+// WHAT IT'S LOOKING FOR + HOW IT'S GRADED, under the chosen tile (Neal, 27 Sep).
+// The lists are the grader's own (salesPractice.js + the Slide Points page), so
+// what the trainer reads here is exactly what the grade checks.
+function GradingGuide({ sectionKey, slideN, slidePoints }) {
+  const picker = sectionKey === 'slide' || sectionKey === 'control'
+  const sec = sectionByKey(picker ? (slideN ? `${sectionKey}:${slideN}` : '') : sectionKey)
+  const slides = (slidePoints || [])
+    .map((d) => ({ n: parseInt(String(d.subject).match(/\d+/)[0], 10), label: `${d.subject}: ${d.title}`, pts: String(d.on_slide || '').split(/\s*·\s*/).filter(Boolean) }))
+  const groups = []
+  if (sectionKey === 'survey') groups.push(['The warm-up: its purpose (counts the most)', WARMUP_POINTS], ['The intro', INTRO_POINTS], ['What should come out of the conversation (the survey)', SURVEY_POINTS])
+  else if (sectionKey === 'door') groups.push(['The door pitch', DOOR_POINTS])
+  else if (sec.range && (!picker || slideN)) {
+    for (const sl of slides) if (sl.n >= sec.range[0] && sl.n <= sec.range[1] && sl.pts.length) groups.push([sl.label, sl.pts])
+    if (sec.range[1] >= 23) groups.push(['Closing the deal', CLOSE_EXTRA])
+  }
+
+  const how = {
+    survey: [
+      'The homeowner starts a little guarded. They relax and open up only if it feels like a normal conversation: common ground, reacting to their answers, natural follow-ups. Questions read off the list like a form keep them short and impatient.',
+      'Graded mostly on the PURPOSE: did the rep build common ground and find their wants and needs casually, and was the homeowner relaxed and open for the presentation by the end?',
+      'Then on whether the survey information came out along the way. The exact wording and order never matter.',
+    ],
+    door: [
+      'At the front door. The homeowner stalls in character and agrees to the free inspection only if the rep handles the stall well.',
+      'Graded on the 7 door points (in the rep’s own words, any order) and on whether they left with a YES to the inspection.',
+    ],
+    control: [
+      'Five timed minutes on one slide. The homeowner fires relevant questions to take control of the conversation.',
+      'Every exchange is marked KEPT (the rep answered briefly and took it back with a relevant question), GAVE UP (answered without leading back within their next two replies) or OFF-TOPIC (a question that went nowhere).',
+      'The score is how often the rep kept control. Each hand-over is listed with a better question they could have asked.',
+    ],
+  }[sectionKey] || [
+    'Score out of 100: about HALF is the points landing (in the rep’s own words, any order; wording is never marked down, only wrong facts are flagged), and HALF is who controlled the conversation.',
+    'Control: whoever asks the questions is in control. A short, straight answer is fine as long as the rep leads back with a question within their next two replies.',
+    'Objections are judged by the method: acknowledge, isolate, answer it only if it belongs on this slide (otherwise park it and get their OK), then confirm with a question. A parked concern has to be answered later.',
+    'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
+    ...(sec.range && sec.range[1] >= 23 ? ['After asking for the business, the rep has to stay SILENT: the homeowner waits 5 seconds to see if they do.'] : []),
+    'If the run stops early, only the slides the rep actually presented are graded.',
+  ]
+
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="font-bold text-brand-navy">{picker && !slideN ? (sectionKey === 'control' ? 'Control drill' : 'One slide') : sec.label}: what it’s looking for</div>
+      {picker && !slideN && <p className="mt-1 text-sm text-slate-600">Pick the slide above to see its points.</p>}
+      {groups.length > 0 && (
+        <div className={`mt-2 space-y-3 overflow-y-auto pr-1 ${groups.length > 4 ? 'max-h-72' : ''}`}>
+          {groups.map(([label, pts]) => (
+            <div key={label}>
+              <div className="text-sm font-semibold text-slate-800">{label}</div>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-slate-600">{pts.map((p) => <li key={p}>{p}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+      )}
+      {sectionKey === 'control' && slideN && <p className="mt-2 text-sm text-slate-600">Not graded on the slide’s points: only on keeping control.</p>}
+      <div className="mt-4 font-bold text-brand-navy">How it’s graded</div>
+      <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">{how.map((h) => <li key={h}>{h}</li>)}</ul>
+      <p className="mt-3 text-xs text-slate-500">The rep sees encouragement and the points they missed, with no score. You see the full grade and a coaching plan. Slide points come from the Slide Points page; edit them there and the next grade follows.</p>
+    </div>
+  )
+}
 
 export default function SalesPractice() {
   const [stage, setStage] = useState('setup') // setup | live | report
@@ -168,6 +230,7 @@ export default function SalesPractice() {
             })}
           </select>
         )}
+        <GradingGuide sectionKey={sectionKey} slideN={slideN} slidePoints={slidePoints} />
       </Step>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
