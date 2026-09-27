@@ -30,6 +30,16 @@ export default function Confirm() {
     return 'A'
   }, [weekParam])
   const timetable = useTimetable()
+  // VIRTUAL WEEK B (Neal, 27 Sep): the invite link carries ?virtual=1. The page
+  // then shows the Zoom link (app_settings week_b_zoom_url) and the class's own
+  // hours instead of the office address, directions and "arrive early".
+  const virtual = sp.get('virtual') === '1'
+  const [zoomUrl, setZoomUrl] = useState('')
+  useEffect(() => {
+    if (!virtual) return
+    supabase.from('app_settings').select('value').eq('key', 'week_b_zoom_url').maybeSingle()
+      .then(({ data }) => setZoomUrl(String(data?.value || '').trim()))
+  }, [virtual])
   const sched = { ...(timetable[week] || timetable.A), signoff: SIGNOFF[week] || SIGNOFF.A }
 
   useEffect(() => {
@@ -48,7 +58,7 @@ export default function Confirm() {
     setStatus('loading')
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, confirmation_status, confirmation_at, classes!class_id(week_start_date, week_end_date)')
+      .select('id, first_name, last_name, confirmation_status, confirmation_at, classes!class_id(week_start_date, week_end_date, schedule_details)')
       .eq('registration_token', token)
       .maybeSingle()
     if (error || !data) { setStatus('not_found'); return }
@@ -85,7 +95,9 @@ export default function Confirm() {
   }
 
   const choice = trainee?.confirmation_status // 'confirmed' | 'declined' | null
-  const startMon = classInfo?.week_start_date ? (week === 'B' ? addDays(classInfo.week_start_date, 7) : classInfo.week_start_date) : mondayForWeek(week)
+  // Week B starts the MONDAY after Week A's week (Week A does not always start on a Monday).
+  const startMon = classInfo?.week_start_date ? (week === 'B' ? addDays(mondayOf(classInfo.week_start_date), 7) : classInfo.week_start_date) : mondayForWeek(week)
+  const virtualLines = String(classInfo?.schedule_details || '').split('\n').map((l) => l.replace(/^\*\s*/, '').trim()).filter(Boolean)
 
   return (
     <div style={S.wrap}>
@@ -107,6 +119,27 @@ export default function Confirm() {
         </div>
       </div>
 
+      {virtual ? (<>
+      <div style={S.card}>
+        <div style={S.h2}>🎥 Where: on Zoom</div>
+        <div style={{ color: '#475569', fontSize: 14 }}>Week B is held virtually. Join from a quiet spot with your camera on, and use your full name in Zoom.</div>
+        {zoomUrl
+          ? <a href={zoomUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 10, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '10px 16px', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>🎥 Join the Zoom</a>
+          : <div style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>The Zoom link will be here before class starts.</div>}
+      </div>
+      <div style={S.card}>
+        <div style={S.h2}>🗓️ Your Week B schedule</div>
+        <div style={{ borderLeft: '3px solid #f5b400', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {virtualLines.filter((l) => !/^week b schedule/i.test(l)).map((l, i) => (
+            <div key={i} style={{ color: /am|pm/i.test(l) ? '#475569' : '#0f2a4a', fontWeight: /am|pm/i.test(l) ? 400 : 800, fontSize: 14 }}>{l}</div>
+          ))}
+        </div>
+      </div>
+      <div style={{ ...S.card, background: '#fffbeb', border: '1px solid #fde68a' }}>
+        <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14 }}>⏰ Please join 5 minutes early</div>
+        <div style={{ color: '#78350f', fontSize: 13.5, marginTop: 3 }}>Class starts on time. Camera on, full name showing, ready to participate.</div>
+      </div>
+      </>) : (<>
       {/* Location + directions */}
       <div style={S.card}>
         <div style={S.h2}>📍 Where to go</div>
@@ -138,6 +171,7 @@ export default function Confirm() {
         <div style={{ fontWeight: 800, color: '#92400e', fontSize: 14 }}>⏰ Please arrive 15 minutes early</div>
         <div style={{ color: '#78350f', fontSize: 13.5, marginTop: 3 }}>Our trainers begin on time — arriving early keeps everything smooth. Come ready to participate, ask questions, and learn.</div>
       </div>
+      </>)}
 
       {errorMsg && <div style={{ ...S.card, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 13.5 }}>{errorMsg}</div>}
 
@@ -172,6 +206,11 @@ function mondayForWeek() {
   const d = new Date()
   const back = (d.getDay() + 6) % 7
   d.setDate(d.getDate() - back + 7) // next Monday
+  return d.toISOString().slice(0, 10)
+}
+function mondayOf(iso) {
+  const d = new Date(`${iso}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
   return d.toISOString().slice(0, 10)
 }
 function addDays(iso, n) {

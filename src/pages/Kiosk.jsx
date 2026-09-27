@@ -48,7 +48,7 @@ export default function Kiosk() {
     // part of the flow — every enrolled trainee is shown.
     let q = supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, registered, enrolled, is_field_trainee, is_active_sales_rep, region')
+      .select('id, first_name, last_name, phone, registered, enrolled, is_field_trainee, is_active_sales_rep, region, week_b_force')
       .eq('class_id', class_id)
       .neq('enrolled', false)
       .order('first_name', { ascending: true })
@@ -104,7 +104,9 @@ export default function Kiosk() {
       // Hidden is not gone either way: "Someone missing?" below reveals them so
       // a trainer can put a genuine straggler back without hand-entering
       // attendance for anybody.
-      const stillIn = (t) => cameLastDay.has(t.id) || (daysAttended.get(t.id) || 0) >= 2
+      // week_b_force = the office put them into this Week B (their Week A was in
+      // another class, so this class has none of their attendance). Never hide them.
+      const stillIn = (t) => t.week_b_force || cameLastDay.has(t.id) || (daysAttended.get(t.id) || 0) >= 2
       missed = visible.filter((t) => !stillIn(t))
       visible = visible.filter(stillIn)
       // Anyone still held back is hidden, NOT gone — the "Someone missing?"
