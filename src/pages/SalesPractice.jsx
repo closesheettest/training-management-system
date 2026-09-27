@@ -97,7 +97,7 @@ export default function SalesPractice() {
   const [stage, setStage] = useState('setup') // setup | live | report
   const [classes, setClasses] = useState([])
   const [traineeId, setTraineeId] = useState('')
-  const [personaKey, setPersonaKey] = useState('ready') // start new reps on an easy one
+  const [personaKey, setPersonaKey] = useState('welcome') // start new reps on the very easy one
   const [sectionKey, setSectionKey] = useState('full')
   const [slideN, setSlideN] = useState('')           // for "One slide"
   const [reps, setReps] = useState([])
@@ -201,12 +201,12 @@ export default function SalesPractice() {
 
       <Step n="2" title="Pick the homeowner">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[...PERSONAS].sort((x, y) => ({ Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[x.difficulty] - { Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[y.difficulty])).map((p) => (
+          {[...PERSONAS].sort((x, y) => ({ 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[x.difficulty] - { 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[y.difficulty])).map((p) => (
             <button key={p.key} type="button" onClick={() => setPersonaKey(p.key)}
               className={`rounded-xl border p-4 text-left transition ${personaKey === p.key ? 'border-brand-navy bg-brand-navy-50 ring-2 ring-brand-navy' : 'border-slate-200 bg-white hover:border-slate-400'}`}>
               <div className="flex items-center justify-between">
                 <span className="font-bold text-brand-navy">{p.tagline}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.difficulty === 'Very hard' ? 'bg-red-700 text-white' : p.difficulty === 'Hard' ? 'bg-red-50 text-red-700' : p.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.difficulty}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.difficulty === 'Very hard' ? 'bg-red-700 text-white' : p.difficulty === 'Hard' ? 'bg-red-50 text-red-700' : p.difficulty === 'Very easy' ? 'bg-emerald-600 text-white' : p.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.difficulty}</span>
               </div>
               <div className="mt-0.5 text-xs text-slate-500">{p.name}</div>
               <div className="mt-2 text-sm text-slate-700">{p.blurb}</div>
