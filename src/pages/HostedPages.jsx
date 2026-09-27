@@ -17,6 +17,15 @@ import { HOSTED_PAGES, CATEGORIES } from '../lib/hosted_pages.js'
 export default function HostedPages() {
   const [copiedSlug, setCopiedSlug] = useState(null)
   const [query, setQuery] = useState('')
+  // COLLAPSIBLE SECTIONS (Neal, 2026-09-27: "the hosted page is getting very long").
+  // Closed by default; which ones are open is remembered on this browser. A
+  // search opens everything so no match is hidden.
+  const [openCats, setOpenCats] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('hosted_pages_open') || '[]')) } catch { return new Set() }
+  })
+  const saveOpen = (next) => { setOpenCats(next); try { localStorage.setItem('hosted_pages_open', JSON.stringify([...next])) } catch { /* private mode */ } }
+  const toggleCat = (c) => { const n = new Set(openCats); n.has(c) ? n.delete(c) : n.add(c); saveOpen(n) }
+  const isOpen = (c) => !!query.trim() || openCats.has(c)
 
   function siteOrigin() {
     if (typeof window === 'undefined') return ''
@@ -132,11 +141,16 @@ export default function HostedPages() {
             <a
               key={g.category}
               href={`#group-${slugify(g.category)}`}
+              onClick={() => { if (!openCats.has(g.category)) toggleCat(g.category) }}
               className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:border-brand-navy hover:text-brand-navy"
             >
               {g.category} <span className="ml-1 text-slate-400">({g.items.length})</span>
             </a>
           ))}
+          <button type="button" onClick={() => saveOpen(new Set(groups.map((g) => g.category)))}
+            className="rounded-full px-3 py-1 text-xs font-semibold text-sky-700 underline">Expand all</button>
+          <button type="button" onClick={() => saveOpen(new Set())}
+            className="rounded-full px-3 py-1 text-xs font-semibold text-sky-700 underline">Collapse all</button>
         </nav>
       )}
 
@@ -162,13 +176,15 @@ export default function HostedPages() {
           id={`group-${slugify(g.category)}`}
           className="space-y-3"
         >
-          <div className="flex items-baseline gap-3 border-b border-slate-200 pb-2">
+          <button type="button" onClick={() => toggleCat(g.category)}
+            className="flex w-full items-baseline gap-3 border-b border-slate-200 pb-2 text-left hover:border-brand-navy">
+            <span className="w-4 text-slate-500">{isOpen(g.category) ? '▾' : '▸'}</span>
             <h2 className="text-xl font-semibold text-slate-900">{g.category}</h2>
             <span className="text-sm text-slate-500">
               {g.items.length} page{g.items.length === 1 ? '' : 's'}
             </span>
-          </div>
-          <ul className="space-y-3">
+          </button>
+          {isOpen(g.category) && <ul className="space-y-3">
             {g.items.map((p) => {
               const full = siteOrigin() + p.url
               const copied = copiedSlug === p.slug
@@ -217,7 +233,7 @@ export default function HostedPages() {
                 </li>
               )
             })}
-          </ul>
+          </ul>}
         </section>
       ))}
 
