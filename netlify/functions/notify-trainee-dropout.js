@@ -303,11 +303,20 @@ export const handler = async (event) => {
   // matches the hotel-noshow alert gate for consistency.
   const nowEt = currentEtHour()
   const startHours = await loadStartHours(supabase)   // live timetable, fallback baked in
+  // VIRTUAL CLASSES (Neal, 27 Sep: Week B on Zoom). Nobody taps the kiosk on a
+  // Zoom day, so silence is not a no-show: without this the whole cohort would be
+  // unenrolled and IT/HR told to delete their accounts. app_settings
+  // 'virtual_class_ids' = comma-separated class ids; attendance for them is
+  // marked by hand from the Zoom roll call. Can't read it → skip nobody (the
+  // setting only ever switches policing OFF).
+  const virtualIds = new Set(await supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle()
+    .then(({ data }) => String(data?.value || '').split(',').map((x) => x.trim()).filter(Boolean)).catch(() => []))
 
   const dropouts = (trainees || []).filter((t) => {
     const c = t.classes
     if (!c) return false
     if (today < c.week_start_date || today > c.week_end_date) return false
+    if (virtualIds.has(c.id)) return false   // on Zoom: attendance is taken by hand
     // Only police actual CLASSROOM days, and only once that day's class has
     // started (+30 min grace) — see _schedule.js. Week A's Thu–Sat field days,
     // the middle weekend and Week B's Friday have no kiosk sign-in at all, so
