@@ -1700,7 +1700,8 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                     <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals[ap]}</b></span>
                     {/* Sit rate per lead source (Neal, 27 Sep): how many of this source's
                         appointments actually sat. The % after Sold is closes per SIT. */}
-                    <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals[st] ?? '—'}</b>{data.totals[st] != null && data.totals[ap] ? <span className="text-[11px] opacity-70"> ({Math.round((100 * data.totals[st]) / data.totals[ap])}%)</span> : null}</span>
+                    <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals[st] ?? '—'}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">Sit %</span> <b>{data.totals[st] != null && data.totals[ap] ? Math.round((100 * data.totals[st]) / data.totals[ap]) + '%' : '—'}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals[sl]}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals[pc]}%</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals[amt] || 0).toLocaleString()}</b></span>
@@ -1734,7 +1735,8 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       appointment came due but never became a sit, so a low close %
                       caused by nobody sitting reads differently from a low close %
                       on sits that happened. */}
-                  <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals.satAp}</b> <span className="text-[11px] opacity-70">({data.totals.satPct}%)</span></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals.satAp}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sit %</span> <b>{data.totals.satPct}%</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.sales}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Net</span> <b className="text-base">{data.totals.pct}%</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Gross</span> <b className="text-base text-emerald-200">{data.totals.grossPct}%</b></span>
