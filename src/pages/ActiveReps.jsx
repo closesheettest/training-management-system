@@ -154,7 +154,7 @@ export default function ActiveReps() {
     setLoading(true)
     const { data, error } = await supabase
       .from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, zone_locked, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
+      .select('id, first_name, last_name, phone, email, company_email, region, county, street_address, city, state, zip, is_active_sales_rep, became_active_rep_at, enrolled, declined_at, class_id, left_company_at, left_company_reason, cleanup_done_at, info_updated_at, registration_token, rep_level, rep_level_confirmed_at, company_number, directory_hidden, managed_region, manager_access_token, manager_link_sent_at, manager_zoom_url, zone_locked, confirmation_status, week_b_confirm_sent_at, classes!class_id(region, week_start_date, week_end_date, attendance_only)')
       .order('last_name', { ascending: true })
     if (error) {
       setFlash({ kind: 'error', text: error.message })
@@ -1797,6 +1797,63 @@ export default function ActiveReps() {
   )
 }
 
+// INVITE AN ACTIVE REP TO WEEK B (Neal, 27 Sep): "invite active sales reps to
+// week B training, the ones that I believe need working on". Sends the virtual
+// Week B invite (they must tap to confirm) for the class marked virtual, and
+// shows whether they've answered. Loaded once for the whole page.
+let weekBCache = null
+function loadWeekB() {
+  if (!weekBCache) {
+    weekBCache = Promise.all([
+      supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'week_b_rep_invites').maybeSingle(),
+    ]).then(([v, inv]) => {
+      const ids = String(v.data?.value || '').split(',').map((x) => x.trim()).filter(Boolean)
+      let invites = []
+      try { invites = JSON.parse(inv.data?.value || '[]') } catch { invites = [] }
+      return { classId: ids[ids.length - 1] || null, invites }
+    }).catch(() => ({ classId: null, invites: [] }))
+  }
+  return weekBCache
+}
+function WeekBInvite({ t }) {
+  const [info, setInfo] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [sentNow, setSentNow] = useState(false)
+  useEffect(() => { let live = true; loadWeekB().then((x) => live && setInfo(x)); return () => { live = false } }, [])
+  if (!info?.classId) return null
+  const invite = info.invites.find((x) => x.id === t.id && x.class_id === info.classId)
+  const invited = sentNow || !!invite
+  const answer = invited ? t.confirmation_status : null
+  async function send() {
+    if (!window.confirm(`Text + email ${t.first_name} the virtual Week B invite? They'll have to tap a link to confirm.`)) return
+    setBusy(true)
+    try {
+      const r = await fetch('/.netlify/functions/send-week-b-virtual-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'invite_rep', trainee_id: t.id, class_id: info.classId }),
+      }).then((x) => x.json())
+      if (!r.ok) window.alert(r.error || 'Could not send the invite.')
+      else setSentNow(true)
+    } catch { window.alert('Could not send the invite.') }
+    setBusy(false)
+  }
+  return (
+    <div className="flex items-center gap-1">
+      {invited && (
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${answer === 'confirmed' ? 'bg-emerald-100 text-emerald-800' : answer === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
+          Week B: {answer === 'confirmed' ? '✅ confirmed' : answer === 'declined' ? '❌ can’t make it' : '⏳ waiting'}
+        </span>
+      )}
+      <button type="button" onClick={send} disabled={busy}
+        className="rounded-md border border-indigo-300 bg-white px-3 py-1 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50"
+        title="Invite this rep to this week's virtual Week B training. They get a text + email and must tap the link to confirm.">
+        {busy ? 'Sending…' : invited ? '🎓 Re-send Week B invite' : '🎓 Invite to Week B'}
+      </button>
+    </div>
+  )
+}
+
 function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSetActiveSince, onSetCompanyNumber, onEditDirectory, onAssignManager, onRevokeManager, onCopyManagerLink, onSendManagerLink, onAnnounceToZone, onEditInfo, onMoveManagerAssignment, onSetZoneLock, allZonesAssigned, availableZones, managerName }) {
   // A manager whose managed_region is a legacy city region
   // (Jacksonville / Miami / etc.) when the rep themselves now lives in
@@ -2038,6 +2095,7 @@ function RepRow({ t, active, saving, onMarkLeaving, onPromote, onSetLevel, onSet
       </div>
       {active ? (
         <div className="flex flex-col items-end gap-1">
+          <WeekBInvite t={t} />
           {onEditInfo && (
             <button
               type="button"

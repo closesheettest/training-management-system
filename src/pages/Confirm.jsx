@@ -63,7 +63,15 @@ export default function Confirm() {
       .maybeSingle()
     if (error || !data) { setStatus('not_found'); return }
     setTrainee(data)
-    setClassInfo(data.classes || null)
+    let info = data.classes || null
+    // ?c=<class id>: an active rep invited into THIS class's Week B keeps their own
+    // class on record, so the dates and hours come from the class in the link.
+    const c = sp.get('c')
+    if (c) {
+      const { data: inv } = await supabase.from('classes').select('week_start_date, week_end_date, schedule_details').eq('id', c).maybeSingle()
+      if (inv) info = inv
+    }
+    setClassInfo(info)
     setStatus('choose')
   }
 

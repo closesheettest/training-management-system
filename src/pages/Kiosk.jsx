@@ -55,7 +55,22 @@ export default function Kiosk() {
     if (!clsData.attendance_only) {
       q = q.eq('registered', true)
     }
-    const { data: traineeData } = await q
+    const { data: ownTrainees } = await q
+    // Active reps invited into this class's Week B (Active Reps → "Invite to Week
+    // B"). They stay in their own class; the invite list says where to show them.
+    let invited = []
+    try {
+      const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'week_b_rep_invites').maybeSingle()
+      const ids = JSON.parse(setting?.value || '[]').filter((x) => x.class_id === class_id).map((x) => x.id)
+      if (ids.length) {
+        const { data: reps } = await supabase.from('trainees')
+          .select('id, first_name, last_name, phone, registered, enrolled, is_field_trainee, is_active_sales_rep, region, week_b_force')
+          .in('id', ids).eq('is_active_sales_rep', true)
+        invited = (reps || []).map((r) => ({ ...r, week_b_force: true }))
+      }
+    } catch { /* no invites: just the class */ }
+    const seen = new Set((ownTrainees || []).map((t) => t.id))
+    const traineeData = [...(ownTrainees || []), ...invited.filter((r) => !seen.has(r.id))].sort((a, b) => String(a.first_name).localeCompare(String(b.first_name)))
 
     // Drop no-shows: list trainees who were present on either of the LAST TWO
     // class days. On the class's first day (no prior attendance yet) everyone
