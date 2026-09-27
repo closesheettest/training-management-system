@@ -105,9 +105,18 @@ export default function MailResponseReport() {
               className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 bg-slate-50 hover:bg-slate-100 text-left">
               <span className="text-sm font-bold text-slate-900">{open ? '▾' : '▸'} Week of {w.week_label}</span>
               <span className="text-xs text-slate-600">{nf(w.totals.mailed)} mailed</span>
-              <span className="text-xs text-slate-600">
-                {nf(w.totals.called_in)} called in <span className="text-slate-400">({pf(w.totals.called_in_pct)})</span>
-              </span>
+              {/* Setter-logged calls (from 27 Sep): every inbound call, then how many
+                  booked. Older weeks only have the booked ones, shown as before. */}
+              {w.setter_calls ? (
+                <span className="text-xs text-slate-600" title={`${w.setter_calls.not_interested} not interested · ${w.setter_calls.call_back} will call back`}>
+                  {nf(w.setter_calls.calls)} called in → <b className="text-emerald-700">{nf(w.setter_calls.scheduled)} scheduled</b> <span className="text-slate-400">({w.setter_calls.scheduled_pct}%)</span>
+                  <span className="text-slate-400"> · {w.setter_calls.not_interested} not interested · {w.setter_calls.call_back} will call back</span>
+                </span>
+              ) : (
+                <span className="text-xs text-slate-600">
+                  {nf(w.totals.called_in)} called in <span className="text-slate-400">({pf(w.totals.called_in_pct)})</span>
+                </span>
+              )}
               <span className="text-xs text-slate-600">
                 {nf(w.totals.iq_pins)} instant quotes <span className="text-slate-400">({pf(w.totals.iq_pct)})</span>
               </span>
