@@ -42,7 +42,7 @@ export const handler = async (event) => {
       // Missed points DO go to the rep (Neal: "those are important"), per part,
       // covered and missed, but with no per-part score. Drill: each exchange's
       // verdict and the question to come back with, but no percentage.
-      parts: (r.parts || []).map((x) => ({ part: x.part, covered: x.covered || [], missed: x.missed || [] })),
+      parts: (r.parts || []).map((x) => ({ part: x.part, covered: x.covered || [], missed: x.missed || [], off_script: x.off_script || [] })),
       not_reached: r.not_reached || null,
       drill: !!r.drill,
       pairs: r.drill ? (r.pairs || []).map((x) => ({ homeowner: x.homeowner, rep: x.rep, verdict: x.verdict, better_question: x.better_question })) : undefined,

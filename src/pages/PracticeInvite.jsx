@@ -145,6 +145,7 @@ function RepReport({ token, persona, section, name }) {
                 <div className="font-semibold text-slate-800">{p.part}</div>
                 {p.covered.map((c, j) => <div key={'c' + j} className="text-sm text-emerald-700">✓ {c}</div>)}
                 {p.missed.map((m, j) => <div key={'m' + j} className="text-sm font-semibold text-red-600">✗ {m}</div>)}
+                {(p.off_script || []).map((m, j) => <div key={'o' + j} className="text-sm text-amber-700">📜 Bring it back to the script’s angle: {m}</div>)}
               </div>
             ))}
           </div>

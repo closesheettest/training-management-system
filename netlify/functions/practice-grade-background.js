@@ -6,7 +6,12 @@
 // their own words, in any order, adapted to the homeowner. The first version
 // graded the script word for word and Neal (who wrote it) scored 0/10 on slides
 // he covered in his own words (25 Sep). The script is kept only as the source
-// of FACTS: a wrong number or promise is flagged, a paraphrase never is. A background function
+// of FACTS: a wrong number or promise is flagged, a paraphrase never is.
+// STAY ON SCRIPT (Neal, 27 Sep): every section except the warm-up has to stay
+// "as close to script as possible... not word for word but the angle and the
+// points". So outside the warm-up the script is also the source of the ANGLE:
+// the argument, the reasoning and the questions it uses to make each point. A
+// point made from a different angle, or a pitch the rep made up, is off script. A background function
 // (the "-background" name) because a full presentation's transcript can take
 // well past the 10-second limit of a normal function. Called by practice-api.
 //
@@ -65,6 +70,7 @@ const REPORT_SCHEMA = {
           score: { type: 'INTEGER', description: '0-10' },
           covered: { type: 'ARRAY', items: { type: 'STRING' } },
           missed: { type: 'ARRAY', items: { type: 'STRING' } },
+          off_script: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Points the rep made from a DIFFERENT ANGLE than the script, or claims/arguments that are not in the script at all. Each: what they did, then the script\'s angle in a few words. Empty for the warm-up.' },
         },
         required: ['part', 'score', 'covered', 'missed'],
       },
@@ -228,6 +234,7 @@ const DRILL_SCHEMA = {
     },
     summary: { type: 'STRING', description: '2-3 plain sentences on how the rep handled the pressure' },
     tips: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Up to 3 habits to build, most important first' },
+    off_script: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Answers where the rep argued from a DIFFERENT ANGLE than the script, or made claims/promises not in the script. Each: what they said, then the script\'s angle in a few words. Empty if they stayed on script.' },
     encouragement: ENCOURAGEMENT_SCHEMA,
     manager_plan: MANAGER_PLAN_SCHEMA,
   },
@@ -264,7 +271,14 @@ For EACH numbered exchange below (a homeowner question, then the rep's reply), g
 IMPORTANT: a question that looks unrelated is NOT off-topic if it is the first step of a line of questions that gets to a point within the next few exchanges (e.g. asking how long their mortgage took to get approved, then how many times the bank came back for more paperwork, then landing on "so the finance companies that approved us put us through the same thing: they did your homework for you"). Read WHERE THE REP WENT NEXT for each exchange; if the question was building to a point, it is "kept".
 A tie-down on the point just made ("that makes sense, doesn't it?") counts as kept. PARKING counts as kept: acknowledging the question, saying when it will be covered, and asking the homeowner to hold it ("can we hold that till we get there?"), then back to the point with a question. Ignore small speech-to-text errors. For every gave_up / off_topic, write a RELEVANT question the rep could have come back with.
 
+STAY ON SCRIPT (Neal, 27 Sep): the verdicts above are only about control, but the rep's ANSWERS must also stay on the script's angle: the same argument and reasoning the script uses for this slide (their own words are fine, not word for word). List any answer that argued from a different angle, or improvised a claim or promise that is not in the script, in "off_script", and mention it in the manager_plan.
+
 Also write "encouragement" (the only thing the REP sees: warm, specific, no score, nothing negative; improvements as "to make it even better, try ...") and "manager_plan" (direct coaching for their manager, with practice to assign).
+
+THE SCRIPT FOR THIS SLIDE (the angle and the facts, not required wording):
+"""
+${scriptForSection(row.section)}
+"""
 
 THE EXCHANGES:
 ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.after.length ? `\n   (where the rep went next: ${p.after.join(' | ')})` : ''}`).join('\n')}`
@@ -281,7 +295,7 @@ ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.
     drill: true, pairs: scored, total: scored.length, kept,
     gave_up: scored.filter((x) => x.verdict === 'gave_up').length,
     off_topic: scored.filter((x) => x.verdict === 'off_topic').length,
-    summary: out.summary || '', tips: out.tips || [],
+    summary: out.summary || '', tips: out.tips || [], off_script: out.off_script || [],
     encouragement: out.encouragement || null, manager_plan: out.manager_plan || null,
   }
   await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report: withCost(report, row.report) }).eq('id', id)
@@ -345,14 +359,20 @@ export const handler = async (event) => {
   questions.just_answered = handovers.length
   const notReached = rng && reached < rng[1] ? `Slides ${reached + 1}–${rng[1]}${rng[1] >= 23 ? ' and the close' : ''}` : ''
 
+  // Everything except the warm-up is graded on staying on script (angle + points).
+  const onScript = row.section !== 'survey'
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
 
-HOW WE SELL: question-based selling. It is a conversation, not a script. The rep's job on each part is to BRING OUT ITS POINTS so the homeowner understands and agrees with them, ideally by asking questions that let the homeowner get there themselves. Every homeowner is different, so the order, the wording and the route will differ every time.
+HOW WE SELL: question-based selling. It is a conversation, not a recital. The rep's job on each part is to BRING OUT ITS POINTS so the homeowner understands and agrees with them, ideally by asking questions that let the homeowner get there themselves. Every homeowner is different, so the order, the wording and the route will differ every time.
 
-SO GRADE ON POINTS, NOT WORDS:
-- A point is COVERED if the homeowner clearly got the idea, however the rep said it: their own words, a story, a question, any order, even out of the slide it belongs to.
-- NEVER mark anything down for not matching the script's wording. Do not quote script lines at the rep as "what you should have said" unless they missed the point entirely.
-- DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise). The script below is the source of the facts, not of the wording.
+${onScript ? `STAY ON SCRIPT: THE ANGLE AND THE POINTS, NOT THE WORDS.
+- The script below is how we sell each part. The rep must stay as close to it as possible: make each point with the SCRIPT'S ANGLE (the same argument, the same reasoning, the same kind of question or tie-down the script uses to get the homeowner there), in roughly the script's flow. Their own words are fine; word for word is NOT required, and wording is never marked down.
+- A point is COVERED only if the homeowner got it AND the rep made it with the script's angle. A point made from a different angle (a different argument or reason than the script gives) counts as half at most and goes in "off_script" with the script's angle.
+- Improvising: an argument, claim, promise or pitch that is not in the script goes in "off_script" and costs points, even if it sounded good. Adapting to the homeowner is fine (using their survey answers, their name, their situation) as long as the angle is the script's.
+- DO flag facts that are WRONG (a wrong statistic, coverage amount, warranty term, price promise) in facts_wrong.` : `SO GRADE ON POINTS, NOT WORDS:
+- A point is COVERED if the homeowner clearly got the idea, however the rep said it: their own words, a story, a question, any order.
+- NEVER mark anything down for not matching the script's wording.
+- DO flag facts that are WRONG. The script below is the source of the facts.`}
 - CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control.
 - WHEN THE HOMEOWNER ASKS A QUESTION there is a BALANCE. A straight answer in statements is fine, even good, when the question deserves one; the rep keeps control as long as they lead back with a question of their own within their next turn or two. Control is LOST when the rep keeps answering question after question without leading back, gives long defensive explanations, or lets the homeowner steer to a new topic; that must cost them on the control score. Never mark down a single short, straight answer that is followed by the rep leading again. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep led back with a question within two turns ${questions.answered_with_question} times and did not ${questions.just_answered} times. The ones where they did not (homeowner, then the rep's next two replies):
 ${handovers.slice(0, 12).map((h, i) => `  ${i + 1}. HOMEOWNER: ${h.homeowner}\n     REP: ${h.rep}`).join('\n') || '  (none)'}
@@ -370,7 +390,7 @@ What a good rep does with this homeowner: ${persona.close}
 THE POINTS (the checklist for each part):
 ${points}
 
-THE SCRIPT (reference for FACTS only):
+THE SCRIPT (${onScript ? 'the ANGLE and the points for each part, and the source of the facts; not the required wording' : 'reference for FACTS only'}):
 """
 ${scriptForSection(row.section)}
 """
@@ -381,7 +401,7 @@ ${lines}
 """
 ${silence}
 
-Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner; words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep. The "encouragement" section is the only thing the REP sees: write it TO them, warm and specific, with no score and nothing negative; frame every improvement as "to make it even better, try ...". The "manager_plan" is for their manager: be direct about what to work on and what practice to assign.`
+Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner${onScript ? ' using the script\'s angle' : ''}; exact words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep. The "encouragement" section is the only thing the REP sees: write it TO them, warm and specific, with no score and nothing negative; frame every improvement as "to make it even better, try ...". The "manager_plan" is for their manager: be direct about what to work on and what practice to assign.`
 
   try {
     const report = await geminiJson(prompt, REPORT_SCHEMA)

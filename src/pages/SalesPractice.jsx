@@ -52,15 +52,18 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     ],
     door: [
       'At the front door. The homeowner stalls in character and agrees to the free inspection only if the rep handles the stall well.',
-      'Graded on the 7 door points (in the rep’s own words, any order) and on whether they left with a YES to the inspection.',
+      'Graded on the 7 door points and on whether they left with a YES to the inspection.',
+      'STAY ON SCRIPT: not word for word, but the door pitch’s ANGLE and POINTS (the mailer, the insurance risk, the free inspection, the 3 outcomes). A different angle or an improvised pitch is listed as “Off script” and costs points.',
     ],
     control: [
       'Five timed minutes on one slide. The homeowner fires relevant questions to take control of the conversation.',
       'Every exchange is marked KEPT (the rep answered briefly and took it back with a relevant question), GAVE UP (answered without leading back within their next two replies) or OFF-TOPIC (a question that went nowhere).',
       'The score is how often the rep kept control. Each hand-over is listed with a better question they could have asked.',
+      'The rep’s answers also have to stay on the script’s angle for that slide; any that don’t are listed as “Off script” for you.',
     ],
   }[sectionKey] || [
-    'Score out of 100: about HALF is the points landing (in the rep’s own words, any order; wording is never marked down, only wrong facts are flagged), and HALF is who controlled the conversation.',
+    'Score out of 100: about HALF is the points landing, and HALF is who controlled the conversation.',
+    'STAY ON SCRIPT: not word for word, but the script’s ANGLE and POINTS. Each point has to be made the way the script makes it (same argument, same reasoning, same kind of question). A point made from a different angle counts half at most, and anything improvised that isn’t in the script costs points. Both are listed as “Off script” on the report. Wrong facts are flagged.',
     'Control: whoever asks the questions is in control. A short, straight answer is fine as long as the rep leads back with a question within their next two replies.',
     'Objections are judged by the method: acknowledge, isolate, answer it only if it belongs on this slide (otherwise park it and get their OK), then confirm with a question. A parked concern has to be answered later.',
     'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
@@ -617,6 +620,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
                   <div>
                     <div className="font-semibold text-slate-800">{x.part}</div>
                     {(x.missed || []).length > 0 && <div className="text-sm text-red-700">Missed: {x.missed.join(' · ')}</div>}
+                    {(x.off_script || []).length > 0 && <div className="text-sm text-amber-700">📜 Off script: {x.off_script.join(' · ')}</div>}
                     {(x.covered || []).length > 0 && <div className="text-xs text-slate-500">Covered: {x.covered.join(' · ')}</div>}
                   </div>
                   <div className={`text-lg font-bold ${scoreColor(x.score * 10)}`}>{x.score}/10</div>
@@ -704,6 +708,9 @@ function DrillReport({ r, speaker }) {
         <div className="mt-1 text-sm text-slate-600">Gave it up {r.gave_up} · off-topic question back {r.off_topic}</div>
         <p className="mt-2 text-slate-800">{r.summary}</p>
       </div>
+      {(r.off_script || []).length > 0 && (
+        <Card title="📜 Off script (the angle, not the words)" tone="red"><ul className="list-disc space-y-1 pl-5">{r.off_script.map((x, i) => <li key={i}>{x}</li>)}</ul></Card>
+      )}
       {(r.tips || []).length > 0 && (
         <Card title="🔧 Habits to build" tone="red"><ol className="list-decimal space-y-1 pl-5">{r.tips.map((x, i) => <li key={i}>{x}</li>)}</ol></Card>
       )}
