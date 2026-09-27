@@ -67,6 +67,16 @@ export const handler = async (event) => {
     return json(200, { ok: true, sent_count: 0, message: 'Nothing to send.' })
   }
 
+  // THE TRAINING CENTRE IS NOT A HOTEL. The class-page "Hotel Booked" button
+  // used to save the meeting venue as the room, and this sent trainees the
+  // Training Suite's address as their hotel (Neal, 2026-09-27). Any booking whose
+  // hotel is one of our training locations is refused, with the fix spelled out.
+  const { data: venues } = await supabase.from('locations').select('name, street_address')
+  const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const venueNames = new Set((venues || []).map((v) => norm(v.name)).filter(Boolean))
+  const venueStreets = new Set((venues || []).map((v) => norm(v.street_address)).filter(Boolean))
+  const isVenue = (st) => venueNames.has(norm(st.hotel_name)) || (st.hotel_street_address && venueStreets.has(norm(st.hotel_street_address)))
+
   const results = []
   for (const s of stays) {
     const t = s.trainees
@@ -76,6 +86,10 @@ export const handler = async (event) => {
     }
     if (!s.hotel_name) {
       results.push({ stay_id: s.id, ok: false, error: 'Hotel name is blank' })
+      continue
+    }
+    if (isVenue(s)) {
+      results.push({ stay_id: s.id, ok: false, error: `Not sent: ${t.first_name}'s room is saved with the TRAINING CENTER (${s.hotel_name}) as the hotel. Edit the booking and pick the real hotel, then send.` })
       continue
     }
 

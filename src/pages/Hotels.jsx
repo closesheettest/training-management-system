@@ -398,7 +398,7 @@ export default function Hotels() {
       if (!res.ok) setFlash({ kind: 'error', text: j.error || 'Send failed.' })
       else {
         setFlash({ kind: j.fail_count > 0 ? 'error' : 'success',
-                   text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${j.fail_count > 0 ? ` · ${j.fail_count} failed` : ''}.` })
+                   text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${j.fail_count > 0 ? ` · ${j.fail_count} failed: ${(j.results || []).filter((r) => !r.ok).map((r) => r.error).slice(0, 3).join(' | ')}` : ''}.` })
       }
       await loadOutstanding(); await loadForClass()
     } catch (err) { setFlash({ kind: 'error', text: err.message }) }
@@ -428,7 +428,7 @@ export default function Hotels() {
         const failNote = j.fail_count > 0 ? ` · ${j.fail_count} failed` : ''
         setFlash({
           kind: j.fail_count > 0 ? 'error' : 'success',
-          text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${failNote}.`,
+          text: `Sent ${j.sent_count} text${j.sent_count === 1 ? '' : 's'}${failNote}${j.fail_count > 0 ? `: ${(j.results || []).filter((r) => !r.ok).map((r) => r.error).slice(0, 3).join(' | ')}` : ''}.`,
         })
         await loadForClass()
       }

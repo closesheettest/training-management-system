@@ -138,27 +138,52 @@ export default function ClassDetail() {
     setLocations(data || [])
   }
 
-  // "Hotel Booked" on the roster — one-click create a stay row using the
-  // class's meeting venue as the hotel, booked under the trainee's name.
-  // Mirrors quickBook() on the Hotels page. A stay row = "booked"; the
-  // hourly no-show nag keys off it.
+  // "Hotel Booked" on the roster: one click records the trainee's room at the
+  // company HOTEL (the Hotels page directory), with the right nights.
+  //
+  // It used to copy the class's MEETING VENUE in as the hotel. That was right
+  // when classes met at hotels; since training moved to the Training Suite it
+  // saved the training centre as everyone's hotel, and "Send hotel info" texted
+  // trainees the training centre's address instead of a room (Neal, 2026-09-27:
+  // two Week A classes in a row, 16 bookings since August).
   async function bookHotel(t) {
-    const venue = cls?.locations || null
-    if (!venue) {
-      setMessage({ type: 'error', text: 'This class has no meeting venue yet — set one (or use the Hotels page) before booking a room.' })
+    setMessage(null)
+    const { data: hotels } = await supabase.from('hotels').select('*').neq('active', false).order('name')
+    const list = hotels || []
+    if (!list.length) {
+      setMessage({ type: 'error', text: 'No hotel is set up yet. Add it on the Hotels page (Setup ▾ → Hotels → hotel list), then book here.' })
       return
     }
+    let h = list[0]
+    if (list.length > 1) {
+      const pick = window.prompt(`Which hotel is ${t.first_name} staying at?\n\n` + list.map((x, i) => `${i + 1}. ${x.name}`).join('\n') + '\n\nType the number:', '1')
+      if (pick == null) return
+      h = list[parseInt(pick, 10) - 1]
+      if (!h) { setMessage({ type: 'error', text: 'No hotel picked, nothing was booked.' }); return }
+    }
+    // Nights: Week A = first class day, out 2 days later (Mon+Tue nights, out
+    // Wed). Week B = its Monday, out Friday. Which week is decided by today.
+    const addDays = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+    const mondayOf = (iso) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) }
+    const ws = cls?.week_start_date
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    const weekB = ws && today >= addDays(mondayOf(ws), 7)
+    const checkIn = ws ? (weekB ? addDays(mondayOf(ws), 7) : ws) : null
+    const checkOut = checkIn ? addDays(checkIn, weekB ? 4 : 2) : null
     setHotelBusyId(t.id)
-    setMessage(null)
     const { error: err } = await supabase.from('trainee_hotel_stays').insert({
       trainee_id: t.id,
       class_id: id,
-      hotel_name: venue.name || '',
-      hotel_street_address: venue.street_address || null,
-      hotel_city: venue.city || null,
-      hotel_state: venue.state || null,
-      hotel_zip: venue.zip || null,
-      hotel_phone: venue.phone || null,
+      phase: weekB ? 'B' : 'A',
+      hotel_name: h.name || '',
+      hotel_street_address: h.street_address || null,
+      hotel_city: h.city || null,
+      hotel_state: h.state || null,
+      hotel_zip: h.zip || null,
+      hotel_phone: h.phone || null,
+      hotel_contact_email: h.contact_email || null,
+      check_in_date: checkIn,
+      check_out_date: checkOut,
       guest_name: `${t.first_name || ''} ${t.last_name || ''}`.trim(),
     })
     setHotelBusyId(null)
@@ -166,7 +191,7 @@ export default function ClassDetail() {
       setMessage({ type: 'error', text: err.message })
       return
     }
-    setMessage({ type: 'success', text: `Hotel booked for ${t.first_name} ${t.last_name}.` })
+    setMessage({ type: 'success', text: `Room booked for ${t.first_name} ${t.last_name} at ${h.name}${checkIn ? ` (${checkIn} → ${checkOut})` : ''}. Add the confirmation # on the Hotels page before sending hotel info.` })
     load()
   }
 
