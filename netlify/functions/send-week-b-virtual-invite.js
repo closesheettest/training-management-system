@@ -31,12 +31,13 @@ import { sendEmail } from './_email.js'
 const json = (code, body) => ({ statusCode: code, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
 // "Monday, Sep 28 · 11:00 AM – 1:00 PM" lines → one short line for a text.
-function hoursLine(details) {
+function hoursLine(details, skipMonday = false) {
   const lines = String(details || '').split('\n').map((l) => l.replace(/^\*\s*/, '').trim()).filter(Boolean)
   const out = []
   for (let i = 0; i < lines.length; i++) {
     if (/am|pm/i.test(lines[i])) continue
     const time = (lines[i + 1] || '').match(/^([\d:]+\s*[AP]M\s*[–-]\s*[\d:]+\s*[AP]M)/i)
+    if (skipMonday && /^monday/i.test(lines[i])) continue
     if (time && !/^week b/i.test(lines[i])) out.push(`${lines[i]} ${time[1]}`)
   }
   return out.join('; ')
@@ -73,7 +74,8 @@ async function inviteRep(supabase, body, siteUrl) {
   if (!t.registration_token || (!t.phone && !t.email)) return json(400, { ok: false, error: 'No phone or email on file.' })
   if (t.week_b_confirm_sent_at && Date.now() - Date.parse(t.week_b_confirm_sent_at) < 10 * 60_000) return json(429, { ok: false, error: 'Invite already sent in the last 10 minutes.' })
   const { data: cls } = await supabase.from('classes').select('id, schedule_details').eq('id', classId).maybeSingle()
-  const msg = inviteText(t, hoursLine(cls?.schedule_details), `${siteUrl}/confirm/${t.registration_token}?week=B&virtual=1&c=${classId}`)
+  // Active reps join Tuesday; Monday is the trainees' warm-up day (Neal, 2026-09-27).
+  const msg = inviteText(t, hoursLine(cls?.schedule_details, true), `${siteUrl}/confirm/${t.registration_token}?week=B&virtual=1&c=${classId}&rep=1`)
   const errors = []
   const channels = await deliver(supabase, t, msg, errors)
   if (!channels.length) return json(502, { ok: false, error: errors[0] || 'Could not send.' })

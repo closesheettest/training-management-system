@@ -105,7 +105,15 @@ export default function Confirm() {
   const choice = trainee?.confirmation_status // 'confirmed' | 'declined' | null
   // Week B starts the MONDAY after Week A's week (Week A does not always start on a Monday).
   const startMon = classInfo?.week_start_date ? (week === 'B' ? addDays(mondayOf(classInfo.week_start_date), 7) : classInfo.week_start_date) : mondayForWeek(week)
-  const virtualLines = String(classInfo?.schedule_details || '').split('\n').map((l) => l.replace(/^\*\s*/, '').trim()).filter(Boolean)
+  // Active reps (&rep=1) join Tuesday: the Monday warm-up day is the trainees' only.
+  const repLink = sp.get('rep') === '1'
+  const virtualLines = (() => {
+    const ls = String(classInfo?.schedule_details || '').split('\n').map((l) => l.replace(/^\*\s*/, '').trim()).filter(Boolean)
+    if (!repLink) return ls
+    const out = []
+    for (let i = 0; i < ls.length; i++) { if (/^monday/i.test(ls[i])) { i++; continue } out.push(ls[i]) }
+    return out
+  })()
 
   return (
     <div style={S.wrap}>
@@ -123,7 +131,7 @@ export default function Confirm() {
             : `Welcome${trainee?.first_name ? `, ${trainee.first_name}` : ''}!`}
         </h1>
         <div style={{ fontSize: 14.5, color: '#cbd5e1' }}>
-          {sched.label} starts <b style={{ color: '#fff' }}>{formatDateLong(startMon)}</b>
+          {sched.label} starts <b style={{ color: '#fff' }}>{formatDateLong(virtual && repLink ? addDays(startMon, 1) : startMon)}</b>
         </div>
       </div>
 
@@ -185,7 +193,7 @@ export default function Confirm() {
 
       {/* Confirm */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ textAlign: 'center', fontWeight: 700, color: '#334155', fontSize: 14 }}>Can you make it Monday?</div>
+        <div style={{ textAlign: 'center', fontWeight: 700, color: '#334155', fontSize: 14 }}>Can you make it {virtual && repLink ? 'Tuesday through Thursday' : 'Monday'}?</div>
         <button onClick={() => respond('confirmed')} disabled={status === 'saving' || choice === 'confirmed'}
           style={{ ...S.btn, background: choice === 'confirmed' ? '#dcfce7' : '#16a34a', color: choice === 'confirmed' ? '#166534' : '#fff', border: choice === 'confirmed' ? '2px solid #22c55e' : 'none' }}>
           {choice === 'confirmed' ? "✓ Confirmed — you're on the list" : "✅ Yes, I'll be there"}
