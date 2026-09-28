@@ -5,6 +5,7 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionPayReport from '../components/InspectionPayReport.jsx'
 import WilliamPayCard from '../components/WilliamPayCard.jsx'
+import BtrCommissionReport from '../components/BtrCommissionReport.jsx'
 import NealPayCard from '../components/NealPayCard.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
@@ -2245,7 +2246,7 @@ function PayReports() {
     <section className="mb-4 rounded-xl border-2 border-emerald-700 bg-white">
       <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-emerald-700 px-4 py-3 text-left text-white">
         <span className="text-lg font-bold">💰 Pay reports</span>
-        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Neal · Managers · Inspection pay'}</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Neal · Managers · Inspection · William · BTR'}</span>
       </button>
       {open && (
         <div className="space-y-4 p-3">
@@ -2253,6 +2254,7 @@ function PayReports() {
           <ManagerPayReport admin />
           <InspectionPayReport />
           <WilliamPayCard />
+          <BtrCommissionReport />
         </div>
       )}
     </section>
