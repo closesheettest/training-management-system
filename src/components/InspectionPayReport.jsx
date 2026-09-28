@@ -27,6 +27,9 @@ export default function InspectionPayReport() {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
+  const [shown, setShown] = useState(true)
+  const toggle = () => { if (!data) { setShown(true); if (!busy) load() } else setShown((v) => !v) }
 
   async function load(off = offset) {
     setBusy(true); setErr('')
@@ -46,20 +49,20 @@ export default function InspectionPayReport() {
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-lg font-bold text-brand-navy">🔍 Inspection pay <span className="text-sm font-normal text-slate-500">(free inspections + PA submits, by week)</span></div>
+          <div onClick={toggle} className="cursor-pointer select-none text-lg font-bold text-brand-navy hover:opacity-80"><span className="mr-1 inline-block text-slate-400">{data && shown ? '▾' : '▸'}</span>🔍 Inspection pay <span className="text-sm font-normal text-slate-500">(free inspections + PA submits, by week)</span></div>
           <div className="text-xs text-slate-500">Rates come from the Commissions screen in DoorDispatcher. The at-close % of a PA contract is not included yet.</div>
         </div>
         <div className="flex items-center gap-2">
-          {data && <>
+          {data && shown && <>
             <button type="button" onClick={() => go(offset + 1)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">◀</button>
             <span className="text-sm font-semibold text-slate-700">{data.label}</span>
             <button type="button" onClick={() => go(Math.max(0, offset - 1))} disabled={offset === 0} className="rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-40">▶</button>
           </>}
-          <button type="button" onClick={() => load()} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
+          <button type="button" onClick={() => { setShown(true); load() }} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
         </div>
       </div>
       {err && <div className="mt-2 text-sm font-semibold text-red-700">{err}</div>}
-      {data && (
+      {data && shown && (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">

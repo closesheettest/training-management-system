@@ -22,6 +22,9 @@ export default function ManagerPayReport({ admin = false }) {
   const [err, setErr] = useState('')
   const [wb, setWb] = useState(0)
   const [openZone, setOpenZone] = useState(null)
+  // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
+  const [shown, setShown] = useState(true)
+  const toggle = () => { if (!data) { setShown(true); if (!loading) load() } else setShown((v) => !v) }
   const [cfgOpen, setCfgOpen] = useState(false)
 
   const load = async (weeksBack = wb) => {
@@ -67,20 +70,20 @@ export default function ManagerPayReport({ admin = false }) {
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-brand-navy">💵 Managers Pay <span className="text-sm font-normal text-slate-500">(override — last week's results)</span></h2>
+          <h2 onClick={toggle} className="cursor-pointer select-none text-lg font-bold text-brand-navy hover:opacity-80"><span className="mr-1 inline-block text-slate-400">{data && shown ? '▾' : '▸'}</span>💵 Managers Pay <span className="text-sm font-normal text-slate-500">(override — last week's results)</span></h2>
           <p className="text-xs text-slate-500">Region → rep → deal. Rates are set per region (each region's % shows in its column headers).</p>
         </div>
         <div className="flex items-center gap-2">
           {admin && <button onClick={() => setCfgOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">⚙️ Rates</button>}
           {data && <button onClick={downloadCsv} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">⬇ CSV</button>}
-          <button onClick={() => load()} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
+          <button onClick={() => { setShown(true); load() }} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
         </div>
       </div>
 
       {admin && cfgOpen && <RateEditor onSaved={() => load()} />}
       {err && <div className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      {data && (
+      {data && shown && (
         <div className="mt-3">
           {data.reconciliation && (
             <div className={`mb-3 rounded-lg border-2 px-4 py-3 text-center ${data.reconciliation.reconciled ? 'border-emerald-300 bg-emerald-50' : 'border-red-400 bg-red-50'}`}>

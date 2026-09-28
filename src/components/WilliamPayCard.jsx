@@ -13,6 +13,9 @@ export default function WilliamPayCard() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [openWk, setOpenWk] = useState(null)
+  // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
+  const [shown, setShown] = useState(true)
+  const toggle = () => { if (!data) { setShown(true); if (!busy) load() } else setShown((v) => !v) }
 
   async function load() {
     setBusy(true); setErr('')
@@ -29,13 +32,13 @@ export default function WilliamPayCard() {
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-lg font-bold text-brand-navy">🧑‍🏫 William's pay <span className="text-sm font-normal text-slate-500">(William Hernandez, by week)</span></div>
+          <div onClick={toggle} className="cursor-pointer select-none text-lg font-bold text-brand-navy hover:opacity-80"><span className="mr-1 inline-block text-slate-400">{data && shown ? '▾' : '▸'}</span>🧑‍🏫 William's pay <span className="text-sm font-normal text-slate-500">(William Hernandez, by week)</span></div>
           <div className="text-xs text-slate-500">Fixed terms: <b>$150</b> per inspection he signs up that week (paid at sign-up, not when inspected), plus <b>2%</b> of each of his inspections that sold that week.</div>
         </div>
-        <button type="button" onClick={load} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
+        <button type="button" onClick={() => { setShown(true); load() }} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
       </div>
       {err && <div className="mt-2 text-sm font-semibold text-red-700">{err}</div>}
-      {data && (
+      {data && shown && (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
