@@ -1718,7 +1718,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                   <span className="w-16 font-bold">Insp</span>
                   <span><span className="text-[10px] uppercase opacity-70">Written</span> <b>{data.totals.insp_written ?? '—'}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">BTR go-backs</span> <b>{data.totals.btr_gobacks ?? '—'}</b></span>
-                  <span><span className="text-[10px] uppercase opacity-70">→ Retail go-back apt</span> <b>{data.totals.btr_retail_appts ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">→ Retail &amp; converted apt</span> <b>{data.totals.btr_retail_appts ?? '—'}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals.btr_goback_pct != null ? `${data.totals.btr_goback_pct}%` : '—'}</b></span>
                 </div>
                 {/* No-Sit recovery — an overlay (re-booked sits that closed), not a 4th bucket. */}
