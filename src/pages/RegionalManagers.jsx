@@ -1711,6 +1711,16 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                     <span><span className="text-[10px] uppercase opacity-70">Avg/sale</span> <b>${(data.totals[av] || 0).toLocaleString()}</b></span>
                   </div>
                 ))}
+                {/* INSPECTIONS → BTR (Neal, 2026-09-28): free inspections written, how many
+                    came back Retail (each is a back-to-retail go-back), and what share of
+                    those became a BTR appointment. Older frozen weeks have no counts: —. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-violet-200">
+                  <span className="w-16 font-bold">Insp</span>
+                  <span><span className="text-[10px] uppercase opacity-70">Written</span> <b>{data.totals.insp_written ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">BTR go-backs</span> <b>{data.totals.btr_gobacks ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">→ BTR apt</span> <b>{data.totals.btrAp ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals.btr_goback_pct != null ? `${data.totals.btr_goback_pct}%` : '—'}</b></span>
+                </div>
                 {/* No-Sit recovery — an overlay (re-booked sits that closed), not a 4th bucket. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-amber-200">
                   <span className="w-16 font-bold">NSR</span>
