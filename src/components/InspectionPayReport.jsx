@@ -1,7 +1,7 @@
 // Inspection pay — what we owe reps for free inspections (and PA submits) for one
 // Monday–Sunday week. Read from CCG's commission-report, which applies the rates
 // set on CCG's Commissions screen (Neal, 2026-09-28: one place for every pay report).
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 const CCG = 'https://free-roof-inspections.netlify.app/.netlify/functions/commission-report'
 
@@ -20,6 +20,8 @@ function etMidnight(ymd) {
   return new Date(est.getTime() - (h === 1 ? 3600_000 : 0)) // EDT: 04:00Z
 }
 const fmtDay = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+const etDay = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric' }) : '—'
+const RESULT = { damage: 'Damage', no_damage: 'No damage', retail: 'Retail' }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`
 
 export default function InspectionPayReport() {
@@ -27,6 +29,7 @@ export default function InspectionPayReport() {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [openRep, setOpenRep] = useState(null) // click a rep → the jobs behind their count
   // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
   const [shown, setShown] = useState(true)
   const toggle = () => { if (!data) { setShown(true); if (!busy) load() } else setShown((v) => !v) }
@@ -73,8 +76,9 @@ export default function InspectionPayReport() {
             <tbody>
               {data.rows.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-slate-400">No rep activity that week.</td></tr>}
               {data.rows.map((r) => (
-                <tr key={r.rep} className="border-b border-slate-100">
-                  <td className="py-1.5 pr-2 font-semibold text-slate-800">{r.rep}</td>
+                <Fragment key={r.rep}>
+                <tr onClick={() => setOpenRep(openRep === r.rep ? null : r.rep)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-1.5 pr-2 font-semibold text-slate-800"><span className="mr-1 text-slate-400">{openRep === r.rep ? '▾' : '▸'}</span>{r.rep}</td>
                   <td className="px-2 text-right">{r.inspections}</td>
                   <td className="px-2 text-right text-slate-500">{r.tier_kind === 'flat' ? 'flat' : r.rate_each != null ? money(r.rate_each) : '—'}</td>
                   <td className="px-2 text-right">{money(r.insp_pay)}</td>
@@ -82,6 +86,29 @@ export default function InspectionPayReport() {
                   <td className="px-2 text-right">{money(r.submit_pay)}</td>
                   <td className="px-2 text-right font-bold text-emerald-700">{money(r.total)}</td>
                 </tr>
+                {openRep === r.rep && (
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <td colSpan={7} className="px-3 py-2">
+                      <table className="w-full text-xs">
+                        <thead><tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
+                          <th className="py-1 pr-2">Homeowner</th><th className="px-2">Address</th><th className="px-2">Signed up</th><th className="px-2">Inspected</th><th className="px-2">Result</th>
+                        </tr></thead>
+                        <tbody>
+                          {(r.detail || []).map((d, i) => (
+                            <tr key={i} className="border-t border-slate-200 text-slate-700">
+                              <td className="py-1 pr-2 font-semibold">{d.client}</td>
+                              <td className="px-2">{d.address}</td>
+                              <td className="px-2">{etDay(d.signed_at)}</td>
+                              <td className="px-2">{d.kind === 'pa_submit' ? <span className="text-slate-500">PA submitted {etDay(d.submitted_at)}</span> : etDay(d.inspected_at)}</td>
+                              <td className="px-2">{d.kind === 'pa_submit' ? 'PA submit' : (RESULT[d.result] || d.result || '—')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
               {data.rows.length > 0 && (
                 <tr className="font-bold">
