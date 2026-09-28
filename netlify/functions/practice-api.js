@@ -122,6 +122,16 @@ export const handler = async (event) => {
     return json(200, { ok: true, session: data })
   }
 
+  // Delete one practice run (Neal, 2026-09-28): the trainer clears try-outs and
+  // bad runs from Past practice. Trainer PIN required, like everything here.
+  if (body.action === 'delete') {
+    const id = String(body.id || '').trim()
+    if (!id) return json(400, { ok: false, error: 'id required' })
+    const { error } = await sb.from('sales_practice_sessions').delete().eq('id', id)
+    if (error) return json(500, { ok: false, error: error.message })
+    return json(200, { ok: true })
+  }
+
   if (body.action === 'list') {
     let q = sb.from('sales_practice_sessions').select(LIST_COLS).order('started_at', { ascending: false }).limit(60)
     if (body.trainee_id) q = q.eq('trainee_id', body.trainee_id)

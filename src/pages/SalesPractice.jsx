@@ -293,7 +293,13 @@ export default function SalesPractice() {
         </div>
       )}
 
-      <History sessions={history} onOpen={(id) => { setReportId(id); setStage('report') }} />
+      <History sessions={history} onOpen={(id) => { setReportId(id); setStage('report') }}
+        onDelete={async (s) => {
+          if (!window.confirm(`Delete ${s.trainee_name}'s practice run from ${fmtWhen(s.started_at)}? This can't be undone.`)) return
+          const d = await api({ action: 'delete', id: s.id })
+          if (!d.ok) window.alert(d.error || 'Could not delete it.')
+          loadHistory()
+        }} />
     </div>
   )
 }
@@ -800,7 +806,7 @@ function Card({ title, tone, children }) {
 }
 
 // ── Past sessions ────────────────────────────────────────────────────────────
-function History({ sessions, onOpen }) {
+function History({ sessions, onOpen, onDelete }) {
   const [who, setWho] = useState('')
   const list = who ? sessions.filter((s) => s.trainee_id === who) : sessions
   const names = [...new Map(sessions.filter((s) => s.trainee_id).map((s) => [s.trainee_id, s.trainee_name])).entries()]
@@ -816,7 +822,8 @@ function History({ sessions, onOpen }) {
       </div>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {list.map((s) => (
-          <button key={s.id} type="button" onClick={() => onOpen(s.id)} className="grid w-full grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-4 py-2 text-left last:border-0 hover:bg-slate-50">
+          <div key={s.id} role="button" tabIndex={0} onClick={() => onOpen(s.id)} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(s.id) }}
+            className="grid w-full cursor-pointer grid-cols-[1fr_auto_auto] items-center gap-3 border-b border-slate-100 px-4 py-2 text-left last:border-0 hover:bg-slate-50">
             <span>
               <span className="font-semibold text-slate-800">{s.trainee_name}</span>
               <span className="text-slate-500"> → {personaByKey(s.persona_key).tagline} · {sectionByKey(s.section).label}</span>
@@ -826,7 +833,11 @@ function History({ sessions, onOpen }) {
               <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : s.grade_status === 'invited' ? '📲' : '—'}</span>
               <span className="block text-[11px] text-slate-400" title="What Google charged for the conversation and the grading">{s.cost != null ? `$${Number(s.cost).toFixed(2)}` : 'cost n/a'}</span>
             </span>
-          </button>
+            {onDelete && (
+              <button type="button" title="Delete this practice run" onClick={(e) => { e.stopPropagation(); onDelete(s) }}
+                className="rounded-md px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600">🗑</button>
+            )}
+          </div>
         ))}
       </div>
     </section>
