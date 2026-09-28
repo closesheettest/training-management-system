@@ -1328,6 +1328,12 @@ function PendingToSales() {
 }
 
 function AllApptConversion() {
+  // COLUMN GROUPS fold into their total (Neal, 2026-09-28: the table got too wide).
+  // Click Total Apt / Go-back % / $ Sold / Net % to open that group's breakdown.
+  const [cg, setCg] = useState(() => {
+    try { return { src: false, insp: false, money: false, pct: false, ...JSON.parse(localStorage.getItem('appt_sales_cols') || '{}') } } catch { return { src: false, insp: false, money: false, pct: false } }
+  })
+  const toggleCg = (g) => setCg((c) => { const n = { ...c, [g]: !c[g] }; try { localStorage.setItem('appt_sales_cols', JSON.stringify(n)) } catch { /* private */ } return n })
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [openZones, setOpenZones] = useState(() => new Set())
@@ -1568,26 +1574,26 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           so the eye finds outcomes vs plain appointments fast. */}
                       <colgroup>
                         <col />{/* Rep */}
-                        <col />{/* Harv Apt */}
-                        <col className="bg-emerald-50" />{/* Harv Sold */}
-                        <col />{/* Co Apt */}
-                        <col className="bg-emerald-50" />{/* Co Sold */}
-                        <col />{/* BTR Apt */}
-                        <col className="bg-emerald-50" />{/* BTR Sold */}
-                        <col className="bg-violet-50" /><col className="bg-violet-50" /><col className="bg-violet-50" /><col className="bg-violet-50" />{/* Insp · Go-back · → Apt · GB % */}
+                        {cg.src && <col />}{/* Harv Apt */}
+                        {cg.src && <col className="bg-emerald-50" />}{/* Harv Sold */}
+                        {cg.src && <col />}{/* Co Apt */}
+                        {cg.src && <col className="bg-emerald-50" />}{/* Co Sold */}
+                        {cg.src && <col />}{/* BTR Apt */}
+                        {cg.src && <col className="bg-emerald-50" />}{/* BTR Sold */}
+                        {cg.insp && <><col className="bg-violet-50" /><col className="bg-violet-50" /><col className="bg-violet-50" /></>}<col className="bg-violet-50" />{/* Insp · Go-back · → Apt · GB % */}
                         <col />{/* Total Apt */}
                         <col className="bg-emerald-50" />{/* Sold */}
-                        <col className="bg-emerald-100" />{/* Harv $ */}
-                        <col className="bg-emerald-100" />{/* Co $ */}
-                        <col className="bg-emerald-100" />{/* BTR $ */}
-                        <col className="bg-emerald-100" />{/* $ Sold */}
-                        <col />{/* Harvest % */}
-                        <col />{/* IQ % */}
-                        <col />{/* BTR % */}
+                        {cg.pct && <col />}{/* Harvest % */}
+                        {cg.pct && <col />}{/* IQ % */}
+                        {cg.pct && <col />}{/* BTR % */}
                         <col />{/* Net % */}
                         <col className="bg-emerald-50" />{/* Gross % */}
                         <col className="bg-amber-50" />{/* NSR */}
                         <col className="bg-sky-50" />{/* Pending */}
+                        {cg.money && <col className="bg-emerald-100" />}{/* Harv $ */}
+                        {cg.money && <col className="bg-emerald-100" />}{/* Co $ */}
+                        {cg.money && <col className="bg-emerald-100" />}{/* BTR $ */}
+                        <col className="bg-emerald-100" />{/* $ Sold */}
                         <col />{/* Avg $/Sale */}
                         <col />{/* RB */}
                         <col />{/* Insul */}
@@ -1595,29 +1601,29 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left sticky left-0 z-20 bg-slate-50 border-r border-slate-200">Rep</th>
-                          <th className="px-2 py-1.5 text-right">Harvest Apt</th>
-                          <th className="px-2 py-1.5 text-right">Harvest Sold</th>
-                          <th className="px-2 py-1.5 text-right">IQ Apt</th>
-                          <th className="px-2 py-1.5 text-right">IQ Sold</th>
-                          <th className="px-2 py-1.5 text-right">BTR Apt</th>
-                          <th className="px-2 py-1.5 text-right">BTR Sold</th>
-                          <th className="px-2 py-1.5 text-right" title="Free inspections signed in this period (credited to the rep who signed it)">Insp Written</th>
-                          <th className="px-2 py-1.5 text-right" title="Inspections that go back to retail: Retail results + Damage converted to retail (credited to the rep who owns the deal)">Go-backs</th>
-                          <th className="px-2 py-1.5 text-right" title="Appointments from those go-backs (Retail or converted Damage deals)">→ Apt</th>
-                          <th className="px-2 py-1.5 text-right">Go-back %</th>
-                          <th className="px-2 py-1.5 text-right">Total Apt</th>
+                          {cg.src && <th className="px-2 py-1.5 text-right">Harvest Apt</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">Harvest Sold</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">IQ Apt</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">IQ Sold</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">BTR Apt</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">BTR Sold</th>}
+                          {cg.insp && <th className="px-2 py-1.5 text-right" title="Free inspections signed in this period (credited to the rep who signed it)">Insp Written</th>}
+                          {cg.insp && <th className="px-2 py-1.5 text-right" title="Inspections that go back to retail: Retail results + Damage converted to retail (credited to the rep who owns the deal)">Go-backs</th>}
+                          {cg.insp && <th className="px-2 py-1.5 text-right" title="Appointments from those go-backs (Retail or converted Damage deals)">→ Apt</th>}
+                          <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('insp')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.insp ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.insp ? '▾' : '▸'} Go-back %</button></th>
+                          <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('src')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.src ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.src ? '▾' : '▸'} Total Apt</button></th>
                           <th className="px-2 py-1.5 text-right">Sold</th>
-                          <th className="px-2 py-1.5 text-right">Harvest $</th>
-                          <th className="px-2 py-1.5 text-right">IQ $</th>
-                          <th className="px-2 py-1.5 text-right">BTR $</th>
-                          <th className="px-2 py-1.5 text-right">$ Sold</th>
-                          <th className="px-2 py-1.5 text-right">Harvest %</th>
-                          <th className="px-2 py-1.5 text-right">IQ %</th>
-                          <th className="px-2 py-1.5 text-right">BTR %</th>
-                          <th className="px-2 py-1.5 text-right" title="Net closing % — funded sales ÷ appointments (credit denials NOT counted).">Net %</th>
+                          {cg.pct && <th className="px-2 py-1.5 text-right">Harvest %</th>}
+                          {cg.pct && <th className="px-2 py-1.5 text-right">IQ %</th>}
+                          {cg.pct && <th className="px-2 py-1.5 text-right">BTR %</th>}
+                          <th className="px-2 py-1.5 text-right" title="Net closing % — funded sales ÷ appointments (credit denials NOT counted)."><button type="button" onClick={() => toggleCg('pct')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.pct ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.pct ? '▾' : '▸'} Net %</button></th>
                           <th className="px-2 py-1.5 text-right" title="Gross closing % — funded sales + credit denials ÷ appointments. A credit denial is a sale they couldn't finance.">Gross %</th>
                           <th className="px-2 py-1.5 text-right" title="No-sit recovery: of re-booked sits (a No Sit — Need to Reschedule that got back on the calendar), how many closed. sold / re-sat · %.">NSR</th>
                           <th className="px-2 py-1.5 text-right" title="Open deals still being worked (status Sit - Pending), with pending % of appointments. High pending % = slow to close.">Pending</th>
+                          {cg.money && <th className="px-2 py-1.5 text-right">Harvest $</th>}
+                          {cg.money && <th className="px-2 py-1.5 text-right">IQ $</th>}
+                          {cg.money && <th className="px-2 py-1.5 text-right">BTR $</th>}
+                          <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('money')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.money ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.money ? '▾' : '▸'} $ Sold</button></th>
                           <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
                           <th className="px-2 py-1.5 text-right">RB</th>
                           <th className="px-2 py-1.5 text-right">Insul</th>
@@ -1631,35 +1637,35 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           <Fragment key={rk}>
                           <tr className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenRep(open ? null : rk)}>
                             <td className="px-3 py-1.5 sticky left-0 z-10 bg-white border-r border-slate-200"><span className="text-slate-400">{open ? '▾' : '▸'}</span> {r.rep}{r.level && <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-bold text-slate-600">{r.level}</span>}{(() => { const n = repFixCount(r.details); return n > 0 ? <span title={n + ' deal(s) need fixing in JN'} className="ml-1.5 font-bold text-amber-600">⚠ {n}</span> : null })()}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>
-                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.harvSl}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>
-                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.compSl}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>
-                            <td className="px-2 py-1.5 text-right text-emerald-700">{r.btrSl}</td>
-                            <td className="px-2 py-1.5 text-right text-violet-700">{r.insp_written ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-violet-700">{r.gobacks ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-violet-700">{r.gb_appts ?? '—'}</td>
+                            {cg.src && <td className="px-2 py-1.5 text-right text-slate-600">{r.harvAp}</td>}
+                            {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{r.harvSl}</td>}
+                            {cg.src && <td className="px-2 py-1.5 text-right text-slate-600">{r.compAp}</td>}
+                            {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{r.compSl}</td>}
+                            {cg.src && <td className="px-2 py-1.5 text-right text-slate-600">{r.btrAp}</td>}
+                            {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{r.btrSl}</td>}
+                            {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{r.insp_written ?? '—'}</td>}
+                            {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{r.gobacks ?? '—'}</td>}
+                            {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{r.gb_appts ?? '—'}</td>}
                             <td className="px-2 py-1.5 text-right font-semibold text-violet-800">{r.gb_pct != null ? r.gb_pct + '%' : '—'}</td>
                             <td className="px-2 py-1.5 text-right font-semibold">{r.appts}</td>
                             <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{r.sales}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">${(r.harvAmt || 0).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">${(r.compAmt || 0).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-600">${(r.btrAmt || 0).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-500">{r.harvAp ? r.harvPct + '%' : '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-500">{r.compAp ? r.compPct + '%' : '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-500">{r.btrAp ? r.btrPct + '%' : '—'}</td>
+                            {cg.pct && <td className="px-2 py-1.5 text-right text-slate-500">{r.harvAp ? r.harvPct + '%' : '—'}</td>}
+                            {cg.pct && <td className="px-2 py-1.5 text-right text-slate-500">{r.compAp ? r.compPct + '%' : '—'}</td>}
+                            {cg.pct && <td className="px-2 py-1.5 text-right text-slate-500">{r.btrAp ? r.btrPct + '%' : '—'}</td>}
                             <td className="px-2 py-1.5 text-right font-bold text-indigo-700">{r.appts ? r.pct + '%' : '—'}</td>
                             <td className="px-2 py-1.5 text-right font-semibold text-emerald-700" title="funded sales + credit denials ÷ appts">{r.appts ? r.grossPct + '%' : '—'}</td>
                             <td className="px-2 py-1.5 text-right text-amber-700" title={r.resitAp ? `${r.resitSl} of ${r.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{r.resitAp ? <>{r.resitSl}/{r.resitAp}<span className="text-[10px] text-amber-500"> ({r.resitPct}%)</span></> : '—'}</td>
                             <td className="px-2 py-1.5 text-right text-sky-700 font-semibold">{r.pendAp || 0}<span className="text-[10px] text-sky-500"> ({r.pendPct || 0}%)</span></td>
+                            {cg.money && <td className="px-2 py-1.5 text-right text-slate-600">${(r.harvAmt || 0).toLocaleString()}</td>}
+                            {cg.money && <td className="px-2 py-1.5 text-right text-slate-600">${(r.compAmt || 0).toLocaleString()}</td>}
+                            {cg.money && <td className="px-2 py-1.5 text-right text-slate-600">${(r.btrAmt || 0).toLocaleString()}</td>}
+                            <td className="px-2 py-1.5 text-right font-semibold">${(r.amt || 0).toLocaleString()}</td>
                             <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
                             <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                           </tr>
                           {open && (
-                            <tr><td colSpan={27} className="bg-slate-50 px-4 py-2">
+                            <tr><td colSpan={27 - (cg.src ? 0 : 6) - (cg.insp ? 0 : 3) - (cg.money ? 0 : 3) - (cg.pct ? 0 : 3)} className="bg-slate-50 px-4 py-2">
                               <ApptDetail details={r.details} />
                             </td></tr>
                           )}
@@ -1668,29 +1674,29 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         })}
                         <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                           <td className="px-3 py-1.5 sticky left-0 z-10 bg-slate-50 border-r border-slate-200">Zone total</td>
-                          <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>
-                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.harvSl}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.compAp}</td>
-                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.compSl}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>
-                          <td className="px-2 py-1.5 text-right text-emerald-700">{zt.btrSl}</td>
-                          <td className="px-2 py-1.5 text-right text-violet-700">{zt.insp_written ?? '—'}</td>
-                          <td className="px-2 py-1.5 text-right text-violet-700">{zt.gobacks ?? '—'}</td>
-                          <td className="px-2 py-1.5 text-right text-violet-700">{zt.gb_appts ?? '—'}</td>
+                          {cg.src && <td className="px-2 py-1.5 text-right">{zt.harvAp}</td>}
+                          {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{zt.harvSl}</td>}
+                          {cg.src && <td className="px-2 py-1.5 text-right">{zt.compAp}</td>}
+                          {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{zt.compSl}</td>}
+                          {cg.src && <td className="px-2 py-1.5 text-right">{zt.btrAp}</td>}
+                          {cg.src && <td className="px-2 py-1.5 text-right text-emerald-700">{zt.btrSl}</td>}
+                          {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{zt.insp_written ?? '—'}</td>}
+                          {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{zt.gobacks ?? '—'}</td>}
+                          {cg.insp && <td className="px-2 py-1.5 text-right text-violet-700">{zt.gb_appts ?? '—'}</td>}
                           <td className="px-2 py-1.5 text-right font-semibold text-violet-800">{zt.gb_pct != null ? zt.gb_pct + '%' : '—'}</td>
                           <td className="px-2 py-1.5 text-right">{zt.appts}</td>
                           <td className="px-2 py-1.5 text-right font-semibold text-emerald-700">{zt.sales}</td>
-                          <td className="px-2 py-1.5 text-right">${(zt.harvAmt || 0).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-right">${(zt.compAmt || 0).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-right">${(zt.btrAmt || 0).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-right">${(zt.amt || 0).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.harvAp ? zt.harvPct + '%' : '—'}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.compAp ? zt.compPct + '%' : '—'}</td>
-                          <td className="px-2 py-1.5 text-right">{zt.btrAp ? zt.btrPct + '%' : '—'}</td>
+                          {cg.pct && <td className="px-2 py-1.5 text-right">{zt.harvAp ? zt.harvPct + '%' : '—'}</td>}
+                          {cg.pct && <td className="px-2 py-1.5 text-right">{zt.compAp ? zt.compPct + '%' : '—'}</td>}
+                          {cg.pct && <td className="px-2 py-1.5 text-right">{zt.btrAp ? zt.btrPct + '%' : '—'}</td>}
                           <td className="px-2 py-1.5 text-right text-indigo-700">{zt.appts ? zt.pct + '%' : '—'}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-700">{zt.appts ? zt.grossPct + '%' : '—'}</td>
                           <td className="px-2 py-1.5 text-right text-amber-700" title={zt.resitAp ? `${zt.resitSl} of ${zt.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{zt.resitAp ? <>{zt.resitSl}/{zt.resitAp}<span className="text-[10px] text-amber-500"> ({zt.resitPct}%)</span></> : '—'}</td>
                           <td className="px-2 py-1.5 text-right text-sky-700">{zt.pendAp || 0}<span className="text-[10px] text-sky-500"> ({zt.pendPct || 0}%)</span></td>
+                          {cg.money && <td className="px-2 py-1.5 text-right">${(zt.harvAmt || 0).toLocaleString()}</td>}
+                          {cg.money && <td className="px-2 py-1.5 text-right">${(zt.compAmt || 0).toLocaleString()}</td>}
+                          {cg.money && <td className="px-2 py-1.5 text-right">${(zt.btrAmt || 0).toLocaleString()}</td>}
+                          <td className="px-2 py-1.5 text-right">${(zt.amt || 0).toLocaleString()}</td>
                           <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
                           <td className="px-2 py-1.5 text-right">{zt.rb}<span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></td>
                           <td className="px-2 py-1.5 text-right">{zt.ins}<span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></td>
