@@ -47,8 +47,9 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
   const how = {
     survey: [
       'The homeowner starts a little guarded. They relax and open up only if it feels like a normal conversation: common ground, reacting to their answers, natural follow-ups. Questions read off the list like a form keep them short and impatient.',
-      'Graded mostly on the PURPOSE: did the rep build common ground and find their wants and needs casually, and was the homeowner relaxed and open for the presentation by the end?',
-      'Then on whether the survey information came out along the way. The exact wording and order never matter.',
+      'THE GAUGE: the homeowner starts with one-word answers. Did the rep turn that into a real conversation (their mind opening), and move to the kitchen table once they were talking freely, not before and not dragging on? The report shows how long their answers were at the start vs the end.',
+      'Graded mostly on the PURPOSE: common ground, their wants and needs found casually, and a homeowner who is open for the presentation.',
+      'The survey is training wheels for newer reps. An experienced rep can skip it and just talk; what counts is whether that information came out of the conversation.',
     ],
     door: [
       'At the front door. The homeowner stalls in character and agrees to the free inspection only if the rep handles the stall well.',
@@ -484,7 +485,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
             ) : section.surveySheet ? (
               <div>
                 <img src="/practice-slides/s-survey.jpg" alt="Customer Survey" className="w-full rounded-xl border border-slate-200 bg-white shadow-sm" />
-                <p className="mt-2 text-sm text-slate-600">☕ <b>The warm-up.</b> Your survey from the manual, for your eyes only. Don&rsquo;t read it like a form: find common ground with {persona.speaker} and their spouse, learn their wants and needs through normal conversation, and get them relaxed and open before the presentation.</p>
+                <p className="mt-2 text-sm text-slate-600">☕ <b>The warm-up.</b> You&rsquo;ve just walked in; you&rsquo;re not at the kitchen table yet. {persona.speaker} starts with one-word answers. Turn that into a real conversation (common ground, their wants and needs), and when they&rsquo;re talking freely, move to the kitchen table. The survey is here for your eyes only, as training wheels; if you&rsquo;re experienced, just talk.</p>
               </div>
             ) : (
             <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">

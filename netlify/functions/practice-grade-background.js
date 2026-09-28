@@ -168,7 +168,7 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   const range = sectionByKey(sectionKey).range || [0, -1]
   const out = []
   // Full is the slide show only: the warm-up is taken as done and never graded there.
-  if (sectionKey === 'survey') out.push(block('Intro', INTRO_POINTS), block('The warm-up: purpose (weigh this most)', WARMUP_POINTS), block('Customer Survey: what should come out of the conversation', SURVEY_POINTS))
+  if (sectionKey === 'survey') out.push(block('The warm-up: purpose (weigh this most)', WARMUP_POINTS), block('Intro', INTRO_POINTS), block('Customer Survey (OPTIONAL for an experienced rep: judge whether this information came out of the conversation, never whether the questions were asked in order)', SURVEY_POINTS))
   if (sectionKey === 'door') out.push(block('The door pitch (free roof inspection)', DOOR_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
   if (range[1] >= 23 && Math.min(range[1], maxSlide) >= 22) out.push(block('Closing the deal', CLOSE_EXTRA))
@@ -375,6 +375,18 @@ export const handler = async (event) => {
   const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. Also mention it in the manager_plan, and in "encouragement" in a positive way.
 
 ` : ''
+  // THE GAUGE for the warm-up (Neal, 2026-09-28): one-word answers → real conversation.
+  // Measured from the transcript so the grade has a number to point at.
+  let warmupGauge = ''
+  if (row.section === 'survey') {
+    const ho = (row.transcript || []).filter((t) => t.who === 'homeowner').map((t) => String(t.text || '').trim().split(/\s+/).filter(Boolean).length)
+    const third = Math.max(1, Math.floor(ho.length / 3))
+    const avg = (a) => (a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0)
+    const tableAt = (row.transcript || []).filter((t) => t.who === 'rep').findIndex((t) => /kitchen table|(sit|have a seat|sit down).{0,20}table|table.{0,20}(sit|seat)/i.test(String(t.text || '')))
+    warmupGauge = `THE GAUGE (how far the homeowner opened up): the homeowner averaged ${avg(ho.slice(0, third))} words per answer at the start and ${avg(ho.slice(-third))} at the end, over ${ho.length} answers. ${tableAt >= 0 ? `The rep moved to the kitchen table on their reply #${tableAt + 1}.` : 'The rep never moved to the kitchen table.'} One-word answers turning into real conversation is the goal; judge whether the rep moved to the table once the homeowner was talking freely (not before, and without dragging on). Put this in the report.
+
+`
+  }
   // Everything except the warm-up is graded on staying on script (angle + points).
   const onScript = row.section !== 'survey'
   const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
@@ -412,7 +424,7 @@ THE SCRIPT (${onScript ? 'the ANGLE and the points for each part, and the source
 ${scriptForSection(row.section)}
 """
 
-${impulseText}THE TRANSCRIPT (speech-to-text, so ignore small transcription errors; [brackets] are the slide the rep had on screen):
+${impulseText}${warmupGauge}THE TRANSCRIPT (speech-to-text, so ignore small transcription errors; [brackets] are the slide the rep had on screen):
 """
 ${lines}
 """

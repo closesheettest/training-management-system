@@ -273,7 +273,7 @@ export const SECTIONS = [
   // screen as the rep's notes, but the point is NOT to read it out. Find common
   // ground and their wants and needs through normal conversation, so they relax
   // and open their minds before the presentation.
-  { key: 'survey', label: 'Warm-up: intro + customer survey', desc: 'Build common ground, find their wants and needs in normal conversation, get them relaxed and open for the presentation. The survey from the manual is on screen. ~10–15 min.', range: null, surveySheet: true },
+  { key: 'survey', label: 'Warm-up: intro + customer survey', desc: 'Turn one-word answers into a real conversation: common ground, their wants and needs, then move to the kitchen table once their mind is open. The survey is on screen for newer reps; experienced reps can just talk. ~10–15 min.', range: null, surveySheet: true },
   { key: 'slides_1_5', label: 'Slides 1–5: the company', desc: 'Company, license, insurance, “you already need a roof”, experience. ~10–15 min.', range: [1, 5] },
   { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', range: [6, 7] },
   { key: 'slides_8_16', label: 'Slides 8–16: products, install & warranty', desc: 'What we offer, the installation process, colors, our work, jobsite prep, warranty. ~15 min.', range: [8, 16] },
@@ -345,11 +345,16 @@ export const INTRO_POINTS = [
 // The PURPOSE of the warm-up (Neal, 27 Sep): common ground, their wants and needs
 // through normal conversation, a relaxed homeowner with an open mind. These come
 // first; the survey questions are the content that should surface along the way.
+// THE GAUGE (Neal, 2026-09-28): at first a homeowner gives one-word answers. When
+// they start having a real conversation, their mind is opening, and THAT is when
+// the rep moves them to the kitchen table (the presentation / closing table). The
+// survey is training wheels for a new rep; an experienced rep just converses.
 export const WARMUP_POINTS = [
   'Created common ground: found things in common, related to their answers, shared a little of themselves',
-  'Found their wants and needs in a casual, natural conversation (not reading questions off a list like a form)',
+  'Found their wants and needs in a casual, natural conversation (not reading questions off a list like a form; the survey is optional)',
   'Listened and followed up on what they said instead of jumping to the next question',
-  'The homeowner relaxed and opened up by the end: ready and open-minded for the presentation',
+  'Read the homeowner: turned one-word answers into a real conversation (their mind opening up)',
+  'Moved to the kitchen table at the right moment: once the homeowner was talking freely, not before, and without dragging it out',
 ]
 export const SURVEY_POINTS = [
   'What caught their eye (mailer / Facebook ad)',
@@ -424,8 +429,13 @@ export function homeownerPrompt(persona, section, impulse = null) {
   const where = {
     full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
     door: 'You are at home and someone knocks on your FRONT DOOR. You open it and a young roofing rep is standing there. You do not know them. You got a mailer from U.S. Shingle about your roof a few days ago but barely looked at it. You are standing in the doorway and did not plan on a conversation. The rep is here to get you to agree to a free roof inspection. Your spouse is inside the house; for a free inspection you can decide yourself, so never say you need to ask them.',
-    survey: `The rep has just sat down at your kitchen table with an iPad. Today is only the WARM-UP: the intro and getting to know you (the rep has a customer survey in front of them, which you cannot see); the slides come later.
-THE WARM-UP IS ABOUT RAPPORT. You start out a little guarded, the way anyone is with a salesperson at their table. How much you relax depends on the rep:
+    survey: `The rep has just come into your home. You are NOT at the kitchen table yet: you are standing or sitting in the living room. Today is only the WARM-UP: getting to know you (the rep may have a customer survey, which you cannot see); the presentation comes later, at the kitchen table.
+YOU START WITH ONE-WORD ANSWERS. "Yep." "About twenty years." "It's fine." Polite, but closed, the way anyone is with a salesperson in their house. Real conversation is what opens you up, a little at a time:
+- As the rep builds common ground and a real back-and-forth, your answers get longer, you add details nobody asked for, you ask them a question or two back. That is your mind opening.
+- If the rep suggests moving to the kitchen table while you are STILL giving short answers, go along politely but stay closed (short answers continue at the table).
+- If they move you to the table once you are talking freely, you are happy to: "Sure, come on in, have a seat."
+- If they keep chatting long after you are open and comfortable, you start to wonder when they will show you something ("So, what have you got for us?").
+THE WARM-UP IS ABOUT RAPPORT. How much you relax depends on the rep:
 - If it feels like a friendly, NORMAL CONVERSATION (they find common ground with you, react to what you say, share a little about themselves, ask natural follow-ups about your home, your neighborhood, your plans), you relax: longer answers, a laugh, you volunteer things you were not asked (a leak you noticed, the insurance renewal letter, a neighbor's new roof). By the end you are comfortable and curious to see what they have.
 - If they fire questions off a list like a form, one after another without reacting to your answers, you stay polite but short and a bit guarded, and you get impatient ("Is this going to take long?").
 Answer every question truthfully from YOUR FACTS, in your personality. Do not rush the rep toward the slides.`,
