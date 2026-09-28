@@ -1,3 +1,4 @@
+import { fetchVirtualClassIds } from '../lib/schedule.js'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { isLiveTrainee } from '../lib/liveTrainee.js'
 import { supabase } from '../lib/supabase.js'
@@ -148,7 +149,9 @@ export default function Hotels() {
       if (start === weekMon) { phaseByClass[c.id] = 'A'; clsById[c.id] = c }
       else if (start === weekBStart) { phaseByClass[c.id] = 'B'; clsById[c.id] = c }
     }
-    const ids = Object.keys(clsById)
+    // Virtual (Zoom) classes need no rooms: keep them off HR's booking list.
+    const virt = await fetchVirtualClassIds()
+    const ids = Object.keys(clsById).filter((id) => !virt.has(id))
     if (ids.length === 0) {
       setTrainees([])
       setStays([])

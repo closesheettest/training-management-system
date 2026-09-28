@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { formatAddress, FL_REGIONS, US_STATES, ZIP_PATTERN, YEARS_IN_SALES_OPTIONS } from '../lib/locations.js'
 import { ZONE_TEAMS, ZONE_COUNTIES, teamLabel, zoneForCounty } from '../lib/zones.js'
 import { formatDateRange, formatDateLong, addDaysIso } from '../lib/dates.js'
-import { useTimetable, shortLine, weekWindow } from '../lib/schedule.js'
+import { useTimetable, shortLine, weekWindow, fetchVirtualClassIds } from '../lib/schedule.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
 
 export default function ClassDetail() {
@@ -46,6 +46,9 @@ export default function ClassDetail() {
   const [cls, setCls] = useState(null)
   const [trainees, setTrainees] = useState([])
   const [stays, setStays] = useState([])
+  // Virtual (Zoom) class: no hotels, so no "needs hotel" prompts or Book Hotel buttons.
+  const [virtualClass, setVirtualClass] = useState(false)
+  useEffect(() => { let live = true; fetchVirtualClassIds().then((v) => { if (live) setVirtualClass(v.has(id)) }); return () => { live = false } }, [id])
   const [hotelBusyId, setHotelBusyId] = useState(null)
   const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1687,6 +1690,7 @@ export default function ClassDetail() {
           hotelBusyId={hotelBusyId}
           hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
+          virtualClass={virtualClass}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onDropout={dropoutTrainee}
@@ -1755,6 +1759,7 @@ export default function ClassDetail() {
           hotelBusyId={hotelBusyId}
           hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
+          virtualClass={virtualClass}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onDropout={dropoutTrainee}
@@ -1795,6 +1800,7 @@ export default function ClassDetail() {
           hotelBusyId={hotelBusyId}
           hotelNoShowSet={hotelNoShowSet}
           onBookHotel={bookHotel}
+          virtualClass={virtualClass}
           onCancelHotel={cancelHotel}
           onUnenroll={unenrollTrainee}
           onDropout={dropoutTrainee}
@@ -1972,6 +1978,7 @@ export default function ClassDetail() {
 }
 
 function TraineeGroup({
+  virtualClass = false,
   startDayLabel,
   paperworkById,
   paperworkDetailsById,
@@ -2109,7 +2116,10 @@ function TraineeGroup({
                           ⏳ Confirmation reminder sent, awaiting reply
                         </div>
                       )}
-                      {t.needs_hotel && (() => {
+                      {t.needs_hotel && virtualClass && (
+                        <div className="mt-0.5 text-xs font-semibold text-slate-500">💻 Virtual class, no hotel needed</div>
+                      )}
+                      {t.needs_hotel && !virtualClass && (() => {
                         const stay = stayByTraineeId[t.id]
                         if (stay?.cancelled_at) {
                           return (
@@ -2129,7 +2139,7 @@ function TraineeGroup({
                       })()}
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      {t.needs_hotel && onBookHotel && (() => {
+                      {t.needs_hotel && onBookHotel && !virtualClass && (() => {
                         const stay = stayByTraineeId[t.id]
                         // Not booked yet → the action button.
                         if (!stay) {

@@ -1,3 +1,4 @@
+import { fetchVirtualClassIds } from '../lib/schedule.js'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
@@ -48,7 +49,9 @@ function HotelAlert() {
         if (start === weekMon) phaseByClass[c.id] = 'A'
         else if (start === weekBStart) phaseByClass[c.id] = 'B'
       }
-      const ids = Object.keys(phaseByClass)
+      // Virtual (Zoom) classes need no rooms, so they never count toward "rooms need booking".
+      const virt = await fetchVirtualClassIds()
+      const ids = Object.keys(phaseByClass).filter((id) => !virt.has(id))
       if (ids.length === 0) { if (!cancelled) setNeed({ count: 0, weekMon }); return }
       const [tRes, sRes] = await Promise.all([
         supabase

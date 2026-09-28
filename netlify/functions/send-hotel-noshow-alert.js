@@ -84,6 +84,12 @@ export const handler = async (event) => {
     .eq('registered', true)
 
   if (trErr) return json(500, { error: `Supabase: ${trErr.message}` })
+  // Virtual (Zoom) classes have no rooms to cancel.
+  {
+    const { data: v } = await supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle()
+    const virt = new Set(String(v?.value || '').split(',').map((x) => x.trim()).filter(Boolean))
+    if (virt.size && Array.isArray(trainees)) for (let i = trainees.length - 1; i >= 0; i--) if (virt.has(trainees[i].class_id)) trainees.splice(i, 1)
+  }
 
   // 2. Open (un-cancelled) hotel bookings, keyed by trainee. A booking =
   //    proof a room exists to cancel. cancelled_at is the off switch.

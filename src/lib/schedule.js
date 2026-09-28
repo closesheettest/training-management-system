@@ -39,6 +39,16 @@ export const SIGNOFF = {
   B: { name: 'U.S. Shingle & Metal Training', title: '' },
 }
 
+// VIRTUAL (Zoom) classes: app_settings.virtual_class_ids. Nobody travels, so no
+// hotel is booked, shown or asked for (Neal, 2026-09-28: "virtual does not send
+// Jenn anything that says she needs to get a hotel").
+export async function fetchVirtualClassIds() {
+  try {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle()
+    return new Set(String(data?.value || '').split(',').map((x) => x.trim()).filter(Boolean))
+  } catch { return new Set() }
+}
+
 export async function fetchTimetable() {
   try {
     const { data } = await supabase

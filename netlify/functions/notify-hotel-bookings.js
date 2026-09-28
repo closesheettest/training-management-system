@@ -55,6 +55,13 @@ export const handler = async (event) => {
     .maybeSingle()
   if (clsErr) return json(500, { ok: false, error: clsErr.message })
   if (!cls) return json(404, { ok: false, error: 'Class not found' })
+  // A virtual (Zoom) class needs no rooms: never ask HR to book any.
+  {
+    const { data: v } = await supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle()
+    if (String(v?.value || '').split(',').map((x) => x.trim()).includes(classId)) {
+      return json(200, { ok: true, notified: false, reason: 'virtual_class', class_id: classId })
+    }
+  }
 
   // Trainees in this class who need a hotel and checked in on `date`.
   const { data: trainees, error: tErr } = await supabase
