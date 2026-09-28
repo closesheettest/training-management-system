@@ -58,7 +58,8 @@ export default function InspectionPayReport() {
             <span className="text-sm font-semibold text-slate-700">{data.label}</span>
             <button type="button" onClick={() => go(Math.max(0, offset - 1))} disabled={offset === 0} className="rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-40">▶</button>
           </>}
-          <button type="button" onClick={() => { setShown(true); load() }} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
+          {data && shown && <button type="button" onClick={() => load()} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60">↻ Refresh</button>}
+          <button type="button" onClick={toggle} disabled={busy} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{busy ? 'Loading…' : !data ? 'Load report' : shown ? '▴ Shrink' : '▾ Show'}</button>
         </div>
       </div>
       {err && <div className="mt-2 text-sm font-semibold text-red-700">{err}</div>}

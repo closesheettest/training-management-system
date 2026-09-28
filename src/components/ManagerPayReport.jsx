@@ -76,7 +76,8 @@ export default function ManagerPayReport({ admin = false }) {
         <div className="flex items-center gap-2">
           {admin && <button onClick={() => setCfgOpen((v) => !v)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">⚙️ Rates</button>}
           {data && <button onClick={downloadCsv} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">⬇ CSV</button>}
-          <button onClick={() => { setShown(true); load() }} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : data ? 'Refresh' : 'Load report'}</button>
+          {data && shown && <button type="button" onClick={() => load()} disabled={loading} className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60">↻ Refresh</button>}
+          <button type="button" onClick={toggle} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : !data ? 'Load report' : shown ? '▴ Shrink' : '▾ Show'}</button>
         </div>
       </div>
 
