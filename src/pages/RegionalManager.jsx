@@ -1342,7 +1342,7 @@ function TransferZone({ apptId, jobId, zone, who, token, onDone }) {
       <div className="text-[11.5px] font-bold text-slate-600">Give this appointment to:</div>
       <div className="mt-1 flex items-center gap-2">
         <select value={to} onChange={(e) => setTo(e.target.value)} disabled={busy}
-          className="rounded border border-slate-300 px-2 py-1 text-[12.5px]">
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-[12.5px] text-slate-800">
           <option value="">Select a team…</option>
           {others.map((z) => <option key={z} value={z}>{z}</option>)}
         </select>
@@ -1515,13 +1515,13 @@ function AssignAppointments({ token }) {
     return (
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <label className="text-xs text-slate-600">Assigned to (owner)
-          <select value={ownerVal} onChange={(e) => pick(item.key, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <select value={ownerVal} onChange={(e) => pick(item.key, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800">
             <option value="">Select…</option>
             {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{repLabel(r)}</option>)}
           </select>
         </label>
         <label className="text-xs text-slate-600">Sales Rep
-          <select value={repVal} onChange={(e) => pick(item.key, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <select value={repVal} onChange={(e) => pick(item.key, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800">
             <option value="">Select…</option>
             {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{repLabel(r)}</option>)}
           </select>
@@ -1961,7 +1961,10 @@ function DamageNeedsRep({ zone }) {
                 <div className="text-[13px] text-slate-600">📍 {[dl.address, dl.city].filter(Boolean).join(', ')}{dl.county ? ` · ${dl.county}` : ''}</div>
                 <div className="text-[12px] text-slate-400">was: {dl.current_rep || 'no rep'}{dl.mobile ? ` · ${dl.mobile}` : ' · no phone'}</div>
                 <div className="mt-2 flex gap-2">
-                  <select value={sel[dl.inspection_id] || ''} onChange={(e) => setSel((s) => ({ ...s, [dl.inspection_id]: e.target.value }))} className="flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+                  <select value={sel[dl.inspection_id] || ''} onChange={(e) => setSel((s) => ({ ...s, [dl.inspection_id]: e.target.value }))} className="flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800">
+                    {/* The section is white-on-dark, so the select inherited WHITE text on a white box:
+                        the picked rep was there but invisible (Neal, 2026-09-29). Colours set explicitly. */}
+                    {(data.reps || []).length > 0 && <option value="">Pick a rep…</option>}
                     {(data.reps || []).map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
                     {(!data.reps || !data.reps.length) && <option value="">No active reps in zone</option>}
                   </select>
