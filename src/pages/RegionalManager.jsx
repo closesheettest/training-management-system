@@ -1498,6 +1498,9 @@ function AssignAppointments({ token }) {
   }
 
   const reps = (d && d.reps) || []
+  // Jr / Sr beside each name in the dropdowns (Neal, 2026-09-29), from the roster's rep_level.
+  const levelOf = useMemo(() => { const m = {}; for (const r of allReps) if (r.jobnimbus_id && r.rep_level) m[r.jobnimbus_id] = String(r.rep_level).toLowerCase(); return m }, [allReps])
+  const repLabel = (r) => { const l = levelOf[r.jobnimbus_id]; return l === 'senior' ? `${r.name} · Sr` : l === 'junior' ? `${r.name} · Jr` : r.name }
   const fmt = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
   const timeOnly = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
 
@@ -1514,13 +1517,13 @@ function AssignAppointments({ token }) {
         <label className="text-xs text-slate-600">Assigned to (owner)
           <select value={ownerVal} onChange={(e) => pick(item.key, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
             <option value="">Select…</option>
-            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{repLabel(r)}</option>)}
           </select>
         </label>
         <label className="text-xs text-slate-600">Sales Rep
           <select value={repVal} onChange={(e) => pick(item.key, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 px-2 py-1.5 text-sm">
             <option value="">Select…</option>
-            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{r.name}</option>)}
+            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{repLabel(r)}</option>)}
           </select>
         </label>
         <button onClick={() => submit(target)} disabled={busy === item.key || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === item.key ? 'Saving…' : (saveLabel || 'Save')}</button>
