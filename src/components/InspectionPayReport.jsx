@@ -38,6 +38,28 @@ export default function InspectionPayReport() {
   const [offset, setOffset] = useState(1) // last completed week
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
+  // MARK PAID (Neal, 2026-09-29): tick reps, "Mark paid" → JobNimbus INSP Paid Date on each
+  // of their inspections + an email to the rep listing what was paid. Managers Pay PIN.
+  const [pick, setPick] = useState({})
+  const [paidOn, setPaidOn] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
+  const [pin, setPin] = useState('')
+  const [marking, setMarking] = useState(false)
+  const [markMsg, setMarkMsg] = useState('')
+  const picked = Object.keys(pick).filter((k) => pick[k])
+  const markPaid = async () => {
+    if (!picked.length || !data) return
+    if (!window.confirm(`Mark ${picked.length} rep${picked.length > 1 ? 's' : ''} paid on ${paidOn}?\n\n${picked.join(', ')}\n\nThis writes the paid date into JobNimbus and emails each rep.`)) return
+    setMarking(true); setMarkMsg('')
+    try {
+      const r = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/inspection-pay-mark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, start: data.week.start, end: data.week.end, reps: picked, paid_on: paidOn }) })
+      const j = await r.json()
+      if (!j.ok) throw new Error(j.error || 'Could not mark paid')
+      setMarkMsg(j.results.map((x) => x.error ? `${x.rep}: ${x.error}` : `${x.rep}: ${x.set} marked${x.already ? `, ${x.already} already paid` : ''}${x.failed ? `, ${x.failed} FAILED` : ''} · ${x.emailed ? `emailed ${x.email}` : x.email ? 'email not sent' : 'no email on file'}`).join('  |  '))
+      setPick({})
+      load()
+    } catch (x) { setMarkMsg(`⚠ ${x.message}`) }
+    setMarking(false)
+  }
   const [err, setErr] = useState('')
   const [openRep, setOpenRep] = useState(null) // click a rep → the jobs behind their count
   // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
@@ -80,16 +102,28 @@ export default function InspectionPayReport() {
       {err && <div className="mt-2 text-sm font-semibold text-red-700">{err}</div>}
       {data && shown && (
         <div className="mt-3 overflow-x-auto">
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-emerald-900">{picked.length ? `${picked.length} checked` : 'Tick the reps you paid, then'}</span>
+            <label className="flex items-center gap-1 text-slate-700">paid on <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="rounded border border-slate-300 px-1.5 py-0.5" /></label>
+            <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Managers Pay PIN" className="w-36 rounded border border-slate-300 px-2 py-0.5" />
+            <button type="button" disabled={!picked.length || !pin || marking} onClick={markPaid} className="rounded-md bg-emerald-700 px-3 py-1 font-bold text-white disabled:opacity-50">{marking ? 'Marking…' : '💵 Mark paid'}</button>
+            <span className="text-xs text-slate-500">Writes INSP Paid Date in JobNimbus and emails each rep their list.</span>
+            {markMsg && <div className="w-full text-xs font-semibold text-slate-700">{markMsg}</div>}
+          </div>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="py-1.5 pr-2">Rep</th><th className="px-2 text-right">Inspections</th><th className="px-2 text-right">$/each</th>
+              <th className="w-6 py-1.5" /><th className="py-1.5 pr-2">Rep</th><th className="px-2 text-right">Inspections</th><th className="px-2 text-right">$/each</th>
               <th className="px-2 text-right">Inspection pay</th><th className="px-2 text-right">PA submits</th><th className="px-2 text-right">Submit pay</th><th className="px-2 text-right">Total owed</th><th className="px-2 text-right">Paid</th>
             </tr></thead>
             <tbody>
-              {data.rows.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-slate-400">No rep activity that week.</td></tr>}
+              {data.rows.length === 0 && <tr><td colSpan={9} className="py-4 text-center text-slate-400">No rep activity that week.</td></tr>}
               {data.rows.map((r) => (
                 <Fragment key={r.rep}>
                 <tr onClick={() => setOpenRep(openRep === r.rep ? null : r.rep)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" title={r.paid && r.paid.of && r.paid.count === r.paid.of ? 'Already paid' : 'Tick to mark paid'} disabled={!!(r.paid && r.paid.of && r.paid.count === r.paid.of)}
+                      checked={!!pick[r.rep]} onChange={(e) => setPick((p) => ({ ...p, [r.rep]: e.target.checked }))} />
+                  </td>
                   <td className="py-1.5 pr-2 font-semibold text-slate-800"><span className="mr-1 text-slate-400">{openRep === r.rep ? '▾' : '▸'}</span>{r.rep}</td>
                   <td className="px-2 text-right">{r.inspections}</td>
                   <td className="px-2 text-right text-slate-500">{r.tier_kind === 'flat' ? 'flat' : r.rate_each != null ? money(r.rate_each) : '—'}</td>
@@ -101,7 +135,7 @@ export default function InspectionPayReport() {
                 </tr>
                 {openRep === r.rep && (
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    <td colSpan={8} className="px-3 py-2">
+                    <td colSpan={9} className="px-3 py-2">
                       <table className="w-full text-xs">
                         <thead><tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
                           <th className="py-1 pr-2">Homeowner</th><th className="px-2">Address</th><th className="px-2">Signed up</th><th className="px-2">Inspected</th><th className="px-2">Result</th><th className="px-2">Paid</th>
@@ -126,7 +160,7 @@ export default function InspectionPayReport() {
               ))}
               {data.rows.length > 0 && (
                 <tr className="font-bold">
-                  <td className="py-1.5 pr-2">Total</td><td className="px-2 text-right">{data.totals.inspections}</td><td />
+                  <td /><td className="py-1.5 pr-2">Total</td><td className="px-2 text-right">{data.totals.inspections}</td><td />
                   <td className="px-2 text-right">{money(data.totals.insp_pay)}</td><td className="px-2 text-right">{data.totals.pa_submits}</td>
                   <td className="px-2 text-right">{money(data.totals.submit_pay)}</td><td className="px-2 text-right text-emerald-700">{money(data.totals.total)}</td><td />
                 </tr>
