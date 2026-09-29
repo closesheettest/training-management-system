@@ -22,6 +22,16 @@ function etMidnight(ymd) {
 const fmtDay = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const etDay = (iso) => iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric' }) : '—'
 const RESULT = { damage: 'Damage', no_damage: 'No damage', retail: 'Retail' }
+// PAID (Neal, 2026-09-29): read from JobNimbus's "INSP Paid Date" per job — some weeks are
+// paid early, so the pay-day label alone doesn't say whether it went out.
+const paidDay = (iso) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'numeric', day: 'numeric' })
+const paidCell = (p) => {
+  if (!p || !p.of) return <span className="text-slate-400">—</span>
+  const d = p.dates.map((x) => paidDay(`${x}T12:00:00Z`)).join(', ')
+  if (p.count === p.of) return <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">✓ Paid {d}</span>
+  if (p.count === 0) return <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">Not paid</span>
+  return <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">{p.count} of {p.of} paid · {d}</span>
+}
 const money = (n) => `$${Number(n || 0).toLocaleString()}`
 
 export default function InspectionPayReport() {
@@ -73,10 +83,10 @@ export default function InspectionPayReport() {
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
               <th className="py-1.5 pr-2">Rep</th><th className="px-2 text-right">Inspections</th><th className="px-2 text-right">$/each</th>
-              <th className="px-2 text-right">Inspection pay</th><th className="px-2 text-right">PA submits</th><th className="px-2 text-right">Submit pay</th><th className="px-2 text-right">Total owed</th>
+              <th className="px-2 text-right">Inspection pay</th><th className="px-2 text-right">PA submits</th><th className="px-2 text-right">Submit pay</th><th className="px-2 text-right">Total owed</th><th className="px-2 text-right">Paid</th>
             </tr></thead>
             <tbody>
-              {data.rows.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-slate-400">No rep activity that week.</td></tr>}
+              {data.rows.length === 0 && <tr><td colSpan={8} className="py-4 text-center text-slate-400">No rep activity that week.</td></tr>}
               {data.rows.map((r) => (
                 <Fragment key={r.rep}>
                 <tr onClick={() => setOpenRep(openRep === r.rep ? null : r.rep)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
@@ -87,13 +97,14 @@ export default function InspectionPayReport() {
                   <td className="px-2 text-right">{r.pa_submits}</td>
                   <td className="px-2 text-right">{money(r.submit_pay)}</td>
                   <td className="px-2 text-right font-bold text-emerald-700">{money(r.total)}</td>
+                  <td className="whitespace-nowrap px-2 text-right">{paidCell(r.paid)}</td>
                 </tr>
                 {openRep === r.rep && (
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    <td colSpan={7} className="px-3 py-2">
+                    <td colSpan={8} className="px-3 py-2">
                       <table className="w-full text-xs">
                         <thead><tr className="text-left text-[10px] uppercase tracking-wide text-slate-400">
-                          <th className="py-1 pr-2">Homeowner</th><th className="px-2">Address</th><th className="px-2">Signed up</th><th className="px-2">Inspected</th><th className="px-2">Result</th>
+                          <th className="py-1 pr-2">Homeowner</th><th className="px-2">Address</th><th className="px-2">Signed up</th><th className="px-2">Inspected</th><th className="px-2">Result</th><th className="px-2">Paid</th>
                         </tr></thead>
                         <tbody>
                           {(r.detail || []).map((d, i) => (
@@ -103,6 +114,7 @@ export default function InspectionPayReport() {
                               <td className="px-2">{etDay(d.signed_at)}</td>
                               <td className="px-2">{d.kind === 'pa_submit' ? <span className="text-slate-500">PA submitted {etDay(d.submitted_at)}</span> : etDay(d.inspected_at)}</td>
                               <td className="px-2">{d.kind === 'pa_submit' ? 'PA submit' : (RESULT[d.result] || d.result || '—')}</td>
+                              <td className="px-2">{d.paid_at ? <span className="font-semibold text-emerald-700">✓ {paidDay(d.paid_at)}</span> : d.kind === 'inspection' ? <span className="text-slate-400">not yet</span> : ''}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -116,7 +128,7 @@ export default function InspectionPayReport() {
                 <tr className="font-bold">
                   <td className="py-1.5 pr-2">Total</td><td className="px-2 text-right">{data.totals.inspections}</td><td />
                   <td className="px-2 text-right">{money(data.totals.insp_pay)}</td><td className="px-2 text-right">{data.totals.pa_submits}</td>
-                  <td className="px-2 text-right">{money(data.totals.submit_pay)}</td><td className="px-2 text-right text-emerald-700">{money(data.totals.total)}</td>
+                  <td className="px-2 text-right">{money(data.totals.submit_pay)}</td><td className="px-2 text-right text-emerald-700">{money(data.totals.total)}</td><td />
                 </tr>
               )}
             </tbody>
