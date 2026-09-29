@@ -45,6 +45,10 @@ export default function InspectionPayReport() {
   const [marking, setMarking] = useState(false)
   const [markMsg, setMarkMsg] = useState('')
   const picked = Object.keys(pick).filter((k) => pick[k])
+  // "Select all" = everyone owed money this week who isn't already fully paid (Neal, 2026-09-29).
+  const owed = (data?.rows || []).filter((r) => r.total > 0 && !(r.paid && r.paid.of && r.paid.count === r.paid.of)).map((r) => r.rep)
+  const allPicked = owed.length > 0 && owed.every((n) => pick[n])
+  const toggleAll = () => setPick(allPicked ? {} : Object.fromEntries(owed.map((n) => [n, true])))
   const markPaid = async () => {
     if (!picked.length || !data) return
     if (!window.confirm(`Mark ${picked.length} rep${picked.length > 1 ? 's' : ''} paid on ${paidOn}?\n\n${picked.join(', ')}\n\nThis writes the paid date into JobNimbus and emails each rep.`)) return
@@ -102,7 +106,8 @@ export default function InspectionPayReport() {
       {data && shown && (
         <div className="mt-3 overflow-x-auto">
           <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
-            <span className="font-semibold text-emerald-900">{picked.length ? `${picked.length} checked` : 'Tick the reps you paid, then'}</span>
+            <label className="flex items-center gap-1 font-semibold text-emerald-900"><input type="checkbox" checked={allPicked} disabled={!owed.length} onChange={toggleAll} /> Select all ({owed.length} owed)</label>
+            <span className="font-semibold text-emerald-900">{picked.length ? `· ${picked.length} checked` : '· or tick reps below, then'}</span>
             <label className="flex items-center gap-1 text-slate-700">paid on <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="rounded border border-slate-300 px-1.5 py-0.5" /></label>
             <button type="button" disabled={!picked.length || marking} onClick={markPaid} className="rounded-md bg-emerald-700 px-3 py-1 font-bold text-white disabled:opacity-50">{marking ? 'Marking…' : '💵 Mark paid'}</button>
             <span className="text-xs text-slate-500">Writes INSP Paid Date in JobNimbus and emails each rep their list.</span>
@@ -110,7 +115,7 @@ export default function InspectionPayReport() {
           </div>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="w-6 py-1.5" /><th className="py-1.5 pr-2">Rep</th><th className="px-2 text-right">Inspections</th><th className="px-2 text-right">$/each</th>
+              <th className="w-6 py-1.5"><input type="checkbox" title="Select everyone owed money" checked={allPicked} disabled={!owed.length} onChange={toggleAll} /></th><th className="py-1.5 pr-2">Rep</th><th className="px-2 text-right">Inspections</th><th className="px-2 text-right">$/each</th>
               <th className="px-2 text-right">Inspection pay</th><th className="px-2 text-right">PA submits</th><th className="px-2 text-right">Submit pay</th><th className="px-2 text-right">Total owed</th><th className="px-2 text-right">Paid</th>
             </tr></thead>
             <tbody>
