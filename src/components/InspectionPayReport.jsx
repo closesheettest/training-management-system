@@ -1,5 +1,5 @@
 // Inspection pay — what we owe reps for free inspections (and PA submits) for one
-// Monday–Sunday week. Read from CCG's commission-report, which applies the rates
+// Monday–Sunday week of inspections, labelled by the Friday it's paid. Read from CCG's commission-report, which applies the rates
 // set on CCG's Commissions screen (Neal, 2026-09-28: one place for every pay report).
 import { Fragment, useState } from 'react'
 
@@ -42,7 +42,9 @@ export default function InspectionPayReport() {
       const r = await fetch(`${CCG}?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`)
       const d = await r.json()
       if (!d.ok) throw new Error(d.error || 'Could not load')
-      setData({ ...d, label: `${fmtDay(mon)} – ${fmtDay(addDays(mon, 6))}` })
+      // Named by PAY DAY (Neal, 2026-09-29): a Mon–Sun week of inspections is paid the
+      // Friday after it ends — inspected Sep 21–27 → paid Fri, Oct 2.
+      setData({ ...d, label: `Paid Fri, ${fmtDay(addDays(mon, 11))}`, sub: `inspected ${fmtDay(mon)} – ${fmtDay(addDays(mon, 6))}` })
     } catch (x) { setErr(x.message || 'Could not load') }
     setBusy(false)
   }
@@ -58,7 +60,7 @@ export default function InspectionPayReport() {
         <div className="flex items-center gap-2">
           {data && shown && <>
             <button type="button" onClick={() => go(offset + 1)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">◀</button>
-            <span className="text-sm font-semibold text-slate-700">{data.label}</span>
+            <span className="text-center leading-tight"><span className="block text-sm font-semibold text-slate-700">{data.label}</span><span className="block text-[11px] text-slate-500">{data.sub}</span></span>
             <button type="button" onClick={() => go(Math.max(0, offset - 1))} disabled={offset === 0} className="rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-40">▶</button>
           </>}
           {data && shown && <button type="button" onClick={() => load()} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60">↻ Refresh</button>}
