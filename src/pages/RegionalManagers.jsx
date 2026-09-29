@@ -6,6 +6,7 @@ import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionPayReport from '../components/InspectionPayReport.jsx'
 import WilliamPayCard from '../components/WilliamPayCard.jsx'
 import BtrCommissionReport from '../components/BtrCommissionReport.jsx'
+import CloseSheetActivity from '../components/CloseSheetActivity.jsx'
 import NealPayCard from '../components/NealPayCard.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
@@ -151,6 +152,7 @@ export default function RegionalManagers() {
       <div className="mb-4"><InspectionLookup /></div>
 
       <PayReports />
+      <CloseSheetActivity />
 
       <CompAgreementAudit />
 
