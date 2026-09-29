@@ -39,10 +39,9 @@ export default function InspectionPayReport() {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
   // MARK PAID (Neal, 2026-09-29): tick reps, "Mark paid" → JobNimbus INSP Paid Date on each
-  // of their inspections + an email to the rep listing what was paid. Managers Pay PIN.
+  // of their inspections + an email to the rep listing what was paid. No PIN — managers-only page.
   const [pick, setPick] = useState({})
   const [paidOn, setPaidOn] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
-  const [pin, setPin] = useState('')
   const [marking, setMarking] = useState(false)
   const [markMsg, setMarkMsg] = useState('')
   const picked = Object.keys(pick).filter((k) => pick[k])
@@ -51,7 +50,7 @@ export default function InspectionPayReport() {
     if (!window.confirm(`Mark ${picked.length} rep${picked.length > 1 ? 's' : ''} paid on ${paidOn}?\n\n${picked.join(', ')}\n\nThis writes the paid date into JobNimbus and emails each rep.`)) return
     setMarking(true); setMarkMsg('')
     try {
-      const r = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/inspection-pay-mark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, start: data.week.start, end: data.week.end, reps: picked, paid_on: paidOn }) })
+      const r = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/inspection-pay-mark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: data.week.start, end: data.week.end, reps: picked, paid_on: paidOn }) })
       const j = await r.json()
       if (!j.ok) throw new Error(j.error || 'Could not mark paid')
       setMarkMsg(j.results.map((x) => x.error ? `${x.rep}: ${x.error}` : `${x.rep}: ${x.set} marked${x.already ? `, ${x.already} already paid` : ''}${x.failed ? `, ${x.failed} FAILED` : ''} · ${x.emailed ? `emailed ${x.email}` : x.email ? 'email not sent' : 'no email on file'}`).join('  |  '))
@@ -105,8 +104,7 @@ export default function InspectionPayReport() {
           <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
             <span className="font-semibold text-emerald-900">{picked.length ? `${picked.length} checked` : 'Tick the reps you paid, then'}</span>
             <label className="flex items-center gap-1 text-slate-700">paid on <input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="rounded border border-slate-300 px-1.5 py-0.5" /></label>
-            <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Managers Pay PIN" className="w-36 rounded border border-slate-300 px-2 py-0.5" />
-            <button type="button" disabled={!picked.length || !pin || marking} onClick={markPaid} className="rounded-md bg-emerald-700 px-3 py-1 font-bold text-white disabled:opacity-50">{marking ? 'Marking…' : '💵 Mark paid'}</button>
+            <button type="button" disabled={!picked.length || marking} onClick={markPaid} className="rounded-md bg-emerald-700 px-3 py-1 font-bold text-white disabled:opacity-50">{marking ? 'Marking…' : '💵 Mark paid'}</button>
             <span className="text-xs text-slate-500">Writes INSP Paid Date in JobNimbus and emails each rep their list.</span>
             {markMsg && <div className="w-full text-xs font-semibold text-slate-700">{markMsg}</div>}
           </div>
