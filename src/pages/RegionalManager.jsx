@@ -212,8 +212,8 @@ export default function RegionalManager() {
             render: () => <InspectionLookup /> },
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
             parts: [
-              ['🎙️ Sales Training Customer — practice runs', <PracticeReports token={token} />],
-              ['🧪 Practice the Harvesting tools', <HarvestPracticeLink />],
+              ['', <PracticeReports token={token} />],
+              ['', <HarvestPracticeLink />],
             ] },
           { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, zone map, WhatsApp, meeting ideas', color: 'from-slate-600 to-slate-800',
             parts: [
@@ -4083,7 +4083,7 @@ function PracticeReports({ token }) {
     <section className="mb-6 rounded-xl bg-white p-4 text-slate-800">
       {openId ? (
         <Suspense fallback={<div className="text-sm text-slate-500">Loading the report…</div>}>
-          <PracticeReportCard id={openId} onBack={() => setOpenId(null)} canRegrade={false} load={(id) => call({ action: 'practice_get', id })} />
+          <PracticeReportCard id={openId} onBack={() => { setOpenId(null); load() }} canRegrade={false} load={(id) => call({ action: 'practice_get', id })} />
         </Suspense>
       ) : (
         <>
@@ -4095,15 +4095,30 @@ function PracticeReports({ token }) {
           {err && <div className="text-sm font-semibold text-red-700">{err}</div>}
           {!list && !err && <div className="text-sm text-slate-500">Loading…</div>}
           {list && list.length === 0 && <div className="text-sm text-slate-500">None of your reps has practiced yet.</div>}
-          {list && list.map((x) => (
-            <button key={x.id} type="button" onClick={() => setOpenId(x.id)} className="mb-2 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50">
-              <div>
-                <div className="font-semibold">{x.trainee_name || 'Rep'}</div>
-                <div className="text-xs text-slate-500">{when(x.started_at)} · {sectionByKey(x.section)?.label || x.section} · {personaByKey(x.persona_key)?.name || x.persona_key}{x.duration_sec ? ` · ${Math.round(x.duration_sec / 60)} min` : ''}</div>
-              </div>
-              <div className={`text-xl font-bold ${color(x.score)}`}>{x.grade_status === 'pending' ? <span className="text-sm text-slate-400">Grading…</span> : x.grade_status === 'failed' ? <span className="text-sm text-red-500">Not graded</span> : x.score ?? '—'}</div>
-            </button>
-          ))}
+          {list && list.length > 0 && (() => {
+            // NEEDS REVIEW vs ALREADY REVIEWED (Neal, 2026-09-30): a run counts as reviewed
+            // once this manager has opened its graded report.
+            const row = (x) => (
+              <button key={x.id} type="button" onClick={() => setOpenId(x.id)} className="mb-2 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50">
+                <div>
+                  <div className="font-semibold">{x.trainee_name || 'Rep'}</div>
+                  <div className="text-xs text-slate-500">{when(x.started_at)} · {sectionByKey(x.section)?.label || x.section} · {personaByKey(x.persona_key)?.name || x.persona_key}{x.duration_sec ? ` · ${Math.round(x.duration_sec / 60)} min` : ''}{x.reviewed_at ? ` · reviewed ${when(x.reviewed_at)}` : ''}</div>
+                </div>
+                <div className={`text-xl font-bold ${color(x.score)}`}>{x.grade_status === 'pending' ? <span className="text-sm text-slate-400">Grading…</span> : x.grade_status === 'failed' ? <span className="text-sm text-red-500">Not graded</span> : x.score ?? '—'}</div>
+              </button>
+            )
+            const todo = list.filter((x) => !x.reviewed_at), done = list.filter((x) => x.reviewed_at)
+            return (<>
+              <div className="mb-2 mt-1 text-sm font-extrabold text-rose-700">🆕 Needs review ({todo.length})</div>
+              {todo.length ? todo.map(row) : <div className="mb-3 text-sm text-slate-500">Nothing new — you&apos;ve reviewed every run. ✅</div>}
+              {done.length > 0 && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-extrabold text-slate-500">✓ Already reviewed ({done.length})</summary>
+                  <div className="mt-2">{done.map(row)}</div>
+                </details>
+              )}
+            </>)
+          })()}
         </>
       )}
     </section>

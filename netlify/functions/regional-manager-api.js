@@ -347,14 +347,23 @@ export const handler = async (event) => {
     if (action === 'practice_list') {
       if (!ids.length) return json(200, { ok: true, sessions: [] })
       const { data, error } = await supabase.from('sales_practice_sessions')
-        .select('id, trainee_id, trainee_name, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score')
+        .select('id, trainee_id, trainee_name, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score, manager_reviews:report->manager_reviews')
         .in('trainee_id', ids).order('started_at', { ascending: false }).limit(60)
       if (error) return json(500, { ok: false, error: error.message })
-      return json(200, { ok: true, sessions: data || [] })
+      // REVIEWED (Neal, 2026-09-30): which runs THIS manager has already opened, so the
+      // list splits into "needs review" and "already reviewed".
+      const sessions = (data || []).map(({ manager_reviews, ...x }) => ({ ...x, reviewed_at: (manager_reviews && manager_reviews[manager.id]) || null }))
+      return json(200, { ok: true, sessions })
     }
     const { data, error } = await supabase.from('sales_practice_sessions').select('*').eq('id', String(body.id || '')).maybeSingle()
     if (error) return json(500, { ok: false, error: error.message })
     if (!data || !ids.includes(data.trainee_id)) return json(404, { ok: false, error: 'Not found' })
+    // Opening a GRADED report marks it reviewed for this manager (kept inside the report
+    // JSON, per manager id — no new column).
+    if (data.grade_status === 'done' && data.report && !(data.report.manager_reviews || {})[manager.id]) {
+      const report = { ...data.report, manager_reviews: { ...(data.report.manager_reviews || {}), [manager.id]: new Date().toISOString() } }
+      await supabase.from('sales_practice_sessions').update({ report }).eq('id', data.id)
+    }
     return json(200, { ok: true, session: data })
   }
 
