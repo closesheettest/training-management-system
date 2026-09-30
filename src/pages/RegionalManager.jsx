@@ -215,13 +215,16 @@ export default function RegionalManager() {
               ['', <PracticeReports token={token} />],
               ['', <HarvestPracticeLink />],
             ] },
-          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, zone map, WhatsApp, meeting ideas', color: 'from-slate-600 to-slate-800',
+          { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Zone Zoom, managers meeting, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',
+            parts: [
+              ['📞 Meetings', <QuickActions manager={manager} />],
+              ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
+              ['', <MeetingIdea token={token} />],
+            ] },
+          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps and the zone map', color: 'from-slate-600 to-slate-800',
             parts: [
               ['👥 Your reps', <RepsTable token={token} reps={reps} onChanged={reload} />],
               ['🗺️ Zone map', <ZoneMap reps={reps} zoneName={manager.region} token={token} />],
-              ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
-              ['💡 Idea for a meeting', <MeetingIdea token={token} />],
-              ['⚡ Quick actions', <QuickActions manager={manager} />],
             ] },
         ]}
       />
