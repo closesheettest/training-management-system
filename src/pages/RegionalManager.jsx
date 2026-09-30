@@ -160,61 +160,56 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      {/* The contest, exactly as the company admin sees it — same component,
-          same numbers, Wed/Thu only, with the Wk 1-4 window pills. */}
-      <ContestIfOn />
-
-      <Leaderboard myZone={manager.region} />
-
-      {/* Appointments → Sales — pinned just under the leaderboard, set apart. */}
-      <div className="mb-5 mt-4 border-t border-slate-700/50 pt-4">
-        <p className="mb-2 text-sm text-slate-200/85">📋 Tap the report below to <strong>break down each rep's appointment-to-sale conversion</strong> — it shows you exactly what needs fixing, if anything.</p>
-        <ApptConversion zone={manager.region} />
-      </div>
-
-      <Group title="⭐ Today's work" defaultOpen>
-        <MeasureAnyAddress />
-
-        <NewTrainees reps={reps} token={token} onChanged={reload} />
-        <CancelReviews zone={manager.region} />
-        <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
-        <AssignAppointments token={token} />
-        <DealsToFix zone={manager.region} />
-        <DamageNeedsRep zone={manager.region} />
-      </Group>
-
-      {/* Harvesting tools — gated behind the manager tool-training certification. */}
-      <HarvestToolsGate token={token} region={manager.region} />
-
-      <section className="mb-6"><InspectionLookup /></section>
-
-      <Group title="📊 My team's numbers">
-        <section className="mb-6">
-          <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
-          <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
-          <ManagerPayReport />
-        </section>
-        <BackToRetailWins zone={manager.region} />
-      </Group>
-
-      <Group title="🎙️ Sales training — your reps' practice">
-        <PracticeReports token={token} />
-      </Group>
-
-      <Group title="🔍 Inspection Needed Leads Inventory" accent="green">
-        <LeadBoards zone={manager.region} />
-        <DamageRestore zone={manager.region} />
-      </Group>
-
-      <Group title="📋 Roster & tools">
-        <WeeklyReport token={token} />
-        <RepsTable token={token} reps={reps} onChanged={reload} />
-        <RoofMeasureAccess zone={manager.region} />
-        <ZoneMap reps={reps} zoneName={manager.region} token={token} />
-        <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
-        <MeetingIdea token={token} />
-        <QuickActions manager={manager} />
-      </Group>
+      {/* THE DASHBOARD AS BUTTONS (Neal, 2026-09-30: "so much on it… only opening what you
+          want"). Every section is a tile; tap to open it under the tiles, tap again (or ✕)
+          to close. Several can be open at once. Which ones are open is remembered on this
+          device. */}
+      <TileBoard
+        storageKey={`rm_open_${manager.region || ''}`}
+        tiles={[
+          { key: 'today', emoji: '⭐', title: "Today's work", sub: 'Assign appointments, deals to fix, reviews, new trainees', color: 'from-amber-500 to-amber-700',
+            render: () => (<>
+              <MeasureAnyAddress />
+              <NewTrainees reps={reps} token={token} onChanged={reload} />
+              <CancelReviews zone={manager.region} />
+              <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
+              <AssignAppointments token={token} />
+              <DealsToFix zone={manager.region} />
+              <DamageNeedsRep zone={manager.region} />
+            </>) },
+          { key: 'board', emoji: '🏆', title: 'Leaderboard', sub: 'Team standings — inspections, harvest, sales', color: 'from-sky-600 to-sky-800',
+            render: () => (<><ContestIfOn /><Leaderboard myZone={manager.region} /></>) },
+          { key: 'appts', emoji: '📋', title: 'Appointments → Sales', sub: "Each rep's appointment-to-sale conversion", color: 'from-indigo-600 to-indigo-800',
+            render: () => <ApptConversion zone={manager.region} /> },
+          { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
+            render: () => <HarvestToolsGate token={token} region={manager.region} /> },
+          { key: 'leads', emoji: '🔍', title: 'Inspection-needed leads', sub: 'Lead boards and deals to restore', color: 'from-green-700 to-green-900',
+            render: () => (<><LeadBoards zone={manager.region} /><DamageRestore zone={manager.region} /></>) },
+          { key: 'lookup', emoji: '🔎', title: 'Look up an inspection', sub: 'Find any homeowner and where their deal stands', color: 'from-cyan-600 to-cyan-800',
+            render: () => <InspectionLookup /> },
+          { key: 'numbers', emoji: '📊', title: "My team's numbers", sub: 'Managers pay, back-to-retail wins', color: 'from-violet-600 to-violet-800',
+            render: () => (<>
+              <section className="mb-6">
+                <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
+                <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
+                <ManagerPayReport />
+              </section>
+              <BackToRetailWins zone={manager.region} />
+            </>) },
+          { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
+            render: () => <PracticeReports token={token} /> },
+          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, weekly report, zone map, WhatsApp, ideas', color: 'from-slate-600 to-slate-800',
+            render: () => (<>
+              <WeeklyReport token={token} />
+              <RepsTable token={token} reps={reps} onChanged={reload} />
+              <RoofMeasureAccess zone={manager.region} />
+              <ZoneMap reps={reps} zoneName={manager.region} token={token} />
+              <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
+              <MeetingIdea token={token} />
+              <QuickActions manager={manager} />
+            </>) },
+        ]}
+      />
 
       <footer className="mt-8 text-center text-xs text-slate-200/60">
         Need help? Reply to the text you got with this link.
@@ -4079,5 +4074,41 @@ function ContestIfOn() {
     <div className="mt-6 rounded-xl bg-white p-3 text-slate-800">
       <ContestReport />
     </div>
+  )
+}
+
+// Tiles that open sections (Neal, 2026-09-30). Open sections show below the tiles in tile
+// order, each with its own ✕ Close; the open set is remembered per device.
+function TileBoard({ tiles, storageKey }) {
+  const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey) || '[]') } catch { return [] } })
+  const save = (next) => { setOpen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* private mode */ } }
+  const toggle = (k) => save(open.includes(k) ? open.filter((x) => x !== k) : [...open, k])
+  const shown = tiles.filter((t) => open.includes(t.key))
+  return (
+    <>
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {tiles.map((t) => {
+          const on = open.includes(t.key)
+          return (
+            <button key={t.key} type="button" onClick={() => toggle(t.key)}
+              className={`rounded-xl bg-gradient-to-br ${t.color} p-4 text-left shadow-lg transition ${on ? 'ring-4 ring-amber-300' : 'opacity-95 hover:opacity-100 hover:-translate-y-0.5'}`}>
+              <div className="text-3xl">{t.emoji}</div>
+              <div className="mt-1 text-base font-extrabold text-white">{t.title}</div>
+              <div className="mt-0.5 text-xs text-white/80">{t.sub}</div>
+              <div className="mt-2 text-[11px] font-bold uppercase tracking-wide text-white/90">{on ? '▾ Open — tap to close' : '▸ Tap to open'}</div>
+            </button>
+          )
+        })}
+      </div>
+      {shown.map((t) => (
+        <section key={t.key} className="mb-6 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+          <div className={`mb-3 flex items-center justify-between rounded-lg bg-gradient-to-r ${t.color} px-4 py-2`}>
+            <span className="text-lg font-extrabold text-white">{t.emoji} {t.title}</span>
+            <button type="button" onClick={() => toggle(t.key)} className="rounded-md bg-black/25 px-3 py-1 text-sm font-bold text-white hover:bg-black/40">✕ Close</button>
+          </div>
+          {t.render()}
+        </section>
+      ))}
+    </>
   )
 }
