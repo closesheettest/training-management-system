@@ -4134,6 +4134,10 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
   const [open, setOpen] = useState([])
   const save = (next) => setOpen(next)
   const toggle = (k) => save(open.includes(k) ? open.filter((x) => x !== k) : [...open, k])
+  // A to-do that never reports (a slow or failed check) must not leave the section on
+  // "Checking…" forever: after 12 s an unanswered tool counts as nothing waiting.
+  const [waited, setWaited] = useState(false)
+  useEffect(() => { if (!open.length) return; setWaited(false); const t = setTimeout(() => setWaited(true), 12000); return () => clearTimeout(t) }, [open.length])
   const shown = tiles.filter((t) => open.includes(t.key))
   return (
     <>
@@ -4162,10 +4166,17 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
               // A to-do (has a count key) shows only when something is waiting; while it's
               // still loading it stays mounted but hidden so it can finish (Neal, 2026-09-30).
               const keyed = t.parts.filter((x) => x[2])
-              const allClear = keyed.length > 0 && keyed.every((x) => counts[x[2]] === 0)
-              const checking = keyed.some((x) => counts[x[2]] === undefined)
+              const none = (k) => counts[k] === 0 || (counts[k] === undefined && waited)
+              const allClear = keyed.length > 0 && keyed.every((x) => none(x[2]))
+              const checking = !waited && keyed.some((x) => counts[x[2]] === undefined)
               return (<>
-                {allClear && <div className="mb-4 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">✅ All caught up — nothing waiting on you right now.</div>}
+                {allClear && (
+                  <div className="mb-4 rounded-xl border-2 border-emerald-400/60 bg-emerald-500/15 px-5 py-6 text-center">
+                    <div className="text-4xl">🎉</div>
+                    <div className="mt-2 text-xl font-extrabold text-emerald-200">You&apos;re all caught up!</div>
+                    <div className="mt-1 text-sm text-emerald-100/80">Nothing to do here right now — no appointments to assign, no deals to fix, nothing to review. It isn&apos;t broken; there&apos;s just nothing waiting on you.</div>
+                  </div>
+                )}
                 {checking && !allClear && <div className="mb-3 text-xs text-slate-300/70">Checking what's waiting…</div>}
                 {t.parts.map(([label, node, k]) => {
                   const hide = k && !(counts[k] > 0 || counts[k] === -1)
