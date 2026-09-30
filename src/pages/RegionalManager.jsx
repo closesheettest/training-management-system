@@ -1014,7 +1014,7 @@ function Leaderboard({ myZone }) {
       <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
         className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
         style={{ background: z.lone ? '#7c3aed' : (LB_ZONE_COLOR[z.zone] || '#334155'), outline: mine ? '3px solid #f5b50a' : z.lone ? '2px dashed rgba(255,255,255,.6)' : 'none' }}>
-        {badge && <img src={badge} alt={z.team} className={`mx-auto mb-1 object-contain drop-shadow-lg ${lead ? 'h-24 w-24' : 'h-16 w-16'}`} />}
+        {badge && <img src={badge} alt={z.team} className={`mx-auto mb-1 rounded-full object-cover shadow-lg ring-2 ring-white/70 ${lead ? "h-24 w-24" : "h-16 w-16"}`} />}
         <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
         <div className="text-[10px] opacity-90">{z.lone ? '🎓 William Hernandez · trainer' : z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
