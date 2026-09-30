@@ -171,6 +171,13 @@ export default function RegionalManager() {
         <Leaderboard myZone={manager.region} />
       </section>
 
+      {/* A clear break between the standings and the tools (Neal, 2026-09-30). */}
+      <div className="my-8 flex items-center gap-4">
+        <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-transparent via-amber-400 to-amber-400" />
+        <span className="whitespace-nowrap text-lg font-extrabold uppercase tracking-widest text-amber-300">🧰 Your tools</span>
+        <div className="h-1 flex-1 rounded-full bg-gradient-to-l from-transparent via-amber-400 to-amber-400" />
+      </div>
+
       <TileBoard
         storageKey={`rm_open_${manager.region || ''}`}
         tiles={[
@@ -999,11 +1006,15 @@ function Leaderboard({ myZone }) {
     // leaders get 🥇). Zero-count teams just show the plain ordinal.
     const ri = (rankByZone && rankByZone[z.zone]) || { rank: z.rank, tied: false }
     const medal = LB_MEDALS[ri.rank - 1] || ''
+    // Team badges, same art as the rep dashboard (Neal, 2026-09-30). Leaders get a bigger one.
+    const badge = z.lone ? '/team-badges/william.png' : ({ 'Zone 1': '/team-badges/zone1.png', 'Zone 2': '/team-badges/zone2.png', 'Zone 3': '/team-badges/zone3.png', 'Zone 4': '/team-badges/zone4.png' })[z.zone]
+    const lead = ri.rank === 1 && (z.count || 0) > 0
     const placeLabel = (ri.tied && (z.count || 0) > 0) ? `Tied for ${lbOrdinal(ri.rank)}` : `${lbOrdinal(ri.rank)} Place`
     return (
       <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
         className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
         style={{ background: z.lone ? '#7c3aed' : (LB_ZONE_COLOR[z.zone] || '#334155'), outline: mine ? '3px solid #f5b50a' : z.lone ? '2px dashed rgba(255,255,255,.6)' : 'none' }}>
+        {badge && <img src={badge} alt={z.team} className={`mx-auto mb-1 object-contain drop-shadow-lg ${lead ? 'h-24 w-24' : 'h-16 w-16'}`} />}
         <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
         <div className="text-[10px] opacity-90">{z.lone ? '🎓 William Hernandez · trainer' : z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
