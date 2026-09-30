@@ -213,6 +213,7 @@ export default function RegionalManager() {
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
             parts: [
               ['', <PracticeReports token={token} />],
+              ['', <HowPracticeIsScored />],
               ['', <HarvestPracticeLink />],
             ] },
           { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Zone Zoom, managers meeting, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',
@@ -4237,6 +4238,57 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
 }
 
 // The harvest-tools sandbox, now under Sales training (Neal, 2026-09-30).
+// HOW THE PRACTICE RUNS ARE SCORED (Neal, 2026-09-30) — the same rules the grader
+// (netlify/functions/practice-grade-background.js) is given, in plain words.
+function HowPracticeIsScored() {
+  const [open, setOpen] = useState(false)
+  const H = ({ children }) => <div className="mb-1 mt-3 text-sm font-extrabold text-brand-navy">{children}</div>
+  return (
+    <section className="mb-6 rounded-xl bg-white p-4 text-slate-800">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
+        <span className="text-lg font-bold text-brand-navy">📏 How the practice runs are scored</span>
+        <span className="text-sm font-semibold text-slate-500">{open ? '▴ Hide' : '▾ Show'}</span>
+      </button>
+      {open && (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-slate-700">
+          <p>Every practice run with the AI homeowner is recorded and graded by the computer when it ends. The score is <b>out of 100</b>.</p>
+
+          <H>The score is roughly half and half</H>
+          <ul className="list-disc space-y-1 pl-5">
+            <li><b>About half: did the points land?</b> Each slide has its list of points (the Slide Points page). The rep is graded on whether they brought each point out so the homeowner understood and agreed with it. <b>Not word for word</b>: their own words, any order, adapted to the homeowner is fine.</li>
+            <li><b>About half: who controlled the conversation?</b> Whoever asks the questions is in control. A rep who asks, listens and steers scores high. A rep who spends the meeting answering and defending while the homeowner fires questions loses points, even if every point was covered. A short, straight answer is fine, as long as the rep leads back with a question of their own within a turn or two.</li>
+            <li>Also counted: how objections were handled, and tone.</li>
+          </ul>
+
+          <H>What costs points</H>
+          <ul className="list-disc space-y-1 pl-5">
+            <li><b>Going off script.</b> Outside the warm-up, the rep must stay close to the script's <i>angle</i> — its reasoning and questions — not its exact words. A pitch, promise or argument that isn't in the script costs points, even if it sounded good.</li>
+            <li><b>Wrong facts</b> (a wrong number, coverage amount, warranty term or price promise) are flagged.</li>
+            <li>Slides the run never reached are <b>not</b> graded and don't count against them.</li>
+          </ul>
+
+          <H>Each part also gets its own 0–10</H>
+          <p>10/10 means every point on that part landed with the homeowner. The report lists what was covered, what was missed, and anything said off script.</p>
+
+          <H>Control drill (one slide, five minutes)</H>
+          <p>The homeowner keeps asking questions to take control. Each question is checked: did the rep <b>keep control</b> (answered and led back with a question), <b>give it up</b>, or go <b>off topic</b>? The score is simply the share they kept: kept ÷ total.</p>
+
+          <H>What the score means</H>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className="rounded-md bg-emerald-100 px-2 py-1.5 text-emerald-800"><b>90+</b><br />Ready for a real kitchen table</div>
+            <div className="rounded-md bg-lime-100 px-2 py-1.5 text-lime-800"><b>75–89</b><br />Close</div>
+            <div className="rounded-md bg-amber-100 px-2 py-1.5 text-amber-800"><b>60–74</b><br />Needs work</div>
+            <div className="rounded-md bg-red-100 px-2 py-1.5 text-red-800"><b>Under 60</b><br />Go back and practice</div>
+          </div>
+
+          <H>Who sees what</H>
+          <p><b>The rep never sees a score.</b> They only get encouragement: what they did well and "to make it even better, try…". <b>You see everything</b>: the score, the part-by-part breakdown, and a coaching plan — the one thing to work on, practice to assign, and what to watch for on a ride-along.</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function HarvestPracticeLink() {
   return (
     <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
