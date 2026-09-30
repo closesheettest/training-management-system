@@ -195,12 +195,14 @@ export default function RegionalManager() {
               ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} onCount={counter('trainees')} />, 'trainees'],
               ['📐 Measure a roof', <MeasureAnyAddress />],
             ] },
-          { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, back-to-retail wins', color: 'from-indigo-600 to-indigo-800',
-            parts: [
-              ['📋 Appointments → Sales', <ApptConversion zone={manager.region} autoOpen />],
-              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport autoLoad /></>],
-              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} autoLoad />],
-            ] },
+          { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, weekly report', color: 'from-indigo-600 to-indigo-800',
+            // Each report already has its own tap-to-load header, so no extra bars here
+            // (Neal, 2026-09-30: "saying Appointments → Sales twice").
+            render: () => (<div className="space-y-4">
+              <ApptConversion zone={manager.region} />
+              <ManagerPayReport />
+              <WeeklyReport token={token} />
+            </div>) },
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
           { key: 'leads', emoji: '🔍', title: 'Inspection-needed leads', sub: 'Lead boards and deals to restore', color: 'from-green-700 to-green-900',
@@ -208,11 +210,13 @@ export default function RegionalManager() {
           { key: 'lookup', emoji: '🔎', title: 'Look up an inspection', sub: 'Find any homeowner and where their deal stands', color: 'from-cyan-600 to-cyan-800',
             render: () => <InspectionLookup /> },
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
-            render: () => <PracticeReports token={token} /> },
-          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, weekly report, zone map, WhatsApp, ideas', color: 'from-slate-600 to-slate-800',
+            parts: [
+              ['🎙️ Sales Training Customer — practice runs', <PracticeReports token={token} />],
+              ['🧪 Practice the Harvesting tools', <HarvestPracticeLink />],
+            ] },
+          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, zone map, WhatsApp, meeting ideas', color: 'from-slate-600 to-slate-800',
             parts: [
               ['👥 Your reps', <RepsTable token={token} reps={reps} onChanged={reload} />],
-              ['📰 Weekly report', <WeeklyReport token={token} />],
               ['🗺️ Zone map', <ZoneMap reps={reps} zoneName={manager.region} token={token} />],
               ['📐 Roof measure access', <RoofMeasureAccess zone={manager.region} />],
               ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
@@ -1704,6 +1708,8 @@ function LeadBoards({ zone }) {
 }
 
 function DamageRestore({ zone }) {
+  const [shown, setShown] = useState(false)
+  const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [deals, setDeals] = useState(null)
   const [err, setErr] = useState('')
@@ -1730,22 +1736,31 @@ function DamageRestore({ zone }) {
     } catch { setErr('Network error.') }
     setBusy('')
   }
+  const needle = q.trim().toLowerCase()
   const remaining = (deals || []).filter((d) => !doneIds[d.inspection_id])
+    .filter((d) => !needle || [d.client_name, d.address, d.city, d.rep, d.mobile].join(' ').toLowerCase().includes(needle))
+  // Tap the title to show, tap again to hide (Neal, 2026-09-30); loads the first time.
+  const toggleShown = () => { const n = !shown; setShown(n); if (n && !deals && !loading) load() }
 
   return (
     <section className="mb-6">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-brand-navy">↩️ Restore to Damage list</h2>
+            <h2 onClick={toggleShown} className="cursor-pointer select-none text-lg font-bold text-brand-navy hover:opacity-80"><span className="mr-1 text-slate-400">{shown ? '▾' : '▸'}</span>↩️ Restore to Damage list{deals ? ` (${(deals || []).filter((d) => !doneIds[d.inspection_id]).length})` : ''}</h2>
             <p className="text-xs text-slate-500">Damage deals in your zone wrongly marked “BTR – NI” (Not Interested) — that removes them from the rep’s Damage visit list. Restore puts the JN status back to “Sit Sold Insp” and returns it to the list.</p>
           </div>
-          <button onClick={load} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : deals ? 'Refresh' : 'Load'}</button>
+          <div className="flex items-center gap-2">
+            {shown && deals && <button onClick={load} disabled={loading} className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 disabled:opacity-60">↻ Refresh</button>}
+            <button onClick={toggleShown} disabled={loading} className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">{loading ? 'Loading…' : shown ? '▴ Hide' : '▾ Show'}</button>
+          </div>
         </div>
         {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
-        {deals && (
+        {shown && deals && (
           <div className="mt-3">
-            {remaining.length === 0 ? <div className="text-sm text-slate-500">No damage deals marked Not Interested. 🎉</div> : remaining.map((dl) => (
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, address, city or rep…"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-slate-500" />
+            {remaining.length === 0 ? <div className="mt-2 text-sm text-slate-500">{needle ? 'Nothing matches that search.' : 'No damage deals marked Not Interested. 🎉'}</div> : remaining.map((dl) => (
               <div key={dl.inspection_id} className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
                 <div>
                   <div className="font-bold text-slate-800">{dl.client_name}</div>
@@ -2898,15 +2913,6 @@ function HarvestToolsGate({ token, region }) {
       <TeamHarvestMap zone={region} preview={preview} />
       <HarvestActivityReport zone={region} />
       <EnhancedPlannedDay zone={region} token={token} preview={preview} />
-      <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
-        className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
-        <span className="text-2xl">🧪</span>
-        <div className="min-w-0">
-          <div className="text-base font-bold text-white">Practice the Harvesting tools</div>
-          <div className="text-xs text-slate-200/80">Open the map in a safe sandbox — real pins, but nothing you do is saved. Try Start my day, Route an area, and Plan-your-day so you can coach your reps on them.</div>
-        </div>
-        <span className="ml-auto text-slate-300">↗</span>
-      </a>
     </>
   )
 }
@@ -4123,8 +4129,9 @@ function ContestIfOn() {
 // Tiles that open sections (Neal, 2026-09-30). Open sections show below the tiles in tile
 // order, each with its own ✕ Close; the open set is remembered per device.
 function TileBoard({ tiles, storageKey, counts = {} }) {
-  const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey) || '[]') } catch { return [] } })
-  const save = (next) => { setOpen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* private mode */ } }
+  // Every visit starts with everything closed (Neal, 2026-09-30) — nothing remembered.
+  const [open, setOpen] = useState([])
+  const save = (next) => setOpen(next)
   const toggle = (k) => save(open.includes(k) ? open.filter((x) => x !== k) : [...open, k])
   const shown = tiles.filter((t) => open.includes(t.key))
   return (
@@ -4174,5 +4181,20 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
         </section>
       ))}
     </>
+  )
+}
+
+// The harvest-tools sandbox, now under Sales training (Neal, 2026-09-30).
+function HarvestPracticeLink() {
+  return (
+    <a href={`${TRAINING_ORIGIN}/?mode=harvest&demo=1`} target="_blank" rel="noreferrer"
+        className="mb-3 flex items-center gap-3 rounded-lg border border-purple-400/40 bg-purple-500/10 p-4 no-underline hover:bg-purple-500/20">
+        <span className="text-2xl">🧪</span>
+        <div className="min-w-0">
+          <div className="text-base font-bold text-white">Practice the Harvesting tools</div>
+          <div className="text-xs text-slate-200/80">Open the map in a safe sandbox — real pins, but nothing you do is saved. Try Start my day, Route an area, and Plan-your-day so you can coach your reps on them.</div>
+        </div>
+        <span className="ml-auto text-slate-300">↗</span>
+      </a>
   )
 }
