@@ -162,9 +162,7 @@ export default function RegionalManager() {
 
       {/* The contest, exactly as the company admin sees it — same component,
           same numbers, Wed/Thu only, with the Wk 1-4 window pills. */}
-      <div className="mt-6 rounded-xl bg-white p-3 text-slate-800">
-        <ContestReport />
-      </div>
+      <ContestIfOn />
 
       <Leaderboard myZone={manager.region} />
 
@@ -4064,5 +4062,22 @@ function PracticeReports({ token }) {
         </>
       )}
     </section>
+  )
+}
+
+// Only while the Positive-Effort Contest is switched ON (DoorDispatcher → Contest
+// Leaderboard, app_settings.contest_enabled). With no contest running the report was just
+// noise at the top of every manager's dashboard (Neal, 2026-09-30).
+function ContestIfOn() {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    fetch('https://free-roof-inspections.netlify.app/.netlify/functions/contest-settings')
+      .then((r) => r.json()).then((j) => setOn(!!(j && j.enabled))).catch(() => setOn(false))
+  }, [])
+  if (!on) return null
+  return (
+    <div className="mt-6 rounded-xl bg-white p-3 text-slate-800">
+      <ContestReport />
+    </div>
   )
 }
