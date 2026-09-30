@@ -127,6 +127,9 @@ export default function RegionalManager() {
   useEffect(() => {
     reload()
   }, [reload])
+  // How much is waiting in each Today's-work tool; a tool at 0 hides itself.
+  const [todo, setTodo] = useState({})
+  const counter = useCallback((k) => (n) => setTodo((t) => (t[k] === n ? t : { ...t, [k]: n })), [])
 
   if (state.status === 'loading') {
     return <ShellFrame><p>Loading your dashboard…</p></ShellFrame>
@@ -179,16 +182,17 @@ export default function RegionalManager() {
       </div>
 
       <TileBoard
+        counts={todo}
         storageKey={`rm_open_${manager.region || ''}`}
         tiles={[
           { key: 'today', emoji: '⭐', title: "Today's work", sub: 'Assign appointments, deals to fix, reviews, new trainees', color: 'from-amber-500 to-amber-700',
             parts: [
-              ['📅 Assign appointments', <AssignAppointments token={token} />],
-              ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} />],
-              ['🛠️ Deals to fix', <DealsToFix zone={manager.region} />],
-              ['🚫 Cancel reviews', <CancelReviews zone={manager.region} />],
-              ['⭐ Reviews to verify', <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />],
-              ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} />],
+              ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts'],
+              ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} onCount={counter('deals')} />, 'deals'],
+              ['🛠️ Deals to fix', <DealsToFix zone={manager.region} onCount={counter('fix')} />, 'fix'],
+              ['🚫 Cancel reviews', <CancelReviews zone={manager.region} onCount={counter('cancel')} />, 'cancel'],
+              ['⭐ Reviews to verify', <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} onCount={counter('reviews')} />, 'reviews'],
+              ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} onCount={counter('trainees')} />, 'trainees'],
               ['📐 Measure a roof', <MeasureAnyAddress />],
             ] },
           { key: 'appts', emoji: '📋', title: 'Appointments → Sales', sub: "Each rep's appointment-to-sale conversion", color: 'from-indigo-600 to-indigo-800',
@@ -1012,17 +1016,16 @@ function Leaderboard({ myZone }) {
     const placeLabel = (ri.tied && (z.count || 0) > 0) ? `Tied for ${lbOrdinal(ri.rank)}` : `${lbOrdinal(ri.rank)} Place`
     return (
       <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
-        className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
+        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-white transition active:scale-[.98]"
         style={{ background: z.lone ? '#7c3aed' : (LB_ZONE_COLOR[z.zone] || '#334155'), outline: mine ? '3px solid #f5b50a' : z.lone ? '2px dashed rgba(255,255,255,.6)' : 'none' }}>
-        {badge && <img src={badge} alt={z.team} className={`mx-auto mb-1 rounded-full object-cover shadow-lg ring-2 ring-white/70 ${lead ? "h-24 w-24" : "h-16 w-16"}`} />}
-        <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
-        <div className="text-base font-extrabold leading-tight">{z.team}</div>
-        <div className="text-[10px] opacity-90">{z.lone ? '🎓 William Hernandez · trainer' : z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
-        <div className="mt-1 text-xs font-bold">
-          <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}
-          {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
+        {/* COMPACT (Neal, 2026-09-30: "taking over the page"): small badge left, the rest in two lines. */}
+        {badge && <img src={badge} alt={z.team} className={`shrink-0 rounded-full object-cover ring-2 ring-white/70 ${lead ? 'h-11 w-11' : 'h-9 w-9'}`} />}
+        <div className="min-w-0">
+          <div className="truncate text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}{mine ? ' · you' : ''}</div>
+          <div className="truncate text-sm font-extrabold leading-tight">{z.lone ? 'Lone Wolf · William' : z.team}</div>
+          <div className="truncate text-xs"><b className="text-base">{z.count}</b> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}{kind === 'sales' && z.total_amount ? ` · $${Math.round(z.total_amount).toLocaleString()}` : ''}</div>
         </div>
-        <div className="mt-1 text-[10px] underline opacity-90">{isOpen ? '▾ Hide' : '▸ Details'}</div>
+        <span className="ml-auto text-xs opacity-80">{isOpen ? '▾' : '▸'}</span>
       </button>
     )
   }
@@ -1452,7 +1455,7 @@ function AssignMap({ srReps, items, zoneName }) {
   )
 }
 
-function AssignAppointments({ token }) {
+function AssignAppointments({ token, onCount }) {
   const [view, setView] = useState('needs') // 'needs' | 'today' | 'tomorrow'
   const [d, setD] = useState(null)
   const [sel, setSel] = useState({})
@@ -1495,6 +1498,12 @@ function AssignAppointments({ token }) {
     setLoading(false)
   }, [token])
   useEffect(() => { load(view) }, [load, view])
+  // Today's work hides this when nothing is waiting to be assigned (Neal, 2026-09-30).
+  useEffect(() => {
+    if (!onCount || view !== 'needs') return
+    if (err) onCount(-1)
+    else if (d) onCount((d.unassigned || []).length + (d.backlog || d.viviana || []).length)
+  }, [d, err, view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pick = (key, f, v) => setSel((p) => ({ ...p, [key]: { ...(p[key] || {}), [f]: v } }))
 
@@ -1768,8 +1777,9 @@ function DamageRestore({ zone }) {
 // Managers Pay, so they can sit in Today's work without distorting any number.
 //
 // Placed first: a person waiting to hear from you outranks paperwork.
-function NewTrainees({ reps, token, onChanged }) {
+function NewTrainees({ reps, token, onChanged, onCount }) {
   const pregrads = (reps || []).filter((r) => r.pregrad)
+  useEffect(() => { onCount && onCount(pregrads.length) }, [pregrads.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const [firing, setFiring] = useState('')
   // Fire / remove a trainee who was let go mid-training — stamps dropped_out_at so
   // they fall off this list (there was no way to do this before; deactivate_rep
@@ -1907,7 +1917,7 @@ function NewTrainees({ reps, token, onChanged }) {
   )
 }
 
-function DamageNeedsRep({ zone }) {
+function DamageNeedsRep({ zone, onCount }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { deals, reps }
   const [err, setErr] = useState('')
@@ -1944,6 +1954,7 @@ function DamageNeedsRep({ zone }) {
   }
   const remaining = (data?.deals || []).filter((d) => !doneIds[d.inspection_id])
   const maxAge = remaining.reduce((m, d) => Math.max(m, d.age_days || 0), 0) // oldest deal waiting, days
+  useEffect(() => { if (!onCount) return; if (err) onCount(-1); else if (data) onCount(remaining.length) }, [data, err, remaining.length]) // eslint-disable-line react-hooks/exhaustive-deps
   // Auto-load so the manager sees what needs assigning without a click.
   useEffect(() => { load() }, [zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2019,7 +2030,7 @@ function DamageNeedsRep({ zone }) {
 // homeowner the review link today (a PENDING contest point); the manager checks
 // Google and approves it SAME DAY to make the point permanent, or rejects it.
 // Zone-scoped read + action against the CCG review-verify endpoint.
-function ReviewsToVerify({ zone, by }) {
+function ReviewsToVerify({ zone, by, onCount }) {
   const [reviews, setReviews] = useState(null)
   const [busy, setBusy] = useState('')
   useEffect(() => {
@@ -2029,6 +2040,7 @@ function ReviewsToVerify({ zone, by }) {
       .catch(() => { if (live) setReviews([]) })
     return () => { live = false }
   }, [zone])
+  useEffect(() => { if (reviews && onCount) onCount(reviews.length) }, [reviews]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!reviews || !reviews.length) return null
   const when = (iso) => { try { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) } catch { return '' } }
   const act = async (id, action) => {
@@ -2066,7 +2078,7 @@ function ReviewsToVerify({ zone, by }) {
   )
 }
 
-function CancelReviews({ zone }) {
+function CancelReviews({ zone, onCount }) {
   const [reviews, setReviews] = useState(null)
   useEffect(() => {
     let live = true
@@ -2075,6 +2087,7 @@ function CancelReviews({ zone }) {
       .catch(() => { if (live) setReviews([]) })
     return () => { live = false }
   }, [zone])
+  useEffect(() => { if (reviews && onCount) onCount(reviews.length) }, [reviews]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!reviews || !reviews.length) return null
   const when = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '' } }
   return (
@@ -2098,7 +2111,7 @@ function CancelReviews({ zone }) {
   )
 }
 
-function DealsToFix({ zone }) {
+function DealsToFix({ zone, onCount }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)   // { reps, total_flagged } | null
   const [openRep, setOpenRep] = useState(null)
@@ -2109,11 +2122,14 @@ function DealsToFix({ zone }) {
     try {
       const res = await fetch(LB_ORIGIN + 'zone-deals-to-fix?zone=' + encodeURIComponent(zone))
       const d = await res.json()
-      if (d && d.ok) { setData(d); setOpenRep(null) }
-      else setErr(d?.error || 'Could not load.')
-    } catch { setErr('Network error.') }
+      if (d && d.ok) { setData(d); setOpenRep(null); onCount && onCount(Number(d.total_flagged) || 0) }
+      else { setErr(d?.error || 'Could not load.'); onCount && onCount(-1) }
+    } catch { setErr('Network error.'); onCount && onCount(-1) }
     setLoading(false)
   }
+  // Load straight away when it's part of Today's work, so it can hide itself when
+  // there's nothing to fix (Neal, 2026-09-30).
+  useEffect(() => { if (onCount) load() }, [zone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <section className="mt-6">
@@ -4103,7 +4119,7 @@ function ContestIfOn() {
 
 // Tiles that open sections (Neal, 2026-09-30). Open sections show below the tiles in tile
 // order, each with its own ✕ Close; the open set is remembered per device.
-function TileBoard({ tiles, storageKey }) {
+function TileBoard({ tiles, storageKey, counts = {} }) {
   const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem(storageKey) || '[]') } catch { return [] } })
   const save = (next) => { setOpen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* private mode */ } }
   const toggle = (k) => save(open.includes(k) ? open.filter((x) => x !== k) : [...open, k])
@@ -4131,12 +4147,26 @@ function TileBoard({ tiles, storageKey }) {
             <button type="button" onClick={() => toggle(t.key)} className="rounded-md bg-black/25 px-3 py-1 text-sm font-bold text-white hover:bg-black/40">✕ Close</button>
           </div>
           {t.parts
-            ? t.parts.map(([label, node]) => (
-              <div key={label} className="mb-5">
-                <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}</div>
-                {node}
-              </div>
-            ))
+            ? (() => {
+              // A to-do (has a count key) shows only when something is waiting; while it's
+              // still loading it stays mounted but hidden so it can finish (Neal, 2026-09-30).
+              const keyed = t.parts.filter((x) => x[2])
+              const allClear = keyed.length && keyed.every((x) => counts[x[2]] === 0)
+              const checking = keyed.some((x) => counts[x[2]] === undefined)
+              return (<>
+                {allClear && <div className="mb-4 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">✅ All caught up — nothing waiting on you right now.</div>}
+                {checking && !allClear && <div className="mb-3 text-xs text-slate-300/70">Checking what's waiting…</div>}
+                {t.parts.map(([label, node, k]) => {
+                  const hide = k && !(counts[k] > 0 || counts[k] === -1)
+                  return (
+                    <div key={label} className="mb-5" style={hide ? { display: 'none' } : undefined}>
+                      <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}{k && counts[k] > 0 ? ` · ${counts[k]}` : ''}</div>
+                      {node}
+                    </div>
+                  )
+                })}
+              </>)
+            })()
             : t.render()}
         </section>
       ))}
