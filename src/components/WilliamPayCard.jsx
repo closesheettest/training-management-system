@@ -25,7 +25,7 @@ export default function WilliamPayCard() {
   async function load() {
     setBusy(true); setErr('')
     try {
-      const r = await fetch(`${CCG}?weeks_back=26`)
+      const r = await fetch(`${CCG}?weeks_back=16`)
       const d = await r.json()
       if (!d.ok) throw new Error(d.error || 'Could not load')
       setData(d)
