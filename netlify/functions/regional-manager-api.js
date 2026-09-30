@@ -69,6 +69,7 @@ import { runGroupSend } from './_group-send.js'
 import { recipientPhonesForEvent } from './_recipients.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { notifyOffboarding } from './_offboard-notify.js'
+import { zoneForCounty } from '../../src/lib/zones.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -276,6 +277,40 @@ export const handler = async (event) => {
       r.is_active_sales_rep === true ||
       (!r.dropped_out_at && !r.declined_at && r.enrolled !== false))
 
+    // WEEK A / WEEK B TRAINEES FROM THE CLASS ROSTER (Neal, 2026-09-30: "whatever trainee
+    // is in the field for Week A… they have to get in touch with them. So it should be
+    // listed there"). Until now a trainee only reached this list once the kiosk flagged
+    // them (is_field_trainee, set by a check-in on day 3+), so a class that checked in
+    // anywhere else — or not yet today — was invisible to every manager. Anyone on a
+    // running class (from its last classroom day through Week B) who has signed in at
+    // least once is a trainee in the field now. A trainee with no zone yet gets one from
+    // their home county, the same suggestion the office sees; it isn't saved.
+    try {
+      const noon = Date.parse(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())}T12:00:00Z`)
+      const ymd = (ms) => new Date(ms).toISOString().slice(0, 10)
+      const { data: running } = await supabase.from('classes').select('id')
+        .gte('week_start_date', ymd(noon - 13 * 86400000)).lte('week_start_date', ymd(noon - 2 * 86400000))
+        .is('cancelled_at', null)
+      const runIds = (running || []).map((c) => c.id)
+      if (runIds.length) {
+        const { data: att } = await supabase.from('attendance').select('trainee_id').in('class_id', runIds)
+        const have = new Set(stillWithUs.map((r) => r.id))
+        const ids = [...new Set((att || []).map((a) => a.trainee_id))].filter((id) => id && !have.has(id))
+        if (ids.length) {
+          const { data: more } = await supabase.from('trainees')
+            .select('id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled, class_id')
+            .in('id', ids)
+          for (const r of more || []) {
+            if (r.is_active_sales_rep === true || r.dropped_out_at || r.declined_at || r.enrolled === false || r.rep_level === 'non_field') continue
+            let zone = r.region
+            if (!zone) { zone = await zoneFromAddress(r); if (zone) r.zone_from_address = true }
+            if (zone !== region) continue
+            stillWithUs.push({ ...r, on_class_roster: true })
+          }
+        }
+      }
+    } catch (e) { console.warn('[whoami] roster trainees:', e.message) }
+
     // Auto-resolve this manager's CCG deal-board link by zone.
     const ccgRecordsUrl = await resolveCcgRecordsUrl(region)
 
@@ -305,7 +340,7 @@ export const handler = async (event) => {
     }
 
     const repsOut = stillWithUs.map((r) => {
-      const pregrad = r.is_field_trainee === true && r.is_active_sales_rep !== true
+      const pregrad = (r.is_field_trainee === true || r.on_class_roster === true) && r.is_active_sales_rep !== true
       return {
         ...r, pregrad,
         training_week: pregrad ? trainingWeek(startByClass[r.class_id]) : null,
@@ -939,4 +974,20 @@ function json(status, body) {
     },
     body: JSON.stringify(body),
   }
+}
+
+// A trainee's zone from their home address: Google geocode → county → zone. Only a
+// county that sits wholly in one zone counts (Orange/Brevard split on Rt 50 → null).
+async function zoneFromAddress(r) {
+  const key = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY
+  const addr = [r.street_address, r.city, r.state || 'FL', r.zip].filter(Boolean).join(', ')
+  if (!key || !(r.city || r.zip)) return null
+  try {
+    const u = new URL('https://maps.googleapis.com/maps/api/geocode/json')
+    u.searchParams.set('address', addr); u.searchParams.set('region', 'us'); u.searchParams.set('key', key)
+    const d = await (await fetch(u)).json()
+    const c = ((d.results || [])[0]?.address_components || []).find((x) => (x.types || []).includes('administrative_area_level_2'))
+    const z = c && zoneForCounty(String(c.long_name || '').replace(/\s+county$/i, ''))
+    return z && !z.split ? z.zones[0] : null
+  } catch { return null }
 }

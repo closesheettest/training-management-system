@@ -1878,6 +1878,9 @@ function NewTrainees({ reps, token, onChanged, onCount }) {
                 {[r.city, r.state].filter(Boolean).join(', ')}{r.zip ? ` ${r.zip}` : ''}
               </div>
             )}
+            {r.zone_from_address && (
+              <div className="mt-0.5 text-[11.5px] font-semibold text-amber-300">In your zone by their home address — the office hasn&apos;t set their zone yet.</div>
+            )}
             <div className="mt-2 flex flex-wrap gap-2">
               {r.phone && (
                 <>
