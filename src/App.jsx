@@ -46,7 +46,7 @@ import PinGate from './components/PinGate.jsx'
 import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
 import TrainingDays from './pages/TrainingDays.jsx'
-import SlidePoints from './pages/SlidePoints.jsx'
+import SlidePoints, { SlidePointsView } from './pages/SlidePoints.jsx'
 import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import PracticeInvite from './pages/PracticeInvite.jsx'
 import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
@@ -124,6 +124,7 @@ export default function App() {
             same manual-sourced slides as the slide-a-day curriculum, so the
             homework can never drift from the script again. */}
         <Route path="/homework/slides" element={<HomeworkSlides />} />
+        <Route path="/slide-points/view" element={<SlidePointsView />} />
 
         {/* Public training-day review page — DeWayne & Neal tap the link
             from the "new training day submitted" SMS/email. The review

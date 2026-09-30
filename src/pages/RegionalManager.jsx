@@ -4255,7 +4255,7 @@ function HowPracticeIsScored() {
 
           <H>The score is roughly half and half</H>
           <ul className="list-disc space-y-1 pl-5">
-            <li><b>About half: did the points land?</b> Each slide has its list of points (the Slide Points page). The rep is graded on whether they brought each point out so the homeowner understood and agreed with it. <b>Not word for word</b>: their own words, any order, adapted to the homeowner is fine.</li>
+            <li><b>About half: did the points land?</b> Each slide has its list of points (the <a href="/slide-points/view" target="_blank" rel="noreferrer" className="font-semibold text-brand-navy underline">Slide Points page</a>). The rep is graded on whether they brought each point out so the homeowner understood and agreed with it. <b>Not word for word</b>: their own words, any order, adapted to the homeowner is fine.</li>
             <li><b>About half: who controlled the conversation?</b> Whoever asks the questions is in control. A rep who asks, listens and steers scores high. A rep who spends the meeting answering and defending while the homeowner fires questions loses points, even if every point was covered. A short, straight answer is fine, as long as the rep leads back with a question of their own within a turn or two.</li>
             <li>Also counted: how objections were handled, and tone.</li>
           </ul>

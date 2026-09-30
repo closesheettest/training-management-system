@@ -155,3 +155,54 @@ export default function SlidePoints() {
 function Wrap({ children }) {
   return <div className="mx-auto w-full max-w-3xl">{children}</div>
 }
+
+// READ-ONLY copy for regional managers (Neal, 2026-09-30: the "How the practice runs are
+// scored" note links here). Managers open their dashboard from a private link with no
+// admin persona, so the editable page above would just say "no access". Presentation
+// slides only; nothing can be changed here.
+export function SlidePointsView() {
+  const [rows, setRows] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    document.title = 'Slide Points · U.S. Shingle'
+    supabase.from('training_days').select('id, position, title, subject, on_slide, status')
+      .order('position', { ascending: true })
+      .then(({ data, error }) => { if (error) setErr(error.message); else setRows((data || []).filter((r) => isPresentation(r) && r.status === 'active')) })
+  }, [])
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-6">
+      <Wrap>
+        <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Slide Points</h1>
+        <p className="mt-1 mb-5 text-sm text-slate-600">
+          The points a rep has to bring out on each slide of the in-home presentation. Practice runs are graded on
+          whether these points landed with the homeowner — in the rep&rsquo;s own words, not word for word.
+        </p>
+        {err && <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{err}</p>}
+        {!rows && !err && <p className="py-10 text-center text-sm text-slate-500">Loading…</p>}
+        <div className="space-y-3">
+          {(rows || []).map((r) => {
+            const pts = splitPoints(r.on_slide)
+            return (
+              <div key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <span className="text-[15px] font-bold text-slate-900">{r.title}</span>
+                  {r.subject && <span className="text-[12px] font-semibold text-slate-400">{r.subject}</span>}
+                </div>
+                {pts.length ? (
+                  <ol className="space-y-1.5">
+                    {pts.map((p, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-slate-800">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[10.5px] font-bold text-white">{i + 1}</span>
+                        <span>{p}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : <p className="text-sm italic text-slate-400">No points written for this slide yet.</p>}
+              </div>
+            )
+          })}
+        </div>
+      </Wrap>
+    </div>
+  )
+}
