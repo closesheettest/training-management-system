@@ -6,6 +6,9 @@ import { Fragment, useEffect, useState } from 'react'
 
 const CCG = 'https://free-roof-inspections.netlify.app/.netlify/functions/william-pay'
 const fmtDay = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+// PAYDAY: the Friday after the week ends — Monday + 11 days, same as inspection pay
+// (Neal, 2026-09-30: "his payday is on Friday as well").
+const payday = (ymd) => { const d = new Date(`${ymd}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 11); return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`
 
 export default function WilliamPayCard() {
@@ -65,20 +68,20 @@ export default function WilliamPayCard() {
               {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
             <select value={pickWk} onChange={(e) => { setPickWk(e.target.value); setOpenWk(e.target.value === 'all' ? null : e.target.value) }} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
-              {inMonth.map((w) => <option key={w.week_start} value={w.week_start}>Week of {fmtDay(w.week_start)} – {fmtDay(w.week_end)}{w.in_progress ? ' (in progress)' : ''}</option>)}
+              {inMonth.map((w) => <option key={w.week_start} value={w.week_start}>Paid {payday(w.week_start)} · {fmtDay(w.week_start)} – {fmtDay(w.week_end)}{w.in_progress ? ' (in progress)' : ''}</option>)}
               <option value="all">All weeks in {monthLabel(month || months[0] || '2026-09')}</option>
             </select>
           </div>
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="py-1.5 pr-2">Week</th><th className="px-2 text-right">Signed up</th><th className="px-2 text-right">× $150</th>
+              <th className="py-1.5 pr-2">Payday · week</th><th className="px-2 text-right">Signed up</th><th className="px-2 text-right">× $150</th>
               <th className="px-2 text-right">Sales</th><th className="px-2 text-right">Sold $</th><th className="px-2 text-right">2%</th><th className="px-2 text-right">Total owed</th>
             </tr></thead>
             <tbody>
               {shownWeeks.map((w) => (
                 <Fragment key={w.week_start}>
                   <tr key={w.week_start} onClick={() => setOpenWk(openWk === w.week_start ? null : w.week_start)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-1.5 pr-2 font-semibold text-slate-800">{openWk === w.week_start ? '▾' : '▸'} {fmtDay(w.week_start)} – {fmtDay(w.week_end)}{w.in_progress && <span className="ml-1 text-xs font-normal text-amber-600">(in progress)</span>}</td>
+                    <td className="py-1.5 pr-2 font-semibold text-slate-800">{openWk === w.week_start ? '▾' : '▸'} Paid {payday(w.week_start)} <span className="font-normal text-slate-500">· {fmtDay(w.week_start)} – {fmtDay(w.week_end)}</span>{w.in_progress && <span className="ml-1 text-xs font-normal text-amber-600">(in progress)</span>}</td>
                     <td className="px-2 text-right">{w.signed}</td>
                     <td className="px-2 text-right">{money(w.insp_pay)}</td>
                     <td className="px-2 text-right">{w.sales.length}</td>
