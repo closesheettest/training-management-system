@@ -195,19 +195,18 @@ export default function RegionalManager() {
               ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} onCount={counter('trainees')} />, 'trainees'],
               ['📐 Measure a roof', <MeasureAnyAddress />],
             ] },
-          { key: 'appts', emoji: '📋', title: 'Appointments → Sales', sub: "Each rep's appointment-to-sale conversion", color: 'from-indigo-600 to-indigo-800',
-            render: () => <ApptConversion zone={manager.region} /> },
+          { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, back-to-retail wins', color: 'from-indigo-600 to-indigo-800',
+            parts: [
+              ['📋 Appointments → Sales', <ApptConversion zone={manager.region} autoOpen />],
+              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport /></>],
+              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} />],
+            ] },
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
           { key: 'leads', emoji: '🔍', title: 'Inspection-needed leads', sub: 'Lead boards and deals to restore', color: 'from-green-700 to-green-900',
             parts: [['🔍 Lead boards', <LeadBoards zone={manager.region} />], ['♻️ Deals to restore', <DamageRestore zone={manager.region} />]] },
           { key: 'lookup', emoji: '🔎', title: 'Look up an inspection', sub: 'Find any homeowner and where their deal stands', color: 'from-cyan-600 to-cyan-800',
             render: () => <InspectionLookup /> },
-          { key: 'numbers', emoji: '📊', title: "My team's numbers", sub: 'Managers pay, back-to-retail wins', color: 'from-violet-600 to-violet-800',
-            parts: [
-              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport /></>],
-              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} />],
-            ] },
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
             render: () => <PracticeReports token={token} /> },
           { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, weekly report, zone map, WhatsApp, ideas', color: 'from-slate-600 to-slate-800',
@@ -556,9 +555,11 @@ function MeasureAnyAddress() {
 
 
 // ── This week's appointments ends ───────────────────────────────────
-function ApptConversion({ zone }) {
+function ApptConversion({ zone, autoOpen = false }) {
   const [loading, setLoading] = useState(false)
-  const [open, setOpen] = useState(false)   // collapsed by default — click to open/close
+  const [open, setOpen] = useState(autoOpen)   // collapsed by default — click to open/close
+  // Opened from the Reports tile: load straight away, no second tap (Neal, 2026-09-30).
+  useEffect(() => { if (autoOpen) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [data, setData] = useState(null)
   const [openRep, setOpenRep] = useState(null)   // rep name — drill-down detail
   const [period, setPeriod] = useState('month')
