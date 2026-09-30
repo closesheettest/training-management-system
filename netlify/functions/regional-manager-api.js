@@ -335,6 +335,29 @@ export const handler = async (event) => {
     })
   }
 
+  // SALES TRAINING CUSTOMER — the manager report for THEIR reps (Neal, 2026-09-30:
+  // "a copy of the manager report show up on the regional manager's dashboard…
+  // their dashboard only shows their reps"). Same rows the trainer sees on
+  // /sales-practice, scoped server-side to trainees in this manager's region.
+  //   POST { action:'practice_list', token }      → { ok, sessions }
+  //   POST { action:'practice_get', token, id }   → { ok, session }  (404 if not their rep)
+  if (action === 'practice_list' || action === 'practice_get') {
+    const { data: team } = await supabase.from('trainees').select('id').eq('region', region)
+    const ids = (team || []).map((t) => t.id)
+    if (action === 'practice_list') {
+      if (!ids.length) return json(200, { ok: true, sessions: [] })
+      const { data, error } = await supabase.from('sales_practice_sessions')
+        .select('id, trainee_id, trainee_name, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score')
+        .in('trainee_id', ids).order('started_at', { ascending: false }).limit(60)
+      if (error) return json(500, { ok: false, error: error.message })
+      return json(200, { ok: true, sessions: data || [] })
+    }
+    const { data, error } = await supabase.from('sales_practice_sessions').select('*').eq('id', String(body.id || '')).maybeSingle()
+    if (error) return json(500, { ok: false, error: error.message })
+    if (!data || !ids.includes(data.trainee_id)) return json(404, { ok: false, error: 'Not found' })
+    return json(200, { ok: true, session: data })
+  }
+
   // Setter appointments awaiting a rep + this zone's reps (proxied to CCG).
   // view: 'needs' (default) | 'today' | 'tomorrow'.
   if (action === 'list-appointments') {

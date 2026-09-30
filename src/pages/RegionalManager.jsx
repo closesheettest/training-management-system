@@ -7,6 +7,10 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
+import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
+import { lazy, Suspense } from 'react'
+// The trainer's report card, reused as-is; loaded only when a manager opens one.
+const PracticeReportCard = lazy(() => import('./SalesPractice.jsx').then((m) => ({ default: m.Report })))
 
 // Public regional-manager page — the ONLY thing the regional sales
 // manager sees. No navigation, no admin chrome, no menus. They get a
@@ -193,6 +197,10 @@ export default function RegionalManager() {
           <ManagerPayReport />
         </section>
         <BackToRetailWins zone={manager.region} />
+      </Group>
+
+      <Group title="🎙️ Sales training — your reps' practice">
+        <PracticeReports token={token} />
       </Group>
 
       <Group title="🔍 Inspection Needed Leads Inventory" accent="green">
@@ -4010,5 +4018,51 @@ function TraineeActivity({ link, since, name }) {
         </div>
       )}
     </>
+  )
+}
+
+// SALES TRAINING CUSTOMER — the manager report for this manager's reps only
+// (Neal, 2026-09-30). The server scopes to the manager's region; this is a read-only
+// copy of what the trainer sees on /sales-practice (no regrade, no delete).
+function PracticeReports({ token }) {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  const [openId, setOpenId] = useState(null)
+  const call = async (body) => {
+    const r = await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...body }) })
+    return r.json().catch(() => ({ ok: false, error: 'Could not load' }))
+  }
+  const load = async () => { setErr(''); const j = await call({ action: 'practice_list' }); if (j.ok) setList(j.sessions); else setErr(j.error || 'Could not load') }
+  useEffect(() => { load() }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
+  const when = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const color = (n) => (n == null ? 'text-slate-400' : n >= 90 ? 'text-emerald-600' : n >= 75 ? 'text-lime-600' : n >= 60 ? 'text-amber-600' : 'text-red-600')
+  return (
+    <section className="mb-6 rounded-xl bg-white p-4 text-slate-800">
+      {openId ? (
+        <Suspense fallback={<div className="text-sm text-slate-500">Loading the report…</div>}>
+          <PracticeReportCard id={openId} onBack={() => setOpenId(null)} canRegrade={false} load={(id) => call({ action: 'practice_get', id })} />
+        </Suspense>
+      ) : (
+        <>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-brand-navy">🎙️ Sales Training Customer — manager reports</h2>
+            <button type="button" onClick={load} className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600">↻ Refresh</button>
+          </div>
+          <p className="mb-3 text-xs text-slate-500">Every practice run by one of your reps, newest first. Tap one for the full manager report — what to focus on, what to assign, what to watch on a ride-along.</p>
+          {err && <div className="text-sm font-semibold text-red-700">{err}</div>}
+          {!list && !err && <div className="text-sm text-slate-500">Loading…</div>}
+          {list && list.length === 0 && <div className="text-sm text-slate-500">None of your reps has practiced yet.</div>}
+          {list && list.map((x) => (
+            <button key={x.id} type="button" onClick={() => setOpenId(x.id)} className="mb-2 flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-left hover:bg-slate-50">
+              <div>
+                <div className="font-semibold">{x.trainee_name || 'Rep'}</div>
+                <div className="text-xs text-slate-500">{when(x.started_at)} · {sectionByKey(x.section)?.label || x.section} · {personaByKey(x.persona_key)?.name || x.persona_key}{x.duration_sec ? ` · ${Math.round(x.duration_sec / 60)} min` : ''}</div>
+              </div>
+              <div className={`text-xl font-bold ${color(x.score)}`}>{x.grade_status === 'pending' ? <span className="text-sm text-slate-400">Grading…</span> : x.grade_status === 'failed' ? <span className="text-sm text-red-500">Not graded</span> : x.score ?? '—'}</div>
+            </button>
+          ))}
+        </>
+      )}
+    </section>
   )
 }
