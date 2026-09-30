@@ -207,7 +207,7 @@ export default function RegionalManager() {
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
           { key: 'leads', emoji: '🗂️', title: 'Deal boards', sub: 'Inspection leads, PA deals, signed claims, BTR deals', color: 'from-green-700 to-green-900',
-            parts: [['🗂️ Deal boards — your team\'s deals', <LeadBoards zone={manager.region} />], ['♻️ Deals to restore', <DamageRestore zone={manager.region} />]] },
+            parts: [['', <LeadBoards zone={manager.region} />], ['♻️ Deals to restore', <DamageRestore zone={manager.region} />]] },
           { key: 'lookup', emoji: '🔎', title: 'Look up an inspection', sub: 'Find any homeowner and where their deal stands', color: 'from-cyan-600 to-cyan-800',
             render: () => <InspectionLookup /> },
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
@@ -4178,11 +4178,12 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
                   </div>
                 )}
                 {checking && !allClear && <div className="mb-3 text-xs text-slate-300/70">Checking what's waiting…</div>}
-                {t.parts.map(([label, node, k]) => {
+                {t.parts.map(([label, node, k], pi) => {
                   const hide = k && !(counts[k] > 0 || counts[k] === -1)
                   return (
-                    <div key={label} className="mb-5" style={hide ? { display: 'none' } : undefined}>
-                      <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}{k && counts[k] > 0 ? ` · ${counts[k]}` : ''}</div>
+                    <div key={label || pi} className="mb-5" style={hide ? { display: 'none' } : undefined}>
+                      {/* No bar when it would only repeat the section's own title. */}
+                      {label && <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}{k && counts[k] > 0 ? ` · ${counts[k]}` : ''}</div>}
                       {node}
                     </div>
                   )
