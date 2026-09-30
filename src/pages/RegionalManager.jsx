@@ -1434,6 +1434,7 @@ function AssignMap({ srReps, items, zoneName }) {
       </div>
       <div className="overflow-hidden rounded-md border border-slate-200" style={{ height: 460 }}>
         <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <AutoSize />
           <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {repPts.map((r) => (
             <Marker key={'r' + r.jobnimbus_id} position={[r.latitude, r.longitude]} icon={RED_PIN}>
@@ -2712,6 +2713,21 @@ function PlanFit({ points, dep }) {
   }, [dep]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
+// Leaflet measures its box once, when it's created. The to-do sections mount hidden while
+// they count (TileBoard), so a map drawn then thinks it's 0×0 and paints one corner of tiles
+// (Neal, 2026-09-30: Assign Appointments map "isn't loading"). Watch the box and re-measure
+// whenever it changes — including going from hidden to shown.
+function AutoSize() {
+  const map = useMap()
+  useEffect(() => {
+    const el = map.getContainer()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => { try { map.invalidateSize() } catch { /* ignore */ } })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [map])
+  return null
+}
 // Nudge Leaflet to recompute its size when the container resizes (full-screen toggle).
 function Resizer({ dep }) {
   const map = useMap()
@@ -2830,6 +2846,7 @@ function TeamHarvestMap({ zone, preview }) {
       <div className="mt-3 flex flex-col gap-3 lg:flex-row">
         <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 440, flex: '1 1 60%', minWidth: 280 }}>
           <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <AutoSize />
             <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <FitBounds points={positions} />
             {reps.map((rep, i) => {
@@ -3227,6 +3244,7 @@ function EnhancedPlannedDay({ zone, token, preview }) {
             <div className="mt-3 flex flex-col gap-3 lg:flex-row">
               <div className="overflow-hidden rounded-md border border-white/10" style={{ height: fullscreen ? 'calc(100vh - 210px)' : 420, flex: fullscreen ? '1 1 68%' : '1 1 55%', minWidth: 280 }}>
                 <MapContainer key={fullscreen ? 'plan-fs' : 'plan-sm'} center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <AutoSize />
                   <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Resizer dep={fullscreen} />
                   <PlanFit points={manual ? allPins.map((p) => [p.lat, p.lng]) : (hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || []))} dep={manual ? 'manual' : hi} />
@@ -3376,6 +3394,7 @@ function ZoneMap({ reps, zoneName, token }) {
       </p>
       <div className="mt-3 overflow-hidden rounded-md border border-white/10" style={{ height: 420 }}>
         <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+          <AutoSize />
           <TileLayer
             attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
