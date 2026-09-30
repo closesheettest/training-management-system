@@ -198,8 +198,8 @@ export default function RegionalManager() {
           { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, back-to-retail wins', color: 'from-indigo-600 to-indigo-800',
             parts: [
               ['📋 Appointments → Sales', <ApptConversion zone={manager.region} autoOpen />],
-              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport /></>],
-              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} />],
+              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport autoLoad /></>],
+              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} autoLoad />],
             ] },
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
@@ -1100,7 +1100,7 @@ function Leaderboard({ myZone }) {
     })
     return (
       <>
-        <div className={`grid grid-cols-2 gap-2 ${zones.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>{zones.map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
+        <div className={`grid grid-cols-2 gap-2 ${zones.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>{[...zones].sort((a, b) => (b.count || 0) - (a.count || 0)).map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
         {openZ && (
           <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
             <div className="mb-1 text-xs font-bold text-amber-200">{openZ.lone ? 'Lone Wolf · William Hernandez' : `${openZ.team} · ${openZ.zone}`}</div>
@@ -2401,7 +2401,7 @@ function ActiveLeads({ zone }) {
 // cron-track-retail-status snapshots those transitions; this reads them
 // (zone-retail-conversions) grouped by rep, appointments-booked first.
 // Load-on-demand to keep the dashboard light.
-function BackToRetailWins({ zone }) {
+function BackToRetailWins({ zone, autoLoad = false }) {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [openRep, setOpenRep] = useState(null)
@@ -2417,6 +2417,8 @@ function BackToRetailWins({ zone }) {
     setLoading(false)
   }
 
+  // Opened from the Reports tile: load straight away (Neal, 2026-09-30).
+  useEffect(() => { if (autoLoad) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="mt-6">
       <button type="button" onClick={() => (data ? setData(null) : load())}
@@ -4152,7 +4154,7 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
               // A to-do (has a count key) shows only when something is waiting; while it's
               // still loading it stays mounted but hidden so it can finish (Neal, 2026-09-30).
               const keyed = t.parts.filter((x) => x[2])
-              const allClear = keyed.length && keyed.every((x) => counts[x[2]] === 0)
+              const allClear = keyed.length > 0 && keyed.every((x) => counts[x[2]] === 0)
               const checking = keyed.some((x) => counts[x[2]] === undefined)
               return (<>
                 {allClear && <div className="mb-4 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">✅ All caught up — nothing waiting on you right now.</div>}

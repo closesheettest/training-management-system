@@ -16,7 +16,7 @@ const fmtDay = (iso) => { try { return new Date(iso).toLocaleDateString('en-US',
 // directly — don't subtract a day (that overshot to Saturday).
 const weekLabel = (range) => { if (!range) return ''; return `${fmtDay(range.start)} – ${fmtDay(range.end)}` }
 
-export default function ManagerPayReport({ admin = false }) {
+export default function ManagerPayReport({ admin = false, autoLoad = false }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
@@ -25,6 +25,8 @@ export default function ManagerPayReport({ admin = false }) {
   // Click the title to load + open, click again to shrink (Neal, 2026-09-28).
   const [shown, setShown] = useState(true)
   const toggle = () => { if (!data) { setShown(true); if (!loading) load() } else setShown((v) => !v) }
+  // Opened from the manager Reports tile: load straight away (Neal, 2026-09-30).
+  useEffect(() => { if (autoLoad) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [cfgOpen, setCfgOpen] = useState(false)
 
   const load = async (weeksBack = wb) => {
