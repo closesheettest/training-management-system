@@ -2004,7 +2004,7 @@ function DamageNeedsRep({ zone, onCount }) {
         {data && (
           <div id="needs-assign-list" className="mt-3">
             {remaining.length === 0 ? <div className="text-sm text-slate-500">No inspected deals waiting for a rep. 🎉</div> : remaining.map((dl) => {
-              const RES = { damage: { l: '🏚️ Damage', c: 'bg-rose-100 text-rose-700' }, no_damage: { l: '✅ No-Damage', c: 'bg-emerald-100 text-emerald-700' }, retail: { l: '🏠 Retail', c: 'bg-amber-100 text-amber-700' } }[dl.result] || { l: dl.result, c: 'bg-slate-100 text-slate-600' }
+              const RES = { damage: { l: '🏚️ Damage', c: 'bg-rose-100 text-rose-700' }, no_damage: { l: '✅ No-Damage', c: 'bg-emerald-100 text-emerald-700' }, retail: { l: '🏠 Retail', c: 'bg-amber-100 text-amber-700' } }[dl.result] || (dl.kind === 'needs_inspection' || !dl.result ? { l: dl.inspection_booked ? '🔍 Inspection booked' : '🔍 Not inspected yet', c: 'bg-sky-100 text-sky-700' } : { l: dl.result, c: 'bg-slate-100 text-slate-600' })
               const old = dl.age_days != null && dl.age_days >= 14
               return (
               <div key={dl.inspection_id} className="mt-2 rounded-lg border border-slate-200 p-3">
