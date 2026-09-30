@@ -1607,7 +1607,7 @@ function AssignAppointments({ token, onCount }) {
                     <div className="font-bold text-slate-800">{a.homeowner_name || 'Homeowner'}</div>
                     <div className="text-[13px] text-slate-600">📍 {a.address || '—'}</div>
                     <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(a.appt_at)}{a.source ? ` · ${a.source}` : ''}</div>
-                    {a.was_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ Was assigned to {a.was_rep}, who has left. Give it to a working rep.</div>}
+                    {a.was_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ Was assigned to {a.was_rep}, {whyText(a.was_status)} Give it to a working rep.</div>}
                     {editRow({ key: 'need:' + a.id, source: 'app', id: a.id, jn_job_id: a.jn_job_id, owner_id: null, sales_rep_id: null }, 'Submit')}
                     <TransferZone apptId={a.id} jobId={a.jn_job_id} zone={d.zone} who={a.homeowner_name} token={token} onDone={() => load(view)} />
                   </div>
@@ -1624,7 +1624,7 @@ function AssignAppointments({ token, onCount }) {
                         {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
                         <div className="text-[12.5px] font-bold text-amber-700">🕒 {fmt(it.appt_at)} · owned by {it.owner_name || 'Viviana'}{it.departed_rep ? ' (left)' : ''}</div>
                         {it.missed && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ MISSED: {it.departed_rep || it.owner_name} had left, so nobody went. Give it to a rep to call and reschedule.</div>}
-                        {!it.missed && it.departed_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ {it.departed_rep} has left. Give it to a working rep.</div>}
+                        {!it.missed && it.departed_rep && <div className="mt-1 text-[12px] font-bold text-red-700">⚠️ {it.departed_rep} {whyText(it.departed_status).replace(/^who /, '')} Give it to a working rep.</div>}
                         {it.is_goback && <div className="text-[11.5px] text-orange-700">📋 Review visit — {it.appt_note || 'go-back'}. Assign a rep so it isn't missed.</div>}
                         {editRow(it, 'Assign')}
                         <TransferZone jobId={it.jn_job_id} zone={d.zone} who={it.homeowner} token={token} onDone={() => load(view)} />
@@ -4227,4 +4227,12 @@ function HarvestPracticeLink() {
         <span className="ml-auto text-slate-300">↗</span>
       </a>
   )
+}
+
+// Why an owner can't take an appointment (CCG manager-records-api, 2026-09-30). Only a real
+// departure says "has left"; a trainee or the office isn't someone who left.
+function whyText(st) {
+  if (st === 'training') return 'who is still in training.'
+  if (st === 'not_field') return "who isn't a field rep."
+  return 'who has left.'
 }
