@@ -164,50 +164,51 @@ export default function RegionalManager() {
           want"). Every section is a tile; tap to open it under the tiles, tap again (or ✕)
           to close. Several can be open at once. Which ones are open is remembered on this
           device. */}
+      {/* The leaderboard stays on screen, above the tiles (Neal, 2026-09-30). */}
+      <section className="mb-5 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+        <div className="mb-3 rounded-lg bg-gradient-to-r from-sky-600 to-sky-800 px-4 py-2 text-lg font-extrabold text-white">🏆 Leaderboard</div>
+        <ContestIfOn />
+        <Leaderboard myZone={manager.region} />
+      </section>
+
       <TileBoard
         storageKey={`rm_open_${manager.region || ''}`}
         tiles={[
           { key: 'today', emoji: '⭐', title: "Today's work", sub: 'Assign appointments, deals to fix, reviews, new trainees', color: 'from-amber-500 to-amber-700',
-            render: () => (<>
-              <MeasureAnyAddress />
-              <NewTrainees reps={reps} token={token} onChanged={reload} />
-              <CancelReviews zone={manager.region} />
-              <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />
-              <AssignAppointments token={token} />
-              <DealsToFix zone={manager.region} />
-              <DamageNeedsRep zone={manager.region} />
-            </>) },
-          { key: 'board', emoji: '🏆', title: 'Leaderboard', sub: 'Team standings — inspections, harvest, sales', color: 'from-sky-600 to-sky-800',
-            render: () => (<><ContestIfOn /><Leaderboard myZone={manager.region} /></>) },
+            parts: [
+              ['📅 Assign appointments', <AssignAppointments token={token} />],
+              ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} />],
+              ['🛠️ Deals to fix', <DealsToFix zone={manager.region} />],
+              ['🚫 Cancel reviews', <CancelReviews zone={manager.region} />],
+              ['⭐ Reviews to verify', <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} />],
+              ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} />],
+              ['📐 Measure a roof', <MeasureAnyAddress />],
+            ] },
           { key: 'appts', emoji: '📋', title: 'Appointments → Sales', sub: "Each rep's appointment-to-sale conversion", color: 'from-indigo-600 to-indigo-800',
             render: () => <ApptConversion zone={manager.region} /> },
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
           { key: 'leads', emoji: '🔍', title: 'Inspection-needed leads', sub: 'Lead boards and deals to restore', color: 'from-green-700 to-green-900',
-            render: () => (<><LeadBoards zone={manager.region} /><DamageRestore zone={manager.region} /></>) },
+            parts: [['🔍 Lead boards', <LeadBoards zone={manager.region} />], ['♻️ Deals to restore', <DamageRestore zone={manager.region} />]] },
           { key: 'lookup', emoji: '🔎', title: 'Look up an inspection', sub: 'Find any homeowner and where their deal stands', color: 'from-cyan-600 to-cyan-800',
             render: () => <InspectionLookup /> },
           { key: 'numbers', emoji: '📊', title: "My team's numbers", sub: 'Managers pay, back-to-retail wins', color: 'from-violet-600 to-violet-800',
-            render: () => (<>
-              <section className="mb-6">
-                <h2 className="mb-2 text-lg font-semibold text-white">Managers Pay — all regions</h2>
-                <p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p>
-                <ManagerPayReport />
-              </section>
-              <BackToRetailWins zone={manager.region} />
-            </>) },
+            parts: [
+              ['💰 Managers Pay — all regions', <><p className="mb-2 text-xs text-slate-200/70">Last week's override pay for every region's manager (yours and the others). Read-only.</p><ManagerPayReport /></>],
+              ['🏠 Back-to-retail wins', <BackToRetailWins zone={manager.region} />],
+            ] },
           { key: 'training', emoji: '🎙️', title: 'Sales training', sub: "Your reps' practice runs and manager reports", color: 'from-rose-600 to-rose-800',
             render: () => <PracticeReports token={token} /> },
           { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps, weekly report, zone map, WhatsApp, ideas', color: 'from-slate-600 to-slate-800',
-            render: () => (<>
-              <WeeklyReport token={token} />
-              <RepsTable token={token} reps={reps} onChanged={reload} />
-              <RoofMeasureAccess zone={manager.region} />
-              <ZoneMap reps={reps} zoneName={manager.region} token={token} />
-              <WhatsAppGroups token={token} reps={reps} zone={manager.region} />
-              <MeetingIdea token={token} />
-              <QuickActions manager={manager} />
-            </>) },
+            parts: [
+              ['👥 Your reps', <RepsTable token={token} reps={reps} onChanged={reload} />],
+              ['📰 Weekly report', <WeeklyReport token={token} />],
+              ['🗺️ Zone map', <ZoneMap reps={reps} zoneName={manager.region} token={token} />],
+              ['📐 Roof measure access', <RoofMeasureAccess zone={manager.region} />],
+              ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
+              ['💡 Idea for a meeting', <MeetingIdea token={token} />],
+              ['⚡ Quick actions', <QuickActions manager={manager} />],
+            ] },
         ]}
       />
 
@@ -974,7 +975,14 @@ function Leaderboard({ myZone }) {
     let cancelled = false
     setInsp(null); setSales(null); setHarvest(null); setOpenInsp(null); setOpenSales(null); setOpenHarvest(null)
     fetch(LB_ORIGIN + 'zone-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (!cancelled && d && d.ok) setInsp(d.zones) }).catch(() => {})
+      .then((d) => {
+        if (cancelled || !d || !d.ok) return
+        // WILLIAM, THE LONE WOLF (Neal, 2026-09-30): the trainer isn't on a team, so he gets
+        // his own card beside the four on the inspections board — same as the rep dashboard.
+        const w = d.william
+        setInsp(w ? [...d.zones, { zone: '__william__', team: 'Lone Wolf', lone: true, count: w.count || 0,
+          reps: [{ name: 'William Hernandez', count: w.count || 0 }], deals: w.deals || [] }] : d.zones)
+      }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setSales(d.zones) }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-harvest-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
@@ -995,10 +1003,10 @@ function Leaderboard({ myZone }) {
     return (
       <button type="button" key={z.zone} onClick={() => setOpen(isOpen ? null : z.zone)}
         className="rounded-lg p-3 text-left text-white transition active:scale-[.98]"
-        style={{ background: LB_ZONE_COLOR[z.zone] || '#334155', outline: mine ? '3px solid #f5b50a' : 'none' }}>
+        style={{ background: z.lone ? '#7c3aed' : (LB_ZONE_COLOR[z.zone] || '#334155'), outline: mine ? '3px solid #f5b50a' : z.lone ? '2px dashed rgba(255,255,255,.6)' : 'none' }}>
         <div className="text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}</div>
         <div className="text-base font-extrabold leading-tight">{z.team}</div>
-        <div className="text-[10px] opacity-90">{z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
+        <div className="text-[10px] opacity-90">{z.lone ? '🎓 William Hernandez · trainer' : z.zone}{mine ? ' · YOUR TEAM' : ''}</div>
         <div className="mt-1 text-xs font-bold">
           <span className="text-lg font-extrabold">{z.count}</span> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}
           {kind === 'sales' && z.total_amount ? <span className="opacity-90"> · ${z.total_amount.toLocaleString()}</span> : null}
@@ -1010,6 +1018,11 @@ function Leaderboard({ myZone }) {
 
   // Inspections detail: reps + their signed counts.
   const inspDetail = (z) => {
+    if (z.lone) {
+      const deals = z.deals || []
+      if (!deals.length) return <div className="text-xs text-slate-300/70">No inspections signed yet.</div>
+      return <div className="divide-y divide-white/10">{deals.map((d, i) => <div key={i} className="py-1.5 text-sm">🏠 {d.label}{d.city ? `, ${d.city}` : ''}</div>)}</div>
+    }
     const reps = z.reps || []
     if (!reps.length) return <div className="text-xs text-slate-300/70">No inspections logged yet.</div>
     return (
@@ -1072,10 +1085,10 @@ function Leaderboard({ myZone }) {
     })
     return (
       <>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{zones.map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
+        <div className={`grid grid-cols-2 gap-2 ${zones.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>{zones.map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
         {openZ && (
           <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
-            <div className="mb-1 text-xs font-bold text-amber-200">{openZ.team} · {openZ.zone}</div>
+            <div className="mb-1 text-xs font-bold text-amber-200">{openZ.lone ? 'Lone Wolf · William Hernandez' : `${openZ.team} · ${openZ.zone}`}</div>
             {detailFn(openZ)}
           </div>
         )}
@@ -4106,7 +4119,14 @@ function TileBoard({ tiles, storageKey }) {
             <span className="text-lg font-extrabold text-white">{t.emoji} {t.title}</span>
             <button type="button" onClick={() => toggle(t.key)} className="rounded-md bg-black/25 px-3 py-1 text-sm font-bold text-white hover:bg-black/40">✕ Close</button>
           </div>
-          {t.render()}
+          {t.parts
+            ? t.parts.map(([label, node]) => (
+              <div key={label} className="mb-5">
+                <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}</div>
+                {node}
+              </div>
+            ))
+            : t.render()}
         </section>
       ))}
     </>
