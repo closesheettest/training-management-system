@@ -221,7 +221,7 @@ export default function RegionalManager() {
               ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
               ['', <MeetingIdea token={token} />],
             ] },
-          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps and the zone map', color: 'from-slate-600 to-slate-800',
+          { key: 'roster', emoji: '👥', title: 'Roster & tools', sub: 'Your reps with their tools (map link, edit info, route anytime…) and the zone map', color: 'from-slate-600 to-slate-800',
             parts: [
               ['👥 Your reps', <RepsTable token={token} reps={reps} onChanged={reload} />],
               ['🗺️ Zone map', <ZoneMap reps={reps} zoneName={manager.region} token={token} />],
