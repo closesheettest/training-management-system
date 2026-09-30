@@ -219,7 +219,6 @@ export default function RegionalManager() {
             parts: [
               ['👥 Your reps', <RepsTable token={token} reps={reps} onChanged={reload} />],
               ['🗺️ Zone map', <ZoneMap reps={reps} zoneName={manager.region} token={token} />],
-              ['📐 Roof measure access', <RoofMeasureAccess zone={manager.region} />],
               ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
               ['💡 Idea for a meeting', <MeetingIdea token={token} />],
               ['⚡ Quick actions', <QuickActions manager={manager} />],
