@@ -19,7 +19,8 @@ const N = 31
 const section = (n) => (SECTIONS.find(([, a, b]) => n >= a && n <= b) || [''])[0]
 
 export default function PresentationActivity() {
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem('deck_activity_open') === '1' } catch { return false } })
+  // Starts closed every visit and loads only when tapped (Neal, 2026-09-30: it auto-loaded).
+  const [open, setOpen] = useState(false)
   const [date, setDate] = useState('')
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -36,7 +37,7 @@ export default function PresentationActivity() {
     setBusy(false)
   }
   useEffect(() => { if (open && !data && !busy) load() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = () => setOpen((o) => { try { localStorage.setItem('deck_activity_open', o ? '0' : '1') } catch { /* private */ } return !o })
+  const toggle = () => setOpen((o) => !o)
 
   const withAppt = data ? data.reps.filter((r) => r.appts.length) : []
   const opened = withAppt.filter((r) => r.sessions.length).length
