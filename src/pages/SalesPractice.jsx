@@ -59,7 +59,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     control: [
       'Five timed minutes on one slide. The homeowner fires relevant questions to take control of the conversation.',
       'Every exchange is marked KEPT (the rep answered briefly and took it back with a relevant question), GAVE UP (answered without leading back within their next two replies) or OFF-TOPIC (a question that went nowhere).',
-      'The score is how often the rep kept control. Each hand-over is listed with a better question they could have asked.',
+      'The score is how often the rep kept control. Each hand-over is listed with the angle they could have taken to lead back — the approach, not a line to memorize.',
       'The rep’s answers also have to stay on the script’s angle for that slide; any that don’t are listed as “Off script” for you.',
     ],
   }[sectionKey] || [
@@ -647,7 +647,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
                     <div key={i} className="border-l-2 border-amber-300 pl-3 text-sm">
                       <div className="text-slate-600"><span className="font-semibold">Homeowner:</span> “{m.homeowner_said}”</div>
                       <div className="text-slate-600"><span className="font-semibold">Rep:</span> {m.rep_did}</div>
-                      <div className="text-slate-900"><span className="font-semibold">Take it back:</span> {m.take_it_back}</div>
+                      <div className="text-slate-900"><span className="font-semibold">The angle to take</span> <span className="text-xs italic text-slate-500">(the approach, not these exact words)</span>: {m.take_it_back}</div>
                     </div>
                   ))}
                 </div>
@@ -669,7 +669,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
                       {o.parked && <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${o.came_back === 'no' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>🅿️ parked{o.came_back === 'yes' ? ' · came back ✓' : o.came_back === 'no' ? ' · never came back' : o.came_back === 'not reached' ? ' · not reached yet' : ''}</span>}
                     </div>
                     <div className="text-sm text-slate-600"><span className="font-semibold">They said:</span> {o.what_rep_said}</div>
-                    <div className="text-sm text-slate-800"><span className="font-semibold">Say instead:</span> {o.say_instead}</div>
+                    <div className="text-sm text-slate-800"><span className="font-semibold">The angle to take</span> <span className="text-xs italic text-slate-500">(the approach, not these exact words)</span>: {o.say_instead}</div>
                   </div>
                 ))}
               </div>
@@ -787,7 +787,7 @@ function DrillReport({ r, speaker }) {
               </div>
               <div className="text-slate-800"><span className="font-semibold">Rep:</span> “{x.rep}”</div>
               {x.why && <div className="text-xs text-slate-500">{x.why}</div>}
-              {x.better_question && <div className="text-slate-900"><span className="font-semibold">Come back with:</span> {x.better_question}</div>}
+              {x.better_question && <div className="text-slate-900"><span className="font-semibold">The angle to take</span> <span className="text-xs italic text-slate-500">(the approach, not these exact words)</span>: {x.better_question}</div>}
             </div>
           ))}
         </div>

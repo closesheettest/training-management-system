@@ -32,7 +32,7 @@ const ENCOURAGEMENT_SCHEMA = {
   properties: {
     opening: { type: 'STRING', description: '1-2 sentences of genuine, specific praise to open with' },
     wins: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-3 real things they did well, quoting their own words where possible' },
-    level_up: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-3 "To make it even better, try ..." points, each with the exact words or question they could use next time' },
+    level_up: { type: 'ARRAY', items: { type: 'STRING' }, description: '2-3 "To make it even better, try ..." points, each with the ANGLE to take next time (the approach and the kind of question to ask), not exact words to memorize' },
     closing: { type: 'STRING', description: 'One encouraging closing line' },
   },
   required: ['opening', 'wins', 'level_up', 'closing'],
@@ -109,7 +109,7 @@ const REPORT_SCHEMA = {
             properties: {
               homeowner_said: { type: 'STRING' },
               rep_did: { type: 'STRING' },
-              take_it_back: { type: 'STRING', description: 'A QUESTION the rep could have asked to take control back' },
+              take_it_back: { type: 'STRING', description: 'The angle the rep could have taken to lead back with a question and take control back. Describe the ANGLE (the approach, the idea, the kind of question to ask), NOT a line to memorize; if you give an example, keep it short and start it with "something like".' },
             },
             required: ['homeowner_said', 'rep_did', 'take_it_back'],
           },
@@ -128,7 +128,7 @@ const REPORT_SCHEMA = {
           parked: { type: 'BOOLEAN', description: 'true if the rep parked it for later instead of answering on the spot' },
           came_back: { type: 'STRING', description: 'For parked ones: yes (answered later) | no (reached that part, never answered) | not reached. For answered-on-the-spot ones: n/a' },
           what_rep_said: { type: 'STRING' },
-          say_instead: { type: 'STRING', description: 'How to handle it by the method (often a park + question), using the deck/script facts where they apply' },
+          say_instead: { type: 'STRING', description: 'The angle to handle it by the method (often a park + question), using the deck/script facts where they apply. Describe the ANGLE (the approach, the idea, the kind of question to ask), NOT a line to memorize; if you give an example, keep it short and start it with "something like".' },
         },
         required: ['objection', 'handled', 'what_rep_said', 'say_instead'],
       },
@@ -237,7 +237,7 @@ const DRILL_SCHEMA = {
           n: { type: 'INTEGER' },
           verdict: { type: 'STRING', description: 'kept | gave_up | off_topic' },
           why: { type: 'STRING', description: 'One short sentence' },
-          better_question: { type: 'STRING', description: 'For gave_up / off_topic: a RELEVANT question the rep could have come back with. Empty for kept.' },
+          better_question: { type: 'STRING', description: 'For gave_up / off_topic: the angle of a RELEVANT question the rep could have come back with. Describe the ANGLE (the approach, the idea, the kind of question to ask), NOT a line to memorize; if you give an example, keep it short and start it with "something like". Empty for kept.' },
         },
         required: ['n', 'verdict', 'why', 'better_question'],
       },
@@ -404,7 +404,7 @@ ${onScript ? `STAY ON SCRIPT: THE ANGLE AND THE POINTS, NOT THE WORDS.
 - CONTROL OF THE CONVERSATION is graded on its own and weighs heavily in the score. The person asking the questions is the person in control. A rep in control asks, listens, and steers the homeowner to each point; a rep who spends the meeting answering and defending while the homeowner fires questions has lost control, even if every point was covered. Counted questions in this transcript: REP ${questions.rep}, HOMEOWNER ${questions.homeowner}. Use the count, but judge it: a tie-down counts as control.
 - WHEN THE HOMEOWNER ASKS A QUESTION there is a BALANCE. A straight answer in statements is fine, even good, when the question deserves one; the rep keeps control as long as they lead back with a question of their own within their next turn or two. Control is LOST when the rep keeps answering question after question without leading back, gives long defensive explanations, or lets the homeowner steer to a new topic; that must cost them on the control score. Never mark down a single short, straight answer that is followed by the rep leading again. Of the homeowner's ${questions.answered_with_question + questions.just_answered} question turns, the rep led back with a question within two turns ${questions.answered_with_question} times and did not ${questions.just_answered} times. The ones where they did not (homeowner, then the rep's next two replies):
 ${handovers.slice(0, 12).map((h, i) => `  ${i + 1}. HOMEOWNER: ${h.homeowner}\n     REP: ${h.rep}`).join('\n') || '  (none)'}
-  Use these for "lost_moments", each with the question the rep should have come back with.
+  Use these for "lost_moments", each with the ANGLE the rep could have taken to lead back (the approach, not exact words).
 - OBJECTIONS are judged ONLY by the company's method:
 ${OBJECTION_METHOD}
   An objection is handled "well" only when all four steps happen. PARKING a concern that belongs to a later slide is the RIGHT move (it keeps control); never mark a rep down for not answering it on the spot. But a parked concern the rep never came back to, once they reached that part, is a miss. Answering early by jumping ahead to later material is a control mistake.
@@ -430,7 +430,7 @@ ${lines}
 """
 ${silence}
 
-Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner${onScript ? ' using the script\'s angle' : ''}; exact words do not matter. Be specific and quote the rep. For "say instead" on an objection, give a natural, question-led way to handle it (the script's approach where it has one). Write in plain, direct language a trainer can read out to the rep. The "encouragement" section is the only thing the REP sees: write it TO them, warm and specific, with no score and nothing negative; frame every improvement as "to make it even better, try ...". The "manager_plan" is for their manager: be direct about what to work on and what practice to assign.`
+Score = roughly HALF how well the points landed, HALF who controlled the conversation (plus handling of objections and tone). 90+ = ready for a real kitchen table, 75-89 = close, 60-74 = needs work, under 60 = go back and practice. Per part, 10/10 means every point landed with the homeowner${onScript ? ' using the script\'s angle' : ''}; exact words do not matter. Be specific and quote the rep. For "say_instead" on an objection, give the ANGLE to handle it: a natural, question-led approach (the script's approach where it has one), described as an approach, not a line to memorize; any example is short and starts with "something like". Write in plain, direct language a trainer can read out to the rep. The "encouragement" section is the only thing the REP sees: write it TO them, warm and specific, with no score and nothing negative; frame every improvement as "to make it even better, try ...". The "manager_plan" is for their manager: be direct about what to work on and what practice to assign.`
 
   try {
     const report = await geminiJson(prompt, REPORT_SCHEMA)
