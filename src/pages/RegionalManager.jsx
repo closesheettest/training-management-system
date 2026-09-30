@@ -193,7 +193,6 @@ export default function RegionalManager() {
               ['🚫 Cancel reviews', <CancelReviews zone={manager.region} onCount={counter('cancel')} />, 'cancel'],
               ['⭐ Reviews to verify', <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} onCount={counter('reviews')} />, 'reviews'],
               ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} onCount={counter('trainees')} />, 'trainees'],
-              ['📐 Measure a roof', <MeasureAnyAddress />],
             ] },
           { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, weekly report', color: 'from-indigo-600 to-indigo-800',
             // Each report already has its own tap-to-load header, so no extra bars here
@@ -203,6 +202,8 @@ export default function RegionalManager() {
               <ManagerPayReport />
               <WeeklyReport token={token} />
             </div>) },
+          { key: 'fusion', emoji: '📐', title: 'Roof Fusion', sub: 'Measure any roof — type the address', color: 'from-yellow-600 to-orange-700',
+            render: () => <MeasureAnyAddress /> },
           { key: 'harvest', emoji: '🗺️', title: 'DoorDispatcher tools', sub: 'Team map, planned day, harvest reports', color: 'from-emerald-600 to-emerald-800',
             render: () => <HarvestToolsGate token={token} region={manager.region} /> },
           { key: 'leads', emoji: '🗂️', title: 'Deal boards', sub: 'Inspection leads, PA deals, signed claims, BTR deals', color: 'from-green-700 to-green-900',
