@@ -45,8 +45,8 @@ export default function PresentationActivity() {
   return (
     <section className="mb-4 rounded-xl border-2 border-red-700 bg-white">
       <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-red-700 px-4 py-3 text-left text-white">
-        <span className="text-lg font-bold">📽️ In-Home Presentation activity</span>
-        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Did each rep show the deck, and how long per slide?'}</span>
+        <span className="text-lg font-bold">📽️ In-Home Presentation &amp; Close Sheet activity</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Did each rep show the deck — every slide, then the close sheet?'}</span>
       </button>
       {open && (
         <div className="p-3">
@@ -62,7 +62,7 @@ export default function PresentationActivity() {
           {err && <div className="mb-2 text-sm font-semibold text-red-700">{err}</div>}
           {data?.table_missing && <div className="mb-2 text-sm font-semibold text-red-700">Tracking isn't switched on yet (run sql/presentation_sessions.sql in CCG).</div>}
           {data && (
-            <div className="mb-2 text-sm text-slate-600"><b>{opened}</b> of <b>{withAppt.length}</b> reps with an appointment opened the presentation. Tap a rep for time on each slide.</div>
+            <div className="mb-2 text-sm text-slate-600"><b>{opened}</b> of <b>{withAppt.length}</b> reps with an appointment opened the presentation, and <b>{withAppt.filter((r) => r.cs).length}</b> opened the Investment Close Sheet. Tap a rep for time on each slide, then the close sheet.</div>
           )}
           {data && !data.reps.length && <div className="text-sm text-slate-500">No sales appointments this day.</div>}
           {data && data.reps.map((r) => {
@@ -76,8 +76,12 @@ export default function PresentationActivity() {
                   <span className="text-xs text-slate-500">{r.appts.length ? `${r.appts.length} appt${r.appts.length > 1 ? 's' : ''} · ${r.appts.map((a) => a.time).join(', ')}` : 'no appointment'}</span>
                   <span className="ml-auto">
                     {r.sessions.length
-                      ? <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">✓ Opened · {mins(r.seconds)} · {Object.keys(r.slides).length} of {N} slides</span>
-                      : <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">✗ Not opened</span>}
+                      ? <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">✓ Deck · {mins(r.seconds)} · {Object.keys(r.slides).length} of {N} slides</span>
+                      : <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">✗ Deck not opened</span>}
+                    {' '}
+                    {r.cs
+                      ? <span className="rounded bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800">✓ Close sheet · {mins(r.cs.seconds)}{r.cs.reached_sales ? ' · showed the close' : ''}</span>
+                      : <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">✗ No close sheet</span>}
                   </span>
                 </button>
                 {isOpen && (
@@ -105,12 +109,24 @@ export default function PresentationActivity() {
                         </table>
                       </>
                     )}
+                    {/* The last step of the presentation: the Investment Close Sheet. */}
+                    <div className="mt-2 rounded-md border border-sky-200 bg-white px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 text-right font-semibold">✓</span>
+                        <span className="w-44 px-2 font-bold text-sky-800">Investment Close Sheet</span>
+                        <span className="flex-1 px-2">{r.cs ? <div className="h-2.5 rounded bg-sky-600" style={{ width: `${Math.min(100, Math.round((r.cs.seconds / top) * 100))}%`, minWidth: 3 }} /> : null}</span>
+                        <span className="w-16 text-right">{r.cs ? mins(r.cs.seconds) : <span className="font-bold text-red-700">not opened</span>}</span>
+                      </div>
+                      {r.cs && r.cs.sessions.map((c, i) => (
+                        <div key={i} className="mt-0.5 pl-10 text-slate-500">Opened {etTime(c.opened_at)}{c.job_name ? ` · ${c.job_name}` : ''} · on screen {mins(c.seconds)}{c.reached_sales ? ' · reached the close pages' : ''}</div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             )
           })}
-          <div className="mt-1 text-[11px] text-slate-400">Time counts only while the deck is on screen. Only counted when the rep opens it from Your Personal Dashboard (signed in with their PIN). Tracking started 9/30.</div>
+          <div className="mt-1 text-[11px] text-slate-400">Time counts only while the deck or close sheet is on screen. The deck is counted when the rep opens it from Your Personal Dashboard (signed in with their PIN); the close sheet whenever the rep opens it. Tracking started 9/29 (close sheet) and 9/30 (deck).</div>
         </div>
       )}
     </section>
