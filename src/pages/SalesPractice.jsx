@@ -431,6 +431,17 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   const [entries, setEntries] = useState([])
   const [level, setLevel] = useState(0)
   const [micName, setMicName] = useState('')
+  // "IT STARTED TALKING AND THEN STOPPED" (Chad, 2026-10-01). The homeowner speaks first and
+  // then waits for the rep. If the mic isn't reaching us it just sits there, which looks
+  // broken. Track when we last heard the rep's voice; after 12s of waiting with nothing,
+  // say so plainly.
+  const lastVoiceRef = useRef(Date.now())
+  const [cantHear, setCantHear] = useState(false)
+  useEffect(() => { if (level > 0.02 || status === 'speaking') { lastVoiceRef.current = Date.now(); if (cantHear) setCantHear(false) } }, [level, status]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = setInterval(() => setCantHear(status === 'listening' && !muted && Date.now() - lastVoiceRef.current > 12000), 1000)
+    return () => clearInterval(t)
+  }, [status, muted])
   const [page, setPage] = useState(section.firstSlide) // 0 = no slide (intro + survey)
   const [closeSilence, setCloseSilence] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -570,6 +581,17 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
         </div>
       </div>
       {micName && <div className="mt-1 text-xs text-slate-500">🎙️ Using: <b>{micName}</b> <span className="text-slate-400">(wrong one? pick it from the mic icon in Chrome&rsquo;s address bar, then restart)</span></div>}
+      {cantHear && (
+        <div className="mt-3 rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="font-bold">🎙️ We can&rsquo;t hear you — {persona.speaker} is waiting for you to talk.</div>
+          <div className="mt-1">The green bar next to “Listening” should move when you speak. If it doesn&rsquo;t:</div>
+          <ul className="mt-1 list-disc pl-5">
+            <li>Check the microphone it&rsquo;s using{micName ? <> (<b>{micName}</b>)</> : null} — pick the right one from the mic icon in the address bar, then restart.</li>
+            <li>Make sure your computer or headset isn&rsquo;t muted, and that “Pause mic” above is off.</li>
+            <li>Use Chrome on a laptop or desktop. Then press <b>⏹ End &amp; grade</b> to save, or start again.</li>
+          </ul>
+        </div>
+      )}
       {err && <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{err}</div>}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
