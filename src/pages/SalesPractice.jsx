@@ -431,6 +431,10 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   const [entries, setEntries] = useState([])
   const [level, setLevel] = useState(0)
   const [micName, setMicName] = useState('')
+  const [page, setPage] = useState(section.firstSlide) // 0 = no slide (intro + survey)
+  const [closeSilence, setCloseSilence] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [muted, setMuted] = useState(false)
   // "IT STARTED TALKING AND THEN STOPPED" (Chad, 2026-10-01). The homeowner speaks first and
   // then waits for the rep. If the mic isn't reaching us it just sits there, which looks
   // broken. Track when we last heard the rep's voice; after 12s of waiting with nothing,
@@ -442,10 +446,6 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
     const t = setInterval(() => setCantHear(status === 'listening' && !muted && Date.now() - lastVoiceRef.current > 12000), 1000)
     return () => clearInterval(t)
   }, [status, muted])
-  const [page, setPage] = useState(section.firstSlide) // 0 = no slide (intro + survey)
-  const [closeSilence, setCloseSilence] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [muted, setMuted] = useState(false)
   // FIGS (Neal, 27 Sep): a full presentation secretly gives the homeowner one
   // impulse factor; at the end the rep is asked which it was.
   const [impulse] = useState(() => (IMPULSE_SECTIONS.includes(section.key) ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null))
