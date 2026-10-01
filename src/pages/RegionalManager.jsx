@@ -214,6 +214,7 @@ export default function RegionalManager() {
             parts: [
               ['', <PracticeReports token={token} />],
               ['', <HowPracticeIsScored />],
+              ['', <a href="/find-the-button" target="_blank" rel="noreferrer" className="mb-3 flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4 no-underline hover:bg-amber-500/20"><span className="text-2xl">🎯</span><div className="min-w-0"><div className="text-base font-bold text-white">Find their button (FIGS) — the class</div><div className="text-xs text-slate-200/80">Questions to ask on the warm-up and each slide to find Fear of loss, Indifference, Greed or Sense of urgency — and how to close on it.</div></div><span className="ml-auto text-slate-300">↗</span></a>],
               ['', <HarvestPracticeLink />],
             ] },
           { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Zone Zoom, managers meeting, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',

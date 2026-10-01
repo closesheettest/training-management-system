@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, IMPULSES, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -71,7 +71,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
     ...(sec.range && sec.range[1] >= 23 ? ['After asking for the business, the rep has to stay SILENT: the homeowner waits 5 seconds to see if they do.'] : []),
     'If the run stops early, only the slides the rep actually presented are graded.',
-    ...(sectionKey === 'full' ? ['IMPULSE FACTOR (FIGS): the homeowner is secretly driven by one of Fear of loss, Indifference, Greed or Sense of urgency. When the rep ends, they are asked which it was. The report shows whether they got it, where it showed, the questions that drew it out, and whether the close was tied to it.'] : []),
+    ...(IMPULSE_SECTIONS.includes(sectionKey) ? ['IMPULSE FACTOR (FIGS): the homeowner is secretly driven by one of Fear of loss, Indifference, Greed or Sense of urgency. When the rep ends, they are asked which it was. The report shows whether they got it, where it showed, the questions that drew it out, and whether the close was tied to it.'] : []),
   ]
 
   return (
@@ -92,6 +92,53 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
       <div className="mt-4 font-bold text-brand-navy">How it’s graded</div>
       <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-600">{how.map((h) => <li key={h}>{h}</li>)}</ul>
       <p className="mt-3 text-xs text-slate-500">The rep sees encouragement and the points they missed, with no score. You see the full grade and a coaching plan. Slide points come from the Slide Points page; edit them there and the next grade follows.</p>
+    </div>
+  )
+}
+
+// FINDING THE IMPULSE — the class, by slide (Neal, 2026-10-01). Questions that fit what the
+// rep is already saying on each slide, and what each answer says about the homeowner's
+// button. Then, per button: what it sounds like, how to confirm it, how to sell to it.
+export function ImpulseLesson({ sectionKey, all = false }) {
+  const [open, setOpen] = useState(all)
+  const steps = all ? IMPULSE_BY_STEP : impulseQuestionsFor(sectionKey)
+  if (!steps.length) return null
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
+        <span className="font-bold text-brand-navy">🎯 Find their button (FIGS): questions to ask {all ? 'through the presentation' : 'here'}</span>
+        <span className="text-sm font-semibold text-slate-500">{open ? '▴ Hide' : '▾ Show'}</span>
+      </button>
+      {open && (
+        <div className="mt-2 text-sm text-slate-800">
+          <p className="mb-2 text-slate-600">Every homeowner buys on one button: <b>F</b>ear of loss, <b>I</b>ndifference, <b>G</b>reed or <b>S</b>ense of urgency. Ask these as you go — they fit the slide — and listen to the answer.</p>
+          {steps.map((st) => (
+            <div key={st.step} className="mb-3">
+              <div className="font-bold text-amber-900">{st.step}</div>
+              {st.qs.map((x, i) => (
+                <div key={i} className="mt-1 pl-3">
+                  <div>❓ “{x.q}”</div>
+                  <div className="text-[12.5px] text-slate-600">Listen for: {x.hear}</div>
+                </div>
+              ))}
+              {st.note && <div className="mt-1 pl-3 text-[12.5px] font-semibold text-amber-900">{st.note}</div>}
+            </div>
+          ))}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {IMPULSES.map((imp) => {
+              const g = IMPULSE_GUIDE[imp.key]
+              return (
+                <div key={imp.key} className="rounded-lg border border-amber-200 bg-white p-3">
+                  <div className="font-bold text-brand-navy"><span className="mr-1 rounded bg-brand-navy px-1.5 text-xs text-white">{imp.short}</span>{imp.label}</div>
+                  <ul className="mt-1 list-disc pl-5 text-[12.5px] text-slate-700">{g.listen.map((l, i) => <li key={i}>{l}</li>)}</ul>
+                  <div className="mt-1 text-[12.5px]"><b>Confirm it:</b> {g.confirm}</div>
+                  <div className="text-[12.5px]"><b>Sell to it:</b> {g.sell}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -258,6 +305,7 @@ export default function SalesPractice() {
           </select>
         )}
         <GradingGuide sectionKey={sectionKey} slideN={slideN} slidePoints={slidePoints} />
+        {IMPULSE_SECTIONS.includes(sectionKey) && <div className="mt-3"><ImpulseLesson sectionKey={sectionKey} /></div>}
       </Step>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -338,7 +386,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   const [muted, setMuted] = useState(false)
   // FIGS (Neal, 27 Sep): a full presentation secretly gives the homeowner one
   // impulse factor; at the end the rep is asked which it was.
-  const [impulse] = useState(() => (section.key === 'full' ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null))
+  const [impulse] = useState(() => (IMPULSE_SECTIONS.includes(section.key) ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null))
   const [guessFor, setGuessFor] = useState(null) // the stopped session, waiting for the rep's answer
   const liveRef = useRef(null)
   const logRef = useRef(null)
@@ -842,5 +890,20 @@ function History({ sessions, onOpen, onDelete }) {
         ))}
       </div>
     </section>
+  )
+}
+
+// The whole class on one page — /find-the-button (public, read-only): for a Zoom class or to
+// send to reps (Neal, 2026-10-01).
+export function FindTheButtonPage() {
+  useEffect(() => { document.title = 'Find Their Button (FIGS) · U.S. Shingle' }, [])
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-6">
+      <div className="mx-auto max-w-3xl">
+        <h1 className="text-2xl font-bold tracking-tight text-brand-navy">🎯 Find their button</h1>
+        <p className="mb-4 mt-1 text-sm text-slate-600">Every homeowner buys on one impulse: <b>Fear of loss, Indifference, Greed or Sense of urgency</b>. You find it with questions — asked as you go, on the slide you are already on — then you close on it.</p>
+        <ImpulseLesson all />
+      </div>
+    </div>
   )
 }

@@ -401,6 +401,113 @@ export const IMPULSES = [
     act: `What drives you is a SENSE OF URGENCY: you need this done SOON. There is a deadline behind it (the insurance renewal, hurricane season, a leak getting worse, family visiting, a sale or refinance coming up). You ask "how soon can you start?", "how long does it take?", "can you get the permit fast?". Speed and scheduling matter more to you than anything else.` },
 ]
 export const impulseByKey = (k) => IMPULSES.find((x) => x.key === k) || null
+// FINDING THE IMPULSE — the class (Neal, 2026-10-01: "a training class on being able to
+// identify what button a homeowner has. Questions we can ask to identify them").
+// OPEN questions first: they don't lead, so the homeowner's answer shows which button is
+// theirs. Then, for each impulse: what it sounds like, a question that confirms it, and how
+// to sell to it once found. Used by the "Find the impulse" drill (setup + report) and its grader.
+export const IMPULSE_OPENERS = [
+  'What made you want to have someone take a look at the roof?',
+  "What's your biggest concern with the roof right now?",
+  "When does your homeowner's insurance renew? Have they said anything about the roof?",
+  'How long are you planning to stay in this home?',
+  'Have you ever had a bad experience with a contractor?',
+  "If you did the roof, what would matter most: the price, how soon it's done, or knowing it's done right?",
+  'Is there anything coming up that this has to fit around? A deadline, hurricane season, family visiting, a sale?',
+  'What happens if you wait another year or two?',
+  'What would make this a no-brainer for you?',
+]
+export const IMPULSE_GUIDE = {
+  fear: {
+    listen: ['"What if…" worries: a leak, the ceiling, the floors, the family', 'The insurance company: renewal letters, being dropped, "they inspected the roof"', 'Bad contractor stories: "the last guy disappeared", "will you be around?"', 'Leans in on the license, the insurance, the warranty'],
+    confirm: '"It sounds like what really worries you is losing your coverage / something going wrong. Is that fair?"',
+    sell: 'Protection and peace of mind: 15 years in business, the state license, $1M/$2M insurance, the warranty, "you won\'t have to worry about this again".',
+  },
+  indifference: {
+    listen: ['"It\'s been fine so far", "we\'ll get to it eventually"', '"Whatever you think", no preference on colors or options', 'Short answers, low energy, easily sidetracked'],
+    confirm: '"What would have to happen for the roof to become a priority for you?"',
+    sell: 'Make them CARE: what waiting costs (a leak, a non-renewal, prices going up every year), and tie the roof to something that matters to them.',
+  },
+  greed: {
+    listen: ['"What\'s the best deal you can do?", "is there a discount?"', 'Perks up at savings: insurance discount, energy savings, anything free', 'Asks for the numbers, financing terms, "what do I get for my money?"'],
+    confirm: '"If I could show you how this pays for part of itself, would that matter to you?"',
+    sell: 'Value and savings: the insurance discount, energy savings up to 40%, the Low-Bid Price Match plus 10% of the difference, financing, what they get for the money.',
+  },
+  urgency: {
+    listen: ['A deadline: insurance renewal date, hurricane season, a sale or refinance, family visiting', '"How soon can you start?", "how long does it take?"', '"We can\'t wait on this", a leak getting worse'],
+    confirm: '"What\'s your timeline? Is there a date this has to be done by?"',
+    sell: 'Speed and a plan: the start date, how fast the permit goes, getting on the schedule today.',
+  },
+}
+// QUESTIONS BY SLIDE (Neal, 2026-10-01: "through the warm-up you can ask these types of
+// questions, through slide one you could ask these… each slide, what are questions we could
+// ask to identify"). Each fits what the rep is already saying on that slide, so finding the
+// button never interrupts the presentation. "hear" = which answer points to which button
+// (F = Fear of loss, I = Indifference, G = Greed, S = Sense of urgency).
+export const IMPULSE_BY_STEP = [
+  { step: 'Warm-up', slides: [0, 0], qs: [
+    { q: 'What made you want to have someone look at the roof?', hear: 'An insurance letter or a leak → F · a deadline → S · "the mailer said free" → G · "my wife wanted it" / shrug → I' },
+    { q: 'How long are you planning to stay in this home?', hear: 'Forever home, family → F · selling or refinancing soon → S · "depends on the price of things" → G · "never thought about it" → I' },
+    { q: "When does your insurance renew? Have they said anything about the roof?", hear: 'Worried about being dropped → F · a renewal date coming → S · "they want me to pay more" → G · "no idea" → I' },
+  ] },
+  { step: 'Slide 1 — The company', slides: [1, 1], qs: [
+    { q: 'When you hire someone for something this big, what matters most to you?', hear: '"That they\'ll be around / do it right" → F · "a fair price" → G · "that they can start soon" → S · "I don\'t know" → I' },
+    { q: 'Have you ever had a bad experience with a contractor?', hear: 'A story about getting burned → F · "they overcharged me" → G · "they took forever" → S' },
+  ] },
+  { step: 'Slide 2 — License', slides: [2, 2], qs: [
+    { q: 'Did you know some roofers only hold a county license? Does it matter to you who you let on your roof?', hear: '"Absolutely, I want it done right" → F · "as long as the price is right" → G · "whoever can do it soonest" → S' },
+  ] },
+  { step: 'Slide 3 — Insurance', slides: [3, 3], qs: [
+    { q: 'If a worker got hurt on your property, would $25,000 cover it? What would worry you most?', hear: 'Leans in, worried about being sued → F · "I\'ve got my own insurance" (unbothered) → I' },
+    { q: 'Has your insurance company ever inspected the roof or sent you a letter?', hear: 'Letter, worried about losing coverage → F · has a deadline from them → S' },
+  ] },
+  { step: 'Slide 4 — You already need a roof', slides: [4, 4], qs: [
+    { q: "How long do you think you've got before the roof has to be done?", hear: '"Now — they gave us a date" → S · "before something leaks" → F · "a few years, it\'s fine" → I · "depends what it costs" → G' },
+  ] },
+  { step: 'Slide 5 — Chuck in the truck', slides: [5, 5], qs: [
+    { q: 'If two roofers were $1,000 apart, which one would you pick, and why?', hear: '"The cheaper one" → G · "the one I trust" → F · "whoever starts first" → S · "doesn\'t matter" → I' },
+  ] },
+  { step: 'Slides 6–7 — Why today + Low Bid Match', slides: [6, 7], qs: [
+    { q: 'Would knocking money off your insurance and electric bills matter to you?', hear: 'Lights up, asks how much → G · "as long as I don\'t lose my coverage" → F' },
+    { q: 'Material prices go up every year. Is there a reason you\'d want to lock this in now rather than wait?', hear: '"Yes, our renewal is coming" → S · "I\'d rather not pay more later" → G · "we can wait" → I' },
+    { q: 'If you found a lower bid, would you want us to match it and give you 10% of the difference?', hear: 'Excited about the 10% → G · "I\'d still want someone I trust" → F' },
+  ] },
+  { step: 'Slides 8–9 — What we offer + installation', slides: [8, 9], qs: [
+    { q: 'What would worry you most about having your roof torn off?', hear: 'Rain getting in, damage, rotted wood → F · "how many days will it take?" → S · "will it cost extra?" → G · "nothing really" → I' },
+  ] },
+  { step: 'Slides 10–15 — Colors, our work, jobsite prep', slides: [10, 15], qs: [
+    { q: 'Is there a look you\'ve had in mind for the house?', hear: 'Strong opinions, excited → engaged (not I) · "whatever you think" → I · "which one\'s cheapest?" → G' },
+    { q: 'Any reason you\'d need the job done by a certain date?', hear: 'A date → S · "no rush" → I or G' },
+  ] },
+  { step: 'Slide 16 — Warranty', slides: [16, 16], qs: [
+    { q: 'How important is it to you that the roof is covered if something goes wrong?', hear: '"Very" → F · "what does that add to the price?" → G' },
+  ] },
+  { step: 'Slides 17–21 — Energy Saver package', slides: [17, 21], qs: [
+    { q: 'What does your electric bill run in the summer? How would it feel to cut that?', hear: 'Wants the numbers, the savings → G · "I just don\'t want the AC to die" → F · "not a big deal" → I' },
+  ] },
+  { step: 'Slides 22–23 — Payment + the ask', slides: [22, 23], qs: [
+    { q: "When it comes to paying for it, what's most important: the monthly payment, the total, or getting it started?", hear: 'Monthly / total / "the best deal" → G · "getting started" → S · "making sure it\'s done right" → F' },
+  ], note: 'By now you should know the button. Close on it: protection (F), what waiting costs (I), the savings and value (G), or the start date (S).' },
+]
+// Which practice parts give the homeowner a hidden impulse: the warm-up and every slide
+// section, not just the full presentation (Neal, 2026-10-01). Not the door or the drills.
+export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'why_today', 'slides_8_16', 'energy', 'close']
+// The questions for a given section/slide range (for the grader's "try asking" and the lesson).
+export function impulseQuestionsFor(sectionKey) {
+  const sec = sectionByKey(sectionKey)
+  if (sectionKey === 'survey' || sectionKey === 'impulse') return IMPULSE_BY_STEP.filter((x) => x.slides[0] === 0)
+  if (!sec?.range) return []
+  const [a, b] = sec.range
+  return IMPULSE_BY_STEP.filter((x) => x.slides[0] !== 0 && x.slides[1] >= a && x.slides[0] <= b)
+}
+// What the "Find the impulse" drill is graded on (the grader reads these as THE POINTS).
+export const IMPULSE_FIND_POINTS = [
+  'Asked OPEN questions about what matters to them (not yes/no, not leading)',
+  'Listened and followed up on the clue instead of moving on',
+  'Named the impulse back to them and got them to agree ("So what really matters to you is…, right?")',
+  'Did not pitch products or prices before finding it',
+]
+
 // How plainly the homeowner shows their impulse, by level. Easy practice lets a
 // new rep learn to hear it; the hard ones make them dig for it with questions.
 export const IMPULSE_VISIBILITY = {
@@ -439,6 +546,7 @@ THE WARM-UP IS ABOUT RAPPORT. How much you relax depends on the rep:
 - If it feels like a friendly, NORMAL CONVERSATION (they find common ground with you, react to what you say, share a little about themselves, ask natural follow-ups about your home, your neighborhood, your plans), you relax: longer answers, a laugh, you volunteer things you were not asked (a leak you noticed, the insurance renewal letter, a neighbor's new roof). By the end you are comfortable and curious to see what they have.
 - If they fire questions off a list like a form, one after another without reacting to your answers, you stay polite but short and a bit guarded, and you get impatient ("Is this going to take long?").
 Answer every question truthfully from YOUR FACTS, in your personality. Do not rush the rep toward the slides.`,
+    impulse: 'You are at your kitchen table. The rep has ALREADY done the warm-up and the customer survey (you answered with YOUR FACTS above). Before showing you anything, the rep is going to ask you questions to understand what really matters to you about the roof. Answer like a real person: honestly, in your personality. Do not steer the conversation toward the presentation or prices; if the rep starts pitching, go along briefly. When the rep names back what matters to you, say plainly whether they are right ("Yeah, that\'s exactly it" or "Not really, it\'s more that…").',
     close: 'The rep has already done the whole presentation (company, license, products, installation, warranty, the energy package). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',
   }[sec.key] || (sec.range
     ? `You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions (you answered with YOUR FACTS above, so they know those things)${sec.range[0] > 1 ? ` and has already presented slides 1–${sec.range[0] - 1}; you were fine with it so far` : ''}. Now they are presenting ${sec.range[0] === sec.range[1] ? `slide ${sec.range[0]}` : `slides ${sec.range[0]}–${sec.range[1]}`}. Do not expect or ask for the survey again.`
