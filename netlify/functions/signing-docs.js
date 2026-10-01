@@ -108,11 +108,22 @@ export const handler = async (event) => {
 
   // ── list ─────────────────────────────────────────────────────────────────
   const out = []
+  // ONLY PEOPLE STILL HERE (Neal, 2026-10-01): an active rep, a field trainee, or someone in
+  // a class right now (Day-1 link sent in the last 14 days). Past-class people who left or
+  // never started are dropped, so "Resend to all outstanding" can never text them.
+  const stillHere = async (ids) => {
+    if (!ids.length) return new Set()
+    const { data } = await sb.from('trainees').select('id, is_active_sales_rep, is_field_trainee, dropped_out_at, declined_at, enrolled, onboarding_sms_sent_at').in('id', ids)
+    const recent = Date.now() - 14 * 86400000
+    return new Set((data || []).filter((t) => !t.dropped_out_at && !t.declined_at && t.enrolled !== false
+      && (t.is_active_sales_rep === true || t.is_field_trainee === true || (t.onboarding_sms_sent_at && Date.parse(t.onboarding_sms_sent_at) > recent))).map((t) => t.id))
+  }
   // COMP — the same roster and states as comp-agreement-audit (field reps + the recent
   // classes' last-day attendance), so the two can never disagree.
   try {
     const a = await (await fetch(`${SITE}/.netlify/functions/comp-agreement-audit`)).json()
-    const reps = (a.reps || []).map((r) => ({
+    const here = await stillHere((a.reps || []).map((r) => r.id))
+    const reps = (a.reps || []).filter((r) => here.has(r.id)).map((r) => ({
       id: r.id, name: r.name, group: r.group, phone: r.phone, email: r.email, state: r.state, pdf: r.pdf, pdf_error: r.pdf_error,
       trail: [
         ...(r.opened_at ? [{ at: r.opened_at, what: 'Opened the link' }] : []),
@@ -131,7 +142,8 @@ export const handler = async (event) => {
     const { data: tr } = await sb.from('trainees')
       .select('id, first_name, last_name, phone, email, company_email, registration_token, onboarding_sms_sent_at, dropped_out_at, declined_at, enrolled')
       .gte('onboarding_sms_sent_at', since).order('onboarding_sms_sent_at', { ascending: false }).limit(500)
-    const live = (tr || []).filter((t) => !t.dropped_out_at && !t.declined_at && t.enrolled !== false)
+    const here = await stillHere((tr || []).map((t) => t.id))
+    const live = (tr || []).filter((t) => here.has(t.id))
     const { data: ob } = live.length ? await sb.from('trainee_onboarding')
       .select('trainee_id, created_at, signed_at, countersign_sent_at, company_signed_at, banking_completed_at, agreement_pdf_path, w9_pdf_path, pdf_error')
       .in('trainee_id', live.map((t) => t.id)) : { data: [] }
