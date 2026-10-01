@@ -43,7 +43,11 @@ export default function PracticeInvite() {
       <LiveSession
         persona={persona} section={section} trainee={{ id: null, name: inv.name, class_id: null }}
         fetchToken={async () => {
-          const d = await call(token, { action: 'live' })
+          // The first token starts the practice; every later one is a reconnect of a practice
+          // already under way, which may run past the link's expiry.
+          const resume = !!window.__practiceStarted
+          window.__practiceStarted = true
+          const d = await call(token, { action: 'live', resume })
           if (!d.ok) throw new Error(d.error || 'Could not start the practice.')
           return d
         }}

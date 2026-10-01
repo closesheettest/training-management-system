@@ -50,7 +50,12 @@ export const handler = async (event) => {
       pairs: r.drill ? (r.pairs || []).map((x) => ({ homeowner: x.homeowner, rep: x.rep, verdict: x.verdict, better_question: x.better_question })) : undefined,
     } })
   }
-  if (!open) return json(410, { ok: false, error: status === 'expired' ? 'This practice link has expired. Ask your trainer for a new one.' : 'This practice has already been done.' })
+  // A practice that STARTED before the link ran out gets 2 hours to finish: its voice
+  // reconnects and its save must not be refused because the clock passed expires_at mid-run
+  // (Neal, 2026-10-01: Chad's link ran out at 9:22 — a run started at 9:15 would have been
+  // thrown away). Opening a NEW practice on an expired link is still refused.
+  const graceOpen = row.grade_status === 'invited' && Date.parse(inv.expires_at) + 2 * 3600000 > Date.now() && (body.action === 'save' || (body.action === 'live' && body.resume === true))
+  if (!open && !graceOpen) return json(410, { ok: false, error: status === 'expired' ? 'This practice link has expired. Ask your trainer for a new one.' : 'This practice has already been done.' })
 
   if (body.action === 'live') {
     if (!process.env.GEMINI_API_KEY) return json(500, { ok: false, error: 'Practice is not set up yet.' })
