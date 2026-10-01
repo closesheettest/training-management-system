@@ -506,7 +506,14 @@ async function deliver(supabase, trainee, d, { w9Path, agreementPath }) {
   const { data: office } = await supabase
     .from('notification_recipients').select('email, role, active')
     .in('role', ['hr', 'admin'])
-  const to = [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]
+  let to = [...new Set((office || []).filter((r) => r.active !== false && r.email).map((r) => r.email))]
+  // Editable on /signing-docs (app_settings signing_copy_to_onboarding); set = it replaces
+  // the HR/admin list, empty = the HR/admin list as before.
+  try {
+    const { data: st } = await supabase.from('app_settings').select('value').eq('key', 'signing_copy_to_onboarding').maybeSingle()
+    const v = st ? (typeof st.value === 'string' ? JSON.parse(st.value) : st.value) : null
+    if (Array.isArray(v) && v.length) to = v
+  } catch { /* keep the HR/admin list */ }
   for (const addr of to) {
     await sendEmail(addr, `Signed paperwork — ${who}`,
       `${who} signed their W-9 and Independent Contractor Agreement just now. The agreement is waiting on the company countersignature — the executed copy follows once it is signed.\n\n` +

@@ -53,6 +53,7 @@ import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
 import HomeworkSlides from './pages/HomeworkSlides.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
 import SalesPractice, { FindTheButtonPage } from './pages/SalesPractice.jsx'
+import SigningDocs from './pages/SigningDocs.jsx'
 import Quiz from './pages/Quiz.jsx'
 import Progress from './pages/Progress.jsx'
 import { PersonaProvider, usePersona } from './lib/PersonaContext.jsx'
@@ -126,6 +127,8 @@ export default function App() {
         <Route path="/homework/slides" element={<HomeworkSlides />} />
         <Route path="/slide-points/view" element={<SlidePointsView />} />
         <Route path="/find-the-button" element={<FindTheButtonPage />} />
+        {/* Documents sent for signing — on Neal's and Jenn's My Tools; personal admin PIN. */}
+        <Route path="/signing-docs" element={<PinGate title="Documents for Signing" storageKey="sd_admin_ok" keepPin><SigningDocs /></PinGate>} />
 
         {/* Public training-day review page — DeWayne & Neal tap the link
             from the "new training day submitted" SMS/email. The review

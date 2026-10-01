@@ -143,8 +143,16 @@ export const handler = async (event) => {
       const content = file ? Buffer.from(await file.arrayBuffer()) : null
       if (content) {
         const safe = String(repName || 'Rep').replace(/[^A-Za-z0-9]+/g, '-')
-        await sendEmail(
-          COMP_SIGNED_TO,
+        // Where signed copies go is editable on /signing-docs (app_settings
+        // signing_copy_to_comp); empty or unset = Jenn, as before.
+        let copyTo = [COMP_SIGNED_TO]
+        try {
+          const { data: st } = await supabase.from('app_settings').select('value').eq('key', 'signing_copy_to_comp').maybeSingle()
+          const v = st ? (typeof st.value === 'string' ? JSON.parse(st.value) : st.value) : null
+          if (Array.isArray(v) && v.length) copyTo = v
+        } catch { /* keep Jenn */ }
+        for (const addr of copyTo) await sendEmail(
+          addr,
           `Signed Draw Program + Compensation Plan — ${repName}`,
           `${repName} signed both pay agreements on ${new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.\n\n`
           + `Draw Program signed as: ${drawName}\nCompensation Plan signed as: ${compName}\n\nThe signed PDF is attached.`,
