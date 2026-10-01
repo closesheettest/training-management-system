@@ -92,6 +92,28 @@ const REPORT_SCHEMA = {
         uncovered: { type: 'STRING', description: 'Which rep questions drew it out, or that they never really asked' },
         used_in_close: { type: 'STRING', description: 'Did the rep tie the close to it? Quote it if so' },
         tip: { type: 'STRING', description: 'One question the rep could ask next time to find it faster' },
+        // BY SLIDE (Neal, 2026-10-01: show "answers throughout the presentation that should
+        // have told her what it was"). The transcript's [brackets] say which slide was up.
+        moments: {
+          type: 'ARRAY',
+          description: 'EVERY moment in order where the homeowner gave a clue to their button (or one pointing elsewhere), with where it happened',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              where: { type: 'STRING', description: 'Warm-up, or the slide on screen, e.g. "Slide 3 — Insurance"' },
+              homeowner_said: { type: 'STRING', description: 'Their words, quoted (short)' },
+              points_to: { type: 'STRING', enum: ['F', 'I', 'G', 'S'], description: 'Which button that answer points to' },
+              rep_did: { type: 'STRING', description: 'What the rep did with it (followed up, ignored it, moved on…)' },
+            },
+            required: ['where', 'homeowner_said', 'points_to'],
+          },
+        },
+        should_have_asked: {
+          type: 'ARRAY',
+          description: 'Up to 3 questions from OUR QUESTIONS FOR THIS PART that would have found it, each with the slide to ask it on',
+          items: { type: 'OBJECT', properties: { where: { type: 'STRING' }, question: { type: 'STRING' } }, required: ['where', 'question'] },
+        },
+        keep_hitting: { type: 'STRING', description: 'From the KEEP HITTING IT list: the 2-3 slides where angling toward the real button would have mattered most, and how' },
       },
     },
     control: {
@@ -372,7 +394,7 @@ export const handler = async (event) => {
   // FIGS: the homeowner's secret impulse factor and the rep's guess (full presentation).
   const imp = row.report?.impulse && impulseByKey(row.report.impulse.actual)
   const guessed = impulseByKey(row.report?.impulse?.guess)
-  const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. For the "tip", pick from OUR QUESTIONS FOR THIS PART below (the one that would have found it fastest, as an angle, not a script line):\n${impulseQuestionsFor(row.section).map((st) => `${st.step}: ${st.qs.map((x) => `"${x.q}" (listen for: ${x.hear})`).join(' | ')}`).join('\n') || '(none for this part)'}\nKEEP HITTING IT: once it showed, did the rep angle the slides toward it? Here is how each slide in this part can be tied to ${imp.label.toUpperCase()}:\n${playbookFor(imp.key, row.section).map((x) => `${x.step}: ${x.angle}`).join('\n')}\nSay in "used_in_close" whether they kept hitting it across the slides and in the close, quoting where they did or missed it.\n Also mention it in the manager_plan, and in "encouragement" in a positive way.
+  const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. For the "tip", pick from OUR QUESTIONS FOR THIS PART below (the one that would have found it fastest, as an angle, not a script line):\n${impulseQuestionsFor(row.section).map((st) => `${st.step}: ${st.qs.map((x) => `"${x.q}" (listen for: ${x.hear})`).join(' | ')}`).join('\n') || '(none for this part)'}\nKEEP HITTING IT: once it showed, did the rep angle the slides toward it? Here is how each slide in this part can be tied to ${imp.label.toUpperCase()}:\n${playbookFor(imp.key, row.section).map((x) => `${x.step}: ${x.angle}`).join('\n')}\nSay in "used_in_close" whether they kept hitting it across the slides and in the close, quoting where they did or missed it. Fill "moments" with EVERY clue in order and the slide it came on (the [brackets] in the transcript), "should_have_asked" from the questions above, and "keep_hitting" from the list above.\n Also mention it in the manager_plan, and in "encouragement" in a positive way.
 
 ` : ''
   // THE GAUGE for the warm-up (Neal, 2026-09-28): one-word answers → real conversation.

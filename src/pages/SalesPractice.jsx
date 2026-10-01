@@ -185,6 +185,32 @@ export function ImpulseCard({ imp, read, forRep = false }) {
       {read?.uncovered && <p className="mt-1 text-sm text-slate-700"><b>Questions that drew it out:</b> {read.uncovered}</p>}
       {read?.used_in_close && <p className="mt-1 text-sm text-slate-700"><b>Used in the close:</b> {read.used_in_close}</p>}
       {read?.tip && <p className="mt-1 text-sm text-slate-700"><b>{forRep ? 'Try asking:' : 'Question to find it faster:'}</b> {read.tip}</p>}
+      {/* Through the presentation, slide by slide: what they said, which button it pointed to (Neal, 2026-10-01). */}
+      {(read?.moments || []).length > 0 && (
+        <div className="mt-3">
+          <div className="text-sm font-bold text-brand-navy">What {forRep ? 'they' : 'the homeowner'} said along the way</div>
+          <div className="mt-1 space-y-1.5">
+            {read.moments.map((m, i) => {
+              const hit = m.points_to === actual?.short
+              return (
+                <div key={i} className="flex gap-2 text-sm">
+                  <span className="w-28 flex-none text-[12px] font-semibold text-slate-500">{m.where}</span>
+                  <span className={`flex-none rounded px-1.5 text-[12px] font-bold text-white ${hit ? 'bg-emerald-600' : 'bg-slate-400'}`} title={hit ? 'Pointed to the real button' : 'Pointed elsewhere'}>{m.points_to}</span>
+                  <span className="text-slate-800">“{m.homeowner_said}”{m.rep_did ? <span className="text-slate-500"> — {m.rep_did}</span> : null}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {(read?.should_have_asked || []).length > 0 && (
+        <div className="mt-3 text-sm">
+          <div className="font-bold text-brand-navy">Questions that would have found it</div>
+          <ul className="mt-1 list-disc pl-5 text-slate-700">{read.should_have_asked.map((q, i) => <li key={i}><b>{q.where}:</b> “{q.question}”</li>)}</ul>
+        </div>
+      )}
+      {read?.keep_hitting && <p className="mt-2 text-sm text-slate-700"><b>Keep hitting it:</b> {read.keep_hitting}</p>}
+      <a href="/find-the-button" target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-amber-800 underline">🎯 Find their button — the class</a>
     </div>
   )
 }
