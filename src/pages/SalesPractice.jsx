@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, IMPULSE_PLAYBOOK, playbookFor, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -124,7 +124,9 @@ export function ImpulseLesson({ sectionKey, all = false }) {
               {st.note && <div className="mt-1 pl-3 text-[12.5px] font-semibold text-amber-900">{st.note}</div>}
             </div>
           ))}
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <PlaybookTabs sectionKey={all ? 'full' : sectionKey} />
+          <div className="mt-3 font-bold text-brand-navy">The four buttons at a glance</div>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
             {IMPULSES.map((imp) => {
               const g = IMPULSE_GUIDE[imp.key]
               return (
@@ -139,6 +141,29 @@ export function ImpulseLesson({ sectionKey, all = false }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// PART 2 — once you know it, keep hitting it: pick the button, see the angle on each slide.
+function PlaybookTabs({ sectionKey }) {
+  const [k, setK] = useState('fear')
+  const rows = playbookFor(k, sectionKey)
+  return (
+    <div className="mt-4 rounded-lg border border-amber-300 bg-white p-3">
+      <div className="font-bold text-brand-navy">Found it? Keep hitting it on every slide</div>
+      <p className="text-[12.5px] text-slate-600">Same slides, same points — lead with the part that hits their button, and tie it back to them every time.</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {IMPULSES.map((imp) => (
+          <button key={imp.key} type="button" onClick={() => setK(imp.key)}
+            className={`rounded-full px-3 py-1 text-xs font-bold ${k === imp.key ? 'bg-brand-navy text-white' : 'border border-slate-300 text-slate-700'}`}>{imp.short} · {imp.label}</button>
+        ))}
+      </div>
+      <div className="mt-2 space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.step} className="text-[13px]"><b className="text-amber-900">{r.step}:</b> {r.angle}</div>
+        ))}
+      </div>
     </div>
   )
 }

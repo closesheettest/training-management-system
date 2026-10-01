@@ -489,6 +489,65 @@ export const IMPULSE_BY_STEP = [
     { q: "When it comes to paying for it, what's most important: the monthly payment, the total, or getting it started?", hear: 'Monthly / total / "the best deal" → G · "getting started" → S · "making sure it\'s done right" → F' },
   ], note: 'By now you should know the button. Close on it: protection (F), what waiting costs (I), the savings and value (G), or the start date (S).' },
 ]
+// ONCE YOU KNOW IT, KEEP HITTING IT (Neal, 2026-10-01: "how we can structure our
+// presentation to keep hitting it"). Same slides, same points — the ANGLE changes: which
+// point you lead with on each slide and what you tie it back to. Only what is already on
+// the slides; nothing new is promised.
+export const IMPULSE_PLAYBOOK = {
+  fear: [
+    { slides: [1, 1], step: 'Slide 1 — The company', angle: '15 years and veteran owned: "we\'ll still be here if you ever need us."' },
+    { slides: [2, 2], step: 'Slide 2 — License', angle: 'Built to the strictest code in the state, so it passes any inspection — no surprises from the insurance company.' },
+    { slides: [3, 3], step: 'Slide 3 — Insurance', angle: 'Lean on it: if anything happens on your property, our $1M/$2M policy covers it, not yours.' },
+    { slides: [4, 4], step: 'Slide 4 — You already need a roof', angle: 'Every month it waits is a month a leak or a non-renewal letter can catch you.' },
+    { slides: [5, 5], step: 'Slide 5 — Chuck in the truck', angle: 'When Chuck\'s roof leaks, who do you call? Peace of mind so you can sleep well.' },
+    { slides: [6, 7], step: 'Slides 6–7 — Why today + Low Bid Match', angle: 'Lead with insurance: a new roof protects your coverage. The price match means you never have to gamble on an unknown to save money.' },
+    { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Walk the 13 steps as protection: permits, photos, re-nail to code, peel-n-stick, rotted wood replaced — nothing left to chance.' },
+    { slides: [10, 15], step: 'Slides 10–15 — Colors, our work, jobsite prep', angle: 'Jobsite prep: the tarp and plywood protect your house and yard while we work.' },
+    { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'This is their slide. Slow down: the free 10-year no-leak warranty, and it transfers if you sell.' },
+    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Protects the AC and the house from attic heat — less strain, fewer breakdowns.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on protection: "Which one lets you sleep at night?"' },
+  ],
+  indifference: [
+    { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Keep it short and keep asking questions — involvement is what wakes them up.' },
+    { slides: [2, 3], step: 'Slides 2–3 — License + insurance', angle: 'Tie each one to them: "If someone got hurt in your driveway, who pays?" — make it personal.' },
+    { slides: [4, 4], step: 'Slide 4 — You already need a roof', angle: 'Their slide. It is not IF, it is WHEN — and when costs more. Get them to say it.' },
+    { slides: [5, 5], step: 'Slide 5 — Chuck in the truck', angle: 'A quick story about a homeowner who waited and paid for it.' },
+    { slides: [6, 7], step: 'Slides 6–7 — Why today + Low Bid Match', angle: 'The cost of waiting: materials go up every year, the insurance savings are lost every month it waits.' },
+    { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Keep it moving; ask what part matters to them.' },
+    { slides: [10, 15], step: 'Slides 10–15 — Colors, our work', angle: 'Get them choosing: "Which color do you see on this house?" — a small decision gets them invested.' },
+    { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'Short: "One less thing you ever have to think about."' },
+    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Money leaving the house every month while they wait.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on a small decision first (the color, the package), then the date. Give them a reason to do it now.' },
+  ],
+  greed: [
+    { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Third-party financing: they did their homework on us — options for your money.' },
+    { slides: [2, 5], step: 'Slides 2–5 — License, insurance, need, Chuck', angle: 'Frame it as value: the cheapest roof costs the most when it has to be done twice.' },
+    { slides: [6, 6], step: 'Slide 6 — Why today: the savings', angle: 'Their slide. Lead with the money: the insurance savings and energy savings up to 40%. Ask what their bills are.' },
+    { slides: [7, 7], step: 'Slide 7 — Low Bid Match', angle: 'Make a big deal of it: we match the lower bid AND give you 10% of the difference.' },
+    { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Everything that is included in the 13 steps — what they get for the money.' },
+    { slides: [10, 15], step: 'Slides 10–15 — Colors, our work', angle: 'Show the value in the product, not just the look.' },
+    { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'A free 10-year no-leak warranty — value they get at no cost.' },
+    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Run the numbers with them: the monthly savings, times the years they\'ll be there.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Show what the full package saves against roof-only. Close on the best value.' },
+  ],
+  urgency: [
+    { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Experienced crews who do this every day — we know how to move fast.' },
+    { slides: [2, 2], step: 'Slide 2 — License', angle: 'A statewide license: we can pull the permit in any county.' },
+    { slides: [3, 5], step: 'Slides 3–5 — Insurance, need, Chuck', angle: 'Agree with them: it needs to be done now. Be the one with the plan.' },
+    { slides: [6, 7], step: 'Slides 6–7 — Why today + Low Bid Match', angle: 'Materials go up every year — lock it in today. The price match saves them weeks of shopping.' },
+    { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Their slide. Walk the 13 steps as a timeline: permit, install day, cleanup, walkthrough — so they see exactly how soon it\'s done.' },
+    { slides: [10, 15], step: 'Slides 10–15 — Colors', angle: 'Pick the color today so nothing holds up the order.' },
+    { slides: [16, 21], step: 'Slides 16–21 — Warranty + Energy Saver', angle: 'Keep it brisk; tie each to getting it done in one go.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on the start date: "Let\'s get you on the schedule."' },
+  ],
+}
+export function playbookFor(impulseKey, sectionKey) {
+  const list = IMPULSE_PLAYBOOK[impulseKey] || []
+  const sec = sectionByKey(sectionKey)
+  if (!sec?.range || sectionKey === 'full') return list
+  const [a, b] = sec.range
+  return list.filter((x) => x.slides[1] >= a && x.slides[0] <= b)
+}
 // Which practice parts give the homeowner a hidden impulse: the warm-up and every slide
 // section, not just the full presentation (Neal, 2026-10-01). Not the door or the drills.
 export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'why_today', 'slides_8_16', 'energy', 'close']

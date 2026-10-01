@@ -21,7 +21,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey, impulseByKey, impulseQuestionsFor, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, impulseByKey, impulseQuestionsFor, playbookFor, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
 
 // Two audiences (Neal, 25 Sep). The REP, doing a practice from a link on their
 // own, sees only `encouragement`: no grade, all build-up. The trainer/manager
@@ -372,7 +372,7 @@ export const handler = async (event) => {
   // FIGS: the homeowner's secret impulse factor and the rep's guess (full presentation).
   const imp = row.report?.impulse && impulseByKey(row.report.impulse.actual)
   const guessed = impulseByKey(row.report?.impulse?.guess)
-  const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. For the "tip", pick from OUR QUESTIONS FOR THIS PART below (the one that would have found it fastest, as an angle, not a script line):\n${impulseQuestionsFor(row.section).map((st) => `${st.step}: ${st.qs.map((x) => `"${x.q}" (listen for: ${x.hear})`).join(' | ')}`).join('\n') || '(none for this part)'}\n Also mention it in the manager_plan, and in "encouragement" in a positive way.
+  const impulseText = imp ? `THE IMPULSE FACTOR (FIGS: Fear of loss, Indifference, Greed, Sense of urgency). Every homeowner buys on one impulse and the rep must uncover it with questions and sell to it. This homeowner was secretly driven by: ${imp.label.toUpperCase()}. At the end the rep was asked which it was and answered: ${guessed ? guessed.label.toUpperCase() : 'NOT SURE'} (${guessed?.key === imp.key ? 'CORRECT' : 'WRONG'}). Fill in "impulse_read": quote the moments it showed, say which questions drew it out (or that they never asked), and whether the close was tied to it. For the "tip", pick from OUR QUESTIONS FOR THIS PART below (the one that would have found it fastest, as an angle, not a script line):\n${impulseQuestionsFor(row.section).map((st) => `${st.step}: ${st.qs.map((x) => `"${x.q}" (listen for: ${x.hear})`).join(' | ')}`).join('\n') || '(none for this part)'}\nKEEP HITTING IT: once it showed, did the rep angle the slides toward it? Here is how each slide in this part can be tied to ${imp.label.toUpperCase()}:\n${playbookFor(imp.key, row.section).map((x) => `${x.step}: ${x.angle}`).join('\n')}\nSay in "used_in_close" whether they kept hitting it across the slides and in the close, quoting where they did or missed it.\n Also mention it in the manager_plan, and in "encouragement" in a positive way.
 
 ` : ''
   // THE GAUGE for the warm-up (Neal, 2026-09-28): one-word answers → real conversation.
