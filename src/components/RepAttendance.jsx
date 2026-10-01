@@ -55,6 +55,12 @@ export default function RepAttendance() {
   }
   useEffect(() => { if (open && pin && !data && !busy) load() }, [open, pin]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const saveGoal = async (v) => {
+    try {
+      const j = await (await fetch(CCG, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, daily_doors: v }) })).json()
+      if (j.ok) setData((d) => ({ ...d, daily_doors: j.daily_doors }))
+    } catch { /* ignore */ }
+  }
   const usePin = () => {
     const p = pinInput.trim(); if (!p) return
     try { sessionStorage.setItem(PIN_KEY, p) } catch { /* ignore */ }
@@ -66,17 +72,27 @@ export default function RepAttendance() {
     const a = data.reps[r.jnid] || {}
     const x = a.days?.[ds]
     const doors = data.doors[r.jnid]?.[ds] || 0
+    const trained = !!data.training?.[r.jnid]?.[ds]
     if (data.off_days.includes(ds)) return { kind: 'off', doors }
-    if (x?.first) return { kind: 'in', x, doors }
+    if (x?.first) return { kind: 'in', x, doors, trained }
+    if (trained) return { kind: 'training', doors }
     if (x?.reason) return { kind: 'reason', x, doors }
     if (ds === data.today) return { kind: 'today', doors }
     if (!a.started_on) return { kind: a.pin_set_at ? 'notstarted' : 'nopin', doors }
     if (a.started_on > ds) return { kind: 'before', doors }
     return { kind: 'missing', doors }
   }
+  // PIN DAYS (Neal, 2026-10-01: "not missed about pins"): only a normal working day counts
+  // toward the daily door goal. Training with William, sick / personal / vacation / other,
+  // holidays, days before their first check-in and today (not over yet) don't.
+  const counts = (c) => (c.kind === 'in' && !c.trained) || c.kind === 'missing'
+  const goal = data?.daily_doors || 0
   const rows = data ? roster.map((r) => {
-    const cells = data.days.map((ds) => cell(r, ds))
-    return { ...r, cells, missing: cells.filter((c) => c.kind === 'missing').length, never: cells.some((c) => c.kind === 'nopin' || c.kind === 'notstarted'), excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in').length, doors: cells.reduce((t, c) => t + (c.doors || 0), 0) }
+    const cells = data.days.map((ds) => { const c = cell(r, ds); return { ...c, counts: counts(c) } })
+    const pinDays = cells.filter((c) => c.counts)
+    const pinDoors = pinDays.reduce((t, c) => t + (c.doors || 0), 0)
+    r = { ...r, pinDays: pinDays.length, avg: pinDays.length ? Math.round(pinDoors / pinDays.length) : null, hit: goal ? pinDays.filter((c) => c.doors >= goal).length : null }
+    return { ...r, cells, missing: cells.filter((c) => c.kind === 'missing').length, never: cells.some((c) => c.kind === 'nopin' || c.kind === 'notstarted'), excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in' || c.kind === 'training').length, doors: cells.reduce((t, c) => t + (c.doors || 0), 0) }
   }) : []
   const shown = only === 'problems' ? rows.filter((r) => r.missing || r.excused || r.never) : rows
   const notStarted = data && data.today < data.start
@@ -102,7 +118,8 @@ export default function RepAttendance() {
               <p className="mb-2 text-sm text-slate-600">
                 A rep is <b>checked in</b> when they open their personal dashboard that day. It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
                 {' '}A weekday they missed after that has to be given a reason the next time they sign in —
-                {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day).
+                {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. A day William took them out shows <b>🎓 Training</b> and is never asked about.
+                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day).
               </p>
               {notStarted && <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Tracking starts {dayLabel(data.start)}. Days before that aren&rsquo;t counted.</div>}
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -112,6 +129,10 @@ export default function RepAttendance() {
                 <select value={weeks} onChange={(e) => { const w = Number(e.target.value); setWeeks(w); load(pin, w) }} className="rounded-md border border-slate-300 px-2 py-1">
                   <option value={1}>This week</option><option value={2}>Last 2 weeks</option><option value={4}>Last 4 weeks</option>
                 </select>
+                <span className="ml-2 text-slate-700">Daily door goal:</span>
+                <input type="number" min="0" defaultValue={data?.daily_doors || ''} key={data?.daily_doors || 'none'} placeholder="none"
+                  onBlur={(e) => { const v = e.target.value; if (String(v) !== String(data?.daily_doors || '')) saveGoal(v) }}
+                  className="w-20 rounded-md border border-slate-300 px-2 py-1" />
                 <button type="button" onClick={() => load()} disabled={busy} className="ml-auto rounded-md border border-slate-300 px-3 py-1 font-semibold text-slate-600 disabled:opacity-60">{busy ? 'Loading…' : '↻ Refresh'}</button>
               </div>
               {err && <div className="mb-2 text-sm font-semibold text-red-700">{err}</div>}
@@ -123,6 +144,7 @@ export default function RepAttendance() {
                         <th className="sticky left-0 z-10 bg-slate-100 px-2 py-1.5 text-left">Rep</th>
                         <th className="px-2 py-1.5 text-center" title="Checked in / excused / missed with no reason">In · Exc · Miss</th>
                         <th className="px-2 py-1.5 text-center" title="Doors worked on DoorDispatcher across these days">🚪 Doors</th>
+                        <th className="px-2 py-1.5 text-center" title="Average doors on the days that count toward the daily goal (not training, sick, personal, vacation or holidays)">🎯 Avg / pin day</th>
                         {data.days.map((ds) => <th key={ds} className="whitespace-nowrap px-2 py-1.5 text-center">{dayLabel(ds)}</th>)}
                       </tr>
                     </thead>
@@ -136,9 +158,19 @@ export default function RepAttendance() {
                             <span className="text-emerald-700">{r.present}</span> · <span className="text-sky-700">{r.excused}</span> · <span className={r.missing ? 'text-red-700' : 'text-slate-400'}>{r.missing}</span>
                           </td>
                           <td className="px-2 py-1.5 text-center text-sm font-bold text-slate-800">{r.doors}</td>
+                          <td className="whitespace-nowrap px-2 py-1.5 text-center">
+                            {r.avg == null ? <span className="text-slate-300">—</span> : (
+                              <>
+                                <span className={`text-sm font-bold ${goal ? (r.avg >= goal ? 'text-emerald-700' : 'text-red-700') : 'text-slate-800'}`}>{r.avg}</span>
+                                <div className="text-[10px] text-slate-500">{goal ? `${r.hit} of ${r.pinDays} days hit ${goal}` : `${r.pinDays} pin day${r.pinDays === 1 ? '' : 's'}`}</div>
+                              </>
+                            )}
+                          </td>
                           {r.cells.map((c, i) => (
                             <td key={i} className="whitespace-nowrap px-2 py-1.5 text-center">
                               {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`First on ${etTime(c.x.first)}, last ${etTime(c.x.last)}`}>✓ {etTime(c.x.first)}</span>}
+                              {c.kind === 'training' && <span className="rounded bg-indigo-100 px-1.5 py-0.5 font-bold text-indigo-800" title="Out in the field with William (his ride-along picks)">🎓 Training</span>}
+                              {c.kind === 'in' && c.trained && <div className="mt-0.5 text-[10px] font-bold text-indigo-700">🎓 with William</div>}
                               {c.kind === 'reason' && <span className={`rounded px-1.5 py-0.5 font-bold ${REASON[c.x.reason]?.[1] || ''}`} title={c.x.note || ''}>{REASON[c.x.reason]?.[0] || c.x.reason}{c.x.note ? ' 💬' : ''}</span>}
                               {c.kind === 'missing' && <span className="rounded bg-red-100 px-1.5 py-0.5 font-bold text-red-800" title="Not on the dashboard and no reason given yet">✗ no reason</span>}
                               {c.kind === 'nopin' && <span className="rounded bg-orange-100 px-1.5 py-0.5 font-bold text-orange-800" title="Has never set up their dashboard PIN, so their check-ins haven't started">no PIN yet</span>}
@@ -147,13 +179,16 @@ export default function RepAttendance() {
                               {c.kind === 'before' && <span className="text-slate-300" title="Before their first check-in — not counted">—</span>}
                               {c.kind === 'off' && <span className="text-slate-400">holiday</span>}
                               {c.kind !== 'before' && c.kind !== 'nopin' && c.kind !== 'notstarted' || c.doors > 0 ? (
-                                <div className={`mt-0.5 text-[11px] font-bold ${c.doors ? 'text-slate-800' : 'text-slate-400'}`} title="Doors worked on DoorDispatcher that day">🚪 {c.doors}</div>
+                                <div className={`mt-0.5 text-[11px] font-bold ${c.counts && goal ? (c.doors >= goal ? 'text-emerald-700' : 'text-red-700') : c.doors ? 'text-slate-800' : 'text-slate-400'}`}
+                                  title={c.counts ? 'Doors worked on DoorDispatcher — this day counts toward the daily goal' : 'Doors worked on DoorDispatcher — this day does NOT count toward the daily goal'}>
+                                  🚪 {c.doors}{!c.counts && (c.kind === 'training' || c.kind === 'reason' || c.kind === 'off' || c.trained) ? <span className="ml-0.5 font-normal text-slate-400">· not counted</span> : null}
+                                </div>
                               ) : null}
                             </td>
                           ))}
                         </tr>
                       ))}
-                      {!shown.length && <tr><td colSpan={data.days.length + 3} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays tracked yet.'}</td></tr>}
+                      {!shown.length && <tr><td colSpan={data.days.length + 4} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays tracked yet.'}</td></tr>}
                     </tbody>
                   </table>
                   <p className="mt-2 text-[11px] text-slate-500">Hover a reason with 💬 to read the rep&rsquo;s note. Hover ✓ for first/last time on the dashboard (Eastern).</p>
