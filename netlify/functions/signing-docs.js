@@ -38,7 +38,7 @@ export const DOCS = {
     blurb: 'Two signatures on one form. Sent to every rep and that week’s class on 9/11; since 10/1 it is part of Day-1 onboarding (it follows the W-9 + contractor agreement). Only active reps and trainees still in class are listed.',
     default_copy_to: ['JennV@shingleusa.com'],
     path: (t) => `/comp-agreement/${t}`,
-    sms: (first, link, firstTime) => `Hi ${first}, it's Neal. ${firstTime ? 'Please sign' : 'You still need to sign'} the Draw Program and Inspection Compensation Plan — it takes two minutes and two signatures: ${link}\nYour signed copy goes to Jenn automatically.`,
+    sms: (first, link, firstTime) => `Hi ${first}, this is the corporate office. ${firstTime ? 'Please sign' : 'You still need to sign'} the Draw Program and Inspection Compensation Plan — it takes two minutes and two signatures: ${link}\nYour signed copy goes to Jenn automatically.`,
     subject: 'Please sign: Draw Program + Inspection Compensation Plan',
     email: 'You still need to sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures. Your signed copy goes to Jenn automatically.',
   },
@@ -47,7 +47,7 @@ export const DOCS = {
     blurb: 'Sent when a trainee checks in on Day 1. The rep signs, then Jenn countersigns.',
     default_copy_to: [], // empty = the HR/admin notification recipients, as before
     path: (t) => `/onboarding/${t}`,
-    sms: (first, link) => `Hi ${first}, it's Neal. We still need your W-9 and Independent Contractor Agreement — it only takes a few minutes: ${link}`,
+    sms: (first, link) => `Hi ${first}, this is the corporate office. We still need your W-9 and Independent Contractor Agreement — it only takes a few minutes: ${link}`,
     subject: 'We still need your U.S. Shingle paperwork',
     email: 'We still need your <b>W-9</b> and <b>Independent Contractor Agreement</b>. It only takes a few minutes.',
   },
@@ -148,7 +148,7 @@ export const handler = async (event) => {
       const firstTime = !((sends[body.doc] || {})[t.id] || []).length && !!(body.first_ids || []).includes(t.id)
       const sms = phoneTo ? await sendSmsViaGhl(phoneTo, doc.sms(first, link, firstTime), { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no phone' }
       const to = ov.email || t.company_email || t.email
-      const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5"><p>Hi ${first},</p><p>It's Neal. ${doc.email}</p><p><a href="${link}" style="display:inline-block;background:#1a2e5a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Open and sign</a></p><p>— Neal</p></div>`
+      const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5"><p>Hi ${first},</p><p>This is the U.S. Shingle corporate office. ${doc.email}</p><p><a href="${link}" style="display:inline-block;background:#1a2e5a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Open and sign</a></p><p>— U.S. Shingle corporate office</p></div>`
       const em = to ? await sendEmail(to, doc.subject, html).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no email' }
       const entry = { at: new Date().toISOString(), by: who, sms: !!sms?.ok, email: !!(em && em.ok !== false), to_phone: phoneTo || null, to_email: to || null }
       ;((sends[body.doc] = sends[body.doc] || {})[t.id] = sends[body.doc][t.id] || []).push(entry)
