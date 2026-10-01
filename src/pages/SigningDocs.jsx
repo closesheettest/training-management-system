@@ -15,6 +15,7 @@ const STATE = {
   countersign: { label: 'Signed — waiting on Jenn', cls: 'bg-sky-100 text-sky-800' },
   signed: { label: 'Signed', cls: 'bg-emerald-100 text-emerald-800' },
 }
+const fmtPhone = (p) => { const d = String(p || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : (p || '') }
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
 
 export default function SigningDocs() {
@@ -64,6 +65,13 @@ function DocCard({ d, call, reload }) {
     setBusy('')
   }
   const [edit, setEdit] = useState(null) // { id, phone, email }
+  const [help, setHelp] = useState(null)  // "not getting texts" panel for one rep
+  const smsHelp = async (r) => {
+    if (help?.id === r.id) { setHelp(null); return }
+    setHelp({ id: r.id, loading: true })
+    try { const j = await call({ action: 'sms_help', id: r.id }); setHelp({ id: r.id, ...j }) }
+    catch (e) { setHelp({ id: r.id, error: e.message }) }
+  }
   const saveContact = async (r, andResend, clear = false) => {
     setBusy('edit'); setMsg('')
     try {
@@ -137,12 +145,32 @@ function DocCard({ d, call, reload }) {
               {r.pdf_error && <span className="text-xs font-bold text-red-700">⚠ PDF problem: {r.pdf_error}</span>}
               {r.state !== 'signed' && r.state !== 'countersign' && (
                 <span className="ml-auto flex gap-1.5">
+                  <button type="button" onClick={() => smsHelp(r)} className="rounded-md border border-amber-500 px-2 py-0.5 text-xs font-bold text-amber-700">📵 Not getting texts</button>
                   <button type="button" onClick={() => setEdit(edit?.id === r.id ? null : { id: r.id, phone: r.phone || '', email: r.email || '' })} className="rounded-md border border-slate-400 px-2 py-0.5 text-xs font-bold text-slate-700">✏️ Edit</button>
                   <button type="button" disabled={busy === 'send'} onClick={() => resend([r])} className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-bold text-emerald-700">Resend</button>
                 </span>
               )}
             </div>
             {r.override && <div className="pl-5 text-[11px] font-semibold text-violet-700">Sending to a different {[r.override.phone && 'phone', r.override.email && 'email'].filter(Boolean).join(' and ')} than on file</div>}
+            {help?.id === r.id && (
+              <div className="mt-2 rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                {help.loading ? 'Checking GoHighLevel…' : help.error ? <span className="font-semibold text-red-700">{help.error}</span> : !help.found ? (
+                  <div>{help.reason} Use <b>✏️ Edit</b> if the number is wrong, then resend.</div>
+                ) : (
+                  <>
+                    {help.blocked
+                      ? <div className="font-bold">🚫 Their texts are blocked — at some point they replied STOP, so every text since has been dropped.</div>
+                      : <div className="font-bold">Texts to {help.phone} aren&rsquo;t blocked on our side.</div>}
+                    <div className="mt-1">Tell {r.name.split(' ')[0]}: <span className="rounded bg-white px-2 py-0.5 font-bold">text the word <u>START</u> to {fmtPhone(help.from_number)}</span>{help.from_is_default ? ' (our main line)' : ' — that’s the number our texts come from'}. They should start receiving texts again right away.</div>
+                    {!help.blocked && <div className="mt-1 text-xs text-amber-900">Still nothing? The number on file may be wrong — use <b>✏️ Edit</b> to send it somewhere else.{help.last?.status ? ` Last text to them: ${help.last.status}${help.last.at ? `, ${when(help.last.at)}` : ''}.` : ''}</div>}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button type="button" disabled={busy === 'send'} onClick={() => { setHelp(null); resend([r]) }} className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-bold text-white">They texted START — resend now</button>
+                      <button type="button" onClick={() => setHelp(null)} className="text-xs text-amber-900 underline">Close</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             {edit?.id === r.id && (
               <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
                 <div className="mb-2 text-xs text-slate-600">Not getting it? Send it somewhere else. This only changes where <b>signing links</b> go — their main record stays as is. On file: {r.on_file?.phone || 'no phone'} · {r.on_file?.email || 'no email'}</div>

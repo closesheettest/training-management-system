@@ -16,6 +16,7 @@
 //   POST { pin, action:'resend', doc, ids:[trainee_id] }       → { ok, results:[…] }
 //   POST { pin, action:'copy_to', doc, emails:[…] }            → { ok, copy_to }
 //   POST { pin, action:'contact', id, phone, email }           → { ok, contact }   (send-to override)
+//   POST { pin, action:'sms_help', id }                        → { ok, blocked, from_number, last }  ("not getting texts")
 //
 // Resends are logged (app_settings signing_sends) so the trail shows every send.
 // Where signed copies go: app_settings signing_copy_to_<doc> (comp-agreement-api and
@@ -92,6 +93,36 @@ export const handler = async (event) => {
     else contacts[id] = { phone: phone || null, email: email || null, by: who, at: new Date().toISOString() }
     await putSetting(sb, 'signing_contacts', contacts)
     return json(200, { ok: true, contact: contacts[id] || null })
+  }
+
+  // "THEY SAY THEY'RE NOT GETTING THE TEXTS" (Neal, 2026-10-01). Almost always they once
+  // replied STOP, which turns on Do-Not-Disturb in GoHighLevel, and every text since has been
+  // dropped. The cure is the rep texting START to the number our texts come from — and GHL
+  // picks that number per person, so look it up rather than guess.
+  if (body.action === 'sms_help') {
+    const { data: t } = await sb.from('trainees').select('id, phone').eq('id', String(body.id || '')).maybeSingle()
+    const phone = contacts[body.id]?.phone || t?.phone
+    if (!phone) return json(200, { ok: true, found: false, reason: 'No phone number on file.' })
+    const GHL = 'https://services.leadconnectorhq.com', loc = process.env.GHL_LOCATION_ID
+    const H = { Authorization: `Bearer ${process.env.GHL_PIT_TOKEN}`, Accept: 'application/json' }
+    try {
+      const dup = await (await fetch(`${GHL}/contacts/search/duplicate?locationId=${encodeURIComponent(loc)}&number=${encodeURIComponent(phone)}`, { headers: { ...H, Version: '2021-07-28' } })).json()
+      const cid = dup?.contact?.id
+      if (!cid) return json(200, { ok: true, found: false, phone, reason: 'That number isn’t in GoHighLevel yet — the next send will add it.' })
+      const c = (await (await fetch(`${GHL}/contacts/${cid}`, { headers: { ...H, Version: '2021-07-28' } })).json())?.contact || {}
+      const smsDnd = c.dndSettings?.SMS?.status === 'active'
+      const blocked = !!(c.dnd || smsDnd)
+      let fromNumber = null, last = null
+      const cs = await (await fetch(`${GHL}/conversations/search?locationId=${encodeURIComponent(loc)}&contactId=${cid}`, { headers: { ...H, Version: '2021-04-15' } })).json()
+      const conv = (cs.conversations || [])[0]
+      if (conv) {
+        const md = await (await fetch(`${GHL}/conversations/${conv.id}/messages?limit=20`, { headers: { ...H, Version: '2021-04-15' } })).json()
+        const msgs = Array.isArray(md.messages) ? md.messages : (md.messages?.messages || [])
+        const out = msgs.find((m) => m.direction === 'outbound' && /sms/i.test(String(m.messageType || m.type || 'sms')))
+        if (out) { fromNumber = out.from || out.fromNumber || null; last = { at: out.dateAdded || null, status: out.status || null } }
+      }
+      return json(200, { ok: true, found: true, phone, blocked, from_number: fromNumber || '+17277615200', from_is_default: !fromNumber, last })
+    } catch (e) { return json(200, { ok: false, error: `Couldn’t check GoHighLevel: ${e.message}` }) }
   }
 
   if (body.action === 'copy_to') {
