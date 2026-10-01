@@ -66,20 +66,19 @@ export default function RepAttendance() {
     const a = data.reps[r.jnid] || {}
     const x = a.days?.[ds]
     const doors = data.doors[r.jnid]?.[ds] || 0
-    const pinDay = a.pin_set_at ? etDay(a.pin_set_at) : null
     if (data.off_days.includes(ds)) return { kind: 'off' }
     if (x?.first) return { kind: 'in', x, doors }
     if (x?.reason) return { kind: 'reason', x, doors }
     if (ds === data.today) return { kind: 'today', doors }
-    if (!pinDay) return { kind: 'nopin', doors }
-    if (pinDay > ds) return { kind: 'before', doors }
+    if (!a.started_on) return { kind: a.pin_set_at ? 'notstarted' : 'nopin', doors }
+    if (a.started_on > ds) return { kind: 'before', doors }
     return { kind: 'missing', doors }
   }
   const rows = data ? roster.map((r) => {
     const cells = data.days.map((ds) => cell(r, ds))
-    return { ...r, cells, missing: cells.filter((c) => c.kind === 'missing' || c.kind === 'nopin').length, excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in').length }
+    return { ...r, cells, missing: cells.filter((c) => c.kind === 'missing').length, never: cells.some((c) => c.kind === 'nopin' || c.kind === 'notstarted'), excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in').length }
   }) : []
-  const shown = only === 'problems' ? rows.filter((r) => r.missing || r.excused) : rows
+  const shown = only === 'problems' ? rows.filter((r) => r.missing || r.excused || r.never) : rows
   const notStarted = data && data.today < data.start
 
   return (
@@ -101,7 +100,8 @@ export default function RepAttendance() {
           ) : (
             <>
               <p className="mb-2 text-sm text-slate-600">
-                A rep is <b>checked in</b> when they open their personal dashboard that day. A weekday they missed has to be given a reason the next time they sign in —
+                A rep is <b>checked in</b> when they open their personal dashboard that day. It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
+                {' '}A weekday they missed after that has to be given a reason the next time they sign in —
                 {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. <b>Doors</b> = houses they worked on the map that day.
               </p>
               {notStarted && <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Tracking starts {dayLabel(data.start)}. Days before that aren&rsquo;t counted.</div>}
@@ -139,9 +139,10 @@ export default function RepAttendance() {
                               {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`First on ${etTime(c.x.first)}, last ${etTime(c.x.last)}`}>✓ {etTime(c.x.first)}</span>}
                               {c.kind === 'reason' && <span className={`rounded px-1.5 py-0.5 font-bold ${REASON[c.x.reason]?.[1] || ''}`} title={c.x.note || ''}>{REASON[c.x.reason]?.[0] || c.x.reason}{c.x.note ? ' 💬' : ''}</span>}
                               {c.kind === 'missing' && <span className="rounded bg-red-100 px-1.5 py-0.5 font-bold text-red-800" title="Not on the dashboard and no reason given yet">✗ no reason</span>}
-                              {c.kind === 'nopin' && <span className="rounded bg-red-50 px-1.5 py-0.5 font-bold text-red-700" title="Has never set up their dashboard PIN">✗ no PIN yet</span>}
+                              {c.kind === 'nopin' && <span className="rounded bg-orange-100 px-1.5 py-0.5 font-bold text-orange-800" title="Has never set up their dashboard PIN, so their check-ins haven't started">no PIN yet</span>}
+                              {c.kind === 'notstarted' && <span className="rounded bg-orange-100 px-1.5 py-0.5 font-bold text-orange-800" title="Hasn't signed in since check-ins began, so their clock hasn't started">not signed in yet</span>}
                               {c.kind === 'today' && <span className="text-slate-400">not yet</span>}
-                              {c.kind === 'before' && <span className="text-slate-300" title="Before they set up their PIN">—</span>}
+                              {c.kind === 'before' && <span className="text-slate-300" title="Before their first check-in — not counted">—</span>}
                               {c.kind === 'off' && <span className="text-slate-400">holiday</span>}
                               {c.doors > 0 && <div className="mt-0.5 text-[10px] text-slate-600">{c.doors} doors</div>}
                             </td>
