@@ -446,12 +446,12 @@ export const IMPULSE_GUIDE = {
 // (F = Fear of loss, I = Indifference, G = Greed, S = Sense of urgency).
 export const IMPULSE_BY_STEP = [
   { step: 'Warm-up', slides: [0, 0], qs: [
-    { q: 'What made you want to have someone look at the roof?', hear: 'An insurance letter or a leak → F · a deadline → S · "the mailer said free" → G · "my wife wanted it" / shrug → I' },
-    { q: 'How long are you planning to stay in this home?', hear: 'Forever home, family → F · selling or refinancing soon → S · "depends on the price of things" → G · "never thought about it" → I' },
-    { q: "When does your insurance renew? Have they said anything about the roof?", hear: 'Worried about being dropped → F · a renewal date coming → S · "they want me to pay more" → G · "no idea" → I' },
+    { q: 'What made you want to have someone look at the roof?', hear: 'An insurance letter or a leak → F · "my wife wanted it" / shrug → I · "the mailer said free" → G · a deadline → S' },
+    { q: 'How long are you planning to stay in this home?', hear: 'Forever home, family → F · "never thought about it" → I · "depends on the price of things" → G · selling or refinancing soon → S' },
+    { q: "When does your insurance renew? Have they said anything about the roof?", hear: 'Worried about being dropped → F · "no idea" → I · "they want me to pay more" → G · a renewal date coming → S' },
   ] },
   { step: 'Slide 1 — The company', slides: [1, 1], qs: [
-    { q: 'When you hire someone for something this big, what matters most to you?', hear: '"That they\'ll be around / do it right" → F · "a fair price" → G · "that they can start soon" → S · "I don\'t know" → I' },
+    { q: 'When you hire someone for something this big, what matters most to you?', hear: '"That they\'ll be around / do it right" → F · "I don\'t know" → I · "a fair price" → G · "that they can start soon" → S' },
     { q: 'Have you ever had a bad experience with a contractor?', hear: 'A story about getting burned → F · "they overcharged me" → G · "they took forever" → S' },
   ] },
   { step: 'Slide 2 — License', slides: [2, 2], qs: [
@@ -462,31 +462,31 @@ export const IMPULSE_BY_STEP = [
     { q: 'Has your insurance company ever inspected the roof or sent you a letter?', hear: 'Letter, worried about losing coverage → F · has a deadline from them → S' },
   ] },
   { step: 'Slide 4 — You already need a roof', slides: [4, 4], qs: [
-    { q: "How long do you think you've got before the roof has to be done?", hear: '"Now — they gave us a date" → S · "before something leaks" → F · "a few years, it\'s fine" → I · "depends what it costs" → G' },
+    { q: "How long do you think you've got before the roof has to be done?", hear: '"before something leaks" → F · "a few years, it\'s fine" → I · "depends what it costs" → G · "Now — they gave us a date" → S' },
   ] },
   { step: 'Slide 5 — Chuck in the truck', slides: [5, 5], qs: [
-    { q: 'If two roofers were $1,000 apart, which one would you pick, and why?', hear: '"The cheaper one" → G · "the one I trust" → F · "whoever starts first" → S · "doesn\'t matter" → I' },
+    { q: 'If two roofers were $1,000 apart, which one would you pick, and why?', hear: '"the one I trust" → F · "doesn\'t matter" → I · "The cheaper one" → G · "whoever starts first" → S' },
   ] },
   { step: 'Slides 6–7 — Why today + Low Bid Match', slides: [6, 7], qs: [
-    { q: 'Would knocking money off your insurance and electric bills matter to you?', hear: 'Lights up, asks how much → G · "as long as I don\'t lose my coverage" → F' },
-    { q: 'Material prices go up every year. Is there a reason you\'d want to lock this in now rather than wait?', hear: '"Yes, our renewal is coming" → S · "I\'d rather not pay more later" → G · "we can wait" → I' },
-    { q: 'If you found a lower bid, would you want us to match it and give you 10% of the difference?', hear: 'Excited about the 10% → G · "I\'d still want someone I trust" → F' },
+    { q: 'Would knocking money off your insurance and electric bills matter to you?', hear: '"as long as I don\'t lose my coverage" → F · Lights up, asks how much → G' },
+    { q: 'Material prices go up every year. Is there a reason you\'d want to lock this in now rather than wait?', hear: '"we can wait" → I · "I\'d rather not pay more later" → G · "Yes, our renewal is coming" → S' },
+    { q: 'If you found a lower bid, would you want us to match it and give you 10% of the difference?', hear: '"I\'d still want someone I trust" → F · Excited about the 10% → G' },
   ] },
   { step: 'Slides 8–9 — What we offer + installation', slides: [8, 9], qs: [
-    { q: 'What would worry you most about having your roof torn off?', hear: 'Rain getting in, damage, rotted wood → F · "how many days will it take?" → S · "will it cost extra?" → G · "nothing really" → I' },
+    { q: 'What would worry you most about having your roof torn off?', hear: 'Rain getting in, damage, rotted wood → F · "nothing really" → I · "will it cost extra?" → G · "how many days will it take?" → S' },
   ] },
   { step: 'Slides 10–15 — Colors, our work, jobsite prep', slides: [10, 15], qs: [
-    { q: 'Is there a look you\'ve had in mind for the house?', hear: 'Strong opinions, excited → engaged (not I) · "whatever you think" → I · "which one\'s cheapest?" → G' },
-    { q: 'Any reason you\'d need the job done by a certain date?', hear: 'A date → S · "no rush" → I or G' },
+    { q: 'Is there a look you\'ve had in mind for the house?', hear: '"whatever you think" → I · "which one\'s cheapest?" → G · Strong opinions, excited → engaged (not I)' },
+    { q: 'Any reason you\'d need the job done by a certain date?', hear: '"no rush" → I or G · A date → S' },
   ] },
   { step: 'Slide 16 — Warranty', slides: [16, 16], qs: [
     { q: 'How important is it to you that the roof is covered if something goes wrong?', hear: '"Very" → F · "what does that add to the price?" → G' },
   ] },
   { step: 'Slides 17–21 — Energy Saver package', slides: [17, 21], qs: [
-    { q: 'What does your electric bill run in the summer? How would it feel to cut that?', hear: 'Wants the numbers, the savings → G · "I just don\'t want the AC to die" → F · "not a big deal" → I' },
+    { q: 'What does your electric bill run in the summer? How would it feel to cut that?', hear: '"I just don\'t want the AC to die" → F · "not a big deal" → I · Wants the numbers, the savings → G' },
   ] },
   { step: 'Slides 22–23 — Payment + the ask', slides: [22, 23], qs: [
-    { q: "When it comes to paying for it, what's most important: the monthly payment, the total, or getting it started?", hear: 'Monthly / total / "the best deal" → G · "getting started" → S · "making sure it\'s done right" → F' },
+    { q: "When it comes to paying for it, what's most important: the monthly payment, the total, or getting it started?", hear: '"making sure it\'s done right" → F · Monthly / total / "the best deal" → G · "getting started" → S' },
   ], note: 'By now you should know the button. Close on it: protection (F), what waiting costs (I), the savings and value (G), or the start date (S).' },
 ]
 // ONCE YOU KNOW IT, KEEP HITTING IT (Neal, 2026-10-01: "how we can structure our
