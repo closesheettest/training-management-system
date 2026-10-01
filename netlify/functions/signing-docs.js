@@ -15,6 +15,7 @@
 //   POST { pin, action:'list' }                                → { ok, docs:[…] }
 //   POST { pin, action:'resend', doc, ids:[trainee_id] }       → { ok, results:[…] }
 //   POST { pin, action:'copy_to', doc, emails:[…] }            → { ok, copy_to }
+//   POST { pin, action:'contact', id, phone, email }           → { ok, contact }   (send-to override)
 //
 // Resends are logged (app_settings signing_sends) so the trail shows every send.
 // Where signed copies go: app_settings signing_copy_to_<doc> (comp-agreement-api and
@@ -76,6 +77,23 @@ export const handler = async (event) => {
   if (!who) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
   const sends = await getSetting(sb, 'signing_sends', {}) // { doc: { trainee_id: [{at,by,sms,email}] } }
 
+  // WHERE TO SEND IT (Neal, 2026-10-01): a rep who isn't getting it can be given another
+  // phone / email for these documents. Stored as an override (app_settings
+  // signing_contacts) — their main record and every other message are untouched. Blank both
+  // to go back to what's on file.
+  const contacts = await getSetting(sb, 'signing_contacts', {})
+  if (body.action === 'contact') {
+    const id = String(body.id || '')
+    if (!id) return json(400, { ok: false, error: 'id required' })
+    const phone = String(body.phone || '').trim(), email = String(body.email || '').trim()
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(400, { ok: false, error: 'That email doesn’t look right.' })
+    if (phone && String(phone).replace(/\D/g, '').length < 10) return json(400, { ok: false, error: 'That phone number looks too short.' })
+    if (!phone && !email) delete contacts[id]
+    else contacts[id] = { phone: phone || null, email: email || null, by: who, at: new Date().toISOString() }
+    await putSetting(sb, 'signing_contacts', contacts)
+    return json(200, { ok: true, contact: contacts[id] || null })
+  }
+
   if (body.action === 'copy_to') {
     const doc = DOCS[body.doc]
     if (!doc) return json(400, { ok: false, error: 'unknown document' })
@@ -94,11 +112,13 @@ export const handler = async (event) => {
       if (!t.registration_token) { results.push({ id: t.id, name: `${t.first_name} ${t.last_name}`, error: 'no signing link on file' }); continue }
       const link = `${SITE}${doc.path(t.registration_token)}`
       const first = (t.first_name || 'there').trim()
-      const sms = t.phone ? await sendSmsViaGhl(t.phone, doc.sms(first, link), { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no phone' }
-      const to = t.company_email || t.email
+      const ov = contacts[t.id] || {}
+      const phoneTo = ov.phone || t.phone
+      const sms = phoneTo ? await sendSmsViaGhl(phoneTo, doc.sms(first, link), { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no phone' }
+      const to = ov.email || t.company_email || t.email
       const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5"><p>Hi ${first},</p><p>It's Neal. ${doc.email}</p><p><a href="${link}" style="display:inline-block;background:#1a2e5a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Open and sign</a></p><p>— Neal</p></div>`
       const em = to ? await sendEmail(to, doc.subject, html).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no email' }
-      const entry = { at: new Date().toISOString(), by: who, sms: !!sms?.ok, email: !!(em && em.ok !== false) }
+      const entry = { at: new Date().toISOString(), by: who, sms: !!sms?.ok, email: !!(em && em.ok !== false), to_phone: phoneTo || null, to_email: to || null }
       ;((sends[body.doc] = sends[body.doc] || {})[t.id] = sends[body.doc][t.id] || []).push(entry)
       results.push({ id: t.id, name: `${t.first_name} ${t.last_name}`, ...entry })
     }
@@ -124,13 +144,15 @@ export const handler = async (event) => {
     const a = await (await fetch(`${SITE}/.netlify/functions/comp-agreement-audit`)).json()
     const here = await stillHere((a.reps || []).map((r) => r.id))
     const reps = (a.reps || []).filter((r) => here.has(r.id)).map((r) => ({
-      id: r.id, name: r.name, group: r.group, phone: r.phone, email: r.email, state: r.state, pdf: r.pdf, pdf_error: r.pdf_error,
+      id: r.id, name: r.name, group: r.group, phone: contacts[r.id]?.phone || r.phone, email: contacts[r.id]?.email || r.email,
+      on_file: { phone: r.phone, email: r.email }, override: contacts[r.id] || null, state: r.state, pdf: r.pdf, pdf_error: r.pdf_error,
       trail: [
         ...(r.opened_at ? [{ at: r.opened_at, what: 'Opened the link' }] : []),
         ...(r.draw_signed_at ? [{ at: r.draw_signed_at, what: 'Signed the Draw Program' }] : []),
         ...(r.plan_signed_at ? [{ at: r.plan_signed_at, what: 'Signed the Compensation Plan' }] : []),
         ...(r.signed_at ? [{ at: r.signed_at, what: 'Fully signed — copy emailed' }] : []),
-        ...((sends.comp || {})[r.id] || []).map((s) => ({ at: s.at, what: `Re-sent by ${s.by} (${[s.sms && 'text', s.email && 'email'].filter(Boolean).join(' + ') || 'failed'})` })),
+        ...((sends.comp || {})[r.id] || []).map((s) => ({ at: s.at, what: `Re-sent by ${s.by} (${[s.sms && `text to ${s.to_phone || '?'}`, s.email && `email to ${s.to_email || '?'}`].filter(Boolean).join(' + ') || 'failed'})` })),
+        ...(contacts[r.id] ? [{ at: contacts[r.id].at, what: `Send-to changed by ${contacts[r.id].by}: ${[contacts[r.id].phone, contacts[r.id].email].filter(Boolean).join(' · ')}` }] : []),
       ].sort((x, y) => String(x.at).localeCompare(String(y.at))),
     }))
     out.push({ key: 'comp', title: DOCS.comp.title, blurb: DOCS.comp.blurb, copy_to: await getSetting(sb, 'signing_copy_to_comp', DOCS.comp.default_copy_to), reps })
@@ -156,7 +178,9 @@ export const handler = async (event) => {
       const path = o.agreement_pdf_path
       if (path) { const { data: s } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600); pdf = s?.signedUrl || null }
       reps.push({
-        id: t.id, name: `${t.first_name || ''} ${t.last_name || ''}`.trim(), group: 'Trainee', phone: t.phone, email: t.company_email || t.email,
+        id: t.id, name: `${t.first_name || ''} ${t.last_name || ''}`.trim(), group: 'Trainee',
+        phone: contacts[t.id]?.phone || t.phone, email: contacts[t.id]?.email || t.company_email || t.email,
+        on_file: { phone: t.phone, email: t.company_email || t.email }, override: contacts[t.id] || null,
         state, pdf, pdf_error: o.pdf_error || null,
         trail: [
           { at: t.onboarding_sms_sent_at, what: 'Link sent (text + email)' },
@@ -165,7 +189,8 @@ export const handler = async (event) => {
           ...(o.countersign_sent_at ? [{ at: o.countersign_sent_at, what: 'Sent to Jenn to countersign' }] : []),
           ...(o.company_signed_at ? [{ at: o.company_signed_at, what: 'Countersigned — complete' }] : []),
           ...(o.banking_completed_at ? [{ at: o.banking_completed_at, what: 'Direct deposit added' }] : []),
-          ...((sends.onboarding || {})[t.id] || []).map((s) => ({ at: s.at, what: `Re-sent by ${s.by} (${[s.sms && 'text', s.email && 'email'].filter(Boolean).join(' + ') || 'failed'})` })),
+          ...((sends.onboarding || {})[t.id] || []).map((s) => ({ at: s.at, what: `Re-sent by ${s.by} (${[s.sms && `text to ${s.to_phone || '?'}`, s.email && `email to ${s.to_email || '?'}`].filter(Boolean).join(' + ') || 'failed'})` })),
+          ...(contacts[t.id] ? [{ at: contacts[t.id].at, what: `Send-to changed by ${contacts[t.id].by}: ${[contacts[t.id].phone, contacts[t.id].email].filter(Boolean).join(' · ')}` }] : []),
         ].sort((x, y) => String(x.at).localeCompare(String(y.at))),
       })
     }

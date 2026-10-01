@@ -63,6 +63,20 @@ function DocCard({ d, call, reload }) {
     } catch (e) { setMsg(`⚠ ${e.message}`) }
     setBusy('')
   }
+  const [edit, setEdit] = useState(null) // { id, phone, email }
+  const saveContact = async (r, andResend, clear = false) => {
+    setBusy('edit'); setMsg('')
+    try {
+      await call({ action: 'contact', id: r.id, phone: clear ? '' : edit.phone, email: clear ? '' : edit.email })
+      setEdit(null)
+      if (andResend) {
+        const j = await call({ action: 'resend', doc: d.key, ids: [r.id] })
+        setMsg(j.results.map((x) => `${x.name}: ${x.error ? x.error : `sent — ${[x.sms && `text to ${x.to_phone}`, x.email && `email to ${x.to_email}`].filter(Boolean).join(' + ') || 'failed'}`}`).join(' · '))
+      } else setMsg(clear ? `${r.name}: back to what's on file.` : `${r.name}: saved — the next send goes there.`)
+      reload()
+    } catch (e) { setMsg(`⚠ ${e.message}`) }
+    setBusy('')
+  }
   const saveCopyTo = async () => {
     setBusy('copy'); setMsg('')
     try {
@@ -122,9 +136,28 @@ function DocCard({ d, call, reload }) {
               {r.pdf && <a href={r.pdf} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand-navy underline">Signed PDF</a>}
               {r.pdf_error && <span className="text-xs font-bold text-red-700">⚠ PDF problem: {r.pdf_error}</span>}
               {r.state !== 'signed' && r.state !== 'countersign' && (
-                <button type="button" disabled={busy === 'send'} onClick={() => resend([r])} className="ml-auto rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-bold text-emerald-700">Resend</button>
+                <span className="ml-auto flex gap-1.5">
+                  <button type="button" onClick={() => setEdit(edit?.id === r.id ? null : { id: r.id, phone: r.phone || '', email: r.email || '' })} className="rounded-md border border-slate-400 px-2 py-0.5 text-xs font-bold text-slate-700">✏️ Edit</button>
+                  <button type="button" disabled={busy === 'send'} onClick={() => resend([r])} className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-bold text-emerald-700">Resend</button>
+                </span>
               )}
             </div>
+            {r.override && <div className="pl-5 text-[11px] font-semibold text-violet-700">Sending to a different {[r.override.phone && 'phone', r.override.email && 'email'].filter(Boolean).join(' and ')} than on file</div>}
+            {edit?.id === r.id && (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="mb-2 text-xs text-slate-600">Not getting it? Send it somewhere else. This only changes where <b>signing links</b> go — their main record stays as is. On file: {r.on_file?.phone || 'no phone'} · {r.on_file?.email || 'no email'}</div>
+                <div className="flex flex-wrap gap-2">
+                  <input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} placeholder="Mobile number" className="w-44 rounded-md border border-slate-300 px-2 py-1" />
+                  <input value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder="Email" className="min-w-[220px] flex-1 rounded-md border border-slate-300 px-2 py-1" />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" disabled={busy === 'edit'} onClick={() => saveContact(r, false)} className="rounded-md border border-brand-navy px-3 py-1 text-xs font-bold text-brand-navy">Save</button>
+                  <button type="button" disabled={busy === 'edit'} onClick={() => saveContact(r, true)} className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-bold text-white">Save &amp; resend</button>
+                  {r.override && <button type="button" disabled={busy === 'edit'} onClick={() => { setEdit({ ...edit, phone: '', email: '' }); saveContact(r, false, true) }} className="text-xs text-slate-500 underline">Go back to what&rsquo;s on file</button>}
+                  <button type="button" onClick={() => setEdit(null)} className="text-xs text-slate-500 underline">Cancel</button>
+                </div>
+              </div>
+            )}
             {open[r.id] && (
               <div className="mt-1 pl-5 text-xs text-slate-600">
                 <div className="mb-1">{r.phone || 'no phone'} · {r.email || 'no email'}</div>
