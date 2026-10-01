@@ -23,6 +23,7 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const [agreed, setAgreed] = useState(false)
   const [nextSession, setNextSession] = useState('')
+  const [compSigned, setCompSigned] = useState(false)
   const pad = useRef(null)
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }))
@@ -33,6 +34,7 @@ export default function Onboarding() {
         const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'load', token }) })
         const b = await r.json()
         if (!b.ok) { setErr(b.error); setState('error'); return }
+        setCompSigned(!!b.comp_signed)
         if (b.signed && b.banking_done) { setState('done'); return }
         const t = b.trainee || {}
         setOnFile(b.secrets_on_file || {})
@@ -98,6 +100,13 @@ export default function Onboarding() {
           Your signed W-9 and Independent Contractor Agreement have been emailed to you. Keep them for your records.
         </p>
       </div>
+      {!compSigned && (
+        <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-6 text-center">
+          <h2 className="text-xl font-bold text-amber-900">One more step: your pay documents</h2>
+          <p className="mt-2 text-amber-900">Please sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures.</p>
+          <a href={`/comp-agreement/${token}`} className="mt-4 inline-block rounded-lg bg-brand-navy px-6 py-3 text-lg font-bold text-white">Sign my pay documents →</a>
+        </div>
+      )}
     </Shell>
   )
 

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 
 const API = '/.netlify/functions/signing-docs'
 const STATE = {
+  not_sent: { label: 'Not sent yet', cls: 'bg-purple-100 text-purple-800' },
   not_opened: { label: 'Never opened', cls: 'bg-red-100 text-red-800' },
   opened: { label: 'Opened, not signed', cls: 'bg-amber-100 text-amber-800' },
   partial: { label: 'Partly signed', cls: 'bg-orange-100 text-orange-800' },
@@ -58,7 +59,7 @@ function DocCard({ d, call, reload }) {
     if (!window.confirm(`Resend "${d.title}" to ${list.length === 1 ? list[0].name : `${list.length} people`} by text and email?\n\n${list.map((r) => r.name).join(', ')}`)) return
     setBusy('send'); setMsg('')
     try {
-      const j = await call({ action: 'resend', doc: d.key, ids: list.map((r) => r.id) })
+      const j = await call({ action: 'resend', doc: d.key, ids: list.map((r) => r.id), first_ids: list.filter((r) => r.state === 'not_sent').map((r) => r.id) })
       setMsg(j.results.map((x) => `${x.name}: ${x.error ? x.error : [x.sms && 'text', x.email && 'email'].filter(Boolean).join(' + ') || 'failed'}`).join(' · '))
       reload()
     } catch (e) { setMsg(`⚠ ${e.message}`) }

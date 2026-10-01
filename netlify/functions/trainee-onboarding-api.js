@@ -339,6 +339,9 @@ export const handler = async (event) => {
       next_session: nextSession,
       signed: !!existing?.signed_at,
       banking_done: !!existing?.banking_completed_at,
+      // The Draw Program + Compensation Plan are part of onboarding now (Neal, 2026-10-01):
+      // the page hands them straight on to /comp-agreement/<same token> once this is signed.
+      comp_signed: !!existing?.comp_signed_at,
       secrets_on_file: Object.fromEntries(SECRET.map((k) => [k, !!existing?.[k]])),
     })
   }

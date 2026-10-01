@@ -35,10 +35,10 @@ const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'app
 export const DOCS = {
   comp: {
     title: 'Draw Program + Inspection Compensation Plan',
-    blurb: 'Two signatures on one form. First sent to every rep and that week’s class on 9/11.',
+    blurb: 'Two signatures on one form. Sent to every rep and that week’s class on 9/11; since 10/1 it is part of Day-1 onboarding (it follows the W-9 + contractor agreement). Only active reps and trainees still in class are listed.',
     default_copy_to: ['JennV@shingleusa.com'],
     path: (t) => `/comp-agreement/${t}`,
-    sms: (first, link) => `Hi ${first}, it's Neal. You still need to sign the Draw Program and Inspection Compensation Plan — it takes two minutes and two signatures: ${link}\nYour signed copy goes to Jenn automatically.`,
+    sms: (first, link, firstTime) => `Hi ${first}, it's Neal. ${firstTime ? 'Please sign' : 'You still need to sign'} the Draw Program and Inspection Compensation Plan — it takes two minutes and two signatures: ${link}\nYour signed copy goes to Jenn automatically.`,
     subject: 'Please sign: Draw Program + Inspection Compensation Plan',
     email: 'You still need to sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures. Your signed copy goes to Jenn automatically.',
   },
@@ -145,7 +145,8 @@ export const handler = async (event) => {
       const first = (t.first_name || 'there').trim()
       const ov = contacts[t.id] || {}
       const phoneTo = ov.phone || t.phone
-      const sms = phoneTo ? await sendSmsViaGhl(phoneTo, doc.sms(first, link), { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no phone' }
+      const firstTime = !((sends[body.doc] || {})[t.id] || []).length && !!(body.first_ids || []).includes(t.id)
+      const sms = phoneTo ? await sendSmsViaGhl(phoneTo, doc.sms(first, link, firstTime), { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no phone' }
       const to = ov.email || t.company_email || t.email
       const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5"><p>Hi ${first},</p><p>It's Neal. ${doc.email}</p><p><a href="${link}" style="display:inline-block;background:#1a2e5a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Open and sign</a></p><p>— Neal</p></div>`
       const em = to ? await sendEmail(to, doc.subject, html).catch((e) => ({ ok: false, error: e.message })) : { ok: false, error: 'no email' }
@@ -174,9 +175,15 @@ export const handler = async (event) => {
   try {
     const a = await (await fetch(`${SITE}/.netlify/functions/comp-agreement-audit`)).json()
     const here = await stillHere((a.reps || []).map((r) => r.id))
+    // NOT SENT YET (Neal, 2026-10-01): someone on the active roster who has never opened it
+    // and has no recorded send. Every send since 10/1 is logged, and new trainees get it inside
+    // onboarding (which stamps "opened"), so no log + never opened = it never reached them. The
+    // 9/11 blast predates the log, so a field rep with no trail is counted as sent on 9/11.
+    const SENT_911 = '2026-09-11T16:00:00.000Z'
     const reps = (a.reps || []).filter((r) => here.has(r.id)).map((r) => ({
       id: r.id, name: r.name, group: r.group, phone: contacts[r.id]?.phone || r.phone, email: contacts[r.id]?.email || r.email,
-      on_file: { phone: r.phone, email: r.email }, override: contacts[r.id] || null, state: r.state, pdf: r.pdf, pdf_error: r.pdf_error,
+      on_file: { phone: r.phone, email: r.email }, override: contacts[r.id] || null, pdf: r.pdf, pdf_error: r.pdf_error,
+      state: r.state === 'not_opened' && !((sends.comp || {})[r.id] || []).length && (/^Class /.test(r.group) ? r.group.slice(6) > '2026-09-11' : false) ? 'not_sent' : r.state,
       trail: [
         ...(r.opened_at ? [{ at: r.opened_at, what: 'Opened the link' }] : []),
         ...(r.draw_signed_at ? [{ at: r.draw_signed_at, what: 'Signed the Draw Program' }] : []),
