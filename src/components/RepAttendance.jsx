@@ -73,13 +73,20 @@ export default function RepAttendance() {
     const x = a.days?.[ds]
     const doors = data.doors[r.jnid]?.[ds] || 0
     const trained = !!data.training?.[r.jnid]?.[ds]
+    // DoorDispatcher counts as signing in (Neal, 2026-10-01) — earliest of the two is "first on".
+    const mapAt = data.map_first?.[r.jnid]?.[ds] || null
     if (data.off_days.includes(ds)) return { kind: 'off', doors }
-    if (x?.first) return { kind: 'in', x, doors, trained }
+    if (x?.first || mapAt) {
+      const first = [x?.first, mapAt].filter(Boolean).sort()[0]
+      return { kind: 'in', x: { ...(x || {}), first, last: x?.last || mapAt }, via: x?.first && mapAt ? 'both' : x?.first ? 'dash' : 'map', doors, trained }
+    }
     if (trained) return { kind: 'training', doors }
     if (x?.reason) return { kind: 'reason', x, doors }
     if (ds === data.today) return { kind: 'today', doors }
-    if (!a.started_on) return { kind: a.pin_set_at ? 'notstarted' : 'nopin', doors }
-    if (a.started_on > ds) return { kind: 'before', doors }
+    const mapStart = Object.keys(data.map_first?.[r.jnid] || {}).sort()[0]
+    const startedOn = [a.started_on, mapStart].filter(Boolean).sort()[0]
+    if (!startedOn) return { kind: a.pin_set_at ? 'notstarted' : 'nopin', doors }
+    if (startedOn > ds) return { kind: 'before', doors }
     return { kind: 'missing', doors }
   }
   // PIN DAYS (Neal, 2026-10-01: "not missed about pins"): only a normal working day counts
@@ -116,7 +123,7 @@ export default function RepAttendance() {
           ) : (
             <>
               <p className="mb-2 text-sm text-slate-600">
-                A rep is <b>checked in</b> when they open their personal dashboard that day. It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
+                A rep is <b>checked in</b> when they open their personal dashboard <b>or DoorDispatcher</b> that day (🗺️ = DoorDispatcher). It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
                 {' '}A weekday they missed after that has to be given a reason the next time they sign in —
                 {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. A day William took them out shows <b>🎓 Training</b> and is never asked about.
                 {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day).
@@ -168,7 +175,7 @@ export default function RepAttendance() {
                           </td>
                           {r.cells.map((c, i) => (
                             <td key={i} className="whitespace-nowrap px-2 py-1.5 text-center">
-                              {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`First on ${etTime(c.x.first)}, last ${etTime(c.x.last)}`}>✓ {etTime(c.x.first)}</span>}
+                              {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`${c.via === 'map' ? 'On DoorDispatcher' : c.via === 'both' ? 'On DoorDispatcher and the dashboard' : 'On the dashboard'} — first ${etTime(c.x.first)}`}>✓ {etTime(c.x.first)}{c.via !== 'dash' ? ' 🗺️' : ''}</span>}
                               {c.kind === 'training' && <span className="rounded bg-indigo-100 px-1.5 py-0.5 font-bold text-indigo-800" title="Out in the field with William (his ride-along picks)">🎓 Training</span>}
                               {c.kind === 'in' && c.trained && <div className="mt-0.5 text-[10px] font-bold text-indigo-700">🎓 with William</div>}
                               {c.kind === 'reason' && <span className={`rounded px-1.5 py-0.5 font-bold ${REASON[c.x.reason]?.[1] || ''}`} title={c.x.note || ''}>{REASON[c.x.reason]?.[0] || c.x.reason}{c.x.note ? ' 💬' : ''}</span>}
