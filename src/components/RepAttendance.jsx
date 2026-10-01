@@ -21,9 +21,11 @@ const etDay = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New
 const dayLabel = (ds) => new Date(`${ds}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'numeric', day: 'numeric' })
 const PIN_KEY = 'rm_admin_ok_pin'
 
-export default function RepAttendance() {
+// managerToken: on a regional manager's dashboard — no PIN; loads through
+// regional-manager-api, which returns only that manager's team (and its roster).
+export default function RepAttendance({ managerToken } = {}) {
   const [open, setOpen] = useState(false)
-  const [pin, setPin] = useState(() => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } })
+  const [pin, setPin] = useState(() => { if (managerToken) return 'manager'; try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } })
   const [pinInput, setPinInput] = useState('')
   const [weeks, setWeeks] = useState(2)
   const [data, setData] = useState(null)
@@ -37,6 +39,14 @@ export default function RepAttendance() {
     setBusy(true); setErr('')
     try {
       const from = etDay(Date.now() - (w * 7 - 1) * 864e5)
+      if (managerToken) {
+        const res = await (await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'team_attendance', token: managerToken, from }) })).json()
+        if (!res.ok) throw new Error(res.error || 'Could not load')
+        setData(res)
+        setRoster((res.team || []).slice().sort((a, b) => a.name.localeCompare(b.name)))
+        setBusy(false)
+        return
+      }
       const [res, tr] = await Promise.all([
         fetch(CCG, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: p, from }) }).then((r) => r.json()),
         supabase.from('trainees').select('first_name, last_name, jobnimbus_id, rep_level, region').eq('is_active_sales_rep', true).not('jobnimbus_id', 'is', null),
@@ -136,10 +146,12 @@ export default function RepAttendance() {
                 <select value={weeks} onChange={(e) => { const w = Number(e.target.value); setWeeks(w); load(pin, w) }} className="rounded-md border border-slate-300 px-2 py-1">
                   <option value={1}>This week</option><option value={2}>Last 2 weeks</option><option value={4}>Last 4 weeks</option>
                 </select>
+                {managerToken ? (data?.daily_doors ? <span className="ml-2 text-slate-700">Daily door goal: <b>{data.daily_doors}</b></span> : null) : <>
                 <span className="ml-2 text-slate-700">Daily door goal:</span>
                 <input type="number" min="0" defaultValue={data?.daily_doors || ''} key={data?.daily_doors || 'none'} placeholder="none"
                   onBlur={(e) => { const v = e.target.value; if (String(v) !== String(data?.daily_doors || '')) saveGoal(v) }}
                   className="w-20 rounded-md border border-slate-300 px-2 py-1" />
+                </>}
                 <button type="button" onClick={() => load()} disabled={busy} className="ml-auto rounded-md border border-slate-300 px-3 py-1 font-semibold text-slate-600 disabled:opacity-60">{busy ? 'Loading…' : '↻ Refresh'}</button>
               </div>
               {err && <div className="mb-2 text-sm font-semibold text-red-700">{err}</div>}

@@ -18,7 +18,9 @@ const SECTIONS = [
 const N = 31
 const section = (n) => (SECTIONS.find(([, a, b]) => n >= a && n <= b) || [''])[0]
 
-export default function PresentationActivity() {
+// managerToken: on a regional manager's dashboard — loads through regional-manager-api,
+// which trims it to that manager's own team.
+export default function PresentationActivity({ managerToken } = {}) {
   // Starts closed every visit and loads only when tapped (Neal, 2026-09-30: it auto-loaded).
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState('')
@@ -30,7 +32,9 @@ export default function PresentationActivity() {
   async function load(d = date) {
     setBusy(true); setErr('')
     try {
-      const j = await (await fetch(`${CCG}${d ? `?date=${d}` : ''}`)).json()
+      const j = managerToken
+        ? await (await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'team_presentation', token: managerToken, date: d || undefined }) })).json()
+        : await (await fetch(`${CCG}${d ? `?date=${d}` : ''}`)).json()
       if (!j.ok) throw new Error(j.error || 'Could not load')
       setData(j); setDate(j.date)
     } catch (x) { setErr(x.message || 'Could not load') }

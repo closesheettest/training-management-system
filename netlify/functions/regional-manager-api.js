@@ -376,6 +376,43 @@ export const handler = async (event) => {
   // /sales-practice, scoped server-side to trainees in this manager's region.
   //   POST { action:'practice_list', token }      → { ok, sessions }
   //   POST { action:'practice_get', token, id }   → { ok, session }  (404 if not their rep)
+  // TEAM REPORTS (Neal, 2026-10-01): Rep attendance and In-Home Presentation & Close Sheet
+  // activity, the same as the admin Regional Managers page but ONLY this manager's team —
+  // filtered here, server-side, so a manager can never read another zone's reps.
+  if (action === 'team_attendance' || action === 'team_presentation') {
+    const { data: team } = await supabase.from('trainees')
+      .select('first_name, last_name, jobnimbus_id, rep_level, region, is_active_sales_rep, is_field_trainee, dropped_out_at, declined_at, enrolled')
+      .or('is_active_sales_rep.eq.true,is_field_trainee.eq.true')
+      .or('rep_level.is.null,rep_level.neq.non_field')
+      .eq('region', region)
+    const members = (team || [])
+      .filter((r) => r.jobnimbus_id && (r.is_active_sales_rep === true || (!r.dropped_out_at && !r.declined_at && r.enrolled !== false)))
+      .map((r) => ({ name: `${r.first_name || ''} ${r.last_name || ''}`.trim(), jnid: r.jobnimbus_id, level: r.rep_level, zone: r.region }))
+    const ids = new Set(members.map((m) => m.jnid))
+    const names = new Set(members.map((m) => m.name.toLowerCase().replace(/[^a-z]+/g, '')))
+    const mine = (jnid, name) => ids.has(jnid) || names.has(String(name || '').toLowerCase().replace(/[^a-z]+/g, ''))
+    try {
+      if (action === 'team_attendance') {
+        const ccgTok = await ccgTokenFor(region)
+        if (!ccgTok) return json(502, { ok: false, error: 'No CCG board is linked to this zone.' })
+        const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/rep-attendance`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rm_token: ccgTok, from: body.from }),
+        })
+        const d = await r.json().catch(() => ({}))
+        if (!d.ok) return json(502, { ok: false, error: d.error || 'Attendance unavailable' })
+        const keep = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => ids.has(k)))
+        return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), team: members })
+      }
+      const qs = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? `?date=${body.date}` : ''
+      const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/presentation-activity${qs}`)
+      const d = await r.json().catch(() => ({}))
+      if (!d.ok) return json(502, { ok: false, error: d.error || 'Presentation activity unavailable' })
+      // Day chips carry company-wide appointment counts — drop them for a manager.
+      return json(200, { ...d, days: (d.days || []).map((x) => ({ date: x.date, label: x.label })), reps: (d.reps || []).filter((x) => mine(x.rep_jnid, x.rep)) })
+    } catch (e) { return json(502, { ok: false, error: e.message || 'CCG request failed' }) }
+  }
+
   if (action === 'practice_list' || action === 'practice_get') {
     const { data: team } = await supabase.from('trainees').select('id').eq('region', region)
     const ids = (team || []).map((t) => t.id)

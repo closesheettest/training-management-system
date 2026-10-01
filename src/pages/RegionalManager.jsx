@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { useParams } from 'react-router-dom'
+import PresentationActivity from '../components/PresentationActivity.jsx'
+import RepAttendance from '../components/RepAttendance.jsx'
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, CircleMarker, Polygon, Rectangle, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -194,11 +196,14 @@ export default function RegionalManager() {
               ['⭐ Reviews to verify', <ReviewsToVerify zone={manager.region} by={`${manager.first_name || ''} ${manager.last_name || ''}`.trim()} onCount={counter('reviews')} />, 'reviews'],
               ['🎓 New trainees', <NewTrainees reps={reps} token={token} onChanged={reload} onCount={counter('trainees')} />, 'trainees'],
             ] },
-          { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, managers pay, weekly report', color: 'from-indigo-600 to-indigo-800',
+          { key: 'reports', emoji: '📈', title: 'Reports', sub: 'Appointments → Sales, attendance, in-home presentation, managers pay, weekly report', color: 'from-indigo-600 to-indigo-800',
             // Each report already has its own tap-to-load header, so no extra bars here
             // (Neal, 2026-09-30: "saying Appointments → Sales twice").
             render: () => (<div className="space-y-4">
               <ApptConversion zone={manager.region} />
+              {/* Your team only (Neal, 2026-10-01) — trimmed server-side by regional-manager-api. */}
+              <RepAttendance managerToken={token} />
+              <PresentationActivity managerToken={token} />
               <ManagerPayReport />
               <WeeklyReport token={token} />
             </div>) },
