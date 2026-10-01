@@ -36,7 +36,8 @@ export default function BtrCommissionReport() {
       const r = await fetch(`${CCG}?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`)
       const d = await r.json()
       if (!d.ok) throw new Error(d.error || 'Could not load')
-      setData({ ...d, label: `${fmtDay(mon)} – ${fmtDay(addDays(mon, 6))}` })
+      // Named by the week it's PAID (Neal, 2026-10-01): sold last week is paid this week.
+      setData({ ...d, label: `Paid week of ${fmtDay(addDays(mon, 7))} – ${fmtDay(addDays(mon, 13))}`, sub: `sold ${fmtDay(mon)} – ${fmtDay(addDays(mon, 6))}` })
     } catch (x) { setErr(x.message || 'Could not load') }
     setBusy(false)
   }
@@ -56,7 +57,7 @@ export default function BtrCommissionReport() {
         <div className="flex items-center gap-2">
           {data && shown && <>
             <button type="button" onClick={() => go(offset + 1)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">◀</button>
-            <span className="text-sm font-semibold text-slate-700">{data.label}</span>
+            <span className="text-center leading-tight"><span className="block text-sm font-semibold text-slate-700">{data.label}</span>{data.sub && <span className="block text-[11px] text-slate-500">{data.sub}</span>}</span>
             <button type="button" onClick={() => go(Math.max(0, offset - 1))} disabled={offset === 0} className="rounded-md border border-slate-300 px-2 py-1 text-sm disabled:opacity-40">▶</button>
             <button type="button" onClick={() => load()} disabled={busy} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60">↻ Refresh</button>
           </>}
