@@ -82,7 +82,7 @@ export default function WilliamPayCard() {
                 <Fragment key={w.week_start}>
                   <tr key={w.week_start} onClick={() => setOpenWk(openWk === w.week_start ? null : w.week_start)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-1.5 pr-2 font-semibold text-slate-800">{openWk === w.week_start ? '▾' : '▸'} Paid {payday(w.week_start)} <span className="font-normal text-slate-500">· {fmtDay(w.week_start)} – {fmtDay(w.week_end)}</span>{w.in_progress && <span className="ml-1 text-xs font-normal text-amber-600">(in progress)</span>}</td>
-                    <td className="px-2 text-right">{w.signed}</td>
+                    <td className="px-2 text-right">{w.signed}{(w.cancels || []).length ? <div className="text-[11px] font-semibold text-red-700">+{w.cancels.length} cancelled</div> : null}</td>
                     <td className="px-2 text-right">{money(w.insp_pay)}</td>
                     <td className="px-2 text-right">{w.sales.length}</td>
                     <td className="px-2 text-right text-slate-500">{money(w.sales_total)}</td>
@@ -94,6 +94,10 @@ export default function WilliamPayCard() {
                       <td colSpan={7} className="px-3 py-2 text-xs text-slate-700">
                         <div className="font-bold">Signed up ({w.signups.length})</div>
                         {w.signups.length === 0 ? <div className="text-slate-400">None</div> : w.signups.map((s, i) => <div key={i}>{s.signed} · {s.client} · {s.address}</div>)}
+                        <div className="mt-2 font-bold text-red-700">Cancelled — not paid ({(w.cancels || []).length})</div>
+                        {!(w.cancels || []).length ? <div className="text-slate-400">None</div> : w.cancels.map((c, i) => (
+                          <div key={i} className="text-red-800">{c.signed} · {c.client} · {c.address} <span className="text-slate-500">— cancelled {c.cancelled}{c.reason ? `: ${c.reason}` : ''}</span></div>
+                        ))}
                         <div className="mt-2 font-bold">Sold ({w.sales.length})</div>
                         {w.sales.length === 0 ? <div className="text-slate-400">None</div> : w.sales.map((s, i) => <div key={i}>{s.sold} · {s.customer} · {s.address} · {s.kind === 'pa' ? 'Insurance (PA)' : 'Retail'} · {money(s.amount)} × {s.pct}% → {money(s.pay)}</div>)}
                       </td>
