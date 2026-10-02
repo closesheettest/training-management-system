@@ -397,7 +397,7 @@ export const handler = async (event) => {
         if (!ccgTok) return json(502, { ok: false, error: 'No CCG board is linked to this zone.' })
         const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/rep-attendance`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rm_token: ccgTok, from: body.from }),
+          body: JSON.stringify({ rm_token: ccgTok, from: body.from, to: body.to }),
         })
         const d = await r.json().catch(() => ({}))
         if (!d.ok) return json(502, { ok: false, error: d.error || 'Attendance unavailable' })

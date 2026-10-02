@@ -20,6 +20,25 @@ const etTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { timeZ
 const etDay = (iso) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(iso))
 const dayLabel = (ds) => new Date(`${ds}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'numeric', day: 'numeric' })
 const PIN_KEY = 'rm_admin_ok_pin'
+// Date ranges (Neal, 2026-10-02), in Eastern time. Weeks run Monday–Sunday.
+const RANGES = [['today', 'Today'], ['yesterday', 'Yesterday'], ['this_week', 'This week'], ['last_week', 'Last week'], ['this_month', 'This month'], ['last_month', 'Last month']]
+function rangeDates(k) {
+  const today = etDay(Date.now())
+  const d = (s, n) => { const t = new Date(`${s}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10) }
+  const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7 // 0 = Monday
+  const monday = d(today, -dow)
+  const [y, m] = today.split('-').map(Number)
+  const first = `${y}-${String(m).padStart(2, '0')}-01`
+  const prevFirst = m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, '0')}-01`
+  switch (k) {
+    case 'today': return { from: today, to: today }
+    case 'yesterday': return { from: d(today, -1), to: d(today, -1) }
+    case 'last_week': return { from: d(monday, -7), to: d(monday, -1) }
+    case 'this_month': return { from: first, to: today }
+    case 'last_month': return { from: prevFirst, to: d(first, -1) }
+    default: return { from: monday, to: today }
+  }
+}
 
 // managerToken: on a regional manager's dashboard — no PIN; loads through
 // regional-manager-api, which returns only that manager's team (and its roster).
@@ -27,20 +46,20 @@ export default function RepAttendance({ managerToken } = {}) {
   const [open, setOpen] = useState(false)
   const [pin, setPin] = useState(() => { if (managerToken) return 'manager'; try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } })
   const [pinInput, setPinInput] = useState('')
-  const [weeks, setWeeks] = useState(2)
+  const [range, setRange] = useState('this_week')
   const [data, setData] = useState(null)
   const [roster, setRoster] = useState([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [only, setOnly] = useState('all') // all | problems
 
-  async function load(p = pin, w = weeks) {
+  async function load(p = pin, w = range) {
     if (!p) return
     setBusy(true); setErr('')
     try {
-      const from = etDay(Date.now() - (w * 7 - 1) * 864e5)
+      const { from, to } = rangeDates(w)
       if (managerToken) {
-        const res = await (await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'team_attendance', token: managerToken, from }) })).json()
+        const res = await (await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'team_attendance', token: managerToken, from, to }) })).json()
         if (!res.ok) throw new Error(res.error || 'Could not load')
         setData(res)
         setRoster((res.team || []).slice().sort((a, b) => a.name.localeCompare(b.name)))
@@ -48,7 +67,7 @@ export default function RepAttendance({ managerToken } = {}) {
         return
       }
       const [res, tr] = await Promise.all([
-        fetch(CCG, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: p, from }) }).then((r) => r.json()),
+        fetch(CCG, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: p, from, to }) }).then((r) => r.json()),
         supabase.from('trainees').select('first_name, last_name, jobnimbus_id, rep_level, region').eq('is_active_sales_rep', true).not('jobnimbus_id', 'is', null),
       ])
       if (!res.ok) {
@@ -174,8 +193,8 @@ export default function RepAttendance({ managerToken } = {}) {
                 {[['all', 'Everyone'], ['problems', 'Missed or excused days']].map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setOnly(k)} className={`rounded-full px-3 py-1 font-semibold ${only === k ? 'bg-indigo-700 text-white' : 'border border-slate-300 text-slate-700'}`}>{l}</button>
                 ))}
-                <select value={weeks} onChange={(e) => { const w = Number(e.target.value); setWeeks(w); load(pin, w) }} className="rounded-md border border-slate-300 px-2 py-1">
-                  <option value={1}>This week</option><option value={2}>Last 2 weeks</option><option value={4}>Last 4 weeks</option>
+                <select value={range} onChange={(e) => { const w = e.target.value; setRange(w); load(pin, w) }} className="rounded-md border border-slate-300 px-2 py-1">
+                  {RANGES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
                 {managerToken ? (data?.daily_doors ? <span className="ml-2 text-slate-700">Daily door goal: <b>{data.daily_doors}</b></span> : null) : <>
                 <span className="ml-2 text-slate-700">Daily door goal:</span>
@@ -259,7 +278,7 @@ export default function RepAttendance({ managerToken } = {}) {
                         </tr>
                       ))}
                       </Fragment>))}
-                      {!shown.length && <tr><td colSpan={data.days.length + 6} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays tracked yet.'}</td></tr>}
+                      {!shown.length && <tr><td colSpan={data.days.length + 6} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays in this range since tracking began (Oct 1).'}</td></tr>}
                     </tbody>
                   </table>
                   <p className="mt-2 text-[11px] text-slate-500">On a computer, point at a reason with 💬 to read the note the rep typed, or at a ✓ to see whether they checked in on their dashboard or DoorDispatcher. The ✓ time is when they first checked in that day (Eastern).</p>
