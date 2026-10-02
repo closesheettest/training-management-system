@@ -214,7 +214,7 @@ export default function RepAttendance({ managerToken } = {}) {
                       {!shown.length && <tr><td colSpan={data.days.length + 5} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays tracked yet.'}</td></tr>}
                     </tbody>
                   </table>
-                  <p className="mt-2 text-[11px] text-slate-500">Hover a reason with 💬 to read the rep&rsquo;s note. Hover ✓ for first/last time on the dashboard (Eastern).</p>
+                  <p className="mt-2 text-[11px] text-slate-500">On a computer, point at a reason with 💬 to read the note the rep typed, or at a ✓ to see whether they checked in on their dashboard or DoorDispatcher. The ✓ time is when they first checked in that day (Eastern).</p>
                 </div>
               )}
             </>
