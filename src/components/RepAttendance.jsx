@@ -218,7 +218,7 @@ export default function RepAttendance({ managerToken } = {}) {
                       {z.reps.map((r) => (
                         <tr key={r.jnid}>
                           <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 py-1.5 font-semibold text-slate-900">
-                            {r.name}{r.zone && <span className="ml-1 text-[10px] font-normal text-slate-500">{r.zone}</span>}
+                            {r.name}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5 text-center font-semibold">
                             <span className="text-emerald-700">{r.present}</span> · <span className="text-sky-700">{r.excused}</span> · <span className={r.missing ? 'text-red-700' : 'text-slate-400'}>{r.missing}</span>
