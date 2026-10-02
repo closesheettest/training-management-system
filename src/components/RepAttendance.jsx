@@ -193,9 +193,12 @@ export default function RepAttendance({ managerToken } = {}) {
                 {[['all', 'Everyone'], ['problems', 'Missed or excused days']].map(([k, l]) => (
                   <button key={k} type="button" onClick={() => setOnly(k)} className={`rounded-full px-3 py-1 font-semibold ${only === k ? 'bg-indigo-700 text-white' : 'border border-slate-300 text-slate-700'}`}>{l}</button>
                 ))}
-                <select value={range} onChange={(e) => { const w = e.target.value; setRange(w); load(pin, w) }} className="rounded-md border border-slate-300 px-2 py-1">
-                  {RANGES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                </select>
+                <div className="flex flex-wrap gap-1">
+                  {RANGES.map(([k, l]) => (
+                    <button key={k} type="button" onClick={() => { setRange(k); load(pin, k) }}
+                      className={`rounded-md px-3 py-1 text-sm font-semibold ${range === k ? 'bg-indigo-700 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{l}</button>
+                  ))}
+                </div>
                 {managerToken ? (data?.daily_doors ? <span className="ml-2 text-slate-700">Daily door goal: <b>{data.daily_doors}</b></span> : null) : <>
                 <span className="ml-2 text-slate-700">Daily door goal:</span>
                 <input type="number" min="0" defaultValue={data?.daily_doors || ''} key={data?.daily_doors || 'none'} placeholder="none"
