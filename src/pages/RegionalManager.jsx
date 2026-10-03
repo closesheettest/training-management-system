@@ -1982,6 +1982,19 @@ function DamageNeedsRep({ zone, onCount }) {
     } catch { setErr('Network error.') }
     setBusy('')
   }
+  // Hand a deal to another zone (Neal, 2026-10-02) — it leaves this list, shows on theirs.
+  const [moveFor, setMoveFor] = useState('')
+  const moveZone = async (dl, to) => {
+    if (!window.confirm(`Move ${dl.client_name} to ${to}? It'll leave your list and show on ${to}'s "Deals that need to be assigned".`)) return
+    setBusy(dl.inspection_id)
+    try {
+      const res = await fetch(LB_ORIGIN + 'manager-damage-queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'move_zone', inspection_id: dl.inspection_id, zone: to, from: zone, by: zone + ' manager' }) })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Move failed.'); setBusy(''); return }
+      setDoneIds((x) => ({ ...x, [dl.inspection_id]: `moved to ${to}` })); setMoveFor('')
+    } catch { setErr('Network error.') }
+    setBusy('')
+  }
   const remaining = (data?.deals || []).filter((d) => !doneIds[d.inspection_id])
   const maxAge = remaining.reduce((m, d) => Math.max(m, d.age_days || 0), 0) // oldest deal waiting, days
   useEffect(() => { if (!onCount) return; if (err) onCount(-1); else if (data) onCount(remaining.length) }, [data, err, remaining.length]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -2035,7 +2048,17 @@ function DamageNeedsRep({ zone, onCount }) {
                     {(!data.reps || !data.reps.length) && <option value="">No active reps in zone</option>}
                   </select>
                   <button onClick={() => assign(dl)} disabled={busy === dl.inspection_id || !sel[dl.inspection_id]} className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50">{busy === dl.inspection_id ? '…' : 'Assign'}</button>
+                  <button onClick={() => setMoveFor(moveFor === dl.inspection_id ? '' : dl.inspection_id)} className="whitespace-nowrap rounded border border-indigo-400 bg-white px-3 py-1.5 text-sm font-bold text-indigo-700">↪ Other zone</button>
                 </div>
+                {moveFor === dl.inspection_id && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded bg-indigo-50 p-2 text-sm text-indigo-900">
+                    <span className="font-semibold">Move this deal to:</span>
+                    {['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4'].filter((z) => z !== zone).map((z) => (
+                      <button key={z} onClick={() => moveZone(dl, z)} disabled={busy === dl.inspection_id} className="rounded bg-indigo-600 px-3 py-1 font-bold text-white disabled:opacity-50">{z}</button>
+                    ))}
+                  </div>
+                )}
+                {dl.moved_from && <div className="mt-1 text-[11px] font-semibold text-indigo-700">↪ Sent over from {dl.moved_from}</div>}
               </div>
             )})}
             {Object.keys(doneIds).length > 0 && (
