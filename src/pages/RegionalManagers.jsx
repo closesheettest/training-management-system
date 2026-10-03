@@ -2102,7 +2102,11 @@ function ManagerCard({ m, usage }) {
   // was logging as a visit and inflating their usage (Neal spotted his own click
   // showing as Richard Barnett's "opened 1 time"). The marker rides on the admin
   // link only; the link we copy and text to the manager stays clean.
-  const previewUrl = `${dashUrl}?preview=1`
+  // …unless the person signed in here IS this manager (Neal runs Zone 2 and opens his own
+  // dashboard from this page — it said he'd never been in it). Matched on the admin PIN's name.
+  const adminName = (() => { try { return (sessionStorage.getItem('rm_admin_ok_name') || '').trim().toLowerCase() } catch { return '' } })()
+  const isMe = !!adminName && [m.first_name, `${m.first_name || ''} ${m.last_name || ''}`].some((n) => String(n || '').trim().toLowerCase() === adminName)
+  const previewUrl = isMe ? dashUrl : `${dashUrl}?preview=1`
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5">
