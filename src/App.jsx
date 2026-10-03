@@ -42,6 +42,7 @@ import DirectoryAdmin from './pages/DirectoryAdmin.jsx'
 import HostedPages from './pages/HostedPages.jsx'
 import RegionalManager from './pages/RegionalManager.jsx'
 import RegionalManagers from './pages/RegionalManagers.jsx'
+import InviteAudit from './pages/InviteAudit.jsx'
 import PinGate from './components/PinGate.jsx'
 import OffboardingReps from './pages/OffboardingReps.jsx'
 import TrainingWeek from './pages/TrainingWeek.jsx'
@@ -128,7 +129,8 @@ export default function App() {
         <Route path="/slide-points/view" element={<SlidePointsView />} />
         <Route path="/find-the-button" element={<FindTheButtonPage />} />
         {/* Documents sent for signing — on Neal's and Jenn's My Tools; personal admin PIN. */}
-        <Route path="/signing-docs" element={<PinGate title="Documents for Signing" storageKey="sd_admin_ok" keepPin><SigningDocs /></PinGate>} />
+        <Route path="/invite-audit/:tag" element={<PinGate title="Notice tracker" storageKey="ia_admin_ok" keepPin><InviteAudit /></PinGate>} />
+          <Route path="/signing-docs" element={<PinGate title="Documents for Signing" storageKey="sd_admin_ok" keepPin><SigningDocs /></PinGate>} />
 
         {/* Public training-day review page — DeWayne & Neal tap the link
             from the "new training day submitted" SMS/email. The review

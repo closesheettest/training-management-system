@@ -50,6 +50,9 @@ export default function Confirm() {
       return
     }
     if (!token) { setStatus('not_found'); return }
+    // Tracked notice (?tag=…): mark this link as opened for the notice tracker.
+    const tag = sp.get('tag')
+    if (tag) fetch('/.netlify/functions/invite-audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', token, tag }) }).catch(() => {})
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
