@@ -143,13 +143,13 @@ export default function Confirm() {
       {virtual ? (<>
       <div style={S.card}>
         <div style={S.h2}>🎥 Where: on Zoom</div>
-        <div style={{ color: '#475569', fontSize: 14 }}>Week B is held virtually. Join from a stationary location (not driving), somewhere quiet, with your camera on and your full name showing in Zoom.</div>
+        <div style={{ color: '#475569', fontSize: 14 }}>Week {week} is held virtually. Join from a stationary location (not driving), somewhere quiet, with your camera on and your full name showing in Zoom.</div>
         {zoomUrl
           ? <a href={zoomUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 10, background: '#2563eb', color: '#fff', borderRadius: 10, padding: '10px 16px', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>🎥 Join the Zoom</a>
           : <div style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>The Zoom link will be here before class starts.</div>}
       </div>
       <div style={S.card}>
-        <div style={S.h2}>🗓️ Your Week B schedule</div>
+        <div style={S.h2}>🗓️ Your Week {week} schedule</div>
         <div style={{ borderLeft: '3px solid #f5b400', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {virtualLines.filter((l) => !/^week b schedule/i.test(l)).map((l, i) => (
             <div key={i} style={{ color: /am|pm/i.test(l) ? '#475569' : '#0f2a4a', fontWeight: /am|pm/i.test(l) ? 400 : 800, fontSize: 14 }}>{l}</div>
