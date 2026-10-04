@@ -320,12 +320,38 @@ function Stage({ room, auth, isHost }) {
   )
 }
 
+// The one-off meeting's invite page: when it is, and ✅ I'll be there / ❌ Can't make it.
+function Rsvp({ door, slug, who, nextAt, L, big, hTitle }) {
+  const [st, setSt] = useState(null)
+  const [first, setFirst] = useState('')
+  useEffect(() => { call({ action: 'rsvp_status', room: slug, ...who }).then((j) => { if (j.ok) { setSt(j.rsvp?.status || ''); setFirst(j.first || '') } }).catch(() => {}) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const answer = async (status) => { const j = await call({ action: 'rsvp', room: slug, status, ...who }).catch(() => ({})); if (j.ok) setSt(j.status) }
+  const when = nextAt ? new Date(nextAt).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
+  return (
+    <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+      <div style={{ display: 'inline-block', background: '#fff', borderRadius: 14, padding: '8px 16px' }}><img src="/uss-logo.png" alt="U.S. Shingle & Metal" style={{ height: 70, display: 'block' }} /></div>
+      <div style={{ marginTop: 14, fontSize: 14, letterSpacing: '.14em', textTransform: 'uppercase', color: L.muted, fontWeight: 700 }}>{first ? `${first}, you're invited to` : "You're invited to"}</div>
+      <h1 style={{ ...hTitle, fontSize: 30, marginTop: 4 }}>{door.title}</h1>
+      {when && <div style={{ fontSize: 18, fontWeight: 800, marginTop: 6 }}>{when} <span style={{ color: L.muted, fontWeight: 600 }}>(Eastern)</span></div>}
+      {door.topic && <div style={{ marginTop: 6, color: L.muted }}>{door.topic}</div>}
+      {st === 'yes' ? <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: 'rgba(22,163,74,.2)', border: '2px solid #16a34a', fontSize: 18, fontWeight: 800 }}>✅ You're confirmed. See you there. Use this same link to join.</div>
+        : st === 'no' ? <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: 'rgba(185,28,28,.2)', border: '2px solid #b91c1c', fontSize: 18, fontWeight: 800 }}>❌ Got it, you can't make it.</div> : null}
+      <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <button onClick={() => answer('yes')} style={{ ...big, flex: 2, background: '#16a34a' }}>✅ I'll be there</button>
+        <button onClick={() => answer('no')} style={{ ...big, flex: 1, background: '#475569' }}>❌ Can't make it</button>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 13, color: L.muted }}>Come back to this link at meeting time. It opens 15 minutes early.</div>
+    </div>
+  )
+}
+
 export default function Meet() {
   const { room: slug } = useParams()
   const [sp] = useSearchParams()
   const t = sp.get('t') || ''
+  const g = sp.get('g') || '' // an outside invitee's key (one-off meetings)
   const [door, setDoor] = useState(null) // the room's public info, before signing in
-  const [auth, setAuth] = useState(() => (getS(PIN_KEY) ? { pin: getS(PIN_KEY) } : t ? { t } : null))
+  const [auth, setAuth] = useState(() => (getS(PIN_KEY) ? { pin: getS(PIN_KEY) } : t ? { t } : g ? { g } : null))
   const [guest, setGuest] = useState(() => { try { return JSON.parse(getS(GUEST_KEY, localStorage) || 'null') || { name: '', email: '', opt_in: false } } catch { return { name: '', email: '', opt_in: false } } })
   const [hostMode, setHostMode] = useState(false)
   const [codeInput, setCodeInput] = useState('')
@@ -372,6 +398,7 @@ export default function Meet() {
   useEffect(() => {
     if (auth?.pin) doJoin({ pin: auth.pin })
     else if (auth?.t) doJoin({ t: auth.t })
+    else if (auth?.g) doJoin({ g: auth.g })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const L = lookOf(join?.room || door)
@@ -500,6 +527,11 @@ export default function Meet() {
     )
   }
 
+  // ONE-OFF MEETING, not started yet: confirm you'll be there (Neal, 2026-10-04).
+  if (!join && notOpen && !hostMode && door?.kind === 'oneoff') {
+    return shell(<Rsvp door={door} slug={slug} who={lastBody || {}} nextAt={notOpen.next_at} L={L} big={big} hTitle={hTitle} />)
+  }
+
   // TRAINING, PAPERWORK DONE, CLASS NOT OPEN YET → the company lobby slideshow, which lets them in
   // by itself when the room opens (Neal, 2026-10-04). Reaching "not open" means onboarding passed.
   if (!join && (notOpen || sp.get('preview') === 'lobby') && !hostMode && door?.kind === 'training') {
@@ -553,7 +585,7 @@ export default function Meet() {
       <div style={{ maxWidth: door?.banner_url ? 620 : 400, width: '100%', textAlign: 'center' }}>
         {header || <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>🎥 Meeting</h1>}
         {err && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{err}</p>}
-        {busy || (!hostMode && auth && (auth.t || auth.pin) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
+        {busy || (!hostMode && auth && (auth.t || auth.pin || auth.g) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
           : door?.kind === 'training' && !hostMode ? (
             <>
               <p style={{ color: L.muted, marginBottom: 12 }}>Sign in for training with the name and email you registered with.</p>

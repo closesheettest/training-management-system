@@ -234,11 +234,17 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
-    if (b.action === 'rooms') return json(200, { ok: true, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r) })), site: SITE })
+    if (b.action === 'rooms') {
+      // One-off meetings: RSVP counts for the card.
+      const { data: rs } = await sb.from('app_settings').select('key, value').like('key', 'meet_rsvp_%')
+      const tally = {}
+      for (const x of rs || []) { const r = rooms.find((rm) => x.key.startsWith(`meet_rsvp_${rm.slug}_`)); if (!r) continue; let v = {}; try { v = JSON.parse(x.value) } catch { /* skip */ } const tt = (tally[r.slug] = tally[r.slug] || { yes: 0, no: 0 }); if (v.status === 'yes') tt.yes++; else if (v.status === 'no') tt.no++ }
+      return json(200, { ok: true, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r), ...(r.kind === 'oneoff' ? { rsvp: { ...(tally[r.slug] || { yes: 0, no: 0 }), invited: (r.invitees || []).length } } : {}) })), site: SITE })
+    }
     if (b.action === 'save_room') {
       const r = b.room || {}
       // A NEW room gets its own address. Team rooms all called "Morning Sales Training" used to
@@ -249,7 +255,7 @@ export const handler = async (event) => {
       if (!editing) { const base = slug; for (let n = 2; rooms.some((x) => x.slug === slug) || slug === 'trial'; n++) slug = `${base}-${n}` }
       if (!slug || !String(r.title || '').trim()) return json(400, { ok: false, error: 'The room needs a name.' })
       if (slug === 'trial') return json(400, { ok: false, error: 'Pick another name.' })
-      const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
+      const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom', 'oneoff'].includes(r.kind) ? r.kind : 'custom'
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
@@ -265,7 +271,12 @@ export const handler = async (event) => {
         // The recordings page's private key (its link is shared with the editor, e.g. DeWayne's cousin).
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
-        effort_gate: !!r.effort_gate, // Week B: needs an average of 30 doors/day on Week A Thu–Sat
+        effort_gate: !!r.effort_gate,
+        // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
+        // name + phone + email (they get their own key). Each must confirm they'll be there.
+        invitees: kind === 'oneoff' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
+          ? { id: String(x.id) }
+          : { key: String(x?.key || crypto.randomBytes(6).toString('base64url')), name: String(x?.name || '').trim().slice(0, 60), phone: String(x?.phone || '').trim().slice(0, 20), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => x.id || x.name) : [], // Week B: needs an average of 30 doors/day on Week A Thu–Sat
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         slots: (Array.isArray(r.slots) ? r.slots : []).map((x) => ({ day: Number(x.day), time: String(x.time || ''), minutes: Math.min(600, Math.max(10, Number(x.minutes) || 60)) })).filter((x) => x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time)).sort((a, b) => a.day - b.day),
         days: [], time: '',
@@ -307,6 +318,13 @@ export const handler = async (event) => {
       await putSetting('early_grads', log)
       return json(200, { ok: true, name: `${g.first_name || ''} ${g.last_name || ''}`.trim() })
     }
+    // Everyone you can invite to a one-off meeting: TMS people who are active reps, managers, staff
+    // or in a class running now.
+    if (b.action === 'people_search') {
+      const now = await traineeIdsNow()
+      const { data } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, is_active_sales_rep, rep_level, registration_token').or(`is_active_sales_rep.eq.true,managed_region.not.is.null${now.size ? `,id.in.(${[...now].join(',')})` : ''}`)
+      return json(200, { ok: true, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
+    }
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))
       return json(200, { ok: true })
@@ -316,18 +334,28 @@ export const handler = async (event) => {
     if (b.action === 'audience' || b.action === 'send_links') {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
       let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
+      const invIds = room.kind === 'oneoff' ? (room.invitees || []).filter((x) => x.id).map((x) => x.id) : []
+      if (room.kind === 'oneoff') q = invIds.length ? q.in('id', invIds) : q.eq('id', '00000000-0000-0000-0000-000000000000')
       const nowIds = room.kind === 'company' ? await traineeIdsNow() : room.kind === 'training' ? await trainingIds(room.training_week || 'A') : new Set()
       if (room.kind === 'training') q = nowIds.size ? q.in('id', [...nowIds]) : q.eq('id', '00000000-0000-0000-0000-000000000000')
+      else if (room.kind === 'oneoff') { /* the invite list, set above */ }
       else if (room.kind === 'managers') q = q.not('managed_region', 'is', null)
       else if (room.kind === 'company' && nowIds.size) q = q.or(`is_active_sales_rep.eq.true,managed_region.not.is.null,id.in.(${[...nowIds].join(',')})`)
       else q = q.or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const { data } = await q
-      let people = (data || []).filter((p) => p.registration_token && (p.rep_level !== 'non_field' || nowIds.has(p.id)))
+      let people = (data || []).filter((p) => p.registration_token && (room.kind === 'oneoff' || p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
       if (room.kind === 'custom') people = []
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
       const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
+      if (room.kind === 'oneoff') {
+        // People outside TMS on the invite list, each with their own key; and everyone's RSVP.
+        for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
+        const { data: rs } = await sb.from('app_settings').select('key, value').like('key', `meet_rsvp_${room.slug}_%`)
+        const rsvp = Object.fromEntries((rs || []).map((x) => { try { return [x.key.slice(`meet_rsvp_${room.slug}_`.length), JSON.parse(x.value)] } catch { return [x.key, null] } }))
+        for (const r of rows) r.rsvp = rsvp[r.id] || null
+      }
       if (b.action === 'audience' && room.kind === 'training' && room.training_week === 'B') {
         // Each trainee's Week A field-day average, so the office can see who qualifies.
         const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
@@ -342,8 +370,10 @@ export const handler = async (event) => {
       for (const p of rows) {
         const first = p.name.split(' ')[0] || 'there'
         // A custom message from the Send box ({first} and {link} filled in per person), or the default.
+        const when = room.kind === 'oneoff' && (room.once || [])[0] ? new Date(etWall(room.once[0].slice(0, 10), room.once[0].slice(11, 16))).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
+        if (room.kind === 'oneoff' && !String(b.message || '').trim()) b.message = `Hi {first}, you're invited to ${room.title} on ${when} (Eastern). Please confirm you'll be there: {link}`
         const msg = String(b.message || '').trim()
-          ? String(b.message).slice(0, 1200).replace(/\{first\}/g, first).replace(/\{link\}/g, p.link) + (String(b.message).includes('{link}') ? '' : `\n\n${p.link}`)
+          ? String(b.message).slice(0, 1200).replace(/\{when\}/g, when).replace(/\{first\}/g, first).replace(/\{link\}/g, p.link) + (String(b.message).includes('{link}') ? '' : `\n\n${p.link}`)
           : `Hi ${first}, here is your link for ${room.title}${room.schedule ? ` (${room.schedule})` : ''}. It's yours only, so keep it and use it every time: ${p.link}${b.note ? `\n\n${String(b.note).slice(0, 300)}` : ''}`
         const r = { name: p.name, sms: false, email: false }
         if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: first, lastName: p.name.split(' ').slice(1).join(' ') }); r.sms = !!(x && x.ok !== false) } catch { /* shown as not sent */ } }
@@ -436,6 +466,24 @@ export const handler = async (event) => {
     return json(200, { ok: true, committed_at: prob[t.id].committed_at })
   }
 
+  // RSVP for a one-off meeting: ✅ I'll be there / ❌ Can't make it, from their own link.
+  const outsiderOf = (key) => (room.invitees || []).find((x) => x.key && x.key === String(key || ''))
+  if (b.action === 'rsvp' && room.kind === 'oneoff') {
+    let who = null
+    if (String(b.t || '').trim()) { const t = await traineeByToken(b.t); if (t && (room.invitees || []).some((x) => x.id === t.id)) who = { id: t.id, name: fullName(t) } }
+    else if (b.g) { const x = outsiderOf(b.g); if (x) who = { id: `x:${x.key}`, name: x.name } }
+    if (!who) return json(401, { ok: false, error: "This invite link isn't valid." })
+    const status = b.status === 'no' ? 'no' : 'yes'
+    await putSetting(`meet_rsvp_${room.slug}_${who.id}`, { status, at: new Date().toISOString(), name: who.name })
+    return json(200, { ok: true, status })
+  }
+  if (b.action === 'rsvp_status' && room.kind === 'oneoff') {
+    let id = null, first = ''
+    if (String(b.t || '').trim()) { const t = await traineeByToken(b.t); if (t) { id = t.id; first = t.first_name || '' } } else if (b.g) { const x = outsiderOf(b.g); if (x) { id = `x:${x.key}`; first = x.name.split(' ')[0] } }
+    if (!id) return json(200, { ok: false })
+    return json(200, { ok: true, first, rsvp: await getSetting(`meet_rsvp_${room.slug}_${id}`, null), room: publicRoom(room) })
+  }
+
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, ...(await openState(room)) }, host_code: !!room.host_code })
 
@@ -459,6 +507,8 @@ export const handler = async (event) => {
       const now = new Date().toISOString()
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
+    } else if (room.kind === 'oneoff' && b.g && outsiderOf(b.g)) {
+      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`
     } else {
       const t = await traineeByToken(b.t)
       if (t) {

@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
+const KINDS = [['oneoff', 'One-off meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
@@ -42,6 +42,10 @@ export default function MeetingRooms() {
     const r = await fetch('/.netlify/functions/meet-email-background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, slug: mail.slug, subject: mail.subject, message: mail.message, test_to: test ? mail.test_to.trim() : undefined }) }).catch(() => null)
     setMail({ ...mail, note: !r || r.status >= 400 ? 'Could not send — try again.' : test ? `Test sent to ${mail.test_to}. Check that inbox (and spam).` : 'Sending now. It takes about a second per person; refresh this box in a minute to see the result.' })
   }
+  // ONE-OFF MEETINGS: who can be invited (TMS people), searchable.
+  const [people, setPeople] = useState(null)
+  const [pq, setPq] = useState('')
+  const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []) }
   const [dragging, setDragging] = useState(null) // slug being dragged
   // Drag a card onto another to move it there; the new order saves straight away.
   const dropOn = async (target) => {
@@ -73,7 +77,9 @@ export default function MeetingRooms() {
   // SEND LINKS with your own message (Neal, 2026-10-04 — the virtual Week A notice). {first} and
   // {link} are filled in for each person; every message goes by text AND email.
   const [compose, setCompose] = useState(null) // { slug, title, subject, message }
-  const sendLinks = (r) => setCompose({ slug: r.slug, title: r.title, subject: `Your link: ${r.title}`, message: `Hi {first}, here is your link for ${r.title}. It's yours only, so use it every time: {link}` })
+  const sendLinks = (r) => setCompose(r.kind === 'oneoff'
+    ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title} on {when} (Eastern). Please confirm you'll be there: {link}` }
+    : { slug: r.slug, title: r.title, subject: `Your link: ${r.title}`, message: `Hi {first}, here is your link for ${r.title}. It's yours only, so use it every time: {link}` })
   const sendNow = async () => {
     const r = compose
     if (!window.confirm(`Text AND email every person in "${r.title}" this message with their own link?`)) return
@@ -97,6 +103,7 @@ export default function MeetingRooms() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-brand-navy">🎥 Meeting Rooms</h1>
         <span className="flex-1" />
+        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">+ New one-off meeting</button>
         <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">+ New room</button>
       </div>
       <p className="mt-1 text-sm text-slate-600">Our own meetings, in place of Zoom. Everyone joins from their own link: no app, no meeting ID, and attendance takes itself.</p>
@@ -109,6 +116,32 @@ export default function MeetingRooms() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
             <label className="text-sm font-semibold">Type<select className={field} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, public: e.target.value === 'prayer' ? true : form.public })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+            {form.kind === 'oneoff' && (
+              <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="font-semibold">When <input type="datetime-local" value={(form.once || [''])[0] || ''} onChange={(e) => setForm({ ...form, once: [e.target.value] })} className="ml-1 rounded border border-slate-300 px-2 py-1" /></label>
+                  <label className="font-semibold">for <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" /> min</label>
+                  <span className="text-xs text-slate-500">Eastern time</span>
+                </div>
+                <div className="mt-3 font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
+                <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+                <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
+                  {!people ? <div className="p-2 text-slate-500">Loading…</div> : people.filter((x) => !pq || `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => {
+                    const on = (form.invitees || []).some((y) => y.id === x.id)
+                    return <label key={x.id} className="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-1"><input type="checkbox" checked={on} onChange={(e) => setForm({ ...form, invitees: e.target.checked ? [...(form.invitees || []), { id: x.id }] : (form.invitees || []).filter((y) => y.id !== x.id) })} /> <span className="font-semibold">{x.name}</span> <span className="text-xs text-slate-500">{x.tag}</span></label>
+                  })}
+                </div>
+                {people && pq && <button onClick={() => { const add = people.filter((x) => `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => ({ id: x.id })); setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !add.some((a) => a.id === y.id)), ...add] }) }} className="mt-1 text-xs font-semibold text-blue-700">+ Invite everyone matching "{pq}"</button>}
+                <div className="mt-3 font-bold">Someone not in TMS?</div>
+                {(form.invitees || []).filter((y) => !y.id).map((y, i) => (
+                  <div key={y.key || i} className="mt-1 flex flex-wrap gap-2">
+                    {['name', 'phone', 'email'].map((f) => <input key={f} value={y[f] || ''} placeholder={f[0].toUpperCase() + f.slice(1)} onChange={(e) => setForm({ ...form, invitees: form.invitees.map((z) => (z === y ? { ...z, [f]: e.target.value } : z)) })} className="w-40 flex-1 rounded border border-slate-300 px-2 py-1" />)}
+                    <button onClick={() => setForm({ ...form, invitees: form.invitees.filter((z) => z !== y) })} className="text-xs text-red-600">remove</button>
+                  </div>
+                ))}
+                <button onClick={() => setForm({ ...form, invitees: [...(form.invitees || []), { name: '', phone: '', email: '' }] })} className="mt-1 text-sm font-semibold text-blue-700">+ Add someone else</button>
+              </div>
+            )}
             {form.kind === 'training' && <label className="text-sm font-semibold">Which week<select className={field} value={form.training_week || 'A'} onChange={(e) => setForm({ ...form, training_week: e.target.value })}><option value="A">Week A: trainees in their first week</option><option value="B">Week B: trainees in their second week</option><option value="both">Both weeks</option></select></label>}
             {form.kind === 'training' && form.training_week === 'B' && <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={!!form.effort_gate} onChange={(e) => setForm({ ...form, effort_gate: e.target.checked })} /> Require the effort: an average of 30 doors a day on DoorDispatcher over Week A Thu–Sat. Anyone short gets the "prove it this week" second chance.</label>}
             {form.kind === 'zone' && <label className="text-sm font-semibold">Team<select className={field} value={form.zone || 'Zone 1'} onChange={(e) => setForm({ ...form, zone: e.target.value })}>{Object.entries(ZONES).map(([z, n]) => <option key={z} value={z}>{n} ({z})</option>)}</select></label>}
@@ -243,7 +276,7 @@ export default function MeetingRooms() {
               {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
-                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}</div>
+                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
               <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? '📋 Copy invite link' : 'Copy host link'}</button>
@@ -252,8 +285,8 @@ export default function MeetingRooms() {
             <div className="mt-3 flex flex-wrap gap-2 text-sm">
               {/* A public room (the devotional) is for people OUTSIDE the company: its people are the
                   ones who signed in with name + email, not the TMS roster (Neal, 2026-10-04). */}
-              {r.kind !== 'custom' && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People & links</button>}
-              {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">📨 Send everyone their link</button>}
+              {r.kind !== 'custom' && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
+              {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
               {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
               {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
@@ -269,7 +302,7 @@ export default function MeetingRooms() {
                 <p className="mt-1 text-xs text-slate-600">Write it the way you'd say it. <b>{'{first}'}</b> becomes their first name and <b>{'{link}'}</b> their own link.</p>
                 <input className={field} value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} placeholder="Email subject" />
                 <textarea className={field} rows={8} value={compose.message} onChange={(e) => setCompose({ ...compose, message: e.target.value })} />
-                <div className="mt-1 rounded bg-white p-2 text-xs text-slate-600"><b>Preview:</b> {compose.message.replace(/\{first\}/g, 'Sam').replace(/\{link\}/g, `${site}/meet/${r.slug}?t=…`)}</div>
+                <div className="mt-1 rounded bg-white p-2 text-xs text-slate-600"><b>Preview:</b> {compose.message.replace(/\{when\}/g, 'Thursday, October 8, 6:00 PM').replace(/\{first\}/g, 'Sam').replace(/\{link\}/g, `${site}/meet/${r.slug}?t=…`)}</div>
                 <div className="mt-2 flex gap-2"><button onClick={sendNow} className="rounded-md bg-emerald-600 px-4 py-2 font-bold text-white">Send to everyone</button><button onClick={() => setCompose(null)} className="rounded-md border border-slate-300 px-4 py-2 font-semibold">Cancel</button></div>
               </div>
             )}
@@ -301,6 +334,7 @@ export default function MeetingRooms() {
                     <thead><tr className="text-left text-slate-500"><th>Name</th><th>Their link</th></tr></thead>
                     <tbody>{open.data.people.map((p) => (
                       <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}
+                          {open.data.people.some((q) => 'rsvp' in q) && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.rsvp?.status === 'yes' ? 'bg-emerald-100 text-emerald-800' : p.rsvp?.status === 'no' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-600'}`}>{p.rsvp?.status === 'yes' ? '✅ Confirmed' : p.rsvp?.status === 'no' ? "❌ Can't make it" : 'No answer yet'}</span>}
                           {p.effort && <span className={`ml-2 rounded px-1.5 text-xs ${p.effort.override ? 'bg-slate-100 text-slate-600' : (p.effort.average === null || p.effort.average >= (open.data.effort_needed || 30)) ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`} title={Object.entries(p.effort.perDay).map(([d, n]) => `${d}: ${n}`).join(' · ')}>{p.effort.override ? 'override (let in)' : p.effort.average === null ? 'all days with William' : `${p.effort.average} doors/day`}{p.effort.rideDays?.length ? ` · ${p.effort.rideDays.length} day${p.effort.rideDays.length > 1 ? 's' : ''} with William not counted` : ''}{!p.effort.linked ? ' · no map access found' : ''}</span>}
                           {p.probation && <span className={`ml-2 rounded px-1.5 text-xs ${p.probation.result === 'enrolled' ? 'bg-emerald-100 text-emerald-800' : p.probation.committed_at ? 'bg-orange-100 text-orange-800' : 'bg-slate-200 text-slate-700'}`}>{p.probation.result === 'enrolled' ? '✅ proved it, enrolled' : p.probation.result === 'did_not_qualify' ? `didn't make 30 (${p.probation.week_avg})` : p.probation.result === 'did_not_commit' ? "didn't commit: gone" : p.probation.committed_at ? `🔥 Committed ${new Date(p.probation.committed_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : "Didn't commit"}</span>}
                           {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>
