@@ -644,6 +644,18 @@ export const handler = async (event) => {
       await setMeta({ scripture: sc })
       return json(200, { ok: true })
     }
+    // 🎭 PRACTICE ON STAGE (Neal, 2026-10-04): { showing, presenter, presenterName, homeowner, section,
+    // page } — everyone sees the practice slide full screen with the presenter as a circle. With
+    // mute:true, everyone except the presenter (and the AI homeowner) is muted.
+    if (b.action === 'set_practice') {
+      const pr = b.practice && typeof b.practice === 'object' ? { showing: !!b.practice.showing, presenter: String(b.practice.presenter || '').slice(0, 80), presenterName: String(b.practice.presenterName || '').slice(0, 60), homeowner: String(b.practice.homeowner || '').slice(0, 60), section: String(b.practice.section || '').slice(0, 40), door: !!b.practice.door, page: Number(b.practice.page) || 0 } : null
+      if (b.mute && pr?.presenter) {
+        const list = await svc().listParticipants(room.slug)
+        for (const p of list) if (p.identity !== pr.presenter && !/^(homeowner|egress)/.test(p.identity)) { try { for (const tr of p.tracks || []) if (tr.type === TrackType.AUDIO && !tr.muted) await svc().mutePublishedTrack(room.slug, p.identity, tr.sid, true) } catch { /* left */ } }
+      }
+      await setMeta({ practice: pr })
+      return json(200, { ok: true })
+    }
     // 📊 PRESENT: { key, pos:{h,v,f}|{n}, showing, by } or null — the trainer's deck and where it is.
     if (b.action === 'set_deck') {
       const dk = b.deck && typeof b.deck.key === 'string' ? { key: b.deck.key.slice(0, 20), pos: b.deck.pos && typeof b.deck.pos === 'object' ? { h: Number(b.deck.pos.h) || 0, v: Number(b.deck.pos.v) || 0, f: Number.isFinite(Number(b.deck.pos.f)) ? Number(b.deck.pos.f) : -1, n: Number(b.deck.pos.n) || 0 } : null, showing: !!b.deck.showing, by: String(b.identity || '').slice(0, 80) } : null

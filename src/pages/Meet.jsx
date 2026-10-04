@@ -25,6 +25,7 @@ import ScripturePanel from '../components/ScripturePanel.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby from '../components/CompanyLobby.jsx'
+import { PracticeStage } from '../components/PracticeStage.jsx'
 import { DECKS, DeckView, deckOf } from '../components/Decks.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
@@ -236,6 +237,11 @@ function Stage({ room, auth, isHost }) {
   const scCam = sc ? cams.find((t) => t.participant.identity === sc.by && isTrackReference(t) && !t.publication?.isMuted) : null
   const setScripture = async (next) => { await call({ action: 'set_scripture', room: room.slug, scripture: next, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
   const scriptureRoom = room.kind === 'prayer' || room.look === 'devotional'
+  // 🎭 Practice on stage: the slide full screen, presenter circle, "say hi" for the presenter.
+  const pr = rmeta.practice && rmeta.practice.showing ? rmeta.practice : null
+  const prCam = pr ? cams.find((t) => t.participant.identity === pr.presenter && isTrackReference(t) && !t.publication?.isMuted) : null
+  const [prTalked, setPrTalked] = useState(false)
+  useEffect(() => { if (!pr) setPrTalked(false); else if (speakers.some((x) => x.identity === pr.presenter)) setPrTalked(true) }, [pr?.presenter, pr?.showing, speakers]) // eslint-disable-line react-hooks/exhaustive-deps
   // 📊 The deck being presented (Week A day decks / Week B), and whether I'm the one driving it.
   const dk = rmeta.deck && rmeta.deck.showing && deckOf(rmeta.deck.key) ? rmeta.deck : null
   const iPresent = !!dk && isHost && dk.by === localParticipant?.identity
@@ -265,7 +271,9 @@ function Stage({ room, auth, isHost }) {
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-            {sc ? (
+            {pr ? (
+              <PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />
+            ) : sc ? (
               <ScriptureSlide sc={sc} look={lookOf(room)} camTrack={scCam} />
             ) : dk ? (
               <DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={dkCam} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} />

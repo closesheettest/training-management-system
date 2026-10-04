@@ -11,6 +11,7 @@ import { lookOf, FontsFor } from '../lib/meetLooks.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import { DeckView, deckOf } from '../components/Decks.jsx'
+import { PracticeStage } from '../components/PracticeStage.jsx'
 
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
 
@@ -45,7 +46,8 @@ function Filmed({ room }) {
         <div style={{ background: bn.bg, color: bn.color, textAlign: 'center', padding: '10px 16px', fontFamily: bn.font, fontSize: bn.upper ? 34 : 40, fontWeight: bn.upper ? 800 : 600, textTransform: bn.upper ? 'uppercase' : 'none', borderBottom: bn.rule ? `3px solid ${bn.rule}` : 'none' }}>{topic}</div>
       )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        {sc ? <ScriptureSlide sc={sc} look={L} camTrack={hostCam(sc.by)} />
+        {meta.practice?.showing ? <PracticeStage pr={meta.practice} camTrack={hostCam(meta.practice.presenter)} me={false} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked />
+          : sc ? <ScriptureSlide sc={sc} look={L} camTrack={hostCam(sc.by)} />
           : meta.deck?.showing && deckOf(meta.deck.key) ? <DeckView deck={meta.deck.key} pos={meta.deck.pos} host={false} camTrack={hostCam(meta.deck.by)} />
           : (meta.stage || []).length && !share ? <PodcastStage look={L} watching={0} people={(meta.stage || []).map((id) => { const c = cams.find((t) => t.participant.identity === id); return c ? { identity: id, name: c.participant.name || id, track: c } : null }).filter(Boolean)} />
           : share ? (

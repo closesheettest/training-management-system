@@ -8,7 +8,7 @@
 // with inputStream) → the homeowner's voice → published into the room from a second, homeowner-
 // only connection (meet.js homeowner_token). Trainer PIN only (it spends Gemini money).
 import { useEffect, useRef, useState } from 'react'
-import { useParticipants } from '@livekit/components-react'
+import { useParticipants, useRoomContext } from '@livekit/components-react'
 import { Room, Track } from 'livekit-client'
 import { LiveHomeowner } from '../lib/geminiLive.js'
 import { supabase } from '../lib/supabase.js'
@@ -19,6 +19,9 @@ const post = async (fn, body) => (await fetch(`/.netlify/functions/${fn}`, { met
 
 export default function MeetPractice({ roomSlug, pin, onClose }) {
   const people = useParticipants()
+  const ctx = useRoomContext()
+  // Put the practice on everyone's screen (and mute everyone but the presenter when it starts).
+  const stage = (patch, mute) => post('meet', { action: 'set_practice', room: roomSlug, pin, mute: !!mute, practice: patch })
   // Anyone in the meeting can present — trainees, reps, managers, outside guests (Neal, 2026-10-04:
   // Chad joined from a one-time invite and wasn't in the list). Not you, not the homeowner itself.
   const trainees = people.filter((p) => !p.isLocal && !/^(homeowner|egress)/.test(p.identity))
@@ -83,6 +86,11 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
       await h.start()
       await room.localParticipant.publishTrack(h.outStream.getAudioTracks()[0], { name: 'homeowner', source: Track.Source.Microphone })
       if (section.firstSlide) setPage(section.firstSlide)
+      // ON STAGE: everyone muted but the presenter, everyone sees the slide, the presenter gets
+      // "say hi to start", and their mic is switched on (Neal, 2026-10-04).
+      await stage({ showing: true, presenter: presenter.identity, presenterName: presenter.name || '', homeowner: persona.name, section: section.label, door: section.key === 'door', page: section.firstSlide || 0 }, true)
+      try { await ctx.localParticipant.setMicrophoneEnabled(false) } catch { /* fine */ }
+      try { await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', destinationIdentities: [presenter.identity] }) } catch { /* they can unmute */ }
     } catch (e) {
       setErr(e.message || String(e)); setStatus('setup'); try { live.current?.stop() } catch { /* gone */ } live.current = null; cleanup()
     }
@@ -93,6 +101,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   useEffect(() => {
     if (!page || !live.current) return
     const d = DECK.find((x) => x.page === page)
+    stage({ showing: true, presenter: presenter?.identity, presenterName: presenter?.name || '', homeowner: persona.name, section: section.label, door: section.key === 'door', page })
     live.current.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= 29)
   }, [page])
 
@@ -111,6 +120,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const end = async () => {
     if (!live.current) return
     const out = live.current.stop(); live.current = null; cleanup()
+    stage(null)
     if (!out.entries.some((e) => e.who === 'rep')) { if (!window.confirm('Nothing the trainee said was picked up. Save it anyway?')) { setStatus('setup'); return } }
     if (impulse) { setGuessFor(out); setStatus('guess'); return }
     await finish(out, null)
