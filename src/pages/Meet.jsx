@@ -11,7 +11,7 @@
 // of Gallery or Speaker view (like Zoom), screen share with the PRESENTER CIRCLE (the host's
 // camera in the bottom-right of the shared screen, the corner the slides keep empty), chat,
 // and host controls.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   LiveKitRoom, PreJoin, GridLayout, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
@@ -138,15 +138,21 @@ function Stage({ room, auth, isHost }) {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
   useEffect(() => { const s = speakers.find((p) => !p.isLocal) || speakers[0]; if (s) setLastSpeaker(s.identity) }, [speakers])
-  const pickView = (v) => { setView(v); setS('meet_view', v, localStorage) }
+  // A screen share TAKES OVER for everyone, people in a strip beside it, like Zoom (Neal,
+  // 2026-10-04). Someone who presses Gallery during a share gets faces back until it ends.
+  const [galleryDuringShare, setGalleryDuringShare] = useState(false)
+  const pickView = (v) => { setView(v); setS('meet_view', v, localStorage); setGalleryDuringShare(v === 'gallery' && !!shareRef.current) }
+  const shareRef = useRef(null)
   // Everyone's screen has to agree on the sharer's circle, so it rides on their attributes.
   useEffect(() => { localParticipant?.setAttributes?.({ circle: circle ? 'on' : 'off' })?.catch?.(() => {}) }, [circle, localParticipant])
 
   const share = tracks.find((t) => isTrackReference(t) && t.source === Track.Source.ScreenShare)
+  shareRef.current = share || null
+  useEffect(() => { if (!share) setGalleryDuringShare(false) }, [!!share]) // eslint-disable-line react-hooks/exhaustive-deps
   const cams = tracks.filter((t) => t.source === Track.Source.Camera)
   // A share shows big for everyone in Speaker view; in Gallery it joins the grid.
-  const focus = view === 'speaker'
-    ? (share || cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
+  const focus = share && !galleryDuringShare ? share
+    : view === 'speaker' && !share ? (cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
     : null
   const others = focus ? cams.filter((t) => t !== focus) : cams
   const gridTracks = share ? [share, ...cams] : cams
@@ -163,8 +169,8 @@ function Stage({ room, auth, isHost }) {
         <TitleBar room={room} auth={auth} isHost={isHost} />
         <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
-          <button onClick={() => pickView('gallery')} style={btn(view === 'gallery')}>▦ Gallery</button>
-          <button onClick={() => pickView('speaker')} style={btn(view === 'speaker')}>◧ Speaker</button>
+          <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
+          <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <span style={{ flex: 1 }} />
           {isHost && auth.pin && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
