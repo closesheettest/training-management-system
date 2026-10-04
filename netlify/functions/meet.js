@@ -64,7 +64,29 @@ const publicRoom = (r) => ({
   slug: r.slug, title: r.title, kind: r.kind, zone: r.zone || null, team: r.zone ? TEAMS[r.zone] || null : null,
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : null, color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
+  next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null, scheduled: !!hasSchedule(r),
 })
+// SCHEDULE (Neal, 2026-10-04: "if they pressed it and there is no company meeting, it could tell
+// them when the meeting is scheduled for"). A room can repeat on weekdays at a time (days 0=Sun…6,
+// time 'HH:MM' Eastern, minutes long) and/or have one-time meetings (once: ['YYYY-MM-DDTHH:MM', …]).
+// A room with a schedule is OPEN from 15 minutes before a start until it ends, or whenever a host
+// is in it; otherwise people get "no meeting right now — next one is …". No schedule = always open.
+const etOffsetMin = (d) => { const m = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).formatToParts(d).find((x) => x.type === 'timeZoneName')?.value.match(/GMT([+-]\d+)(?::(\d+))?/); return m ? Number(m[1]) * 60 + Math.sign(Number(m[1])) * Number(m[2] || 0) : -300 }
+const etWall = (day, time) => { const guess = new Date(`${day}T${time}:00Z`); return new Date(guess.getTime() - etOffsetMin(guess) * 60000) }
+const hasSchedule = (r) => (Array.isArray(r.days) && r.days.length && /^\d{2}:\d{2}$/.test(r.time || '')) || (Array.isArray(r.once) && r.once.length)
+// The current or next meeting: { start, end } as Dates, or null.
+const nextMeeting = (r, now = Date.now()) => {
+  const mins = Math.max(10, Number(r.minutes) || 60), out = []
+  if (Array.isArray(r.days) && r.days.length && /^\d{2}:\d{2}$/.test(r.time || '')) {
+    for (let i = 0; i < 15; i++) {
+      const day = etDay(now + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
+      if (r.days.includes(dow)) out.push(etWall(day, r.time))
+    }
+  }
+  for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) out.push(etWall(m[1], m[2])) }
+  const hit = out.map((st) => ({ start: st, end: new Date(st.getTime() + mins * 60000) })).filter((x) => x.end.getTime() > now).sort((a, b) => a.start - b.start)[0]
+  return hit || null
+}
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
 export const handler = async (event) => {
@@ -104,6 +126,16 @@ export const handler = async (event) => {
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
   const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
+  // Is a host in the room right now, and may non-hosts come in?
+  const openState = async (r) => {
+    let live = false
+    try { live = (await svc().listParticipants(r.slug)).some((p) => { try { return JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room not open */ }
+    if (!hasSchedule(r)) return { live, open: true }
+    const nm = nextMeeting(r)
+    const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
+    return { live, open }
+  }
+
   // ---- A REP'S OWN ROOMS (their dashboard) ----
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
@@ -116,12 +148,13 @@ export const handler = async (event) => {
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
       ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
+    const openOf = Object.fromEntries(await Promise.all(mine.map(async (r) => [r.slug, await openState(r)])))
     return json(200, {
       ok: true,
       rooms: mine.map((r) => {
         const pr = publicRoom(r)
         // Viewing as a rep (Neal's view-as) shows the rooms but never their personal link.
-        return { ...pr, badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.slug}?t=${t.registration_token}` }
+        return { ...pr, ...openOf[r.slug], badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.slug}?t=${t.registration_token}` }
       }),
     })
   }
@@ -142,6 +175,8 @@ export const handler = async (event) => {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
+        days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
+        minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
         hosts: (Array.isArray(r.hosts) ? r.hosts : String(r.hosts || '').split(',')).map((h) => String(h).trim()).filter(Boolean).slice(0, 10),
         updated_at: new Date().toISOString(), updated_by: admin,
       }
@@ -207,7 +242,7 @@ export const handler = async (event) => {
   if (!room) return json(404, { ok: false, error: 'That meeting room does not exist.' })
 
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
-  if (b.action === 'info') return json(200, { ok: true, room: publicRoom(room), host_code: !!room.host_code })
+  if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
     let name = null, identity = null, host = false
@@ -232,6 +267,8 @@ export const handler = async (event) => {
       if (t) { name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t) }
     }
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
+    // Not a host and no meeting on: say when the next one is instead of an empty room.
+    if (!host) { const st = await openState(room); if (!st.open) return json(200, { ok: false, not_open: true, room: publicRoom(room) }) }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
     at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host })
     // Open the room with its top line already set, so the first person in sees it.

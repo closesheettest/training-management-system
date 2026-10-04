@@ -197,6 +197,8 @@ export default function Meet() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [choices, setChoices] = useState(null)
+  const [notOpen, setNotOpen] = useState(null) // { next_at } — no meeting on right now
+  const [lastBody, setLastBody] = useState(null)
 
   useEffect(() => { document.title = `${join?.room?.title || door?.title || 'Meeting'} · Meeting` }, [join, door])
   useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
@@ -205,7 +207,8 @@ export default function Meet() {
     setBusy(true); setErr('')
     const j = await call({ action: 'join', room: slug, ...body }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
-    if (j.ok) { setJoin(j); return true }
+    if (j.ok) { setJoin(j); setNotOpen(null); return true }
+    if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
     return false
@@ -221,6 +224,24 @@ export default function Meet() {
   )
   const input = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#111827', color: '#fff', fontSize: 16, marginBottom: 8 }
   const big = { width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }
+
+  // NO MEETING ON RIGHT NOW (Neal, 2026-10-04): say when the next one is, instead of an empty room.
+  if (!join && notOpen && !hostMode) {
+    const when = notOpen.next_at ? new Date(notOpen.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
+    return shell(
+      <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+        <h1 style={{ fontSize: 22, fontWeight: 900 }}>{door?.title || 'Meeting'}</h1>
+        <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: '#111827', border: '1px solid #334155' }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>There's no {door?.kind === 'company' ? 'company meeting' : 'meeting'} right now.</div>
+          {when ? <div style={{ marginTop: 6, color: '#cbd5e1', fontSize: 15.5 }}>The next one is <b style={{ color: '#fff' }}>{when}</b> (Eastern).<br />You can come in 15 minutes early.</div>
+            : <div style={{ marginTop: 6, color: '#cbd5e1' }}>Nothing is scheduled yet. Check back later.</div>}
+        </div>
+        <button onClick={() => doJoin(lastBody || {})} style={{ marginTop: 14, padding: '10px 18px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>↻ Check again</button>
+        <div><button onClick={() => { setErr(''); setHostMode(true) }} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>I'm the host</button></div>
+      </div>
+    )
+  }
 
   if (!join) {
     const header = door && (
@@ -244,7 +265,7 @@ export default function Meet() {
       <div style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
         {header || <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>🎥 Meeting</h1>}
         {err && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{err}</p>}
-        {busy || (auth && (auth.t || auth.pin) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
+        {busy || (!hostMode && auth && (auth.t || auth.pin) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
           : door?.public && !hostMode ? (
             <>
               <p style={{ color: '#9ca3af', marginBottom: 12 }}>Welcome! Tell us who you are to join.</p>

@@ -10,7 +10,9 @@ import { useEffect, useState } from 'react'
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
 const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
-const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '' }
+const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [] }
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const nextLabel = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
 const etDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 const t = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : '')
 
@@ -33,7 +35,7 @@ export default function MeetingRooms() {
 
   const save = async () => {
     setMsg('')
-    const j = await call({ action: 'save_room', room: { ...form, hosts: String(form.hosts || '').split(',').map((s) => s.trim()).filter(Boolean) } })
+    const j = await call({ action: 'save_room', room: { ...form, once: (form.once || []).filter(Boolean), hosts: String(form.hosts || '').split(',').map((s) => s.trim()).filter(Boolean) } })
     if (!j.ok) { setMsg(j.error || 'Could not save'); return }
     setForm(null); load()
   }
@@ -80,6 +82,31 @@ export default function MeetingRooms() {
             <label className="text-sm font-semibold sm:col-span-2">Today's topic (shown at the top; the host can change it in the meeting)<input className={field} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Today: Psalm 23" /></label>
             <label className="text-sm font-semibold">Extra hosts (names, comma-separated)<input className={field} value={form.hosts} onChange={(e) => setForm({ ...form, hosts: e.target.value })} placeholder="A team room's manager is host automatically" /></label>
             <label className="text-sm font-semibold">Host code (for a host who isn't in TMS)<input className={field} value={form.host_code} onChange={(e) => setForm({ ...form, host_code: e.target.value })} placeholder="optional" /></label>
+            {/* SCHEDULE: when the room is open. Outside it, people who tap Join are told when the
+                next meeting is (Neal, 2026-10-04). Leave it all empty for an always-open room. */}
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+              <div className="text-sm font-bold">When it meets <span className="font-normal text-slate-500">(Eastern time; leave empty for always open)</span></div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold">Repeats on</span>
+                {DOW.map((d, i) => (
+                  <label key={d} className={`cursor-pointer rounded border px-2 py-1 ${(form.days || []).includes(i) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
+                    <input type="checkbox" className="hidden" checked={(form.days || []).includes(i)} onChange={(e) => setForm({ ...form, days: e.target.checked ? [...(form.days || []), i].sort() : (form.days || []).filter((x) => x !== i) })} />{d}
+                  </label>
+                ))}
+                <span className="ml-2 font-semibold">at</span><input type="time" value={form.time || ''} onChange={(e) => setForm({ ...form, time: e.target.value })} className="rounded border border-slate-300 px-2 py-1" />
+                <span className="ml-2 font-semibold">for</span><input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" /> min
+              </div>
+              <div className="mt-3 text-sm">
+                <span className="font-semibold">One-time meetings</span> <span className="text-slate-500">(e.g. a company meeting)</span>
+                {(form.once || []).map((o, i) => (
+                  <div key={i} className="mt-1 flex items-center gap-2">
+                    <input type="datetime-local" value={o} onChange={(e) => setForm({ ...form, once: form.once.map((x, j) => (j === i ? e.target.value : x)) })} className="rounded border border-slate-300 px-2 py-1" />
+                    <button onClick={() => setForm({ ...form, once: form.once.filter((_, j) => j !== i) })} className="text-xs text-red-600">remove</button>
+                  </div>
+                ))}
+                <button onClick={() => setForm({ ...form, once: [...(form.once || []), ''] })} className="mt-1 block text-sm font-semibold text-blue-700">+ Add a date</button>
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.cameras_required} onChange={(e) => setForm({ ...form, cameras_required: e.target.checked })} /> Cameras on</label>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.public} onChange={(e) => setForm({ ...form, public: e.target.checked })} /> Open to the public (guests sign in with name + email)</label>
           </div>
@@ -98,7 +125,7 @@ export default function MeetingRooms() {
               {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
-                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}</div>
+                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
               <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? 'Copy public link' : 'Copy host link'}</button>
