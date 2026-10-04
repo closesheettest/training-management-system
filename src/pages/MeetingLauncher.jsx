@@ -9,11 +9,11 @@ export default function MeetingLauncher() {
   const [rooms, setRooms] = useState(null)
   const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'room_list' }) })
     .then((r) => r.json()).then((j) => setRooms(j.ok ? j.rooms : [])).catch(() => setRooms([]))
-  useEffect(() => { document.title = 'My Meeting Rooms'; load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [])
+  useEffect(() => { document.title = 'All Meeting Rooms · TMS'; load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [])
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', padding: '24px 16px', fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 900, color: '#0f2a4a', margin: '0 0 4px' }}>🎥 My Meeting Rooms</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 900, color: '#0f2a4a', margin: '0 0 4px' }}>🎥 All Meeting Rooms</h1>
         <p style={{ color: '#64748b', margin: '0 0 16px', fontSize: 14 }}>Tap Join, then "I'm the host" with your PIN to run a meeting. <a href="/meeting-rooms" style={{ color: '#1d4ed8' }}>Set up rooms →</a></p>
         {rooms === null && <p style={{ color: '#64748b' }}>Loading…</p>}
         {rooms && !rooms.length && <p style={{ color: '#64748b' }}>No rooms yet.</p>}
