@@ -331,10 +331,13 @@ export const handler = async (event) => {
       const results = []
       for (const p of rows) {
         const first = p.name.split(' ')[0] || 'there'
-        const msg = `Hi ${first}, here is your link for ${room.title}${room.schedule ? ` (${room.schedule})` : ''}. It's yours only, so keep it and use it every time: ${p.link}${b.note ? `\n\n${String(b.note).slice(0, 300)}` : ''}`
+        // A custom message from the Send box ({first} and {link} filled in per person), or the default.
+        const msg = String(b.message || '').trim()
+          ? String(b.message).slice(0, 1200).replace(/\{first\}/g, first).replace(/\{link\}/g, p.link) + (String(b.message).includes('{link}') ? '' : `\n\n${p.link}`)
+          : `Hi ${first}, here is your link for ${room.title}${room.schedule ? ` (${room.schedule})` : ''}. It's yours only, so keep it and use it every time: ${p.link}${b.note ? `\n\n${String(b.note).slice(0, 300)}` : ''}`
         const r = { name: p.name, sms: false, email: false }
         if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: first, lastName: p.name.split(' ').slice(1).join(' ') }); r.sms = !!(x && x.ok !== false) } catch { /* shown as not sent */ } }
-        if (p.email) { try { const x = await sendEmail(p.email, `Your link: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown as not sent */ } }
+        if (p.email) { try { const x = await sendEmail(p.email, String(b.subject || '').trim() || `Your link: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown as not sent */ } }
         results.push(r)
       }
       return json(200, { ok: true, sent: results })

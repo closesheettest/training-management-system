@@ -70,10 +70,16 @@ export default function MeetingRooms() {
     const j = await call({ action: tab === 'people' ? 'audience' : tab, slug, date: d })
     setOpen({ slug, tab, data: j.ok ? j : { error: j.error } })
   }
-  const sendLinks = async (r) => {
-    if (!window.confirm(`Text AND email every person in "${r.title}" their own link?`)) return
+  // SEND LINKS with your own message (Neal, 2026-10-04 — the virtual Week A notice). {first} and
+  // {link} are filled in for each person; every message goes by text AND email.
+  const [compose, setCompose] = useState(null) // { slug, title, subject, message }
+  const sendLinks = (r) => setCompose({ slug: r.slug, title: r.title, subject: `Your link: ${r.title}`, message: `Hi {first}, here is your link for ${r.title}. It's yours only, so use it every time: {link}` })
+  const sendNow = async () => {
+    const r = compose
+    if (!window.confirm(`Text AND email every person in "${r.title}" this message with their own link?`)) return
     setMsg('Sending…')
-    const j = await call({ action: 'send_links', slug: r.slug })
+    const j = await call({ action: 'send_links', slug: r.slug, message: r.message, subject: r.subject })
+    setCompose(null)
     if (!j.ok) { setMsg(j.error || 'Send failed'); return }
     const ok = j.sent.filter((x) => x.sms || x.email).length
     setMsg(`Sent to ${ok} of ${j.sent.length}.` + (j.sent.some((x) => !x.sms && !x.email) ? ` Not reached: ${j.sent.filter((x) => !x.sms && !x.email).map((x) => x.name).join(', ')}` : ''))
@@ -256,6 +262,16 @@ export default function MeetingRooms() {
               <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
             </div>
 
+            {compose?.slug === r.slug && (
+              <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
+                <div className="font-bold">📨 Send everyone their link (text + email)</div>
+                <p className="mt-1 text-xs text-slate-600">Write it the way you'd say it. <b>{'{first}'}</b> becomes their first name and <b>{'{link}'}</b> their own link.</p>
+                <input className={field} value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} placeholder="Email subject" />
+                <textarea className={field} rows={8} value={compose.message} onChange={(e) => setCompose({ ...compose, message: e.target.value })} />
+                <div className="mt-1 rounded bg-white p-2 text-xs text-slate-600"><b>Preview:</b> {compose.message.replace(/\{first\}/g, 'Sam').replace(/\{link\}/g, `${site}/meet/${r.slug}?t=…`)}</div>
+                <div className="mt-2 flex gap-2"><button onClick={sendNow} className="rounded-md bg-emerald-600 px-4 py-2 font-bold text-white">Send to everyone</button><button onClick={() => setCompose(null)} className="rounded-md border border-slate-300 px-4 py-2 font-semibold">Cancel</button></div>
+              </div>
+            )}
             {mail?.slug === r.slug && (
               <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
                 <div className="font-bold">✉️ Email everyone on the list who asked for emails</div>
