@@ -448,7 +448,7 @@ export default function Meet() {
               clear"). One question, two answers; the why sits underneath. */}
           {!effort.committed && !effort.declined ? (<>
             {lastBody?.first && <div style={{ fontSize: 18, fontWeight: 800, color: '#fde68a' }}>{String(lastBody.first).split(' ')[0]}, we need an answer from you</div>}
-            <div style={{ marginTop: 6, fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(34px, 8vw, 52px)', fontWeight: 700, textTransform: 'uppercase', color: '#fff', lineHeight: 1.05 }}>Do you still want Week B?</div>
+            <div style={{ marginTop: 6, fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(34px, 8vw, 52px)', fontWeight: 700, textTransform: 'uppercase', color: '#fff', lineHeight: 1.05 }}>Do you still want <span style={{ whiteSpace: 'nowrap' }}>Week B?</span></div>
             <div style={{ marginTop: 8, fontSize: 16, color: '#d1d5db' }}>Tap one. Not answering counts as a no.</div>
             <button onClick={async () => { const j = await call({ action: 'effort_commit', room: slug, ...(lastBody || {}) }).catch(() => ({})); if (j.ok || effort.preview) setEffort({ ...effort, committed: true }) }}
               style={{ marginTop: 18, width: '100%', padding: '22px 16px', borderRadius: 16, border: '3px solid #86efac', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(22px, 3.4vw, 28px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 12px 34px rgba(22,163,74,.45)' }}>
