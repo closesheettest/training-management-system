@@ -25,6 +25,7 @@ import ScripturePanel from '../components/ScripturePanel.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby from '../components/CompanyLobby.jsx'
+import { DECKS, DeckView, deckOf } from '../components/Decks.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -155,6 +156,8 @@ function Stage({ room, auth, isHost }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
   const [scripturePanel, setScripturePanel] = useState(false)
+  const [deckPanel, setDeckPanel] = useState(false)
+  const deckApi = useRef(null)
   const [practice, setPractice] = useState(false) // 🎭 AI homeowner practice (trainer PIN only)
   const [circle, setCircle] = useState(true) // presenter circle — the sharer's choice, on by default
   const [lastSpeaker, setLastSpeaker] = useState(null)
@@ -233,6 +236,16 @@ function Stage({ room, auth, isHost }) {
   const scCam = sc ? cams.find((t) => t.participant.identity === sc.by && isTrackReference(t) && !t.publication?.isMuted) : null
   const setScripture = async (next) => { await call({ action: 'set_scripture', room: room.slug, scripture: next, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
   const scriptureRoom = room.kind === 'prayer' || room.look === 'devotional'
+  // 📊 The deck being presented (Week A day decks / Week B), and whether I'm the one driving it.
+  const dk = rmeta.deck && rmeta.deck.showing && deckOf(rmeta.deck.key) ? rmeta.deck : null
+  const iPresent = !!dk && isHost && dk.by === localParticipant?.identity
+  const dkCam = dk ? cams.find((t) => t.participant.identity === dk.by && isTrackReference(t) && !t.publication?.isMuted) : null
+  const setDeck = (next) => call({ action: 'set_deck', room: room.slug, deck: next, identity: localParticipant?.identity, ...auth }).catch(() => {})
+  useEffect(() => {
+    if (!iPresent) return
+    const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
+    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
+  }, [iPresent])
   const btn = (on) => ({ padding: '6px 12px', borderRadius: 8, border: '1px solid #475569', background: on ? '#2563eb' : '#1f2937', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' })
   return (
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
@@ -243,6 +256,7 @@ function Stage({ room, auth, isHost }) {
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <span style={{ flex: 1 }} />
+          {isHost && !scriptureRoom && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
           {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
           {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
@@ -253,6 +267,8 @@ function Stage({ room, auth, isHost }) {
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             {sc ? (
               <ScriptureSlide sc={sc} look={lookOf(room)} camTrack={scCam} />
+            ) : dk ? (
+              <DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={dkCam} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} />
             ) : podcast ? (
               <PodcastStage people={stagePeople} look={lookOf(room)} watching={Math.max(0, cams.length - stagePeople.length)} />
             ) : !focus ? (
@@ -269,6 +285,26 @@ function Stage({ room, auth, isHost }) {
                   )}
                 </div>
               </FocusLayoutContainer>
+            )}
+            {isHost && deckPanel && (
+              <div style={{ position: 'absolute', top: 8, left: 12, zIndex: 60, width: 320, maxHeight: '80vh', overflow: 'auto', background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 12, color: '#e5e7eb', fontSize: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}><b style={{ flex: 1 }}>📊 Present</b><button onClick={() => setDeckPanel(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>
+                {dk && (
+                  <>
+                    <div style={{ fontWeight: 800, marginBottom: 6 }}>{deckOf(dk.key)?.label}</div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                      <button onClick={() => deckApi.current?.prev()} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#1f2937', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>◀ Back</button>
+                      <button onClick={() => deckApi.current?.next()} style={{ flex: 2, padding: '8px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Next ▶</button>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>Arrow keys work too. Everyone's screen follows you.</div>
+                    <button onClick={() => setDeck({ ...dk, showing: false })} style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}>⏹ Stop presenting</button>
+                  </>
+                )}
+                <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
+                {DECKS.map((d) => (
+                  <button key={d.key} onClick={() => setDeck({ key: d.key, pos: d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }, showing: true })} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
+                ))}
+              </div>
             )}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}

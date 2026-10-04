@@ -529,6 +529,12 @@ export const handler = async (event) => {
       await setMeta({ scripture: sc })
       return json(200, { ok: true })
     }
+    // 📊 PRESENT: { key, pos:{h,v,f}|{n}, showing, by } or null — the trainer's deck and where it is.
+    if (b.action === 'set_deck') {
+      const dk = b.deck && typeof b.deck.key === 'string' ? { key: b.deck.key.slice(0, 20), pos: b.deck.pos && typeof b.deck.pos === 'object' ? { h: Number(b.deck.pos.h) || 0, v: Number(b.deck.pos.v) || 0, f: Number.isFinite(Number(b.deck.pos.f)) ? Number(b.deck.pos.f) : -1, n: Number(b.deck.pos.n) || 0 } : null, showing: !!b.deck.showing, by: String(b.identity || '').slice(0, 80) } : null
+      await setMeta({ deck: dk })
+      return json(200, { ok: true })
+    }
     // 🎙 PODCAST MODE: put people on stage (identities, max 4) or clear it ([]). Everyone NOT on
     // stage is muted when the stage is set; the page unmutes the people on it.
     if (b.action === 'set_stage') {
