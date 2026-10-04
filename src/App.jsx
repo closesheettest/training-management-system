@@ -194,7 +194,7 @@ export default function App() {
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
-          <Route path="/meeting-rooms" element={<RouteGate pageKey="settings.active_reps"><PinGate title="Meeting Rooms" storageKey="meet_admin_ok" keepPin><Suspense fallback={null}><MeetingRooms /></Suspense></PinGate></RouteGate>} />
+          <Route path="/meeting-rooms" element={<RouteGate pageKey="settings.active_reps"><PinGate title="Meeting Room Setup" storageKey="meet_admin_ok" keepPin><Suspense fallback={null}><MeetingRooms /></Suspense></PinGate></RouteGate>} />
           <Route path="/regional-managers" element={<RouteGate pageKey="settings.active_reps"><PinGate title="Regional Managers" keepPin><RegionalManagers /></PinGate></RouteGate>} />
           <Route path="/offboarding" element={<RouteGate pageKey="settings.offboarding"><OffboardingReps /></RouteGate>} />
           <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />

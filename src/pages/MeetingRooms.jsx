@@ -61,7 +61,7 @@ export default function MeetingRooms() {
     const j = await call({ action: 'rooms' }).catch(() => ({}))
     if (j.ok) { setRooms(j.rooms); setSite(j.site) } else setErr(j.error || 'Could not load rooms')
   }
-  useEffect(() => { document.title = 'Meeting Rooms · TMS'; load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { document.title = 'Meeting Room Setup · TMS'; load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     setMsg('')
@@ -101,7 +101,7 @@ export default function MeetingRooms() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-brand-navy">🎥 Meeting Rooms</h1>
+        <h1 className="text-2xl font-bold text-brand-navy">🛠️ Meeting Room Setup</h1>
         <span className="flex-1" />
         <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">📅 Create a one-time meeting</button>
         <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">🎥 Create a meeting room</button>
