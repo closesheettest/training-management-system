@@ -303,7 +303,8 @@ export default function MeetingRooms() {
                           <td className="py-1">{new Date(x.started).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
                           <td>{x.kind === 'raw' ? "Host's camera" : 'Meeting as seen'}</td>
                           <td>{[x.seconds != null ? (x.seconds < 60 ? `${x.seconds} sec` : `${Math.round(x.seconds / 60)} min`) : x.minutes ? `${x.minutes} min` : '', x.mb ? `${x.mb} MB` : ''].filter(Boolean).join(' · ')}</td>
-                          <td>{x.deleted ? <span className="text-slate-400">deleted (past keep date)</span> : x.link ? <a href={x.link} className="font-semibold text-blue-700 underline">⬇ Download</a> : x.error ? <span className="text-red-700">failed</span> : <span className="text-amber-700">processing…</span>}{x.notified ? <span className="ml-2 text-xs text-emerald-700">emailed ✓</span> : null}</td>
+                          <td>{x.deleted ? <span className="text-slate-400">deleted (past keep date)</span> : x.link ? <a href={x.link} className="font-semibold text-blue-700 underline">⬇ Download</a> : x.error ? <span className="text-red-700">failed</span> : <span className="text-amber-700">processing…</span>}{x.notified ? <span className="ml-2 text-xs text-emerald-700">emailed ✓</span> : null}
+                            <button onClick={async () => { if (!window.confirm('Delete this recording for good? The video file is removed too.')) return; const j = await call({ action: 'delete_recording', slug: r.slug, egress_id: x.egress_id }); if (j.ok) show(r.slug, 'recordings'); else setMsg(j.error || 'Could not delete') }} className="ml-3 text-xs text-red-600" title="Delete">🗑 Delete</button></td>
                         </tr>
                       ))}</tbody>
                     </table>

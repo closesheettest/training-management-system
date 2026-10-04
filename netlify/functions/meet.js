@@ -211,7 +211,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -294,6 +294,16 @@ export const handler = async (event) => {
         results.push(r)
       }
       return json(200, { ok: true, sent: results })
+    }
+    // Delete one recording: the file AND its row (Neal, 2026-10-04 — clearing out test runs).
+    if (b.action === 'delete_recording') {
+      const key = `meet_recordings_${room.slug}`
+      const log = (await getSetting(key, [])) || []
+      const x = log.find((r) => r.egress_id === b.egress_id)
+      if (!x) return json(404, { ok: false, error: 'Already gone.' })
+      if (x.file) await sb.storage.from('meeting-recordings').remove([x.file])
+      await putSetting(key, log.filter((r) => r !== x))
+      return json(200, { ok: true })
     }
     if (b.action === 'recordings') {
       const log = (await getSetting(`meet_recordings_${room.slug}`, [])) || []
