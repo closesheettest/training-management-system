@@ -64,6 +64,10 @@ export const handler = async (event) => {
   }
 
   const weekTrainees = inTraining.filter((t) => currentClassIds.has(t.class_id))
+  // VIRTUAL classes have no training centre to meet at — William goes to each trainee's home
+  // area, so don't show him a "Training at" address for them (Neal, 2026-10-04).
+  const { data: vs } = await supabase.from('app_settings').select('value').eq('key', 'virtual_class_ids').maybeSingle()
+  const virtualIds = new Set(String(vs?.value || '').split(',').map((x) => x.replace(/["\[\]\s]/g, '')).filter(Boolean))
 
   // 3) Keep only trainees STILL ACTIVE — those who signed in (attendance) on the
   //    MOST RECENT day this week. Mirrors the kiosk's carry-forward and drops
@@ -113,7 +117,8 @@ export const handler = async (event) => {
       phone: t.phone || null,
       // Where the trainee LIVES — William plans the ride around it (Neal, 2026-10-04).
       home_city: [t.city, t.state].filter(Boolean).join(', ') || null,
-      location: classLoc[t.class_id] || null,
+      location: virtualIds.has(t.class_id) ? null : (classLoc[t.class_id] || null),
+      virtual: virtualIds.has(t.class_id),
       week_start_date: classStart[t.class_id] || null,
       // 1-based day of the class week: day 1 is week_start_date itself.
       class_day: dayOfWeekA(classStart[t.class_id], today),
