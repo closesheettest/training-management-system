@@ -191,7 +191,7 @@ function Stage({ room, auth, isHost }) {
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
           {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
           {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
-          {isHost && auth.pin && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
+          {isHost && auth.pin && !scriptureRoom && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
