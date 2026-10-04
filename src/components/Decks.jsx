@@ -14,6 +14,11 @@ import { VideoTrack } from '@livekit/components-react'
 export const DECKS = [
   { key: 'a1', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
   { key: 'vf', label: 'Walkthrough: new virtual training flow', type: 'reveal', url: '/virtual-flow/' },
+  // Week B Monday (Neal, 2026-10-04): the warm-up, then Find their button (FIGS), then
+  // Question-based selling. Homework: learn slides 1–7, practice 1–7 that night.
+  { key: 'b1w', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
+  { key: 'b1f', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
+  { key: 'b1q', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
 ]
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
 const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
