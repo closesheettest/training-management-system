@@ -46,6 +46,8 @@ export default function MeetingRooms() {
   const [people, setPeople] = useState(null)
   const [pq, setPq] = useState('')
   const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []) }
+  // The invite list loads as soon as the Who's invited box shows (editing a room never loaded it).
+  useEffect(() => { if (form && (form.kind === 'oneoff' || form.kind === 'custom')) loadPeople() }, [form?.kind, form?.original_slug]) // eslint-disable-line react-hooks/exhaustive-deps
   const [dragging, setDragging] = useState(null) // slug being dragged
   // Drag a card onto another to move it there; the new order saves straight away.
   const dropOn = async (target) => {
