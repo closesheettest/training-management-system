@@ -31,7 +31,7 @@ export const handler = async (event) => {
   //    un-enrolled.
   const { data: ts, error: e1 } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, is_active_sales_rep, declined_at, class_id')
+    .select('id, first_name, last_name, phone, city, state, is_active_sales_rep, declined_at, class_id')
     .is('declined_at', null)
     .not('enrolled', 'is', false)
     .order('last_name', { ascending: true })
@@ -111,6 +111,8 @@ export const handler = async (event) => {
       first_name: t.first_name || '',
       last_name: t.last_name || '',
       phone: t.phone || null,
+      // Where the trainee LIVES — William plans the ride around it (Neal, 2026-10-04).
+      home_city: [t.city, t.state].filter(Boolean).join(', ') || null,
       location: classLoc[t.class_id] || null,
       week_start_date: classStart[t.class_id] || null,
       // 1-based day of the class week: day 1 is week_start_date itself.
