@@ -402,8 +402,15 @@ export default function Meet() {
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
     return false
   }
+  // ?confirm=1 on a trainee's link (the "training is virtual" notice): ask them to confirm first.
+  const [confirmStep, setConfirmStep] = useState(() => (sp.get('confirm') === '1' && t ? { loading: true } : null))
+  useEffect(() => {
+    if (!confirmStep?.loading) return
+    call({ action: 'class_confirm', room: slug, t, tag: sp.get('tag') || '' }).then((j) => setConfirmStep(j.ok ? { ...j } : null)).catch(() => setConfirmStep(null))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Their own link, or a PIN already entered this session → straight in.
   useEffect(() => {
+    if (sp.get('confirm') === '1' && t) return // the confirm card comes first
     if (auth?.pin) doJoin({ pin: auth.pin })
     else if (auth?.t) doJoin({ t: auth.t })
     else if (auth?.g) doJoin({ g: auth.g })
@@ -531,6 +538,29 @@ export default function Meet() {
         {lastBody?.first && !gate.url && <button onClick={async () => { setResent('Sending…'); const j = await call({ action: 'onboarding_resend', room: slug, ...lastBody }).catch(() => ({})); setResent(j.ok && j.sent ? 'Sent again. Check your text and email (and junk mail).' : (j.error || 'Could not send. Text your trainer.')) }} style={{ marginTop: 10, background: 'none', border: 'none', color: L.button, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>Didn't get it? Send it again</button>}
         {resent && <div style={{ marginTop: 6, fontSize: 13.5, color: L.text }}>{resent}</div>}
         {err && <p style={{ color: '#fca5a5', marginTop: 10 }}>{err}</p>}
+      </div>
+    )
+  }
+
+  // CONFIRM ATTENDANCE (the virtual notice link).
+  if (!join && confirmStep && !confirmStep.loading) {
+    const when = confirmStep.next_at ? new Date(confirmStep.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
+    const answer = async (status) => { const j = await call({ action: 'class_confirm', room: slug, t, status }).catch(() => ({})); if (j.ok) setConfirmStep({ ...confirmStep, status: j.status }) }
+    return shell(
+      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+        {welcome({ ...(door || confirmStep.room), kind: 'training', title: (door || confirmStep.room)?.title })}
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{confirmStep.first ? `${confirmStep.first}, training` : 'Training'} is <span style={{ color: '#f87171' }}>virtual</span>.</div>
+        {when && <div style={{ fontSize: 17, marginTop: 6 }}>Starts <b>{when}</b> (Eastern)</div>}
+        {confirmStep.status === 'confirmed' ? (
+          <div style={{ marginTop: 18, padding: 16, borderRadius: 12, background: 'rgba(22,163,74,.2)', border: '2px solid #16a34a', fontSize: 17, fontWeight: 700, lineHeight: 1.5 }}>✅ You're confirmed. Open <b>this same link</b> about 15 minutes before class. It takes you through your paperwork, then into training.</div>
+        ) : confirmStep.status === 'declined' ? (
+          <div style={{ marginTop: 18, padding: 16, borderRadius: 12, background: 'rgba(185,28,28,.2)', border: '2px solid #b91c1c', fontSize: 17, fontWeight: 700 }}>❌ Got it, you can't make it. Changed your mind? Tap "I'll be there".</div>
+        ) : <div style={{ marginTop: 14, fontSize: 16 }}>Please confirm you'll be there:</div>}
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button onClick={() => answer('yes')} style={{ ...big, flex: 2, background: '#16a34a' }}>✅ I'll be there</button>
+          <button onClick={() => answer('no')} style={{ ...big, flex: 1, background: '#475569' }}>❌ Can't make it</button>
+        </div>
+        {confirmStep.status === 'confirmed' && <button onClick={() => { setConfirmStep(null); doJoin({ t }) }} style={{ marginTop: 14, background: 'none', border: 'none', color: L.muted, textDecoration: 'underline', cursor: 'pointer', fontSize: 14 }}>Do my onboarding paperwork now</button>}
       </div>
     )
   }

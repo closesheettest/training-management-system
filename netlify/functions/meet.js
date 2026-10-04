@@ -466,6 +466,17 @@ export const handler = async (event) => {
     return json(200, { ok: true, committed_at: prob[t.id].committed_at })
   }
 
+  // CLASS CONFIRMATION from the trainee's own link (?confirm=1) — the same confirmation the class
+  // page shows (trainees.confirmation_status), and it marks the invite as opened if it was tracked.
+  if (b.action === 'class_confirm' && room.kind === 'training') {
+    const t = await traineeByToken(b.t)
+    if (!t) return json(401, { ok: false, error: 'Open this from your own link.' })
+    if (b.status === 'yes' || b.status === 'no') await sb.from('trainees').update({ confirmation_status: b.status === 'yes' ? 'confirmed' : 'declined', confirmation_at: new Date().toISOString() }).eq('id', t.id)
+    if (b.tag) await fetch(`${SITE}/.netlify/functions/invite-audit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', token: String(b.t), tag: String(b.tag) }) }).catch(() => {})
+    const { data: c } = await sb.from('trainees').select('confirmation_status, confirmation_at').eq('id', t.id).maybeSingle()
+    return json(200, { ok: true, first: t.first_name || '', status: c?.confirmation_status || null, room: publicRoom(room), next_at: hasSchedule(room) ? nextMeeting(room)?.start?.toISOString() || null : null })
+  }
+
   // RSVP for a one-off meeting: ✅ I'll be there / ❌ Can't make it, from their own link.
   const outsiderOf = (key) => (room.invitees || []).find((x) => x.key && x.key === String(key || ''))
   if (b.action === 'rsvp' && room.kind === 'oneoff') {
