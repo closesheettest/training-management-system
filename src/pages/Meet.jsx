@@ -299,7 +299,9 @@ export default function Meet() {
   const [choices, setChoices] = useState(null)
   const [notOpen, setNotOpen] = useState(null) // { next_at } — no meeting on right now
   const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
-  const [gate, setGate] = useState(null) // { first } — onboarding paperwork not signed yet
+  // ?preview=onboarding shows the onboarding screen exactly as a trainee sees it (nothing sent,
+  // nothing saved) — for checking the wording (Neal, 2026-10-04).
+  const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
   const [lastBody, setLastBody] = useState(null)
 
@@ -352,7 +354,8 @@ export default function Meet() {
           <div style={{ fontSize: 15.5, marginTop: 8 }}>Once you finish onboarding, it'll let you into training.</div>
         </div>
         <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>This page checks on its own every 20 seconds.</div>
-        <button onClick={() => doJoin(lastBody || {})} style={{ ...big, marginTop: 14 }}>✅ I've finished, let me in</button>
+        {gate.preview && <div style={{ marginTop: 10, padding: '6px 10px', borderRadius: 8, background: '#fef3c7', color: '#92400e', fontSize: 13, fontWeight: 700 }}>Preview only: nothing was sent.</div>}
+        <button onClick={() => (gate.preview ? null : doJoin(lastBody || {}))} style={{ ...big, marginTop: 14 }}>✅ I've finished, let me in</button>
         {lastBody?.first && <button onClick={async () => { setResent('Sending…'); const j = await call({ action: 'onboarding_resend', room: slug, ...lastBody }).catch(() => ({})); setResent(j.ok && j.sent ? 'Sent again. Check your text and email (and junk mail).' : (j.error || 'Could not send. Text your trainer.')) }} style={{ marginTop: 10, background: 'none', border: 'none', color: L.button, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>Didn't get it? Send it again</button>}
         {resent && <div style={{ marginTop: 6, fontSize: 13.5, color: L.text }}>{resent}</div>}
         {err && <p style={{ color: '#fca5a5', marginTop: 10 }}>{err}</p>}
