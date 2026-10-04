@@ -141,6 +141,14 @@ export const handler = async (event) => {
     return { live, open }
   }
 
+  // ROOM LIST for the "My meeting rooms" launcher (My Tools): names, looks, live / next only —
+  // no personal links or codes, so it needs no sign-in. Hosts join with their PIN in the room.
+  if (b.action === 'room_list') {
+    const list = await loadRooms()
+    const states = await Promise.all(list.map((r) => openState(r)))
+    return json(200, { ok: true, rooms: list.map((r, i) => ({ ...publicRoom(r), ...states[i], badge: publicRoom(r).badge ? `${SITE}${publicRoom(r).badge}` : null, link: `${SITE}/meet/${r.slug}` })) })
+  }
+
   // ---- A REP'S OWN ROOMS (their dashboard) ----
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })

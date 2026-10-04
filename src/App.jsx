@@ -13,6 +13,7 @@ import Confirm from './pages/Confirm.jsx'
 // LiveKit is big — only load it for the meeting page.
 const Meet = lazy(() => import('./pages/Meet'))
 const MeetingRooms = lazy(() => import('./pages/MeetingRooms'))
+const MeetingLauncher = lazy(() => import('./pages/MeetingLauncher'))
 import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
@@ -75,6 +76,7 @@ export default function App() {
 
         {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
         <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
+        <Route path="/meetings" element={<Suspense fallback={null}><MeetingLauncher /></Suspense>} />
         <Route path="/meet/:room" element={<Suspense fallback={null}><Meet /></Suspense>} />
         <Route path="/onboarding/:token" element={<MinimalLayout><Onboarding /></MinimalLayout>} />
 
