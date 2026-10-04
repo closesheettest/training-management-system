@@ -159,7 +159,7 @@ export default function MeetingRooms() {
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
-              <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? 'Copy public link' : 'Copy host link'}</button>
+              <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? '📋 Copy invite link' : 'Copy host link'}</button>
               <button onClick={() => setForm({ ...blank, ...r, hosts: (r.hosts || []).join(', '), original_slug: r.slug })} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Edit</button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 text-sm">
