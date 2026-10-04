@@ -38,7 +38,7 @@ export default function CompanyLobby({ title, nextAt, first, onCheck }) {
   const [i, setI] = useState(0)
   const [now, setNow] = useState(Date.now())
   // Quotes need longer on screen than a one-line fact.
-  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(16000, 6000 + s0.quote.length * 35) : 7000; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
+  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(45000, 5000 + s0.quote.length * 75) : 7000 // ~slow reading pace, so the long ones get time; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   // Let them in as soon as the room opens (15 min before start) — ask every 30 seconds.
   useEffect(() => { const t = setInterval(() => onCheck?.(), 30000); return () => clearInterval(t) }, [onCheck])
@@ -56,7 +56,7 @@ export default function CompanyLobby({ title, nextAt, first, onCheck }) {
       <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 6%', animation: 'lobbyIn .8s ease' }}>
         {s.quote ? (<>
           <div style={{ fontSize: 'clamp(14px, 1.8vw, 20px)', letterSpacing: '.3em', textTransform: 'uppercase', color: s.kind === 'google' ? '#fcd34d' : '#60a5fa', fontWeight: 800 }}>{s.kind === 'google' ? '★★★★★ Google review' : 'From a past trainee'}</div>
-          <div style={{ fontSize: s.quote.length > 260 ? 'clamp(18px, 2.4vw, 30px)' : 'clamp(22px, 3.2vw, 40px)', lineHeight: 1.4, maxWidth: 1000, margin: '18px 0', fontStyle: 'italic', color: '#f1f5f9' }}>“{s.quote}”</div>
+          <div style={{ fontSize: s.quote.length > 500 ? 'clamp(16px, 2vw, 25px)' : s.quote.length > 260 ? 'clamp(18px, 2.4vw, 30px)' : 'clamp(22px, 3.2vw, 40px)', lineHeight: 1.4, maxWidth: 1000, margin: '18px 0', fontStyle: 'italic', color: '#f1f5f9' }}>“{s.quote}”</div>
           <div style={{ fontSize: 'clamp(15px, 1.8vw, 22px)', fontWeight: 800, color: '#cbd5e1' }}>— {s.who}{s.kind === 'google' ? `${s.when ? `, ${s.when}` : ''} · Google` : ', past trainee'}</div>
         </>) : <>
         {s.logo && <div style={{ background: '#fff', borderRadius: 18, padding: '16px 28px', marginBottom: 28, boxShadow: '0 20px 60px rgba(0,0,0,.45)' }}><img src="/uss-logo.png" alt="" style={{ height: 'clamp(90px, 16vh, 170px)', display: 'block' }} /></div>}
