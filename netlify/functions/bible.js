@@ -14,7 +14,9 @@ const clean = (t) => String(t || '').replace(/\s+/g, ' ').replace(/\s+([,.;:!?])
 const splitBracketed = (txt) => {
   const parts = String(txt || '').split(/\[(\d{1,3})\]/)
   const out = []
-  if (clean(parts[0])) out.push({ n: null, text: clean(parts[0]) })
+  // Text before the first verse number is a heading ("Psalm 23", "A psalm of David") — only keep
+  // it when there are no numbered verses at all.
+  if (clean(parts[0]) && parts.length < 3) out.push({ n: null, text: clean(parts[0]) })
   for (let i = 1; i < parts.length; i += 2) { const t = clean(parts[i + 1]); if (t) out.push({ n: Number(parts[i]), text: t }) }
   return out
 }
