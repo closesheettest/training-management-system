@@ -9,6 +9,7 @@
 // Env: LIVEKIT_API_KEY, LIVEKIT_API_SECRET, SUPABASE_URL, SUPABASE_SECRET_KEY.
 import { WebhookReceiver } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
+import { sendEmail } from './_email.js'
 
 const etDay = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 const safe = (s) => String(s || '').replace(/[^A-Za-z0-9:_-]/g, '').slice(0, 80)
@@ -21,6 +22,39 @@ export const handler = async (event) => {
     const raw = event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : (event.body || '')
     ev = await receiver.receive(raw, event.headers.authorization || event.headers.Authorization)
   } catch { return { statusCode: 401, body: 'bad signature' } }
+
+  // RECORDING FINISHED → mark it ready and email the room's recipients a download link (the
+  // 9:15 Devotional → DeWayne's cousin, who edits it). Link good for 7 days; the room card's
+  // 🎞 Recordings list always has a fresh one.
+  if (ev.event === 'egress_ended' && ev.egressInfo) {
+    const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+    const info = ev.egressInfo, slug = info.roomName
+    const get = async (k) => { const { data } = await sb.from('app_settings').select('value').eq('key', k).maybeSingle(); try { return data ? JSON.parse(data.value) : null } catch { return null } }
+    const logKey = `meet_recordings_${slug}`
+    const log = (await get(logKey)) || []
+    const rec = log.find((x) => x.egress_id === info.egressId)
+    if (!rec || rec.notified) return { statusCode: 200, body: 'ok' }
+    const ok = Number(info.status) === 3 // EGRESS_COMPLETE
+    rec.ended = new Date().toISOString(); rec.ready = ok; rec.error = ok ? null : (info.error || `status ${info.status}`)
+    const fr = (info.fileResults || [])[0] || info.file || {}
+    if (fr.duration) rec.minutes = Math.round(Number(fr.duration) / 6e10) / 1 // ns → minutes
+    if (fr.size) rec.mb = Math.round(Number(fr.size) / 1048576)
+    const room = ((await get('meet_rooms')) || []).find((r) => r.slug === slug)
+    if (ok && room && (room.rec_to || []).length) {
+      const { data } = await sb.storage.from('meeting-recordings').createSignedUrl(rec.file, 7 * 86400, { download: true })
+      const when = new Date(rec.started).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
+      const what = rec.kind === 'raw' ? 'host camera (raw, for editing)' : 'recording'
+      for (const p of room.rec_to) {
+        const first = (p.name || '').split(' ')[0]
+        await sendEmail(p.email, `${room.title}: ${when} ${what} is ready`,
+          `${first ? `Hi ${first},\n\n` : ''}The ${room.title} ${what} from ${when} is ready to download${rec.minutes ? ` (${rec.minutes} min${rec.mb ? `, ${rec.mb} MB` : ''})` : ''}:\n\n${data?.signedUrl || '(link unavailable: ask Neal)'}\n\nThis link works for 7 days.`,
+          { fromName: room.title }).catch(() => {})
+      }
+      rec.notified = new Date().toISOString()
+    }
+    await sb.from('app_settings').upsert({ key: logKey, value: JSON.stringify(log), updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    return { statusCode: 200, body: 'ok' }
+  }
 
   const kinds = ['participant_joined', 'participant_left', 'track_published', 'track_unpublished']
   if (!kinds.includes(ev.event) || !ev.participant || !ev.room) return { statusCode: 200, body: 'ok' }

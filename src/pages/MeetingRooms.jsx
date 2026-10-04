@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
 const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
-const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [] }
+const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const nextLabel = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
 const etDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
@@ -148,6 +148,38 @@ export default function MeetingRooms() {
                 <label className="text-sm font-semibold">…and where it goes<input className={field} value={form.back_url || ''} onChange={(e) => setForm({ ...form, back_url: e.target.value })} placeholder="https://…" /></label>
               </div>
             </div>
+            {/* RECORDING (Neal, 2026-10-04 — the devotional is recorded and DeWayne's cousin edits it). */}
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={!!form.recording_enabled} onChange={(e) => setForm({ ...form, recording_enabled: e.target.checked })} /> Recording: give the host a ⏺ Record button</label>
+              <p className="mt-1 text-xs text-slate-500">Pressing Record mutes everyone except the host (they can unmute themselves), switches everyone to speaker view on the host, and records.</p>
+              {form.recording_enabled && (
+                <div className="mt-2 space-y-3 text-sm">
+                  <div>
+                    <div className="font-semibold">Email the recording to</div>
+                    {(form.rec_to || []).map((p, i) => (
+                      <div key={i} className="mt-1 flex gap-2">
+                        <input className="w-40 rounded border border-slate-300 px-2 py-1" value={p.name} onChange={(e) => setForm({ ...form, rec_to: form.rec_to.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} placeholder="Name" />
+                        <input className="flex-1 rounded border border-slate-300 px-2 py-1" value={p.email} onChange={(e) => setForm({ ...form, rec_to: form.rec_to.map((x, j) => (j === i ? { ...x, email: e.target.value } : x)) })} placeholder="Email" />
+                        <button onClick={() => setForm({ ...form, rec_to: form.rec_to.filter((_, j) => j !== i) })} className="text-xs text-red-600">remove</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setForm({ ...form, rec_to: [...(form.rec_to || []), { name: '', email: '' }] })} className="mt-1 font-semibold text-blue-700">+ Add a person</button>
+                  </div>
+                  <div>
+                    <div className="font-semibold">What to record</div>
+                    {[['combined', 'The meeting as people saw it (one video, ready to post)'], ['raw', "Just the host's camera (clean, easier to edit)"], ['both', 'Both']].map(([k, l]) => (
+                      <label key={k} className="mt-1 flex items-center gap-2"><input type="radio" checked={(form.rec_kind || 'combined') === k} onChange={() => setForm({ ...form, rec_kind: k })} /> {l}</label>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">Keep recordings for</span>
+                    <select value={String(form.rec_keep_days ?? 90)} onChange={(e) => setForm({ ...form, rec_keep_days: Number(e.target.value) })} className="rounded border border-slate-300 px-2 py-1">
+                      <option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option><option value="0">Forever</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.cameras_required} onChange={(e) => setForm({ ...form, cameras_required: e.target.checked })} /> Cameras on</label>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.public} onChange={(e) => setForm({ ...form, public: e.target.checked })} /> Open to the public (guests sign in with name + email)</label>
           </div>
@@ -182,6 +214,7 @@ export default function MeetingRooms() {
               {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">📨 Send everyone their link</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
               {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
+              {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
               {r.public && <button onClick={() => (mail?.slug === r.slug ? setMail(null) : openMail(r))} className="rounded border border-blue-400 bg-blue-50 px-3 py-1 font-semibold text-blue-800">✉️ Email the list</button>}
               <span className="flex-1" />
               <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
@@ -235,6 +268,20 @@ export default function MeetingRooms() {
                       </table>
                     )}
                   </>
+                ) : open.tab === 'recordings' ? (
+                  !open.data.recordings.length ? <span className="text-slate-500">No recordings yet. The host presses ⏺ Record in the meeting.</span> : (
+                    <table className="w-full">
+                      <thead><tr className="text-left text-slate-500"><th>When</th><th>What</th><th>Length</th><th></th></tr></thead>
+                      <tbody>{open.data.recordings.map((x) => (
+                        <tr key={x.egress_id} className="border-t border-slate-200">
+                          <td className="py-1">{new Date(x.started).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+                          <td>{x.kind === 'raw' ? "Host's camera" : 'Meeting as seen'}</td>
+                          <td>{x.minutes ? `${x.minutes} min` : ''}{x.mb ? ` · ${x.mb} MB` : ''}</td>
+                          <td>{x.deleted ? <span className="text-slate-400">deleted (past keep date)</span> : x.link ? <a href={x.link} className="font-semibold text-blue-700 underline">⬇ Download</a> : x.error ? <span className="text-red-700">failed</span> : <span className="text-amber-700">processing…</span>}{x.notified ? <span className="ml-2 text-xs text-emerald-700">emailed ✓</span> : null}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  )
                 ) : (
                   <>
                     <div className="mb-2 flex items-center gap-2"><b>{open.data.guests.length}</b> people · <b>{open.data.guests.filter((g) => g.opt_in).length}</b> asked for emails

@@ -141,3 +141,8 @@
 # until it's filled. Mirrors export config.schedule in the function file.
 [functions."cron-onboarding-banking"]
   schedule = "30 14 * * *"
+
+# Meeting recordings: delete files older than each room's "keep recordings" setting.
+# Daily 8:30 UTC (4:30 AM EDT). Mirrors export config.schedule in the function file.
+[functions."cron-meet-recordings-cleanup"]
+  schedule = "30 8 * * *"

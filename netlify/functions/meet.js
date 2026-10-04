@@ -35,7 +35,7 @@
 // Who you are is decided HERE, never by the page: the name on your tile comes from TMS, so
 // nobody can join as someone else. Env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
 // SUPABASE_URL, SUPABASE_SECRET_KEY, URL.
-import { AccessToken, RoomServiceClient, TrackType } from 'livekit-server-sdk'
+import { AccessToken, RoomServiceClient, TrackType, EgressClient, EncodedFileOutput, S3Upload } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { sendSmsViaGhl } from './_ghl.js'
@@ -64,6 +64,7 @@ const publicRoom = (r) => ({
   slug: r.slug, title: r.title, kind: r.kind, zone: r.zone || null, team: r.zone ? TEAMS[r.zone] || null : null,
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : null, color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
+  recording_enabled: !!r.recording_enabled,
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
   next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null,
@@ -183,7 +184,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -206,6 +207,11 @@ export const handler = async (event) => {
         banner_url: /^https:\/\/\S+$/.test(String(r.banner_url || '').trim()) ? String(r.banner_url).trim().slice(0, 300) : '',
         welcome: String(r.welcome || '').slice(0, 400), back_label: String(r.back_label || '').slice(0, 60),
         back_url: /^https:\/\/\S+$/.test(String(r.back_url || '').trim()) ? String(r.back_url).trim().slice(0, 300) : '',
+        recording_enabled: !!r.recording_enabled,
+        // Who gets "the recording is ready" (name + email each), what to record, how long to keep.
+        rec_to: (Array.isArray(r.rec_to) ? r.rec_to : []).map((x) => ({ name: String(x?.name || '').trim().slice(0, 60), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email)).slice(0, 10),
+        rec_kind: ['combined', 'raw', 'both'].includes(r.rec_kind) ? r.rec_kind : 'combined',
+        rec_keep_days: [30, 60, 90, 0].includes(Number(r.rec_keep_days)) ? Number(r.rec_keep_days) : 90,
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
@@ -259,6 +265,16 @@ export const handler = async (event) => {
         results.push(r)
       }
       return json(200, { ok: true, sent: results })
+    }
+    if (b.action === 'recordings') {
+      const log = (await getSetting(`meet_recordings_${room.slug}`, [])) || []
+      const out = []
+      for (const x of log.slice(0, 60)) {
+        let link = null
+        if (x.ready && !x.deleted) { const { data } = await sb.storage.from('meeting-recordings').createSignedUrl(x.file, 3600, { download: true }); link = data?.signedUrl || null }
+        out.push({ ...x, link })
+      }
+      return json(200, { ok: true, recordings: out })
     }
     if (b.action === 'email_log') return json(200, { ok: true, log: (await getSetting(`meet_email_log_${room.slug}`, [])) || [] })
     if (b.action === 'guests') {
@@ -324,6 +340,15 @@ export const handler = async (event) => {
     return json(200, { ok: true, url, token: await at.toJwt() })
   }
 
+  // The room's live metadata (topic, recording, spotlight) — merged, so one change never wipes another.
+  const setMeta = async (patch) => {
+    let cur = {}
+    try { const [lr] = await svc().listRooms([room.slug]); cur = JSON.parse(lr?.metadata || '{}') } catch { /* not open */ }
+    const next = { ...cur, ...patch }
+    await svc().updateRoomMetadata(room.slug, JSON.stringify(next))
+    return next
+  }
+
   // Host actions: an admin PIN, or the link of a room host (the zone's manager, a named host).
   let hostOk = !!(await verifyPin(b.pin)) || !!(room.host_code && sameCode(b.host_code, room.host_code))
   if (!hostOk) { const t = await traineeByToken(b.t); hostOk = !!(t && isRoomHost(room, t)) }
@@ -332,11 +357,50 @@ export const handler = async (event) => {
     if (b.action === 'set_topic') {
       const topic = String(b.topic || '').slice(0, 200)
       if (room.slug !== 'trial') { const rooms = await loadRooms(); const r = rooms.find((x) => x.slug === room.slug); if (r) { r.topic = topic; await putSetting('meet_rooms', rooms) } }
-      try { await svc().updateRoomMetadata(room.slug, JSON.stringify({ topic })) } catch { /* nobody in yet — saved for next time */ }
+      try { await setMeta({ topic }) } catch { /* nobody in yet — saved for next time */ }
       return json(200, { ok: true, topic })
     }
     const muteMic = async (p) => {
       for (const tr of p.tracks || []) if (tr.type === TrackType.AUDIO && !tr.muted) await svc().mutePublishedTrack(room.slug, p.identity, tr.sid, true)
+    }
+    // ⏺ RECORD (Neal, 2026-10-04 — the 9:15 Devotional, which DeWayne's cousin edits): mute everyone
+    // but the hosts (they can unmute themselves), put EVERYONE in speaker view on the host who
+    // pressed it, show ● REC, and record the room as an MP4 into our storage (Supabase,
+    // bucket meeting-recordings). Storage needs REC_S3_ACCESS_KEY / REC_S3_SECRET (Supabase →
+    // Storage → S3 access keys) + REC_S3_REGION; without them it still mutes and switches views.
+    if (b.action === 'record_start' || b.action === 'record_stop') {
+      if (!room.recording_enabled) return json(400, { ok: false, error: 'Recording is not turned on for this room.' })
+      const egress = new EgressClient(url.replace(/^wss:/, 'https:'), key, secret)
+      const activeKey = `meet_rec_active_${room.slug}`
+      if (b.action === 'record_stop') {
+        const act = await getSetting(activeKey, null)
+        for (const id of act?.egress_ids || []) { try { await egress.stopEgress(id) } catch { /* already stopped */ } }
+        await putSetting(activeKey, null)
+        try { await setMeta({ recording: false }) } catch { /* room closed */ }
+        // The file lands a minute or two later; meet-webhook (egress_ended) emails the link.
+        return json(200, { ok: true, recording: false })
+      }
+      const list = await svc().listParticipants(room.slug)
+      const meta = (p) => { try { return JSON.parse(p.metadata || '{}') } catch { return {} } }
+      for (const p of list) if (!meta(p).host) { try { await muteMic(p) } catch { /* left */ } }
+      let saved = false, note = ''
+      const { REC_S3_ACCESS_KEY: ak, REC_S3_SECRET: sk, REC_S3_REGION: region } = process.env
+      if (ak && sk) {
+        const day = etDay(), stamp = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit' }).replace(':', '')
+        const out = (name) => new EncodedFileOutput({ filepath: `${room.slug}/${day}-${stamp}-${name}.mp4`, output: { case: 's3', value: new S3Upload({ accessKey: ak.trim(), secret: sk.trim(), region: (region || 'us-east-1').trim(), endpoint: `${process.env.SUPABASE_URL}/storage/v1/s3`, bucket: 'meeting-recordings', forcePathStyle: true }) } })
+        const kind = room.rec_kind || 'combined', ids = [], log = (await getSetting(`meet_recordings_${room.slug}`, [])) || []
+        try {
+          // Combined: the meeting as viewers see it (speaker layout). Raw: the host's own camera +
+          // mic as a clean file for editing.
+          if (kind !== 'raw') { const i = await egress.startRoomCompositeEgress(room.slug, out('meeting'), { layout: 'speaker' }); ids.push(i.egressId); log.unshift({ egress_id: i.egressId, kind: 'combined', file: `${room.slug}/${day}-${stamp}-meeting.mp4`, started: new Date().toISOString() }) }
+          if (kind !== 'combined' && b.identity) { const i = await egress.startParticipantEgress(room.slug, String(b.identity), { file: out('host-camera') }); ids.push(i.egressId); log.unshift({ egress_id: i.egressId, kind: 'raw', file: `${room.slug}/${day}-${stamp}-host-camera.mp4`, started: new Date().toISOString() }) }
+          await putSetting(activeKey, { egress_ids: ids, started: new Date().toISOString() })
+          await putSetting(`meet_recordings_${room.slug}`, log.slice(0, 300))
+          saved = ids.length > 0
+        } catch (e) { note = `Recording didn't start: ${e.message}`; for (const id of ids) { try { await egress.stopEgress(id) } catch { /* ignore */ } } }
+      } else note = 'Muted and switched everyone to speaker view. Saving the video needs storage set up (ask Neal).'
+      await setMeta({ recording: saved, spotlight: String(b.identity || '') })
+      return json(200, { ok: true, recording: saved, note })
     }
     if (b.action === 'mute' || b.action === 'remove') {
       const identity = String(b.identity || '')

@@ -46,7 +46,8 @@ const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { r
 // The bar across the top: badge, team, title, and the topic line (host can edit it live).
 function TitleBar({ room, auth, isHost }) {
   const info = useRoomInfo()
-  const live = useMemo(() => { try { return JSON.parse(info.metadata || '{}').topic } catch { return undefined } }, [info.metadata])
+  const roomMeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
+  const live = roomMeta.topic
   const topic = live !== undefined ? live : room.topic
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -65,6 +66,8 @@ function TitleBar({ room, auth, isHost }) {
         <div style={{ flex: 1, minWidth: 0, fontSize: L.light ? 24 : 17, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {room.team && <span style={{ color, marginRight: 8 }}>{room.team}</span>}{room.title}
         </div>
+        {roomMeta.recording && <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: 12.5, letterSpacing: '.05em', whiteSpace: 'nowrap', animation: 'recBlink 1.4s ease-in-out infinite' }}>● REC</span>}
+        <style>{'@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
         {isHost && !editing && <button onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ background: 'none', border: '1px solid #334155', borderRadius: 8, padding: '5px 10px', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>✏️ {topic ? 'Change' : 'Add'} today's topic</button>}
       </div>
       {editing && (
@@ -137,6 +140,23 @@ function Stage({ room, auth, isHost }) {
   const { localParticipant } = useLocalParticipant()
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
+  // ⏺ RECORD: when the host starts recording, EVERYONE switches to speaker view on that host
+  // (they can switch back themselves); everyone else is muted by the server.
+  const info = useRoomInfo()
+  const rmeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
+  const prevRec = useRef(false)
+  useEffect(() => {
+    if (rmeta.recording && !prevRec.current) { setView('speaker'); setGalleryDuringShare(false); if (rmeta.spotlight) setLastSpeaker(rmeta.spotlight) }
+    prevRec.current = !!rmeta.recording
+  }, [rmeta.recording, rmeta.spotlight])
+  const [recBusy, setRecBusy] = useState(false)
+  const [recNote, setRecNote] = useState('')
+  const toggleRec = async () => {
+    setRecBusy(true); setRecNote('')
+    const j = await call({ action: rmeta.recording ? 'record_stop' : 'record_start', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => ({}))
+    setRecBusy(false)
+    if (!j.ok) setRecNote(j.error || 'Did not work'); else if (j.note) setRecNote(j.note)
+  }
   useEffect(() => { const s = speakers.find((p) => !p.isLocal) || speakers[0]; if (s) setLastSpeaker(s.identity) }, [speakers])
   // A screen share TAKES OVER for everyone, people in a strip beside it, like Zoom (Neal,
   // 2026-10-04). Someone who presses Gallery during a share gets faces back until it ends.
@@ -152,7 +172,7 @@ function Stage({ room, auth, isHost }) {
   const cams = tracks.filter((t) => t.source === Track.Source.Camera)
   // A share shows big for everyone in Speaker view; in Gallery it joins the grid.
   const focus = share && !galleryDuringShare ? share
-    : view === 'speaker' && !share ? (cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
+    : view === 'speaker' && !share ? ((rmeta.recording && cams.find((t) => t.participant.identity === rmeta.spotlight)) || cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
     : null
   const others = focus ? cams.filter((t) => t !== focus) : cams
   const gridTracks = share ? [share, ...cams] : cams
@@ -172,6 +192,8 @@ function Stage({ room, auth, isHost }) {
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <span style={{ flex: 1 }} />
+          {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
+          {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {isHost && auth.pin && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
