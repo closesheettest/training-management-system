@@ -26,7 +26,7 @@ import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
-import { DECKS, DeckView, deckOf } from '../components/Decks.jsx'
+import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -309,7 +309,7 @@ function Stage({ room, auth, isHost }) {
                   </>
                 )}
                 <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
-                {DECKS.map((d) => (
+                {decksFor(room).map((d) => (
                   <button key={d.key} onClick={() => setDeck({ key: d.key, pos: d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }, showing: true })} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
                 ))}
               </div>

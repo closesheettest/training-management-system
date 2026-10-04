@@ -12,14 +12,20 @@ import { VideoTrack } from '@livekit/components-react'
 // Only Week A Day 1 for now — the other days are being rebuilt (Neal, 2026-10-04). Add each day
 // here when it's ready (the Week B image deck works the same way: type 'images', base, count, start).
 export const DECKS = [
-  { key: 'a1', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
+  { key: 'a1', week: 'A', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
   { key: 'vf', label: 'Walkthrough: new virtual training flow', type: 'reveal', url: '/virtual-flow/' },
   // Week B Monday (Neal, 2026-10-04): the warm-up, then Find their button (FIGS), then
   // Question-based selling. Homework: learn slides 1–7, practice 1–7 that night.
-  { key: 'b1w', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
-  { key: 'b1f', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
-  { key: 'b1q', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
+  { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
+  { key: 'b1f', week: 'B', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
+  { key: 'b1q', week: 'B', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
 ]
+// A training room only offers its own week's decks (Neal, 2026-10-04: First Week Training shows
+// Week A only). Other rooms (and a 'both' training room) get every deck.
+export const decksFor = (room) => {
+  const w = room?.kind === 'training' ? room.training_week : null
+  return w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS
+}
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
 const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
 
