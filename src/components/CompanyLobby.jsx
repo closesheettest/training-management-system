@@ -7,6 +7,8 @@
 // manufacturing slide and real Google reviews as he confirms them.
 import { useEffect, useState } from 'react'
 
+// Before class (Neal, 2026-10-04) — shown as its own slide, every few slides.
+export const READY = ['Your camera is on', "You're in a quiet room", "You're not driving", "You're ready to learn"]
 export const SLIDES = [
   { kicker: 'Welcome to the team', big: 'U.S. Shingle & Metal', sub: "You're joining one of Florida's fastest-growing roofing companies.", logo: true },
   { kicker: 'Experience', big: '15 Years', sub: 'Protecting Florida homes and businesses for 15 years.' },
@@ -25,20 +27,22 @@ function buildDeck(facts, rev) {
   const g = shuffle(rev.reviews || []).map((r) => ({ kind: 'google', quote: r.text, who: r.name, when: r.when }))
   const t = shuffle(rev.trainees || []).slice(0, 8).map((r) => ({ kind: 'trainee', quote: r.text, who: r.name }))
   const f = facts.map((x) => (x.big === '★★★★★' && rev.rating ? { ...x, big: `${rev.rating} ★`, sub: `From ${rev.total} Google reviews by the homeowners we serve.` } : x))
-  const out = [f[0]]
+  const ready = { ready: true }
+  const out = [f[0], ready]
   let gi = 0, ti = 0
   for (let k = 1; k < f.length; k++) { out.push(f[k]); if (g[gi]) out.push(g[gi++]); if (t[ti]) out.push(t[ti++]) }
   while (g[gi] || t[ti]) { if (g[gi]) out.push(g[gi++]); if (t[ti]) out.push(t[ti++]) }
-  return out
+  // The checklist comes round again every 6 slides.
+  return out.flatMap((x, k) => (k > 1 && k % 6 === 0 ? [ready, x] : [x]))
 }
 
 export default function CompanyLobby({ title, nextAt, first, onCheck }) {
-  const [deck, setDeck] = useState(SLIDES)
+  const [deck, setDeck] = useState([SLIDES[0], { ready: true }, ...SLIDES.slice(1)])
   useEffect(() => { fetch('/.netlify/functions/company-reviews').then((r) => r.json()).then((rev) => setDeck(buildDeck(SLIDES, rev))).catch(() => {}) }, [])
   const [i, setI] = useState(0)
   const [now, setNow] = useState(Date.now())
   // Quotes need longer on screen than a one-line fact — at a slow reading pace, up to 45s.
-  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(45000, 5000 + s0.quote.length * 75) : 7000; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
+  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.ready ? 12000 : s0.quote ? Math.min(45000, 5000 + s0.quote.length * 75) : 7000; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   // Let them in as soon as the room opens (15 min before start) — ask every 30 seconds.
   useEffect(() => { const t = setInterval(() => onCheck?.(), 30000); return () => clearInterval(t) }, [onCheck])
@@ -54,7 +58,13 @@ export default function CompanyLobby({ title, nextAt, first, onCheck }) {
         <div style={{ fontSize: 14, color: '#9fb0c8', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{first ? `Welcome, ${first}` : 'Welcome'} · {title}</div>
       </div>
       <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 6%', animation: 'lobbyIn .8s ease' }}>
-        {s.quote ? (<>
+        {s.ready ? (<>
+          <div style={{ fontSize: 'clamp(14px, 1.8vw, 20px)', letterSpacing: '.3em', textTransform: 'uppercase', color: '#f87171', fontWeight: 800 }}>Before training starts</div>
+          <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(34px, 6vw, 72px)', fontWeight: 700, margin: '8px 0 22px' }}>Please make sure…</div>
+          <div style={{ display: 'grid', gap: 14, textAlign: 'left' }}>
+            {READY.map((x) => <div key={x} style={{ fontSize: 'clamp(22px, 3.2vw, 40px)', fontWeight: 700 }}><span style={{ color: '#4ade80', marginRight: 14 }}>✔</span>{x}</div>)}
+          </div>
+        </>) : s.quote ? (<>
           <div style={{ fontSize: 'clamp(14px, 1.8vw, 20px)', letterSpacing: '.3em', textTransform: 'uppercase', color: s.kind === 'google' ? '#fcd34d' : '#60a5fa', fontWeight: 800 }}>{s.kind === 'google' ? '★★★★★ Google review' : 'From a past trainee'}</div>
           <div style={{ fontSize: s.quote.length > 500 ? 'clamp(16px, 2vw, 25px)' : s.quote.length > 260 ? 'clamp(18px, 2.4vw, 30px)' : 'clamp(22px, 3.2vw, 40px)', lineHeight: 1.4, maxWidth: 1000, margin: '18px 0', fontStyle: 'italic', color: '#f1f5f9' }}>“{s.quote}”</div>
           <div style={{ fontSize: 'clamp(15px, 1.8vw, 22px)', fontWeight: 800, color: '#cbd5e1' }}>— {s.who}{s.kind === 'google' ? `${s.when ? `, ${s.when}` : ''} · Google` : ', past trainee'}</div>

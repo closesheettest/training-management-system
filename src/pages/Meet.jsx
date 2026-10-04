@@ -506,6 +506,12 @@ export default function Meet() {
         <style>{'.lk-prejoin .lk-username-container input, .lk-prejoin input#username { display: none !important; }'}</style>
         <h1 style={{ ...hTitle, textAlign: 'center', marginBottom: 4 }}>{join.room?.title || join.title}</h1>
         <p style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 10 }}>Joining as <b style={{ color: L.head }}>{join.name}</b>{join.host ? ' · host' : ''}.{join.room?.cameras_required ? ' Cameras on, please.' : ''}</p>
+        {join.room?.kind === 'training' && (
+          <div style={{ margin: '0 auto 12px', maxWidth: 480, padding: '12px 16px', borderRadius: 12, background: L.card, border: `2px solid ${L.button}` }}>
+            <div style={{ fontWeight: 900, color: L.head, marginBottom: 6 }}>Before you join, please make sure:</div>
+            {['Your camera is on', "You're in a quiet room", "You're not driving", "You're ready to learn"].map((x) => <div key={x} style={{ fontSize: 15.5, fontWeight: 700, margin: '3px 0' }}><span style={{ color: '#16a34a', marginRight: 8 }}>✔</span>{x}</div>)}
+          </div>
+        )}
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: true }} persistUserChoices={false}
           onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
       </div>
