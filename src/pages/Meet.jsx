@@ -24,6 +24,7 @@ import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
+import CompanyLobby from '../components/CompanyLobby.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -406,6 +407,12 @@ export default function Meet() {
         {err && <p style={{ color: '#fca5a5', marginTop: 10 }}>{err}</p>}
       </div>
     )
+  }
+
+  // TRAINING, PAPERWORK DONE, CLASS NOT OPEN YET → the company lobby slideshow, which lets them in
+  // by itself when the room opens (Neal, 2026-10-04). Reaching "not open" means onboarding passed.
+  if (!join && (notOpen || sp.get('preview') === 'lobby') && !hostMode && door?.kind === 'training') {
+    return <CompanyLobby title={door.title} nextAt={notOpen?.next_at || (sp.get('preview') === 'lobby' ? new Date(Date.now() + 47 * 60000).toISOString() : null)} first={sp.get('preview') === 'lobby' ? 'Sam' : (lastBody?.first || '')} onCheck={sp.get('preview') === 'lobby' ? null : () => doJoin(lastBody || {})} />
   }
 
   // NO MEETING ON RIGHT NOW (Neal, 2026-10-04): say when the next one is, instead of an empty room.
