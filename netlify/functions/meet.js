@@ -40,7 +40,8 @@ export const handler = async (event) => {
   if (b.action === 'join') {
     let name = null, identity = null, host = false
     const hostName = await verifyPin(b.pin)
-    if (hostName) { name = hostName; identity = `host:${hostName}`; host = true }
+    // Each device gets its own seat — the same identity twice would kick the first device out.
+    if (hostName) { name = hostName; identity = `host:${hostName}:${Math.random().toString(36).slice(2, 7)}`; host = true }
     else if (String(b.t || '').trim()) {
       const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
       const { data: t } = await sb.from('trainees').select('id, first_name, last_name').eq('registration_token', String(b.t).trim()).maybeSingle()

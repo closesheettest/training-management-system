@@ -91,6 +91,8 @@ export default function Meet() {
   if (!choices) {
     return shell(
       <div style={{ width: '100%', maxWidth: 560 }}>
+        {/* The name is theirs from TMS and the server sets it — no box to type in. */}
+        <style>{'.lk-prejoin .lk-username-container input, .lk-prejoin input#username { display: none !important; }'}</style>
         <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', marginBottom: 4 }}>{join.title}</h1>
         <p style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 10 }}>Joining as <b style={{ color: '#fff' }}>{join.name}</b>{join.host ? ' · host' : ''}. Cameras on, please.</p>
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: true }} persistUserChoices={false}
