@@ -193,6 +193,34 @@ export const handler = async (event) => {
     return json(200, { ok: true, room: publicRoom(r), keep_days: r.rec_keep_days ?? 90, recordings: out })
   }
 
+  // CLASS PAGE → WEEK B STATUS (Neal, 2026-10-04: "when I click on Week B … that's where I need it,
+  // so I know what's going on"). Per trainee of the class: was the Week B link sent / opened, their
+  // Week A field-day average, turned away or in, 🔥 committed, and doors so far this week.
+  if (b.action === 'class_week_b') {
+    const { data: c } = await sb.from('classes').select('id, week_start_date, trainees!class_id(id, first_name, last_name, phone, enrolled, dropped_out_at, declined_at, week_b_force, confirmation_status)').eq('id', String(b.class_id || '')).maybeSingle()
+    if (!c) return json(404, { ok: false })
+    const prob = (await getSetting('week_b_probation', {})) || {}
+    const { data: audits } = await sb.from('app_settings').select('key, value').like('key', 'invite_audit_%')
+    const sentAt = {}
+    for (const a of audits || []) { let v = {}; try { v = JSON.parse(a.value) } catch { continue } if (!/week b/i.test(v.title || '')) continue; for (const [id, x] of Object.entries(v.sends || {})) if (x.sms || x.email_ok) sentAt[id] = x.at }
+    const wkB = (await loadRooms()).find((r) => r.kind === 'training' && r.training_week === 'B')
+    const { data: last } = await sb.from('attendance').select('attendance_date').eq('class_id', c.id).lt('attendance_date', addDays(c.week_start_date, 7)).order('attendance_date', { ascending: false }).limit(1)
+    const lastDay = last?.[0]?.attendance_date || null
+    const people = []
+    for (const t of c.trainees || []) {
+      if (t.enrolled === false || t.dropped_out_at || t.declined_at) continue
+      let missed = false
+      if (lastDay && !t.week_b_force) { const { data: m } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', lastDay).limit(1); missed = !m?.length }
+      const e = await doorsFor(t, weekAFieldDays(c.week_start_date))
+      const pr = prob[t.id] || null
+      let soFar = null
+      if (pr?.committed_at && !pr.result) { const days = [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()); if (days.length) soFar = (await doorsFor(t, days)).average }
+      people.push({ name: fullName(t), missed_last_day: missed, override: !!t.week_b_force, week_a_avg: e.average, week_a_perDay: e.perDay, william_days: e.rideDays, map: e.linked,
+        qualified: !missed && (t.week_b_force || e.average === null || e.average >= EFFORT_DOORS), link_sent: sentAt[t.id] || null, opened: pr?.seen_at || null, committed: pr?.committed_at || null, so_far: soFar, result: pr?.result || null })
+    }
+    return json(200, { ok: true, last_class_day: lastDay, needed: EFFORT_DOORS, room: wkB ? { slug: wkB.slug, title: wkB.title, effort_gate: !!wkB.effort_gate } : null, people })
+  }
+
   // ROOM LIST for the "My meeting rooms" launcher (My Tools): names, looks, live / next only —
   // no personal links or codes, so it needs no sign-in. Hosts join with their PIN in the room.
   if (b.action === 'room_list') {
@@ -362,7 +390,14 @@ export const handler = async (event) => {
         const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
         const byId = new Map((info || []).map((x) => [x.id, x]))
         const prob = (await getSetting('week_b_probation', {})) || {}
-        for (const r of rows) if (prob[r.id]) r.probation = { committed_at: prob[r.id].committed_at || null, result: prob[r.id].result || null, week_avg: prob[r.id].week_avg ?? null }
+        for (const r of rows) if (prob[r.id]) r.probation = { committed_at: prob[r.id].committed_at || null, result: prob[r.id].result || null, week_avg: prob[r.id].week_avg ?? null, seen_at: prob[r.id].seen_at || null, week_monday: prob[r.id].week_monday }
+        // This week so far (Mon → today, William days left out), for anyone on the second chance.
+        await Promise.all(rows.filter((r) => r.probation && !r.probation.result).map(async (r) => {
+          const x = byId.get(r.id); if (!x) return
+          const days = [0, 1, 2, 3, 4].map((k) => addDays(r.probation.week_monday, k)).filter((d) => d <= etDay())
+          if (!days.length) return
+          const e = await doorsFor(x, days); r.probation.so_far = e.average; r.probation.so_far_days = e.counted; r.probation.so_far_perDay = e.perDay
+        }))
         await Promise.all(rows.map(async (r) => { const x = byId.get(r.id); if (!x?.classes?.week_start_date) return; const e = await doorsFor(x, weekAFieldDays(x.classes.week_start_date)); r.effort = { average: e.average, perDay: e.perDay, rideDays: e.rideDays, linked: e.linked, override: !!x.week_b_force } }))
       }
       if (b.action === 'audience') return json(200, { ok: true, people: rows, effort_needed: EFFORT_DOORS })
@@ -566,6 +601,7 @@ export const handler = async (event) => {
                 const prob = (await getSetting('week_b_probation', {})) || {}
                 if (!prob[t.id]) { prob[t.id] = { week_monday: monday, from_class: me.class_id, week_a_avg: eff.average, at: new Date().toISOString() }; await putSetting('week_b_probation', prob) }
                 const pr = prob[t.id]
+                if (!pr.seen_at || Date.now() - Date.parse(pr.last_seen || 0) > 600000) { pr.seen_at = pr.seen_at || new Date().toISOString(); pr.last_seen = new Date().toISOString(); await putSetting('week_b_probation', prob) }
                 const sofar = await doorsFor(full, [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()))
                 return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at })
               }

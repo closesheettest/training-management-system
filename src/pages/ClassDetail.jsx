@@ -6,6 +6,7 @@ import { ZONE_TEAMS, ZONE_COUNTIES, teamLabel, zoneForCounty } from '../lib/zone
 import { formatDateRange, formatDateLong, addDaysIso } from '../lib/dates.js'
 import { useTimetable, shortLine, weekWindow, fetchVirtualClassIds } from '../lib/schedule.js'
 import { usePersona } from '../lib/PersonaContext.jsx'
+import WeekBStatus from '../components/WeekBStatus.jsx'
 
 export default function ClassDetail() {
   const { id } = useParams()
@@ -1286,6 +1287,7 @@ export default function ClassDetail() {
 
       <RosterSummary summary={summary} />
 
+      {viewWeek === 'B' && !cls.attendance_only && <WeekBStatus classId={id} />}
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
 
       {!cls.attendance_only && <ZoneAssignments trainees={trainees} cls={cls} onSaved={load} />}
