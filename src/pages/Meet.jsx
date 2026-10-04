@@ -407,12 +407,14 @@ export default function Meet() {
             Week B takes an average of <b>{effort.needed} doors a day</b> on DoorDispatcher during Week A's field days.
             <div style={{ marginTop: 10, fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, color: '#fca5a5' }}>You averaged {effort.average}</div>
           </div>
-          {!effort.committed ? (
+          {!effort.committed ? (<>
+            <div style={{ marginTop: 22, fontSize: 20, fontWeight: 900, color: '#fff' }}>Still want it? Click below to tell us you're going to prove it.</div>
             <button onClick={async () => { const j = await call({ action: 'effort_commit', room: slug, ...(lastBody || {}) }).catch(() => ({})); if (j.ok || effort.preview) setEffort({ ...effort, committed: true }) }}
-              style={{ marginTop: 22, width: '100%', padding: '18px 16px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 30px rgba(22,163,74,.35)' }}>
-              🔥 I still want it, and I'll prove it this week
+              style={{ marginTop: 12, width: '100%', padding: '18px 16px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 30px rgba(22,163,74,.35)' }}>
+              🔥 CLICK HERE if you still want Week B<br /><span style={{ fontSize: '.85em', fontWeight: 800 }}>and you're going to prove it this week</span>
             </button>
-          ) : (<>
+            <div style={{ marginTop: 10, fontSize: 14, color: '#9ca3af' }}>If you don't click, we'll know you've decided training isn't for you.</div>
+          </>) : (<>
             <div style={{ marginTop: 16, padding: '18px 20px', borderRadius: 14, background: 'rgba(20,83,45,.4)', border: '2px solid #16a34a', fontSize: 18, lineHeight: 1.55 }}>
               <div style={{ fontWeight: 900, fontSize: 22, color: '#86efac', marginBottom: 6 }}>🔥 You're in. Now prove it.</div>
               Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.
