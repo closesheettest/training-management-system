@@ -308,7 +308,7 @@ export const handler = async (event) => {
     const nm0 = String(name).trim().toLowerCase()
     const named = (r) => (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
     const mine = (await loadRooms()).filter((r) => {
-      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => x.id && ids.has(x.id)) || named(r)
+      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
       if (!t) return false
       const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
