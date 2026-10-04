@@ -52,6 +52,7 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
     apiRef.current = {
       next: () => { if (d?.type === 'reveal') reveal()?.next(); else onMove?.({ n: Math.min(d.count, (pos?.n || d.start) + 1) }) },
       prev: () => { if (d?.type === 'reveal') reveal()?.prev(); else onMove?.({ n: Math.max(1, (pos?.n || d.start) - 1) }) },
+      first: () => { if (d?.type === 'reveal') reveal()?.slide(0, 0, -1); else onMove?.({ n: 1 }) },
     }
   })
   if (!d) return null
@@ -60,11 +61,29 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
       {d.type === 'reveal'
         ? <iframe ref={frame} title={d.label} src={d.url} onLoad={onLoad} style={{ width: '100%', height: '100%', border: 0, pointerEvents: host ? 'auto' : 'none' }} />
         : <img src={img(d, pos?.n || d.start)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
+      {/* Always-on slide controls for the presenter (Neal, 2026-10-04: "I need a way that I can go
+          back"). Bottom-left, clear of the camera circle; only the presenter sees them. */}
+      {host && apiRef && <DeckControls d={d} pos={pos} api={apiRef} reveal={reveal} />}
       {camTrack && (
         <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(20%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', background: '#000', pointerEvents: 'none' }}>
           <VideoTrack trackRef={camTrack} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
+    </div>
+  )
+}
+
+function DeckControls({ d, pos, api, reveal }) {
+  const R = d.type === 'reveal' ? reveal() : null
+  const total = R?.getTotalSlides?.() || d.count || 0
+  const at = R ? (R.getSlidePastCount?.() ?? pos?.h ?? 0) + 1 : (pos?.n || d.start)
+  const b = (bg) => ({ padding: '8px 14px', borderRadius: 10, border: 'none', background: bg, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' })
+  return (
+    <div style={{ position: 'absolute', left: 12, bottom: 12, zIndex: 20, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,.82)', padding: 6, borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.4)' }}>
+      <button title="Back to the first slide" onClick={() => api.current?.first()} style={b('#334155')}>⏮</button>
+      <button onClick={() => api.current?.prev()} style={b('#334155')}>◀ Back</button>
+      {total ? <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14, minWidth: 54, textAlign: 'center' }}>{at} / {total}</span> : null}
+      <button onClick={() => api.current?.next()} style={b('#2563eb')}>Next ▶</button>
     </div>
   )
 }

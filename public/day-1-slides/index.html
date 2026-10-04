@@ -14,12 +14,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --gold:#F5B400; --red:#E0203B; --green:#27c46b; --ink:#0a0a0a; --smoke:#9aa0a6; }
+  /* U.S. Shingle colors (Neal, 2026-10-04): logo navy background, logo red highlights. --gold is the highlight
+     colour throughout, so it now holds the logo red. */
+  :root{ --gold:#F2563F; --red:#FF8A7A; --green:#27c46b; --ink:#1B2557; --line:#3E4C8C; --smoke:#AEB6D6; }
   html,body{background:var(--ink);}
   .reveal{font-family:'Oswald',sans-serif;}
   .reveal .slides{text-align:center;}
   .reveal section{color:#fff;}
-  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(245,180,0,0.13), transparent 60%), var(--ink);}
+  .reveal .backgrounds{background:radial-gradient(ellipse at 50% 120%, rgba(242,86,63,0.16), transparent 60%), radial-gradient(ellipse at 50% -20%, #2A3A7A, transparent 70%), var(--ink);}
 
   .reveal h1,.reveal h2{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;line-height:.95;margin:0;text-shadow:0 4px 24px rgba(0,0,0,.6);}
   .reveal h1{font-size:4.4rem;color:#fff;}
@@ -54,8 +56,8 @@
 
   /* split screen — two side-by-side position cards */
   .reveal .split{display:grid;grid-template-columns:1fr 1fr;gap:2.2rem;max-width:78rem;margin:1.2rem auto 0;}
-  .reveal .split .col{border:3px solid #3a3a3a;border-radius:16px;padding:2.4rem 1rem;display:flex;align-items:center;justify-content:center;min-height:5.5rem;}
-  .reveal .split .col.senior{border-color:var(--gold);background:rgba(245,180,0,.08);}
+  .reveal .split .col{border:3px solid var(--line);border-radius:16px;padding:2.4rem 1rem;display:flex;align-items:center;justify-content:center;min-height:5.5rem;}
+  .reveal .split .col.senior{border-color:var(--gold);background:rgba(242,86,63,.08);}
   .reveal .split .coltitle{font-family:'Anton',sans-serif;font-size:3rem;text-transform:uppercase;color:#fff;line-height:1;}
   .reveal .split .coltitle.gold{color:var(--gold);}
 
@@ -82,7 +84,7 @@
   .reveal .mom{width:94%;max-width:1180px;margin:.3rem auto 0;display:block;}
   .reveal .mom .ground{stroke:#c2c7cd;stroke-width:3;}
   .reveal .mom .ball{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:center;transform:translate(250px,0);}
-  .reveal .mom .ball circle{fill:#2c2c2c;stroke:var(--gold);stroke-width:5;}
+  .reveal .mom .ball circle{fill:#24306A;stroke:var(--gold);stroke-width:5;}
   .reveal .mom .ball .spin{stroke:var(--gold);stroke-width:3;opacity:.55;}
   .reveal .mom .fig{transition:transform 1s cubic-bezier(.22,.61,.31,1);transform-box:fill-box;transform-origin:bottom center;transform:translate(60px,0) rotate(46deg) scale(.85);}
   .reveal .mom .fig line{stroke:#fff;stroke-width:7;stroke-linecap:round;}
@@ -117,19 +119,19 @@
 
   /* math build row */
   .reveal .row{display:flex;gap:.45rem;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:.9rem;}
-  .reveal .card{border:2px solid #3a3a3a;border-radius:.55rem;padding:.5rem .8rem;min-width:110px;}
-  .reveal .card.g{border-color:var(--gold);background:rgba(245,180,0,.1);}
+  .reveal .card{border:2px solid var(--line);border-radius:.55rem;padding:.5rem .8rem;min-width:110px;}
+  .reveal .card.g{border-color:var(--gold);background:rgba(242,86,63,.1);}
   .reveal .card .n{font-family:'Anton';font-size:2.7rem;line-height:1;color:#fff;}
   .reveal .card.g .n{color:var(--gold);}
   .reveal .card .l{font-family:'Oswald';font-size:.85rem;letter-spacing:.03em;text-transform:uppercase;color:var(--smoke);margin-top:.2rem;}
   .reveal .op{font-family:'Anton';font-size:2rem;color:var(--smoke);}
 
   /* insurance media — the "letter" quote card + before→after cost comparison */
-  .reveal .quote{font-family:'Oswald',sans-serif;font-weight:700;font-style:italic;font-size:2.7rem;color:#fff;max-width:60rem;margin:1.5rem auto 0;padding:1.2rem 1.8rem;border:2px solid var(--red);border-radius:16px;background:rgba(224,32,59,.12);line-height:1.25;}
+  .reveal .quote{font-family:'Oswald',sans-serif;font-weight:700;font-style:italic;font-size:2.7rem;color:#fff;max-width:60rem;margin:1.5rem auto 0;padding:1.2rem 1.8rem;border:2px solid var(--red);border-radius:16px;background:rgba(255,138,122,.12);line-height:1.25;}
   .reveal .compare{display:flex;gap:2rem;justify-content:center;align-items:center;flex-wrap:wrap;margin:1.5rem auto 0;}
-  .reveal .compare .stat{border:2px solid #3a3a3a;border-radius:16px;padding:1.4rem 2.2rem;min-width:18rem;}
-  .reveal .compare .stat.bad{border-color:var(--red);background:rgba(224,32,59,.12);}
-  .reveal .compare .stat.good{border-color:var(--gold);background:rgba(245,180,0,.1);}
+  .reveal .compare .stat{border:2px solid var(--line);border-radius:16px;padding:1.4rem 2.2rem;min-width:18rem;}
+  .reveal .compare .stat.bad{border-color:var(--red);background:rgba(255,138,122,.12);}
+  .reveal .compare .stat.good{border-color:var(--gold);background:rgba(242,86,63,.1);}
   .reveal .compare .stat.good .big{color:var(--gold);}
   .reveal .compare .stat .cap{font-family:'Oswald';font-size:1rem;letter-spacing:.05em;text-transform:uppercase;color:var(--smoke);}
   .reveal .compare .stat .big{font-family:'Anton';font-size:4.8rem;line-height:1;color:#fff;margin:.18rem 0;}
@@ -138,11 +140,16 @@
   .reveal .compare .stat .sub{font-family:'Oswald';font-size:1rem;color:var(--smoke);}
   .reveal .compare .arrow{font-family:'Anton';font-size:3.6rem;color:var(--smoke);}
 
-  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#444;text-transform:uppercase;}
+  .reveal .controls{color:#fff;}
+  .reveal .progress{color:var(--gold);}
+  .uss-logo{position:fixed;top:14px;left:16px;z-index:30;background:#fff;border-radius:10px;padding:5px 9px;box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .uss-logo img{height:34px;display:block;}
+  .reveal .corner{position:fixed;bottom:12px;right:16px;font-family:'Oswald';font-size:.62rem;letter-spacing:.2em;color:#6B77A8;text-transform:uppercase;}
   .preview-banner{position:fixed;top:0;left:0;right:0;z-index:60;background:#5b3a8a;color:#fff;font-family:'Oswald';font-weight:700;letter-spacing:.13em;text-transform:uppercase;font-size:.66rem;text-align:center;padding:4px;}
 </style>
 </head>
 <body>
+<div class="uss-logo"><img src="/uss-logo.png" alt="U.S. Shingle &amp; Metal"></div>
 <div class="reveal"><div class="slides">
 
   <!-- 1 · WELCOME + ONBOARDING STEPS (all shown, no clicks — pre-start screen) -->
