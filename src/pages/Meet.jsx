@@ -379,8 +379,15 @@ function Stage({ room, auth, isHost }) {
 }
 
 // The one-off meeting's invite page: when it is, and ✅ I'll be there / ❌ Can't make it.
-function Rsvp({ door, slug, who, nextAt, L, big, hTitle }) {
+function Rsvp({ door, slug, who, nextAt, L, big, hTitle, onJoin }) {
   const [st, setSt] = useState(null)
+  // A real Join button on this page (Neal, 2026-10-04: DeWayne confirmed and was told to "use this
+  // same link" — he was already on it, with nothing to press). It unlocks by itself 15 min early.
+  const [, tick] = useState(0)
+  useEffect(() => { const iv = setInterval(() => tick((x) => x + 1), 15000); return () => clearInterval(iv) }, [])
+  const opensAt = nextAt ? Date.parse(nextAt) - 15 * 60000 : null
+  const isOpen = !opensAt || Date.now() >= opensAt
+  const opensTxt = opensAt ? new Date(opensAt).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : ''
   const [first, setFirst] = useState('')
   useEffect(() => { call({ action: 'rsvp_status', room: slug, ...who }).then((j) => { if (j.ok) { setSt(j.rsvp?.status || ''); setFirst(j.first || '') } }).catch(() => {}) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const answer = async (status) => { const j = await call({ action: 'rsvp', room: slug, status, ...who }).catch(() => ({})); if (j.ok) setSt(j.status) }
@@ -392,13 +399,16 @@ function Rsvp({ door, slug, who, nextAt, L, big, hTitle }) {
       <h1 style={{ ...hTitle, fontSize: 30, marginTop: 4 }}>{door.title}</h1>
       {when && <div style={{ fontSize: 18, fontWeight: 800, marginTop: 6 }}>{when} <span style={{ color: L.muted, fontWeight: 600 }}>(Eastern)</span></div>}
       {door.topic && <div style={{ marginTop: 6, color: L.muted }}>{door.topic}</div>}
-      {st === 'yes' ? <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: 'rgba(22,163,74,.2)', border: '2px solid #16a34a', fontSize: 18, fontWeight: 800 }}>✅ You're confirmed. See you there. Use this same link to join.</div>
+      {st === 'yes' ? <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: 'rgba(22,163,74,.2)', border: '2px solid #16a34a', fontSize: 18, fontWeight: 800 }}>✅ You're confirmed. See you there.</div>
         : st === 'no' ? <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: 'rgba(185,28,28,.2)', border: '2px solid #b91c1c', fontSize: 18, fontWeight: 800 }}>❌ Got it, you can't make it.</div> : null}
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
         <button onClick={() => answer('yes')} style={{ ...big, flex: 2, background: '#16a34a' }}>✅ I'll be there</button>
         <button onClick={() => answer('no')} style={{ ...big, flex: 1, background: '#475569' }}>❌ Can't make it</button>
       </div>
-      <div style={{ marginTop: 12, fontSize: 13, color: L.muted }}>Come back to this link at meeting time. It opens 15 minutes early.</div>
+      {isOpen
+        ? <button onClick={onJoin} style={{ ...big, width: '100%', marginTop: 14, background: '#2563eb', fontSize: 20 }}>▶ Join the meeting</button>
+        : <button disabled style={{ ...big, width: '100%', marginTop: 14, background: '#334155', color: '#cbd5e1', cursor: 'default' }}>▶ Join opens at {opensTxt}</button>}
+      <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>{isOpen ? 'Tap Join to go in.' : `Keep this page open (the Join button turns on at ${opensTxt}), or open the link from your text again then.`}</div>
     </div>
   )
 }
@@ -627,7 +637,7 @@ export default function Meet() {
 
   // ONE-OFF MEETING, not started yet: confirm you'll be there (Neal, 2026-10-04).
   if (!join && notOpen && !hostMode && door?.kind === 'oneoff') {
-    return shell(<Rsvp door={door} slug={slug} who={lastBody || {}} nextAt={notOpen.next_at} L={L} big={big} hTitle={hTitle} />)
+    return shell(<Rsvp door={door} slug={slug} who={lastBody || {}} nextAt={notOpen.next_at} L={L} big={big} hTitle={hTitle} onJoin={() => doJoin(lastBody || {})} />)
   }
 
   // TRAINING, PAPERWORK DONE, CLASS NOT OPEN YET → the company lobby slideshow, which lets them in
