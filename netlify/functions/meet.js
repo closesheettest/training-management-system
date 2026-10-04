@@ -19,6 +19,9 @@
 //   POST { action:'send_links', pin, slug, note? }   admin: text + email each person their link
 //   POST { action:'attendance', pin, slug, date }    admin: who joined, when, how long
 //   POST { action:'guests', pin, slug }               admin: a public room's sign-in list (email list)
+//   POST { action:'my_rooms', session }              a rep's own rooms + their personal links, for the
+//        CCG rep dashboard (session = their CCG rep-pin session, checked with CCG). New active
+//        reps show up on their own — the rooms come from their zone in TMS (Neal, 2026-10-04).
 //   POST { action:'check' }                          setup check (no values shown)
 //
 // PUBLIC ROOMS (Neal, 2026-10-04 — the prayer call is open to people outside the company):
@@ -41,7 +44,9 @@ const SITE = 'https://trainingmanagementsys.netlify.app'
 const TEAMS = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' } // = src/lib/zones.js
 const COLORS = { 'Zone 1': '#E63946', 'Zone 2': '#1D6FB8', 'Zone 3': '#2A9D4A', 'Zone 4': '#F77F00' }
 const TRIAL = { slug: 'trial', title: 'Trial meeting', kind: 'custom', hosts: [], cameras_required: false }
-const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(obj) })
+// CORS open: the CCG rep dashboard calls my_rooms from its own site.
+const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' }, body: JSON.stringify(obj) })
+const REP_PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/rep-pin'
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 const etDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -61,6 +66,7 @@ const publicRoom = (r) => ({
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
 export const handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return json(200, {})
   if (event.httpMethod !== 'POST') return json(405, { ok: false })
   const { LIVEKIT_URL: rawUrl, LIVEKIT_API_KEY: rawKey, LIVEKIT_API_SECRET: rawSecret } = process.env
   if (!rawUrl || !rawKey || !rawSecret) return json(500, { ok: false, error: 'Meetings are not set up yet.' })
@@ -86,6 +92,28 @@ export const handler = async (event) => {
   }
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
   const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
+
+  // ---- A REP'S OWN ROOMS (their dashboard) ----
+  if (b.action === 'my_rooms') {
+    const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
+      .then((r) => r.json()).catch(() => ({}))
+    if (!who.ok || !who.jnid) return json(401, { ok: false, error: 'Signed out' })
+    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('jobnimbus_id', who.jnid).maybeSingle()
+    if (!t || !t.registration_token) return json(200, { ok: true, rooms: [] })
+    const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
+    const mine = (await loadRooms()).filter((r) =>
+      (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
+      (r.kind === 'managers' && t.managed_region) ||
+      ((r.kind === 'everyone' || r.kind === 'prayer') && (active || t.managed_region)))
+    return json(200, {
+      ok: true,
+      rooms: mine.map((r) => {
+        const pr = publicRoom(r)
+        // Viewing as a rep (Neal's view-as) shows the rooms but never their personal link.
+        return { ...pr, badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.slug}?t=${t.registration_token}` }
+      }),
+    })
+  }
 
   // ---- ADMIN: rooms ----
   if (['rooms', 'save_room', 'delete_room', 'audience', 'send_links', 'attendance', 'guests'].includes(b.action)) {
