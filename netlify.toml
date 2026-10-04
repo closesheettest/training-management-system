@@ -146,3 +146,9 @@
 # Daily 8:30 UTC (4:30 AM EDT). Mirrors export config.schedule in the function file.
 [functions."cron-meet-recordings-cleanup"]
   schedule = "30 8 * * *"
+
+# Week B second chance: every Saturday 14:00 UTC (10 AM EDT) — trainees turned away from Week B who
+# averaged 30 doors/day Mon–Fri are moved into next week's Week B and sent their link.
+# Mirrors export config.schedule in the function file.
+[functions."cron-week-b-probation"]
+  schedule = "0 14 * * 6"

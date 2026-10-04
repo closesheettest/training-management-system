@@ -41,6 +41,7 @@ import crypto from 'node:crypto'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
+import { doorsFor, weekAFieldDays, EFFORT_DOORS, addDays } from './_effort.js'
 
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
 const SITE = 'https://trainingmanagementsys.netlify.app'
@@ -264,6 +265,7 @@ export const handler = async (event) => {
         // The recordings page's private key (its link is shared with the editor, e.g. DeWayne's cousin).
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
+        effort_gate: !!r.effort_gate, // Week B: needs an average of 30 doors/day on Week A Thu–Sat
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         slots: (Array.isArray(r.slots) ? r.slots : []).map((x) => ({ day: Number(x.day), time: String(x.time || ''), minutes: Math.min(600, Math.max(10, Number(x.minutes) || 60)) })).filter((x) => x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time)).sort((a, b) => a.day - b.day),
         days: [], time: '',
@@ -326,7 +328,13 @@ export const handler = async (event) => {
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
       const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
-      if (b.action === 'audience') return json(200, { ok: true, people: rows })
+      if (b.action === 'audience' && room.kind === 'training' && room.training_week === 'B') {
+        // Each trainee's Week A field-day average, so the office can see who qualifies.
+        const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
+        const byId = new Map((info || []).map((x) => [x.id, x]))
+        await Promise.all(rows.map(async (r) => { const x = byId.get(r.id); if (!x?.classes?.week_start_date) return; const e = await doorsFor(x, weekAFieldDays(x.classes.week_start_date)); r.effort = { average: e.average, perDay: e.perDay, linked: e.linked, override: !!x.week_b_force } }))
+      }
+      if (b.action === 'audience') return json(200, { ok: true, people: rows, effort_needed: EFFORT_DOORS })
       // Every message goes by text AND email (texts alone miss people on Do Not Disturb).
       const results = []
       for (const p of rows) {
@@ -454,6 +462,24 @@ export const handler = async (event) => {
             if (lastDay) {
               const { data: mine } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', lastDay).limit(1)
               if (!mine?.length) return json(200, { ok: false, removed: true, message: outMsg })
+            }
+          }
+          // SHOW THE EFFORT (Neal, 2026-10-04): Week B only for trainees who averaged 30 doors a day on
+          // DoorDispatcher over Week A's field days (Thu–Sat). Short of it → a second chance: average
+          // 30 a day Mon–Fri this week and the Saturday job enrolls them in next week's Week B.
+          if (room.effort_gate && room.training_week === 'B' && me?.class_id && !me.week_b_force) {
+            const { data: cl } = await sb.from('classes').select('week_start_date').eq('id', me.class_id).maybeSingle()
+            const { data: full } = await sb.from('trainees').select('id, first_name, last_name, phone').eq('id', t.id).maybeSingle()
+            if (cl?.week_start_date && full) {
+              const eff = await doorsFor(full, weekAFieldDays(cl.week_start_date))
+              if (eff.average < EFFORT_DOORS) {
+                const dow = new Date(`${etDay()}T12:00:00Z`).getUTCDay(), monday = addDays(etDay(), dow === 0 ? 1 : 1 - dow)
+                const prob = (await getSetting('week_b_probation', {})) || {}
+                if (!prob[t.id]) { prob[t.id] = { week_monday: monday, from_class: me.class_id, week_a_avg: eff.average, at: new Date().toISOString() }; await putSetting('week_b_probation', prob) }
+                const pr = prob[t.id]
+                const sofar = await doorsFor(full, [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()))
+                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked })
+              }
             }
           }
           // LATE = LOCKED OUT (Neal, 2026-10-04): once the trainer is in, the doors stay open 2 more

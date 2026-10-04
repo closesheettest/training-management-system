@@ -340,6 +340,7 @@ export default function Meet() {
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
   const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#', banking: sp.get('mode') === 'banking' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
+  const [effort, setEffort] = useState(() => (sp.get('preview') === 'effort' ? { average: 8.3, needed: 30, week_monday: '2026-10-05', so_far: 0, so_far_days: 1 } : null))
   const [locked, setLocked] = useState(() => (sp.get('preview') === 'late1' ? { title: 'Training has already started', message: 'Training has already started. You will have to call Brent to reschedule.', phone: '' } : sp.get('preview') === 'late' ? { title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' } : null))
   const [removed, setRemoved] = useState(() => (sp.get('preview') === 'removed' ? "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors." : ''))
   const [lastBody, setLastBody] = useState(null)
@@ -360,6 +361,7 @@ export default function Meet() {
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
     if (j.locked) { setLocked(j); return false }
+    if (j.effort) { setEffort(j); return false }
     if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null, banking: !!j.banking }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
@@ -392,6 +394,28 @@ export default function Meet() {
   ) : null
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
+
+  // DIDN'T SHOW THE EFFORT for Week B — with the way back (Neal, 2026-10-04).
+  if (!join && effort) {
+    const friday = new Date(Date.parse(`${effort.week_monday}T12:00:00Z`) + 4 * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
+    return (
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 15%, #3a2a06 0%, #0b0b0f 70%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap" />
+        <div style={{ maxWidth: 580, width: '100%', textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(28px, 6vw, 42px)', fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: '#fbbf24', lineHeight: 1.08 }}>You didn't show the effort to qualify for Week B</div>
+          <div style={{ marginTop: 18, padding: '18px 20px', borderRadius: 14, background: 'rgba(120,53,15,.35)', border: '2px solid #d97706', fontSize: 18, lineHeight: 1.55 }}>
+            Week B takes an average of <b>{effort.needed} doors a day</b> on DoorDispatcher during Week A's field days.
+            <div style={{ marginTop: 10, fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, color: '#fca5a5' }}>You averaged {effort.average}</div>
+          </div>
+          <div style={{ marginTop: 16, padding: '18px 20px', borderRadius: 14, background: 'rgba(20,83,45,.4)', border: '2px solid #16a34a', fontSize: 18, lineHeight: 1.55 }}>
+            <div style={{ fontWeight: 900, fontSize: 22, color: '#86efac', marginBottom: 6 }}>Still want it? Prove it this week.</div>
+            Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.
+            {effort.so_far_days > 0 && <div style={{ marginTop: 10, fontSize: 15.5, color: '#d1fae5' }}>So far this week: <b>{effort.so_far}</b> a day. We'll check on {friday}.</div>}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // LATE: the doors closed 2 minutes after the trainer arrived (Neal, 2026-10-04).
   if (!join && locked) {
