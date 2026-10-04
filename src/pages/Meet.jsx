@@ -349,7 +349,6 @@ export default function Meet() {
       </div>
       <div style={{ marginTop: 14, fontSize: 15, letterSpacing: '.14em', textTransform: 'uppercase', color: L.muted, fontWeight: 700 }}>U.S. Shingle &amp; Metal welcomes you to</div>
       <h1 style={{ ...hTitle, fontSize: 30, marginTop: 4 }}>{r.title}</h1>
-      {r.schedule && <div style={{ color: L.muted, fontSize: 13.5, marginTop: 4 }}>{r.schedule}</div>}
     </div>
   ) : null
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
