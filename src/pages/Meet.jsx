@@ -303,6 +303,7 @@ export default function Meet() {
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
   const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#', banking: sp.get('mode') === 'banking' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
+  const [removed, setRemoved] = useState(() => (sp.get('preview') === 'removed' ? "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors." : ''))
   const [lastBody, setLastBody] = useState(null)
 
   // Waiting on onboarding: look again every 20 seconds and let them in as soon as it's signed.
@@ -319,6 +320,7 @@ export default function Meet() {
     const j = await call({ action: 'join', ...body, room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
+    if (j.removed) { setRemoved(j.message || ''); return false }
     if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null, banking: !!j.banking }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
@@ -340,6 +342,17 @@ export default function Meet() {
   const hTitle = { fontSize: L.light ? 34 : 22, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, lineHeight: 1.15 }
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
+
+  // MISSED A DAY: their link no longer lets them in (Neal's wording).
+  if (!join && removed) {
+    return shell(
+      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+        <h1 style={hTitle}>{door?.title || 'Training'}</h1>
+        <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, fontSize: 16.5, lineHeight: 1.6 }}>{removed}</div>
+      </div>
+    )
+  }
 
   // ONBOARDING FIRST (Neal, 2026-10-04 — virtual Week A): the paperwork was just sent; they get in
   // once it's signed. Wording is Neal's.

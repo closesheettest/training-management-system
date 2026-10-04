@@ -418,6 +418,20 @@ export const handler = async (event) => {
         // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
         // until their onboarding paperwork is signed — it's sent to them right here (text + email).
         if (room.kind === 'training' && !host) {
+          // MISSED A DAY = OUT (Neal, 2026-10-04): if the class met on its last day before today
+          // (someone in the class signed in) and this trainee didn't, their link stops working.
+          // Their own week_b_force flag (the existing admin override) lets them back in.
+          const { data: me } = await sb.from('trainees').select('class_id, enrolled, dropped_out_at, declined_at, week_b_force').eq('id', t.id).maybeSingle()
+          const outMsg = "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors."
+          if (me && (me.enrolled === false || me.dropped_out_at || me.declined_at) && !me.week_b_force) return json(200, { ok: false, removed: true, message: outMsg })
+          if (me?.class_id && !me.week_b_force) {
+            const { data: last } = await sb.from('attendance').select('attendance_date').eq('class_id', me.class_id).lt('attendance_date', etDay()).order('attendance_date', { ascending: false }).limit(1)
+            const lastDay = last?.[0]?.attendance_date
+            if (lastDay) {
+              const { data: mine } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', lastDay).limit(1)
+              if (!mine?.length) return json(200, { ok: false, removed: true, message: outMsg })
+            }
+          }
           const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at').eq('trainee_id', t.id).maybeSingle()
           // BANKING (Neal, 2026-10-04): okay to skip on the day they sign; from the NEXT day on,
           // no training until their direct deposit details are in.
