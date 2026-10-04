@@ -412,6 +412,10 @@ export default function Meet() {
             Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.
             {effort.so_far_days > 0 && <div style={{ marginTop: 10, fontSize: 15.5, color: '#d1fae5' }}>So far this week: <b>{effort.so_far}</b> a day. We'll check on {friday}.</div>}
           </div>
+          <div style={{ marginTop: 16, fontSize: 17.5, lineHeight: 1.6, color: '#e5e7eb' }}>
+            Your manager will still be available to you throughout the week to help you.
+            <div style={{ marginTop: 8, fontWeight: 800, color: '#fde68a' }}>Remember: we don't care about the results, only the effort. We can fix results. We can't fix effort.</div>
+          </div>
         </div>
       </div>
     )
