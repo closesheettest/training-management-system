@@ -29,7 +29,7 @@ export const handler = async () => {
     if (!t) { p.result = 'gone'; continue }
     const eff = await doorsFor(t, [0, 1, 2, 3, 4].map((k) => addDays(p.week_monday, k)))
     p.week_avg = eff.average; p.checked_at = new Date().toISOString()
-    if (eff.average < EFFORT_DOORS) { p.result = 'did_not_qualify'; results.push(`${t.first_name}: ${eff.average} — not enough`); continue }
+    if (eff.average !== null && eff.average < EFFORT_DOORS) { p.result = 'did_not_qualify'; results.push(`${t.first_name}: ${eff.average} — not enough`); continue }
     const { data: cl } = await sb.from('classes').select('id, week_start_date').eq('week_start_date', p.week_monday).is('cancelled_at', null).limit(1).maybeSingle()
     if (!cl) { p.result = 'no_class'; results.push(`${t.first_name}: qualified but no class found`); continue }
     await sb.from('trainees').update({ class_id: cl.id, rescheduled_from_class_id: p.from_class || null, week_b_force: true, enrolled: true }).eq('id', tid)

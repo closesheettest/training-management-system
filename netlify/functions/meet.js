@@ -332,7 +332,7 @@ export const handler = async (event) => {
         // Each trainee's Week A field-day average, so the office can see who qualifies.
         const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
         const byId = new Map((info || []).map((x) => [x.id, x]))
-        await Promise.all(rows.map(async (r) => { const x = byId.get(r.id); if (!x?.classes?.week_start_date) return; const e = await doorsFor(x, weekAFieldDays(x.classes.week_start_date)); r.effort = { average: e.average, perDay: e.perDay, linked: e.linked, override: !!x.week_b_force } }))
+        await Promise.all(rows.map(async (r) => { const x = byId.get(r.id); if (!x?.classes?.week_start_date) return; const e = await doorsFor(x, weekAFieldDays(x.classes.week_start_date)); r.effort = { average: e.average, perDay: e.perDay, rideDays: e.rideDays, linked: e.linked, override: !!x.week_b_force } }))
       }
       if (b.action === 'audience') return json(200, { ok: true, people: rows, effort_needed: EFFORT_DOORS })
       // Every message goes by text AND email (texts alone miss people on Do Not Disturb).
@@ -472,7 +472,7 @@ export const handler = async (event) => {
             const { data: full } = await sb.from('trainees').select('id, first_name, last_name, phone').eq('id', t.id).maybeSingle()
             if (cl?.week_start_date && full) {
               const eff = await doorsFor(full, weekAFieldDays(cl.week_start_date))
-              if (eff.average < EFFORT_DOORS) {
+              if (eff.average !== null && eff.average < EFFORT_DOORS) {
                 const dow = new Date(`${etDay()}T12:00:00Z`).getUTCDay(), monday = addDays(etDay(), dow === 0 ? 1 : 1 - dow)
                 const prob = (await getSetting('week_b_probation', {})) || {}
                 if (!prob[t.id]) { prob[t.id] = { week_monday: monday, from_class: me.class_id, week_a_avg: eff.average, at: new Date().toISOString() }; await putSetting('week_b_probation', prob) }

@@ -21,9 +21,19 @@ async function tokensFor(c, t) {
   return (data || []).filter((r) => (ph && digits(r.phone) === ph) || nameKey(r.name) === nm).map((r) => r.harvest_token)
 }
 
-// Doors per day for one trainee over the given ET days → { perDay:{day:n}, total, average }
+// Days they rode with William (CCG ride_alongs: rep_id "trainee:<tms id>", or their name) are
+// TRAINING, not knocking — those days come out of the average (Neal, 2026-10-04).
+async function rideDays(c, t, days) {
+  const { data } = await c.from('ride_alongs').select('rep_id, rep_name, ride_date, refused_to_ride').gte('ride_date', days[0]).lte('ride_date', days[days.length - 1])
+  const nm = nameKey(`${t.first_name} ${t.last_name}`)
+  return new Set((data || []).filter((r) => !r.refused_to_ride && (r.rep_id === `trainee:${t.id}` || nameKey(r.rep_name) === nm)).map((r) => r.ride_date))
+}
+
+// Doors per day for one trainee over the given ET days, leaving out days with William →
+// { perDay:{day:n}, rideDays:[…], counted, total, average (null when every day was a ride) }
 export async function doorsFor(t, days) {
   const c = ccg()
+  const rides = days.length ? await rideDays(c, t, days).catch(() => new Set()) : new Set()
   const toks = await tokensFor(c, t)
   const perDay = Object.fromEntries(days.map((d) => [d, 0]))
   if (toks.length && days.length) {
@@ -33,8 +43,9 @@ export async function doorsFor(t, days) {
     for (const a of data || []) { if (!a.pin_id) continue; const d = etDay(Date.parse(a.created_at)); if (!(d in perDay)) continue; (seen[d] = seen[d] || new Set()).add(a.pin_id) }
     for (const d of Object.keys(seen)) perDay[d] = seen[d].size
   }
-  const total = Object.values(perDay).reduce((a, b) => a + b, 0)
-  return { perDay, total, average: days.length ? Math.round((total / days.length) * 10) / 10 : 0, linked: toks.length > 0 }
+  const counted = days.filter((d) => !rides.has(d))
+  const total = counted.reduce((a, d) => a + (perDay[d] || 0), 0)
+  return { perDay, rideDays: days.filter((d) => rides.has(d)), counted: counted.length, total, average: counted.length ? Math.round((total / counted.length) * 10) / 10 : null, linked: toks.length > 0 }
 }
 
 // Week A field days for a class that started on `start` (Mon): Thu, Fri, Sat.
