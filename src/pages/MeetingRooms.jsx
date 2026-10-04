@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['oneoff', 'One-off meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
+const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
@@ -103,8 +103,8 @@ export default function MeetingRooms() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-brand-navy">🎥 Meeting Rooms</h1>
         <span className="flex-1" />
-        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">+ New one-off meeting</button>
-        <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">+ New room</button>
+        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">📅 Create a one-time meeting</button>
+        <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">🎥 Create a meeting room</button>
       </div>
       <p className="mt-1 text-sm text-slate-600">Our own meetings, in place of Zoom. Everyone joins from their own link: no app, no meeting ID, and attendance takes itself.</p>
       {err && <div className="mt-3 text-sm font-semibold text-red-700">{err}</div>}
@@ -112,7 +112,7 @@ export default function MeetingRooms() {
 
       {form && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-bold">{form.original_slug ? 'Edit room' : 'New room'}</h2>
+          <h2 className="text-lg font-bold">{form.original_slug ? (form.kind === 'oneoff' ? 'Edit one-time meeting' : 'Edit room') : (form.kind === 'oneoff' ? 'Create a one-time meeting' : 'Create a meeting room')}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
             <label className="text-sm font-semibold">Type<select className={field} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, public: e.target.value === 'prayer' ? true : form.public })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
@@ -266,7 +266,7 @@ export default function MeetingRooms() {
       )}
 
       <div className="mt-5 space-y-3">
-        {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>+ New room</b>.</p>}
+        {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>🎥 Create a meeting room</b>.</p>}
         {rooms.map((r) => (
           <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
