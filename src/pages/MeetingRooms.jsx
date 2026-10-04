@@ -151,8 +151,14 @@ export default function MeetingRooms() {
             </div>
             {/* RECORDING (Neal, 2026-10-04 — the devotional is recorded and DeWayne's cousin edits it). */}
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
-              <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={!!form.recording_enabled} onChange={(e) => setForm({ ...form, recording_enabled: e.target.checked })} /> Recording: give the host a ⏺ Record button</label>
-              <p className="mt-1 text-xs text-slate-500">Pressing Record mutes everyone except the host (they can unmute themselves), switches everyone to speaker view on the host, and records.</p>
+              {/* ENABLE RECORDING TOOLS — any room (Neal, 2026-10-04). */}
+              <button type="button" onClick={() => setForm({ ...form, recording_enabled: !form.recording_enabled })} className="flex w-full items-center gap-3 text-left">
+                <span className={`relative inline-block h-6 w-11 flex-shrink-0 rounded-full transition ${form.recording_enabled ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${form.recording_enabled ? 'left-[22px]' : 'left-0.5'}`} />
+                </span>
+                <span className="text-sm font-bold">Enable recording tools {form.recording_enabled ? <span className="font-semibold text-emerald-700">· ON</span> : <span className="font-normal text-slate-500">· off</span>}</span>
+              </button>
+              <p className="mt-1 text-xs text-slate-500">Gives the host a ⏺ Record button. Pressing it mutes everyone except the host (they can unmute themselves), switches everyone to speaker view on the host, and records. Recordings go to this room's recordings page.</p>
               {form.recording_enabled && (
                 <div className="mt-2 space-y-3 text-sm">
                   {/* The room's recordings page — share it or open it from here (Neal, 2026-10-04). */}
