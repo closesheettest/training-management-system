@@ -34,6 +34,12 @@ export const handler = async (event) => {
   if (!url || !key || !secret) return json(500, { ok: false, error: 'Meetings are not set up yet.' })
   let b = {}
   try { b = JSON.parse(event.body || '{}') } catch { return json(400, { ok: false }) }
+  // Setup check (no values shown): do the key and secret LiveKit was given actually pair up?
+  if (b.action === 'check') {
+    const shape = { url_ok: /^wss:\/\/.+\.livekit\.cloud\/?$/.test(url.trim()), key_len: key.length, key_api: key.startsWith('API'), key_space: key !== key.trim(), secret_len: secret.length, secret_space: secret !== secret.trim(), secret_quotes: /^["']|["']$/.test(secret.trim()) }
+    try { await new RoomServiceClient(url.trim().replace(/^wss:/, 'https:'), key.trim(), secret.trim()).listRooms(); return json(200, { ok: true, ...shape }) }
+    catch (e) { return json(200, { ok: false, error: e.message, ...shape }) }
+  }
   const room = String(b.room || '').toLowerCase()
   if (!ROOMS[room]) return json(404, { ok: false, error: 'That meeting room does not exist.' })
 
