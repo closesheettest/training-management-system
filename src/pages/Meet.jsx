@@ -340,7 +340,7 @@ export default function Meet() {
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
   const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#', banking: sp.get('mode') === 'banking' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
-  const [effort, setEffort] = useState(() => (sp.get('preview') === 'effort' ? { average: 8.3, needed: 30, week_monday: '2026-10-05', so_far: 0, so_far_days: 1 } : null))
+  const [effort, setEffort] = useState(() => (sp.get('preview') === 'effort' ? { average: 8.3, needed: 30, week_monday: '2026-10-05', so_far: 0, so_far_days: 1, preview: true } : null))
   const [locked, setLocked] = useState(() => (sp.get('preview') === 'late1' ? { title: 'Training has already started', message: 'Training has already started. You will have to call Brent to reschedule.', phone: '' } : sp.get('preview') === 'late' ? { title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' } : null))
   const [removed, setRemoved] = useState(() => (sp.get('preview') === 'removed' ? "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors." : ''))
   const [lastBody, setLastBody] = useState(null)
@@ -407,15 +407,22 @@ export default function Meet() {
             Week B takes an average of <b>{effort.needed} doors a day</b> on DoorDispatcher during Week A's field days.
             <div style={{ marginTop: 10, fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, color: '#fca5a5' }}>You averaged {effort.average}</div>
           </div>
-          <div style={{ marginTop: 16, padding: '18px 20px', borderRadius: 14, background: 'rgba(20,83,45,.4)', border: '2px solid #16a34a', fontSize: 18, lineHeight: 1.55 }}>
-            <div style={{ fontWeight: 900, fontSize: 22, color: '#86efac', marginBottom: 6 }}>Still want it? Prove it this week.</div>
-            Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.
-            {effort.so_far_days > 0 && <div style={{ marginTop: 10, fontSize: 15.5, color: '#d1fae5' }}>So far this week: <b>{effort.so_far}</b> a day. We'll check on {friday}.</div>}
-          </div>
-          <div style={{ marginTop: 16, fontSize: 17.5, lineHeight: 1.6, color: '#e5e7eb' }}>
-            Your manager will still be available to you throughout the week to help you.
-            <div style={{ marginTop: 8, fontWeight: 800, color: '#fde68a' }}>Remember: we don't care about the results, only the effort. We can fix results. We can't fix effort.</div>
-          </div>
+          {!effort.committed ? (
+            <button onClick={async () => { const j = await call({ action: 'effort_commit', room: slug, ...(lastBody || {}) }).catch(() => ({})); if (j.ok || effort.preview) setEffort({ ...effort, committed: true }) }}
+              style={{ marginTop: 22, width: '100%', padding: '18px 16px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 30px rgba(22,163,74,.35)' }}>
+              🔥 I still want it, and I'll prove it this week
+            </button>
+          ) : (<>
+            <div style={{ marginTop: 16, padding: '18px 20px', borderRadius: 14, background: 'rgba(20,83,45,.4)', border: '2px solid #16a34a', fontSize: 18, lineHeight: 1.55 }}>
+              <div style={{ fontWeight: 900, fontSize: 22, color: '#86efac', marginBottom: 6 }}>🔥 You're in. Now prove it.</div>
+              Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.
+              {effort.so_far_days > 0 && <div style={{ marginTop: 10, fontSize: 15.5, color: '#d1fae5' }}>So far this week: <b>{effort.so_far}</b> a day. We'll check on {friday}.</div>}
+            </div>
+            <div style={{ marginTop: 16, fontSize: 17.5, lineHeight: 1.6, color: '#e5e7eb' }}>
+              Your manager will still be available to you throughout the week to help you.
+              <div style={{ marginTop: 8, fontWeight: 800, color: '#fde68a' }}>Remember: we don't care about the results, only the effort. We can fix results. We can't fix effort.</div>
+            </div>
+          </>)}
         </div>
       </div>
     )

@@ -332,6 +332,8 @@ export const handler = async (event) => {
         // Each trainee's Week A field-day average, so the office can see who qualifies.
         const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
         const byId = new Map((info || []).map((x) => [x.id, x]))
+        const prob = (await getSetting('week_b_probation', {})) || {}
+        for (const r of rows) if (prob[r.id]) r.probation = { committed_at: prob[r.id].committed_at || null, result: prob[r.id].result || null, week_avg: prob[r.id].week_avg ?? null }
         await Promise.all(rows.map(async (r) => { const x = byId.get(r.id); if (!x?.classes?.week_start_date) return; const e = await doorsFor(x, weekAFieldDays(x.classes.week_start_date)); r.effort = { average: e.average, perDay: e.perDay, rideDays: e.rideDays, linked: e.linked, override: !!x.week_b_force } }))
       }
       if (b.action === 'audience') return json(200, { ok: true, people: rows, effort_needed: EFFORT_DOORS })
@@ -420,6 +422,20 @@ export const handler = async (event) => {
     b._direct = !!t._emailMatch || !t.email
   }
 
+  // 🔥 "I still want it, and I'll prove it" (Neal, 2026-10-04): the trainee turned away from Week B
+  // commits to the second chance. Recorded with the time; the Saturday job only enrolls people who
+  // committed (no click = they're gone).
+  if (b.action === 'effort_commit') {
+    let t = String(b.t || '').trim() ? await traineeByToken(b.t) : null
+    if (!t && room.kind === 'training' && b.first) t = await findTrainee()
+    if (!t) return json(401, { ok: false, error: 'Open this from your own link.' })
+    const prob = (await getSetting('week_b_probation', {})) || {}
+    if (!prob[t.id]) return json(404, { ok: false, error: 'Nothing to commit to.' })
+    prob[t.id].committed_at = prob[t.id].committed_at || new Date().toISOString()
+    await putSetting('week_b_probation', prob)
+    return json(200, { ok: true, committed_at: prob[t.id].committed_at })
+  }
+
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, ...(await openState(room)) }, host_code: !!room.host_code })
 
@@ -478,7 +494,7 @@ export const handler = async (event) => {
                 if (!prob[t.id]) { prob[t.id] = { week_monday: monday, from_class: me.class_id, week_a_avg: eff.average, at: new Date().toISOString() }; await putSetting('week_b_probation', prob) }
                 const pr = prob[t.id]
                 const sofar = await doorsFor(full, [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()))
-                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked })
+                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at })
               }
             }
           }

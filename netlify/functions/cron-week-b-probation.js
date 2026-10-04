@@ -25,6 +25,7 @@ export const handler = async () => {
     if (p.result) continue
     const friday = addDays(p.week_monday, 4)
     if (today <= friday) continue
+    if (!p.committed_at) { p.result = 'did_not_commit'; continue } // never clicked "I still want it" — gone
     const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, registration_token').eq('id', tid).maybeSingle()
     if (!t) { p.result = 'gone'; continue }
     const eff = await doorsFor(t, [0, 1, 2, 3, 4].map((k) => addDays(p.week_monday, k)))
