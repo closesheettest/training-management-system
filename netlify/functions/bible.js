@@ -22,6 +22,12 @@ const splitBracketed = (txt) => {
 export const handler = async (event) => {
   const q = event.queryStringParameters || {}
   const ref = String(q.ref || '').trim().slice(0, 60), v = String(q.v || 'NIV').toUpperCase()
+  // ?list=1 → which Bibles our key can see (names only), for setup.
+  if (q.list) {
+    const key = (process.env.BIBLE_API_KEY || '').trim()
+    const j = await (await fetch('https://rest.api.bible/v1/bibles?language=eng', { headers: { 'api-key': key } })).json().catch(() => ({}))
+    return json(200, { ok: true, bibles: (j.data || []).map((b) => `${b.abbreviationLocal || b.abbreviation} — ${b.nameLocal || b.name}`) })
+  }
   if (!ref) return json(400, { ok: false, error: 'Type the passage, e.g. Psalm 23:1-6' })
   try {
     if (v === 'ESV') {
