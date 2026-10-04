@@ -3,38 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Virtual Training: The New Flow — U.S. Shingle &amp; Metal</title>
-<!-- Walkthrough of the virtual training flow built 2026-10-04, for Neal to present to DeWayne inside
-     a meeting (📊 Present → "Walkthrough: new virtual training flow"). Screenshots are the real
-     preview screens (public/virtual-flow/*.png). Reveal.js, same as the day decks. -->
+<title>Virtual Training: The Trainee's Experience — U.S. Shingle &amp; Metal</title>
+<!-- A SHOW, not an explainer (Neal, 2026-10-04): each slide is the REAL live screen a trainee sees
+     (the meeting pages in preview mode), full-slide, with just a small step label. Presented inside
+     a meeting via 📊 Present → "Walkthrough: new virtual training flow". -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@600;800&display=swap" rel="stylesheet">
 <style>
-  :root { --navy:#0b1426; --red:#c8102e; --ink:#e5e7eb; --muted:#9fb0c8; --gold:#fbbf24; --green:#4ade80; }
-  html, body { background: var(--navy); }
-  .reveal { font-family: 'Inter', sans-serif; color: var(--ink); }
+  html, body { background: #0b1426; }
+  .reveal { font-family: 'Inter', sans-serif; color: #fff; }
   .reveal .backgrounds { background: radial-gradient(circle at 30% 15%, #16305c 0%, #0b1426 60%, #060b16 100%); }
-  .reveal h1, .reveal h2 { font-family: 'Oswald', sans-serif; text-transform: uppercase; color: #fff; margin: 0 0 .3em; line-height: 1.02; }
-  .reveal h1 { font-size: 3.4rem; } .reveal h2 { font-size: 2.3rem; }
-  .kick { font-family: 'Oswald'; letter-spacing: .28em; text-transform: uppercase; color: #f87171; font-size: 1.05rem; font-weight: 600; margin-bottom: .3em; }
-  .reveal p, .reveal li { font-size: 1.15rem; line-height: 1.45; }
-  .reveal ul { text-align: left; margin: .4em auto 0; max-width: 1000px; }
-  .reveal li { margin: .35em 0; }
-  .shot { max-height: 470px; border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.15); }
-  .two { display: flex; gap: 22px; justify-content: center; align-items: flex-start; }
-  .two img { max-height: 330px; }
-  .cap { color: var(--muted); font-size: .95rem; margin-top: .5em; }
+  .reveal h1 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 3.6rem; margin: .5em 0 .1em; }
+  .kick { font-family: 'Oswald'; letter-spacing: .28em; text-transform: uppercase; color: #f87171; font-size: 1.1rem; }
   .logo { background: #fff; border-radius: 16px; padding: 14px 26px; display: inline-block; box-shadow: 0 16px 50px rgba(0,0,0,.45); }
-  .steps { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 1em; }
-  .step { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.18); border-radius: 12px; padding: 12px 14px; width: 132px; font-size: .95rem; font-weight: 600; }
-  .step b { display: block; font-family: 'Oswald'; font-size: 1.6rem; color: #f87171; }
-  .big { font-family: 'Oswald'; font-size: 3rem; color: var(--gold); }
-  .quote { font-size: 1.6rem; font-weight: 800; color: var(--gold); margin-top: .6em; }
-  .tag { display: inline-block; background: var(--red); color: #fff; font-weight: 800; border-radius: 999px; padding: 3px 12px; font-size: .9rem; }
-  .ok { color: var(--green); font-weight: 800; }
-  .lane { text-align: left; max-width: 980px; margin: 0 auto; }
-  .lane div { background: rgba(255,255,255,.06); border-left: 5px solid var(--red); border-radius: 8px; padding: 10px 14px; margin: 8px 0; font-size: 1.05rem; }
+  /* The small label on each live-screen slide — top-left, out of the way. */
+  .chip { position: absolute; top: 0; left: 0; margin: 0; padding: 7px 16px; border-radius: 0 0 14px 0; background: rgba(200,16,46,.95); color: #fff; font-family: 'Oswald'; font-size: 1.05rem; letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  .chip span { font-family: 'Inter'; text-transform: none; letter-spacing: 0; font-weight: 600; opacity: .9; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -42,146 +27,53 @@
 
 <section>
   <div class="logo"><img src="/uss-logo.png" alt="U.S. Shingle &amp; Metal" style="height:120px;display:block;margin:0"></div>
-  <h1 style="margin-top:.6em">Virtual Training</h1>
-  <div class="kick">The new flow · start to finish</div>
-  <p class="cap">Everything a trainee sees, and everything the system now does on its own.</p>
+  <h1>Virtual Training</h1>
+  <div class="kick">What a trainee sees, start to finish</div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training">
+  <div class="chip">1 · Opens their link<span>signs in with name + email</span></div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=onboarding">
+  <div class="chip">2 · Paperwork first<span>no class until it's signed</span></div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=onboarding&amp;mode=banking">
+  <div class="chip">Day 2+ · Banking<span>okay to skip Day 1, required after</span></div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=lobby">
+  <div class="chip">3 · The lobby<span>while they wait for class</span></div>
+</section>
+
+<section data-background-iframe="/day-1-slides/">
+  <div class="chip">4 · In class<span>Week A · Day 1, on every screen</span></div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=late1">
+  <div class="chip">Late on Day 1<span>doors close 2 minutes in</span></div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=late">
+  <div class="chip">Late any other day</div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=removed">
+  <div class="chip">Missed a day</div>
+</section>
+
+<section data-background-iframe="/meet/first-week-training?preview=effort" data-background-interactive>
+  <div class="chip">5 · Week B: show the effort<span>30 doors a day</span></div>
 </section>
 
 <section>
-  <div class="kick">The big change</div>
-  <h2>Our own meeting rooms. No more Zoom.</h2>
-  <ul>
-    <li>Every trainee gets <b>their own link</b>: no app, no meeting ID, their real name on their tile.</li>
-    <li><b>Attendance takes itself</b>: who joined, when, how long, camera off.</li>
-    <li>Reps see their rooms on their <b>personal dashboard</b> (LIVE NOW / Next: time).</li>
-    <li>Rooms for each team, the company meeting, the 9:15 Devotional, Week A and Week B.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="kick">A trainee's journey</div>
-  <h2>From link to Week B</h2>
-  <div class="steps">
-    <div class="step"><b>1</b>Opens the link</div>
-    <div class="step"><b>2</b>Signs in</div>
-    <div class="step"><b>3</b>Paperwork</div>
-    <div class="step"><b>4</b>Lobby slideshow</div>
-    <div class="step"><b>5</b>Class</div>
-    <div class="step"><b>6</b>Field days + William</div>
-    <div class="step"><b>7</b>Week B (if they showed the effort)</div>
-  </div>
-</section>
-
-<section>
-  <div class="kick">Step 2 · Sign in</div>
-  <img class="shot" src="signin.png" alt="">
-  <p class="cap">First name, last name, email. It finds them on this week's class list. No kiosk.</p>
-</section>
-
-<section>
-  <div class="kick">Step 3 · Paperwork first</div>
-  <img class="shot" src="onboarding.png" alt="">
-  <p class="cap">W-9 + contractor agreement open right there, then "✅ Done, go to training" brings them back. Nobody gets into class until it's signed.</p>
-</section>
-
-<section>
-  <div class="kick">Step 3 · Safety net</div>
-  <div class="two"><img class="shot" src="sent.png" alt=""><img class="shot" src="banking.png" alt=""></div>
-  <p class="cap">Left: if their email doesn't match, the paperwork goes by text + email instead ("check your junk mail"). Right: banking can wait on Day 1, but from the next day it's required before class.</p>
-</section>
-
-<section>
-  <div class="kick">Step 4 · The lobby</div>
-  <img class="shot" src="lobby.png" alt="">
-  <p class="cap">Done early? A slideshow sells them on the company: 4.8★ from 301 Google reviews, real 5-star reviews, past trainees in their own words, and the "before training starts" checklist. It lets them in when the doors open.</p>
-</section>
-
-<section>
-  <div class="kick">Step 5 · In class: the trainer's tools</div>
-  <ul>
-    <li><b>📊 Present</b>: Week A Day 1 on everyone's screen, sharp, trainer as a circle. Arrows move everyone together. No Keynote.</li>
-    <li><b>⏺ Record</b>: mutes everyone else, everyone to speaker view, recording goes to the room's recordings page.</li>
-    <li><b>🎙 Podcast mode</b>: put a guest and yourself "on stage"; everyone sees only you two.</li>
-    <li><b>Host controls</b>: mute / unmute one or everyone, remove someone, see cameras.</li>
-    <li><b>🎭 Practice</b>: the AI homeowner joins as a tile and talks with the trainee you pick.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="kick">Be on time</div>
-  <h2>The doors close 2 minutes in</h2>
-  <div class="two"><img class="shot" src="late1.png" alt=""><img class="shot" src="late.png" alt=""></div>
-  <p class="cap">2 minutes after the start time (or after the trainer arrives, if the trainer is late). Week A Day 1: "call Brent to reschedule". Any other day: the being-on-time message. Anyone already in can always rejoin.</p>
-</section>
-
-<section>
-  <div class="kick">Miss a day</div>
-  <img class="shot" src="removed.png" alt="">
-  <p class="cap">Missed the last class day = the link stops working. "Force into Week B" is the override.</p>
-</section>
-
-<section>
-  <div class="kick">Step 6 · Field days</div>
-  <h2>Day 2: into the field</h2>
-  <ul>
-    <li>Signing in on <b>Day 2</b> makes them a field trainee, so their <b>regional manager sees them</b>.</li>
-    <li><b>William's picker</b> shows each trainee's <b>name, home city</b> and phone from Day 2. He plans rides around Florida, not the training center.</li>
-    <li>Thu, Fri, Sat: they knock doors on DoorDispatcher.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="kick">Step 7 · Show the effort</div>
-  <img class="shot" src="effort.png" alt="">
-  <p class="cap">Week B needs an average of 30 doors a day over Week A Thu–Sat. Days with William don't count against them.</p>
-</section>
-
-<section>
-  <div class="kick">The second chance</div>
-  <h2>Click it. Then prove it.</h2>
-  <ul>
-    <li>They click <span class="tag">🔥 I still want Week B and I'll prove it</span>, and we see <b>Committed</b> (with the time). No click = they're gone.</li>
-    <li>Average <b>30 doors a day, Monday–Friday</b>.</li>
-    <li>Saturday morning the system <b>enrolls them in next week's Week B</b> and texts + emails their link.</li>
-    <li>Their manager is still there to help all week.</li>
-  </ul>
-  <div class="quote">We can fix results. We can't fix effort.</div>
-</section>
-
-<section>
-  <div class="kick">Fast movers</div>
-  <h2>Graduated early</h2>
-  <ul>
-    <li><b>🎓 Week A early</b>: into the field for the rest of Week A, still in for Week B.</li>
-    <li><b>🎓 Week B early</b>: a junior rep on their team, now.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="kick">The office side</div>
-  <h2>Team → Meeting rooms</h2>
-  <ul>
-    <li>Create rooms: team, company, training (Week A / Week B), devotional. Each day its own time.</li>
-    <li><b>People &amp; links</b> from the TMS roster, with each trainee's door average and commitment.</li>
-    <li><b>Send everyone their link</b> with your own message (text + email).</li>
-    <li><b>Attendance</b>, <b>Recordings</b> (download, share, delete), guest email list for the devotional.</li>
-  </ul>
-</section>
-
-<section>
-  <div class="kick">Next</div>
-  <h2>Still to finish</h2>
-  <ul>
-    <li>Week A Tuesday and Thursday times · create the Week B room.</li>
-    <li>Turn on the effort rule for Week B when we're ready.</li>
-    <li>Lobby: the manufacturing slide, our numbers, photos and video.</li>
-    <li>Rebuild Days 2–4 and add them to 📊 Present.</li>
-  </ul>
-  <div class="logo" style="margin-top:1em"><img src="/uss-logo.png" alt="" style="height:70px;display:block;margin:0"></div>
+  <div class="logo"><img src="/uss-logo.png" alt="" style="height:90px;display:block;margin:0"></div>
+  <h1 style="font-size:2.6rem">We can fix results.<br>We can't fix effort.</h1>
 </section>
 
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
-<script>Reveal.initialize({ hash: true, transition: 'slide', backgroundTransition: 'fade', controls: true, progress: true, slideNumber: 'c/t', width: 1280, height: 720, margin: 0.04 });</script>
+<script>Reveal.initialize({ hash: true, transition: 'fade', backgroundTransition: 'fade', controls: true, progress: true, slideNumber: 'c/t', width: 1280, height: 720, margin: 0, preloadIframes: true });</script>
 </body>
 </html>
