@@ -3,6 +3,8 @@
 // ROOMS live in app_settings 'meet_rooms' (set up on the admin page /meeting-rooms):
 //   { slug, title, kind:'zone'|'managers'|'prayer'|'everyone'|'custom', zone?, schedule?,
 //     topic?, cameras_required, hosts:[names] }
+// 'company' (Neal, 2026-10-04) = every active sales rep + every manager + the trainees in a
+// class running now (enrolled, not dropped or declined).
 // A zone room shows that team's badge and name (HURRICANE…). The TOPIC line ("Today: John 3:16")
 // shows at the top of everyone's screen and the host can change it live.
 //
@@ -90,6 +92,15 @@ export const handler = async (event) => {
     const { data } = await sb.from('trainees').select('id, first_name, last_name, managed_region, region').eq('registration_token', String(t).trim()).maybeSingle()
     return data || null
   }
+  // Trainees in a class running now (or starting within 3 days), still enrolled.
+  const traineeIdsNow = async () => {
+    const today = etDay(), soon = etDay(Date.now() + 3 * 864e5)
+    const { data } = await sb.from('classes').select('id, attendance_only, cancelled_at, trainees!class_id(id, enrolled, dropped_out_at, declined_at)')
+      .lte('week_start_date', soon).gte('week_end_date', today)
+    const ids = new Set()
+    for (const c of data || []) if (!c.cancelled_at) for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) ids.add(t.id)
+    return ids
+  }
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
   const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
@@ -104,7 +115,7 @@ export const handler = async (event) => {
     const mine = (await loadRooms()).filter((r) =>
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
-      ((r.kind === 'everyone' || r.kind === 'prayer') && (active || t.managed_region)))
+      ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
     return json(200, {
       ok: true,
       rooms: mine.map((r) => {
@@ -126,7 +137,7 @@ export const handler = async (event) => {
       const slug = slugify(r.slug || r.title)
       if (!slug || !String(r.title || '').trim()) return json(400, { ok: false, error: 'The room needs a name.' })
       if (slug === 'trial') return json(400, { ok: false, error: 'Pick another name.' })
-      const kind = ['zone', 'managers', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
+      const kind = ['zone', 'managers', 'company', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
@@ -154,9 +165,12 @@ export const handler = async (event) => {
     if (b.action === 'audience' || b.action === 'send_links') {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
       let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
-      q = room.kind === 'managers' ? q.not('managed_region', 'is', null) : q.or('is_active_sales_rep.eq.true,managed_region.not.is.null')
+      const nowIds = room.kind === 'company' ? await traineeIdsNow() : new Set()
+      if (room.kind === 'managers') q = q.not('managed_region', 'is', null)
+      else if (room.kind === 'company' && nowIds.size) q = q.or(`is_active_sales_rep.eq.true,managed_region.not.is.null,id.in.(${[...nowIds].join(',')})`)
+      else q = q.or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const { data } = await q
-      let people = (data || []).filter((p) => p.registration_token && p.rep_level !== 'non_field')
+      let people = (data || []).filter((p) => p.registration_token && (p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
       if (room.kind === 'custom') people = []
       const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p) }))
