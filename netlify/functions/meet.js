@@ -387,7 +387,7 @@ export const handler = async (event) => {
       const { REC_S3_ACCESS_KEY: ak, REC_S3_SECRET: sk, REC_S3_REGION: region } = process.env
       if (ak && sk) {
         const day = etDay(), stamp = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit' }).replace(':', '')
-        const out = (name) => new EncodedFileOutput({ filepath: `${room.slug}/${day}-${stamp}-${name}.mp4`, output: { case: 's3', value: new S3Upload({ accessKey: ak.trim(), secret: sk.trim(), region: (region || 'us-east-1').trim(), endpoint: `${process.env.SUPABASE_URL}/storage/v1/s3`, bucket: 'meeting-recordings', forcePathStyle: true }) } })
+        const out = (name) => new EncodedFileOutput({ filepath: `${room.slug}/${day}-${stamp}-${name}.mp4`, output: { case: 's3', value: new S3Upload({ accessKey: ak.trim(), secret: sk.trim(), region: (region || 'us-east-1').trim(), endpoint: process.env.REC_S3_ENDPOINT || `${String(process.env.SUPABASE_URL).replace('.supabase.co', '.storage.supabase.co')}/storage/v1/s3`, bucket: 'meeting-recordings', forcePathStyle: true }) } })
         const kind = room.rec_kind || 'combined', ids = [], log = (await getSetting(`meet_recordings_${room.slug}`, [])) || []
         try {
           // Combined: the meeting as viewers see it (speaker layout). Raw: the host's own camera +
