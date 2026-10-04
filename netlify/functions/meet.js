@@ -303,7 +303,7 @@ export const handler = async (event) => {
         effort_gate: !!r.effort_gate,
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
-        invitees: kind === 'oneoff' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
+        invitees: kind === 'oneoff' || kind === 'custom' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
           ? { id: String(x.id) }
           : { key: String(x?.key || crypto.randomBytes(6).toString('base64url')), name: String(x?.name || '').trim().slice(0, 60), phone: String(x?.phone || '').trim().slice(0, 20), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => x.id || x.name) : [], // Week B: needs an average of 30 doors/day on Week A Thu–Sat
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
@@ -363,24 +363,26 @@ export const handler = async (event) => {
     if (b.action === 'audience' || b.action === 'send_links') {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
       let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
-      const invIds = room.kind === 'oneoff' ? (room.invitees || []).filter((x) => x.id).map((x) => x.id) : []
-      if (room.kind === 'oneoff') q = invIds.length ? q.in('id', invIds) : q.eq('id', '00000000-0000-0000-0000-000000000000')
+      // A Custom room has an invite list too (Neal, 2026-10-04: the 8 AM meeting with DeWayne).
+      const invited = room.kind === 'oneoff' || room.kind === 'custom'
+      const invIds = invited ? (room.invitees || []).filter((x) => x.id).map((x) => x.id) : []
+      if (invited) q = invIds.length ? q.in('id', invIds) : q.eq('id', '00000000-0000-0000-0000-000000000000')
       const nowIds = room.kind === 'company' ? await traineeIdsNow() : room.kind === 'training' ? await trainingIds(room.training_week || 'A') : new Set()
       if (room.kind === 'training') q = nowIds.size ? q.in('id', [...nowIds]) : q.eq('id', '00000000-0000-0000-0000-000000000000')
-      else if (room.kind === 'oneoff') { /* the invite list, set above */ }
+      else if (invited) { /* the invite list, set above */ }
       else if (room.kind === 'managers') q = q.not('managed_region', 'is', null)
       else if (room.kind === 'company' && nowIds.size) q = q.or(`is_active_sales_rep.eq.true,managed_region.not.is.null,id.in.(${[...nowIds].join(',')})`)
       else q = q.or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const { data } = await q
-      let people = (data || []).filter((p) => p.registration_token && (room.kind === 'oneoff' || p.rep_level !== 'non_field' || nowIds.has(p.id)))
+      let people = (data || []).filter((p) => p.registration_token && (invited || p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
-      if (room.kind === 'custom') people = []
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
       const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
+      // People outside TMS on the invite list, each with their own key.
+      if (invited) for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
       if (room.kind === 'oneoff') {
-        // People outside TMS on the invite list, each with their own key; and everyone's RSVP.
-        for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
+        // Everyone's RSVP.
         const { data: rs } = await sb.from('app_settings').select('key, value').like('key', `meet_rsvp_${room.slug}_%`)
         const rsvp = Object.fromEntries((rs || []).map((x) => { try { return [x.key.slice(`meet_rsvp_${room.slug}_`.length), JSON.parse(x.value)] } catch { return [x.key, null] } }))
         for (const r of rows) r.rsvp = rsvp[r.id] || null
@@ -577,7 +579,7 @@ export const handler = async (event) => {
       const now = new Date().toISOString()
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
-    } else if (room.kind === 'oneoff' && b.g && outsiderOf(b.g)) {
+    } else if ((room.kind === 'oneoff' || room.kind === 'custom') && b.g && outsiderOf(b.g)) {
       const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`
     } else {
       const t = await traineeByToken(b.t)

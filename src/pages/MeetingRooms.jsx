@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
+const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
@@ -77,7 +77,11 @@ export default function MeetingRooms() {
   // SEND LINKS with your own message (Neal, 2026-10-04 — the virtual Week A notice). {first} and
   // {link} are filled in for each person; every message goes by text AND email.
   const [compose, setCompose] = useState(null) // { slug, title, subject, message }
-  const sendLinks = (r) => setCompose(r.kind === 'oneoff'
+  // Custom rooms (a private standing meeting) invite with the schedule + how to bookmark the link.
+  const BOOKMARK = 'Save it so it is one tap away:\n• iPhone: open the link in Safari, tap Share, then "Add to Home Screen".\n• Android: open it in Chrome, tap ⋮, then "Add to Home screen".\n• Computer: press Ctrl+D (⌘+D on a Mac) to bookmark it.'
+  const sendLinks = (r) => setCompose(r.kind === 'custom'
+    ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title}${r.schedule ? `, ${r.schedule}` : ''} (Eastern).\n\nThis is your own link. Use it every time: {link}\n\n${BOOKMARK}` }
+    : r.kind === 'oneoff'
     ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title} on {when} (Eastern). Please confirm you'll be there: {link}` }
     : { slug: r.slug, title: r.title, subject: `Your link: ${r.title}`, message: `Hi {first}, here is your link for ${r.title}. It's yours only, so use it every time: {link}` })
   const sendNow = async () => {
@@ -123,7 +127,11 @@ export default function MeetingRooms() {
                   <label className="font-semibold">for <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" /> min</label>
                   <span className="text-xs text-slate-500">Eastern time</span>
                 </div>
-                <div className="mt-3 font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
+              </div>
+            )}
+            {(form.kind === 'oneoff' || form.kind === 'custom') && (
+              <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
+                <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
                 <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
                   {!people ? <div className="p-2 text-slate-500">Loading…</div> : people.filter((x) => !pq || `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => {
@@ -285,8 +293,8 @@ export default function MeetingRooms() {
             <div className="mt-3 flex flex-wrap gap-2 text-sm">
               {/* A public room (the devotional) is for people OUTSIDE the company: its people are the
                   ones who signed in with name + email, not the TMS roster (Neal, 2026-10-04). */}
-              {r.kind !== 'custom' && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
-              {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
+              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
+              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' || r.kind === 'custom' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
               {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
               {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
