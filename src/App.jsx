@@ -15,6 +15,7 @@ const Meet = lazy(() => import('./pages/Meet'))
 const MeetingRooms = lazy(() => import('./pages/MeetingRooms'))
 const MeetingLauncher = lazy(() => import('./pages/MeetingLauncher'))
 const RecordingsPage = lazy(() => import('./pages/RecordingsPage'))
+const Recorder = lazy(() => import('./pages/Recorder'))
 import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
@@ -77,6 +78,7 @@ export default function App() {
 
         {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
         <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
+        <Route path="/recorder/:room" element={<Suspense fallback={null}><Recorder /></Suspense>} />
         <Route path="/recordings/:room" element={<Suspense fallback={null}><RecordingsPage /></Suspense>} />
         <Route path="/meetings" element={<Suspense fallback={null}><MeetingLauncher /></Suspense>} />
         <Route path="/meet/:room" element={<Suspense fallback={null}><Meet /></Suspense>} />

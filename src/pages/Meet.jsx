@@ -21,6 +21,8 @@ import {
 import { Track } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
+import ScripturePanel from '../components/ScripturePanel.jsx'
+import { ScriptureSlide } from '../components/Scripture.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -120,6 +122,7 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
 function Stage({ room, auth, isHost }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
+  const [scripturePanel, setScripturePanel] = useState(false)
   const [practice, setPractice] = useState(false) // 🎭 AI homeowner practice (trainer PIN only)
   const [circle, setCircle] = useState(true) // presenter circle — the sharer's choice, on by default
   const [lastSpeaker, setLastSpeaker] = useState(null)
@@ -170,6 +173,11 @@ function Stage({ room, auth, isHost }) {
   const circleOn = share ? (share.participant.isLocal ? circle : share.participant.attributes?.circle !== 'off') : false
   const showCircle = !!(focus && focus === share && sharerCam && circleOn && metaOf(share.participant).host)
 
+  // 📖 Scripture on screen: a full-screen slide for everyone, the sharing host as a circle.
+  const sc = rmeta.scripture && rmeta.scripture.showing ? rmeta.scripture : null
+  const scCam = sc ? cams.find((t) => t.participant.identity === sc.by && isTrackReference(t) && !t.publication?.isMuted) : null
+  const setScripture = async (next) => { await call({ action: 'set_scripture', room: room.slug, scripture: next, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
+  const scriptureRoom = room.kind === 'prayer' || room.look === 'devotional'
   const btn = (on) => ({ padding: '6px 12px', borderRadius: 8, border: '1px solid #475569', background: on ? '#2563eb' : '#1f2937', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' })
   return (
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
@@ -180,6 +188,7 @@ function Stage({ room, auth, isHost }) {
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <span style={{ flex: 1 }} />
+          {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
           {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
           {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {isHost && auth.pin && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
@@ -187,7 +196,9 @@ function Stage({ room, auth, isHost }) {
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-            {!focus ? (
+            {sc ? (
+              <ScriptureSlide sc={sc} look={lookOf(room)} camTrack={scCam} />
+            ) : !focus ? (
               <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
             ) : (
               <FocusLayoutContainer style={{ height: '100%' }}>
@@ -202,6 +213,7 @@ function Stage({ room, auth, isHost }) {
                 </div>
               </FocusLayoutContainer>
             )}
+            {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
           </div>

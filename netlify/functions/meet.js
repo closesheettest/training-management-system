@@ -383,6 +383,16 @@ export const handler = async (event) => {
   if (!hostOk) { const t = await traineeByToken(b.t); hostOk = !!(t && isRoomHost(room, t)) }
   if (!hostOk) return json(401, { ok: false, error: 'Only the host can do that.' })
   try {
+    // 📖 Scripture on screen: { ref, version, verses:[{n,text}], idx, mode, showing, by } or null.
+    if (b.action === 'set_scripture') {
+      const sc = b.scripture && Array.isArray(b.scripture.verses) ? {
+        ref: String(b.scripture.ref || '').slice(0, 80), version: String(b.scripture.version || 'NIV').slice(0, 8),
+        verses: b.scripture.verses.slice(0, 180).map((x) => ({ n: Number.isFinite(Number(x.n)) && x.n !== null ? Number(x.n) : null, text: String(x.text || '').slice(0, 900) })),
+        idx: Math.max(0, Number(b.scripture.idx) || 0), mode: b.scripture.mode === 'all' ? 'all' : 'verse', showing: !!b.scripture.showing, by: String(b.identity || '').slice(0, 80),
+      } : null
+      await setMeta({ scripture: sc })
+      return json(200, { ok: true })
+    }
     if (b.action === 'set_topic') {
       const topic = String(b.topic || '').slice(0, 200)
       if (room.slug !== 'trial') { const rooms = await loadRooms(); const r = rooms.find((x) => x.slug === room.slug); if (r) { r.topic = topic; await putSetting('meet_rooms', rooms) } }
@@ -421,7 +431,7 @@ export const handler = async (event) => {
         try {
           // Combined: the meeting as viewers see it (speaker layout). Raw: the host's own camera +
           // mic as a clean file for editing.
-          if (kind !== 'raw') { const i = await egress.startRoomCompositeEgress(room.slug, out('meeting'), { layout: 'speaker' }); ids.push(i.egressId); log.unshift({ egress_id: i.egressId, kind: 'combined', file: `${room.slug}/${day}-${stamp}-meeting.mp4`, started: new Date().toISOString() }) }
+          if (kind !== 'raw') { const i = await egress.startRoomCompositeEgress(room.slug, out('meeting'), { layout: 'speaker', customBaseUrl: `${SITE}/recorder/${room.slug}` }); ids.push(i.egressId); log.unshift({ egress_id: i.egressId, kind: 'combined', file: `${room.slug}/${day}-${stamp}-meeting.mp4`, started: new Date().toISOString() }) }
           if (kind !== 'combined' && b.identity) { const i = await egress.startParticipantEgress(room.slug, String(b.identity), { file: out('host-camera') }); ids.push(i.egressId); log.unshift({ egress_id: i.egressId, kind: 'raw', file: `${room.slug}/${day}-${stamp}-host-camera.mp4`, started: new Date().toISOString() }) }
           await putSetting(activeKey, { egress_ids: ids, started: new Date().toISOString() })
           await putSetting(`meet_recordings_${room.slug}`, log.slice(0, 300))
