@@ -37,8 +37,8 @@ export default function CompanyLobby({ title, nextAt, first, onCheck }) {
   useEffect(() => { fetch('/.netlify/functions/company-reviews').then((r) => r.json()).then((rev) => setDeck(buildDeck(SLIDES, rev))).catch(() => {}) }, [])
   const [i, setI] = useState(0)
   const [now, setNow] = useState(Date.now())
-  // Quotes need longer on screen than a one-line fact.
-  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(45000, 5000 + s0.quote.length * 75) : 7000 // ~slow reading pace, so the long ones get time; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
+  // Quotes need longer on screen than a one-line fact — at a slow reading pace, up to 45s.
+  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(45000, 5000 + s0.quote.length * 75) : 7000; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   // Let them in as soon as the room opens (15 min before start) — ask every 30 seconds.
   useEffect(() => { const t = setInterval(() => onCheck?.(), 30000); return () => clearInterval(t) }, [onCheck])
