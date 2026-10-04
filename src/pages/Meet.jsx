@@ -444,19 +444,29 @@ export default function Meet() {
       <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 15%, #3a2a06 0%, #0b0b0f 70%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap" />
         <div style={{ maxWidth: 580, width: '100%', textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(28px, 6vw, 42px)', fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: '#fbbf24', lineHeight: 1.08 }}>You didn't show the effort to qualify for Week B</div>
-          <div style={{ marginTop: 18, padding: '18px 20px', borderRadius: 14, background: 'rgba(120,53,15,.35)', border: '2px solid #d97706', fontSize: 18, lineHeight: 1.55 }}>
-            Week B takes an average of <b>{effort.needed} doors a day</b> on DoorDispatcher during Week A's field days.
-            <div style={{ marginTop: 10, fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, color: '#fca5a5' }}>You averaged {effort.average}</div>
-          </div>
-          {!effort.committed ? (<>
-            <div style={{ marginTop: 22, fontSize: 20, fontWeight: 900, color: '#fff' }}>Still want it? Click below to tell us you're going to prove it.</div>
+          {/* THE DECISION (Neal, 2026-10-04: Santiago opened it and did nothing — "make it super
+              clear"). One question, two answers; the why sits underneath. */}
+          {!effort.committed && !effort.declined ? (<>
+            {lastBody?.first && <div style={{ fontSize: 18, fontWeight: 800, color: '#fde68a' }}>{String(lastBody.first).split(' ')[0]}, we need an answer from you</div>}
+            <div style={{ marginTop: 6, fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(34px, 8vw, 52px)', fontWeight: 700, textTransform: 'uppercase', color: '#fff', lineHeight: 1.05 }}>Do you still want Week B?</div>
+            <div style={{ marginTop: 8, fontSize: 16, color: '#d1d5db' }}>Tap one. Not answering counts as a no.</div>
             <button onClick={async () => { const j = await call({ action: 'effort_commit', room: slug, ...(lastBody || {}) }).catch(() => ({})); if (j.ok || effort.preview) setEffort({ ...effort, committed: true }) }}
-              style={{ marginTop: 12, width: '100%', padding: '18px 16px', borderRadius: 14, border: 'none', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 30px rgba(22,163,74,.35)' }}>
-              🔥 CLICK HERE if you still want Week B<br /><span style={{ fontSize: '.85em', fontWeight: 800 }}>and you're going to prove it this week</span>
+              style={{ marginTop: 18, width: '100%', padding: '22px 16px', borderRadius: 16, border: '3px solid #86efac', background: 'linear-gradient(90deg,#16a34a,#15803d)', color: '#fff', fontSize: 'clamp(22px, 3.4vw, 28px)', fontWeight: 900, cursor: 'pointer', boxShadow: '0 12px 34px rgba(22,163,74,.45)' }}>
+              🔥 YES, I want it<br /><span style={{ fontSize: '.72em', fontWeight: 800 }}>and I'll prove it this week</span>
             </button>
-            <div style={{ marginTop: 10, fontSize: 14, color: '#9ca3af' }}>If you don't click, we'll know you've decided training isn't for you.</div>
-          </>) : (<>
+            <button onClick={async () => { if (!window.confirm("Are you sure? This tells us training isn't for you.")) return; const j = await call({ action: 'effort_decline', room: slug, ...(lastBody || {}) }).catch(() => ({})); if (j.ok || effort.preview) setEffort({ ...effort, declined: true }) }}
+              style={{ marginTop: 12, width: '100%', padding: '14px 16px', borderRadius: 14, border: '2px solid #4b5563', background: 'transparent', color: '#d1d5db', fontSize: 17, fontWeight: 800, cursor: 'pointer' }}>
+              No, training isn't for me
+            </button>
+            <div style={{ marginTop: 22, padding: '14px 18px', borderRadius: 14, background: 'rgba(120,53,15,.3)', border: '1px solid #b45309', fontSize: 16, lineHeight: 1.5, color: '#fde68a', textAlign: 'left' }}>
+              <b>Why you're being asked:</b> Week B takes an average of <b>{effort.needed} doors a day</b> on DoorDispatcher during Week A's field days. <b>You averaged {effort.average}.</b> Tap YES and you get this week to show it: {effort.needed} a day, Monday through Friday, and you're automatically enrolled.
+            </div>
+          </>) : effort.declined ? (
+            <div style={{ padding: '22px 20px', borderRadius: 14, background: 'rgba(31,41,55,.7)', border: '2px solid #4b5563', fontSize: 18, lineHeight: 1.55 }}>
+              <div style={{ fontWeight: 900, fontSize: 22, marginBottom: 6 }}>Thanks for letting us know.</div>
+              We wish you the best. If you change your mind, talk to your manager.
+            </div>
+          ) : (<>
             <div style={{ marginTop: 16, padding: '18px 20px', borderRadius: 14, background: 'rgba(20,83,45,.4)', border: '2px solid #16a34a', fontSize: 18, lineHeight: 1.55 }}>
               <div style={{ fontWeight: 900, fontSize: 22, color: '#86efac', marginBottom: 6 }}>🔥 You're in. Now prove it.</div>
               Average <b>{effort.needed} doors a day, Monday through Friday</b>, and you'll be <b>automatically enrolled</b> in next week's Week B.

@@ -216,7 +216,7 @@ export const handler = async (event) => {
       let soFar = null
       if (pr?.committed_at && !pr.result) { const days = [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()); if (days.length) soFar = (await doorsFor(t, days)).average }
       people.push({ name: fullName(t), missed_last_day: missed, override: !!t.week_b_force, week_a_avg: e.average, week_a_perDay: e.perDay, william_days: e.rideDays, map: e.linked,
-        qualified: !missed && (t.week_b_force || e.average === null || e.average >= EFFORT_DOORS), link_sent: sentAt[t.id] || null, opened: pr?.seen_at || null, committed: pr?.committed_at || null, so_far: soFar, result: pr?.result || null })
+        qualified: !missed && (t.week_b_force || e.average === null || e.average >= EFFORT_DOORS), link_sent: sentAt[t.id] || null, opened: pr?.seen_at || null, committed: pr?.committed_at || null, declined: pr?.declined_at || null, so_far: soFar, result: pr?.result || null })
     }
     return json(200, { ok: true, last_class_day: lastDay, needed: EFFORT_DOORS, room: wkB ? { slug: wkB.slug, title: wkB.title, effort_gate: !!wkB.effort_gate } : null, people })
   }
@@ -491,6 +491,18 @@ export const handler = async (event) => {
   // 🔥 "I still want it, and I'll prove it" (Neal, 2026-10-04): the trainee turned away from Week B
   // commits to the second chance. Recorded with the time; the Saturday job only enrolls people who
   // committed (no click = they're gone).
+  // "No, training isn't for me" on the Week B decision screen (Neal, 2026-10-04: make the choice
+  // super clear — two answers, not one button and silence).
+  if (b.action === 'effort_decline') {
+    let t = String(b.t || '').trim() ? await traineeByToken(b.t) : null
+    if (!t && room.kind === 'training' && b.first) t = await findTrainee()
+    if (!t) return json(401, { ok: false, error: 'Open this from your own link.' })
+    const prob = (await getSetting('week_b_probation', {})) || {}
+    if (!prob[t.id]) return json(404, { ok: false, error: 'Nothing to answer.' })
+    if (!prob[t.id].committed_at) { prob[t.id].declined_at = prob[t.id].declined_at || new Date().toISOString(); await putSetting('week_b_probation', prob) }
+    return json(200, { ok: true, declined_at: prob[t.id].declined_at || null })
+  }
+
   if (b.action === 'effort_commit') {
     let t = String(b.t || '').trim() ? await traineeByToken(b.t) : null
     if (!t && room.kind === 'training' && b.first) t = await findTrainee()
@@ -603,7 +615,7 @@ export const handler = async (event) => {
                 const pr = prob[t.id]
                 if (!pr.seen_at || Date.now() - Date.parse(pr.last_seen || 0) > 600000) { pr.seen_at = pr.seen_at || new Date().toISOString(); pr.last_seen = new Date().toISOString(); await putSetting('week_b_probation', prob) }
                 const sofar = await doorsFor(full, [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()))
-                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at })
+                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at, declined: !!pr.declined_at committed: !!pr.committed_at })committed: !!pr.committed_at }) !pr.committed_at })
               }
             }
           }
