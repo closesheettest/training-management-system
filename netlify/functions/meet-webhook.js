@@ -47,7 +47,7 @@ export const handler = async (event) => {
       for (const p of room.rec_to) {
         const first = (p.name || '').split(' ')[0]
         await sendEmail(p.email, `${room.title}: ${when} ${what} is ready`,
-          `${first ? `Hi ${first},\n\n` : ''}The ${room.title} ${what} from ${when} is ready to download${rec.minutes ? ` (${rec.minutes} min${rec.mb ? `, ${rec.mb} MB` : ''})` : ''}:\n\n${data?.signedUrl || '(link unavailable: ask Neal)'}\n\nThis link works for 7 days.`,
+          `${first ? `Hi ${first},\n\n` : ''}The ${room.title} ${what} from ${when} is ready to download${rec.minutes ? ` (${rec.minutes} min${rec.mb ? `, ${rec.mb} MB` : ''})` : ''}:\n\n${data?.signedUrl || '(link unavailable: ask Neal)'}\n\nThis link works for 7 days. Every recording is also on the recordings page: ${room.rec_key ? `https://trainingmanagementsys.netlify.app/recordings/${room.slug}?k=${room.rec_key}` : '(ask Neal for the link)'}`,
           { fromName: room.title }).catch(() => {})
       }
       rec.notified = new Date().toISOString()

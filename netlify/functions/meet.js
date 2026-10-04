@@ -38,6 +38,7 @@
 import { AccessToken, RoomServiceClient, TrackType, EgressClient, EncodedFileOutput, S3Upload } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
@@ -105,6 +106,14 @@ export const handler = async (event) => {
   try { b = JSON.parse(event.body || '{}') } catch { return json(400, { ok: false }) }
   const svc = () => new RoomServiceClient(url.replace(/^wss:/, 'https:'), key, secret)
 
+  // Recording storage check (no values shown): can the S3 keys see the recordings folder?
+  if (b.action === 'rec_check') {
+    try {
+      const c = new S3Client({ region: (process.env.REC_S3_REGION || '').trim(), endpoint: process.env.REC_S3_ENDPOINT || `${String(process.env.SUPABASE_URL).replace('.supabase.co', '.storage.supabase.co')}/storage/v1/s3`, forcePathStyle: true, credentials: { accessKeyId: (process.env.REC_S3_ACCESS_KEY || '').trim(), secretAccessKey: (process.env.REC_S3_SECRET || '').trim() } })
+      const r = await c.send(new ListObjectsV2Command({ Bucket: 'meeting-recordings', MaxKeys: 1 }))
+      return json(200, { ok: true, files: r.KeyCount ?? 0 })
+    } catch (e) { return json(200, { ok: false, error: e.name + ': ' + e.message }) }
+  }
   // Setup check (no values shown): do the key and secret actually pair up?
   if (b.action === 'check') {
     try { await svc().listRooms(); return json(200, { ok: true }) } catch (e) { return json(200, { ok: false, error: e.message }) }
@@ -140,6 +149,24 @@ export const handler = async (event) => {
     const nm = nextMeeting(r)
     const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
     return { live, open }
+  }
+
+  // RECORDINGS PAGE (/recordings/<room>?k=…): the room's recordings with download links, for the
+  // people the link is shared with (Neal, 2026-10-04: "devotional will have devotional
+  // recordings"). The key is the room's own rec_key, or an admin PIN.
+  if (b.action === 'rec_list') {
+    const r = (await loadRooms()).find((x) => x.slug === String(b.room || ''))
+    if (!r || !r.recording_enabled) return json(404, { ok: false, error: 'No recordings here.' })
+    const allowed = (r.rec_key && String(b.k || '') === r.rec_key) || !!(await verifyPin(b.pin))
+    if (!allowed) return json(401, { ok: false, error: 'This recordings link is not valid.' })
+    const log = (await getSetting(`meet_recordings_${r.slug}`, [])) || []
+    const out = []
+    for (const x of log.slice(0, 120)) {
+      let link = null
+      if (x.ready && !x.deleted) { const { data } = await sb.storage.from('meeting-recordings').createSignedUrl(x.file, 3600, { download: `${r.title} ${String(x.started).slice(0, 10)}${x.kind === 'raw' ? ' host camera' : ''}.mp4` }); link = data?.signedUrl || null }
+      out.push({ started: x.started, kind: x.kind, minutes: x.minutes || null, mb: x.mb || null, ready: !!x.ready, deleted: !!x.deleted, error: x.error || null, link })
+    }
+    return json(200, { ok: true, room: publicRoom(r), keep_days: r.rec_keep_days ?? 90, recordings: out })
   }
 
   // ROOM LIST for the "My meeting rooms" launcher (My Tools): names, looks, live / next only —
@@ -212,6 +239,8 @@ export const handler = async (event) => {
         rec_to: (Array.isArray(r.rec_to) ? r.rec_to : []).map((x) => ({ name: String(x?.name || '').trim().slice(0, 60), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email)).slice(0, 10),
         rec_kind: ['combined', 'raw', 'both'].includes(r.rec_kind) ? r.rec_kind : 'combined',
         rec_keep_days: [30, 60, 90, 0].includes(Number(r.rec_keep_days)) ? Number(r.rec_keep_days) : 90,
+        // The recordings page's private key (its link is shared with the editor, e.g. DeWayne's cousin).
+        rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
