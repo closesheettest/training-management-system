@@ -17,13 +17,11 @@ export default function ScripturePanel({ current, onSet, onClose }) {
     setErr(''); if (!ref.trim()) { setErr('Type the passage, e.g. Psalm 23:1-6'); return }
     setBusy(true)
     try {
+      // Pasted verses win if there are any; otherwise look it up (every translation now).
       let passage
-      if (v.auto) passage = await fetchPassage(ref, version)
-      else {
-        const verses = splitPasted(pasted)
-        if (!verses.length) throw new Error(`Paste the ${v.key} verses from your Bible app.`)
-        passage = { ref: ref.trim(), verses }
-      }
+      const verses = pasted.trim() ? splitPasted(pasted) : []
+      if (verses.length) passage = { ref: ref.trim(), verses }
+      else passage = await fetchPassage(ref, version)
       await onSet({ ...passage, version, idx: 0, mode, showing: true })
     } catch (e) { setErr(e.message) }
     setBusy(false)
@@ -57,7 +55,7 @@ export default function ScripturePanel({ current, onSet, onClose }) {
           <label>Passage<input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. Psalm 23:1-6" style={inp} /></label>
           <label>Translation<select value={version} onChange={(e) => setVersion(e.target.value)} style={inp}>{VERSIONS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}</select></label>
           {!v.auto && (
-            <label>Paste the {v.key} verses<textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={6} placeholder={`Copy the passage from your Bible app (YouVersion, Bible Gateway) and paste it here. Keep the verse numbers.`} style={inp} /></label>
+            <label><span style={{ fontSize: 12.5, color: '#94a3b8' }}>Fills in by itself. Only if it can't: paste the {v.key} verses here</span><textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={3} placeholder={`Copy the passage from your Bible app (YouVersion, Bible Gateway) and paste it here. Keep the verse numbers.`} style={inp} /></label>
           )}
           <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 13.5 }}>
             <label><input type="radio" checked={mode === 'verse'} onChange={() => setMode('verse')} /> One verse at a time</label>

@@ -10,7 +10,7 @@ import { VideoTrack } from '@livekit/components-react'
 
 export const VERSIONS = [
   { key: 'NIV', label: 'NIV', auto: false, credit: 'Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.™ Used by permission. All rights reserved worldwide.' },
-  { key: 'ESV', label: 'ESV', auto: false, credit: 'Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway. Used by permission. All rights reserved.' },
+  { key: 'ESV', label: 'ESV', auto: false, credit: 'Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. www.esv.org' },
   { key: 'NLT', label: 'NLT', auto: false, credit: 'Scripture quotations are taken from the Holy Bible, New Living Translation, copyright © 1996, 2004, 2015 by Tyndale House Foundation. Used by permission. All rights reserved.' },
   { key: 'NKJV', label: 'NKJV', auto: false, credit: 'Scripture taken from the New King James Version®. Copyright © 1982 by Thomas Nelson. Used by permission. All rights reserved.' },
   { key: 'KJV', label: 'KJV (fills in itself)', auto: 'kjv', credit: '' },
@@ -19,10 +19,15 @@ export const VERSIONS = [
 ]
 export const versionOf = (k) => VERSIONS.find((v) => v.key === k) || VERSIONS[0]
 
-// Free translations: look the passage up. → [{ n, text }] and the tidy reference.
+// Look the passage up. Copyrighted translations (NIV, ESV, NLT, NKJV) come from our server
+// (bible.js, licensed keys); if one isn't connected it says so and the host can paste instead.
 export async function fetchPassage(ref, version) {
   const v = versionOf(version)
-  if (!v.auto) throw new Error('Paste the verses for this translation.')
+  if (!v.auto) {
+    const j = await (await fetch(`/.netlify/functions/bible?ref=${encodeURIComponent(ref.trim())}&v=${v.key}`)).json().catch(() => ({ ok: false, error: 'Network error' }))
+    if (!j.ok) throw new Error(j.error || 'Could not look that up')
+    return { ref: j.ref, verses: j.verses }
+  }
   const r = await fetch(`https://bible-api.com/${encodeURIComponent(ref.trim())}?translation=${v.auto}`)
   const j = await r.json().catch(() => ({}))
   if (!r.ok || !j.verses?.length) throw new Error(j.error || "Couldn't find that passage. Try like: Psalm 23:1-6")
