@@ -5,7 +5,7 @@
 // device and put back on whenever the camera comes on.
 import { useEffect, useRef, useState } from 'react'
 import { Track } from 'livekit-client'
-import { BackgroundProcessor, supportsBackgroundProcessors } from '@livekit/track-processors'
+import { SmartBackground, smartBackgroundSupported } from '../lib/smartBackground.js'
 
 export const BACKGROUNDS = [
   { key: 'none', label: 'None' },
@@ -33,10 +33,10 @@ const shrink = (file) => new Promise((resolve, reject) => {
 })
 
 const modeFor = (key, custom) => {
-  if (key === 'blur') return { mode: 'background-blur', blurRadius: 12 }
-  if (key === 'custom' && custom) return { mode: 'virtual-background', imagePath: custom }
+  if (key === 'blur') return { mode: 'blur' }
+  if (key === 'custom' && custom) return { mode: 'image', imagePath: custom }
   const b = BACKGROUNDS.find((x) => x.key === key && x.img)
-  return b ? { mode: 'virtual-background', imagePath: b.img } : { mode: 'disabled' }
+  return b ? { mode: 'image', imagePath: b.img } : { mode: 'disabled' }
 }
 
 // Keeps the chosen background on the local camera. Mount once inside the LiveKit room.
@@ -46,13 +46,13 @@ export function useBackground(localParticipant) {
   const proc = useRef(null)
   const camTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track || null
   useEffect(() => {
-    if (!camTrack || !supportsBackgroundProcessors()) return
+    if (!camTrack || !smartBackgroundSupported()) return
     const opts = modeFor(choice, custom)
     ;(async () => {
       try {
         if (opts.mode === 'disabled') { if (camTrack.getProcessor()) await camTrack.stopProcessor(); proc.current = null; return }
-        if (proc.current && camTrack.getProcessor() === proc.current) { await proc.current.switchTo(opts); return }
-        proc.current = BackgroundProcessor(opts)
+        if (proc.current && camTrack.getProcessor() === proc.current) { await proc.current.setOptions(opts); return }
+        proc.current = new SmartBackground(opts)
         await camTrack.setProcessor(proc.current)
       } catch (e) { console.warn('background', e) }
     })()
@@ -66,7 +66,7 @@ export function useBackground(localParticipant) {
   }, [choice])
   const pick = (k) => { setChoice(k); write(KEY, k) }
   const upload = async (file) => { const url = await shrink(file); setCustom(url); write(CUSTOM, url); pick('custom') }
-  return { choice, custom, pick, upload, supported: supportsBackgroundProcessors(), camOn: !!camTrack && !camTrack.isMuted }
+  return { choice, custom, pick, upload, supported: smartBackgroundSupported(), camOn: !!camTrack && !camTrack.isMuted }
 }
 
 export function BackgroundPanel({ bg, onClose }) {
