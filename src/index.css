@@ -17,3 +17,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Meetings: with a background picture on, don't mirror your own camera so words read correctly. */
+.bg-unmirror [data-lk-facing-mode=user] .lk-participant-media-video[data-lk-local-participant=true][data-lk-source=camera] { transform: none !important; }

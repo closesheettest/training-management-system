@@ -57,6 +57,13 @@ export function useBackground(localParticipant) {
       } catch (e) { console.warn('background', e) }
     })()
   }, [camTrack, choice, custom])
+  // With a picture behind you, your own view stops mirroring so the logo reads the right way round
+  // (Neal, 2026-10-04: "the logo came out backwards"). Everyone else always sees it unmirrored.
+  useEffect(() => {
+    const on = choice !== 'none' && choice !== 'blur'
+    document.documentElement.classList.toggle('bg-unmirror', on)
+    return () => document.documentElement.classList.remove('bg-unmirror')
+  }, [choice])
   const pick = (k) => { setChoice(k); write(KEY, k) }
   const upload = async (file) => { const url = await shrink(file); setCustom(url); write(CUSTOM, url); pick('custom') }
   return { choice, custom, pick, upload, supported: supportsBackgroundProcessors(), camOn: !!camTrack && !camTrack.isMuted }
@@ -81,7 +88,7 @@ export function BackgroundPanel({ bg, onClose }) {
         </div>
         <button onClick={() => file.current?.click()} style={{ marginTop: 10, width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed #64748b', background: 'transparent', color: '#e5e7eb', fontWeight: 800, cursor: 'pointer' }}>＋ Use my own picture…</button>
         <input ref={file} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) bg.upload(f); e.target.value = '' }} />
-        <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 8 }}>Your own view is mirrored, so words on the background look backwards to you. Everyone else sees them the right way round.</div>
+        <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 8 }}>Tip: the edges around you look cleanest with even light on your face and a plain wall behind you.</div>
       </>)}
     </div>
   )
