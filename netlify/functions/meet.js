@@ -615,7 +615,7 @@ export const handler = async (event) => {
                 const pr = prob[t.id]
                 if (!pr.seen_at || Date.now() - Date.parse(pr.last_seen || 0) > 600000) { pr.seen_at = pr.seen_at || new Date().toISOString(); pr.last_seen = new Date().toISOString(); await putSetting('week_b_probation', prob) }
                 const sofar = await doorsFor(full, [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()))
-                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at, declined: !!pr.declined_at committed: !!pr.committed_at })committed: !!pr.committed_at }) !pr.committed_at })
+                return json(200, { ok: false, effort: true, average: eff.average, needed: EFFORT_DOORS, week_monday: pr.week_monday, so_far: sofar.average, so_far_days: Object.keys(sofar.perDay).length, linked: eff.linked, committed: !!pr.committed_at, declined: !!pr.declined_at && !pr.committed_at })
               }
             }
           }
