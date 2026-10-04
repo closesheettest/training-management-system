@@ -13,6 +13,7 @@ import { VideoTrack } from '@livekit/components-react'
 // here when it's ready (the Week B image deck works the same way: type 'images', base, count, start).
 export const DECKS = [
   { key: 'a1', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
+  { key: 'vf', label: 'Walkthrough: new virtual training flow', type: 'reveal', url: '/virtual-flow/' },
 ]
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
 const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
