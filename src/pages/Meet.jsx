@@ -16,9 +16,9 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import {
   LiveKitRoom, PreJoin, GridLayout, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
   ControlBar, Chat, RoomAudioRenderer, LayoutContextProvider, ConnectionStateToast, VideoTrack,
-  useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference,
+  useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
-import { Track } from 'livekit-client'
+import { Track, RoomEvent } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
@@ -82,7 +82,17 @@ function TitleBar({ room, auth, isHost }) {
 // Host-only panel: everyone in the room, with Mute and Remove, plus Mute everyone.
 function HostPanel({ room, auth, onClose, circle, setCircle }) {
   const people = useParticipants()
+  const ctx = useRoomContext()
   const [msg, setMsg] = useState('')
+  // UNMUTE (Neal, 2026-10-04): the host's page tells that person's device to turn its own mic
+  // back on (a server can't switch someone's mic on). Receivers only obey a host.
+  const unmute = async (identities, label) => {
+    setMsg('')
+    try {
+      await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', ...(identities ? { destinationIdentities: identities } : {}) })
+      setMsg(`${label} ✓`)
+    } catch { setMsg('Did not work') }
+  }
   const act = async (action, identity, label) => {
     setMsg('')
     const j = await call({ action, room: room.slug, identity, ...auth }).catch(() => ({}))
@@ -94,7 +104,10 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
         <b style={{ flex: 1 }}>👥 In the room ({people.length})</b>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button>
       </div>
-      <button onClick={() => act('mute_all', null, 'Everyone muted')} style={{ width: '100%', padding: '8px 10px', marginBottom: 8, borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🔇 Mute everyone</button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        <button onClick={() => act('mute_all', null, 'Everyone muted')} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🔇 Mute everyone</button>
+        <button onClick={() => unmute(null, 'Everyone unmuted')} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: '#15803d', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🎙 Unmute everyone</button>
+      </div>
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13.5 }}>
         <input type="checkbox" checked={circle} onChange={(e) => setCircle(e.target.checked)} /> Show my camera as a circle on my shared screen
       </label>
@@ -108,7 +121,9 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
               <span style={{ marginLeft: 6, fontSize: 12 }}>{p.isCameraEnabled ? '📷' : '🚫📷'}</span>
               <span style={{ marginLeft: 6, fontSize: 11.5, fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: p.isMicrophoneEnabled ? '#14532d' : '#7f1d1d', color: '#fff' }}>{p.isMicrophoneEnabled ? '🎙️ on' : '🔇 muted'}</span>
             </span>
-            {!me && <button onClick={() => act('mute', p.identity, `${p.name} muted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #4b5563', background: '#1f2937', color: '#fff', cursor: 'pointer' }}>Mute</button>}
+            {!me && (p.isMicrophoneEnabled
+              ? <button onClick={() => act('mute', p.identity, `${p.name} muted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #4b5563', background: '#1f2937', color: '#fff', cursor: 'pointer' }}>Mute</button>
+              : <button onClick={() => unmute([p.identity], `${p.name} unmuted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #15803d', background: '#14532d', color: '#fff', cursor: 'pointer' }}>Unmute</button>)}
             {!me && <button onClick={() => { if (window.confirm(`Remove ${p.name} from the meeting?`)) act('remove', p.identity, `${p.name} removed`) }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #7f1d1d', background: '#450a0a', color: '#fecaca', cursor: 'pointer' }}>Remove</button>}
           </div>
         )
@@ -141,6 +156,17 @@ function Stage({ room, auth, isHost }) {
     if (rmeta.recording && !prevRec.current) { setView('speaker'); setGalleryDuringShare(false); if (rmeta.spotlight) setLastSpeaker(rmeta.spotlight) }
     prevRec.current = !!rmeta.recording
   }, [rmeta.recording, rmeta.spotlight])
+  // A host asked us to unmute → turn our own mic on (only a host's request counts).
+  const roomCtx = useRoomContext()
+  useEffect(() => {
+    const onData = (payload, from, _k, topic) => {
+      if (topic !== 'host' || !from || !metaOf(from).host) return
+      let m = {}; try { m = JSON.parse(new TextDecoder().decode(payload)) } catch { return }
+      if (m.type === 'unmute') roomCtx.localParticipant.setMicrophoneEnabled(true).catch(() => {})
+    }
+    roomCtx.on(RoomEvent.DataReceived, onData)
+    return () => { roomCtx.off(RoomEvent.DataReceived, onData) }
+  }, [roomCtx])
   const [recBusy, setRecBusy] = useState(false)
   const [recNote, setRecNote] = useState('')
   const toggleRec = async () => {
