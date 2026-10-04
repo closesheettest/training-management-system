@@ -194,6 +194,8 @@ export default function Kiosk() {
     setWelcome({ first_name: t.first_name })
     setTimeout(() => setWelcome(null), 3500)
 
+    // DAY 2 = FIELD TRAINEE (Neal, 2026-10-04: was the 3rd day; William now plans rides to each
+    // trainee's home area from Day 2, so their manager has to see them from Day 2 too).
     // FIELD TRAINING STARTS NOW. Week A's classroom ends Wednesday; Thursday to
     // Saturday they work their zone from home, right through to Week B. Their
     // regional manager can't see them until they're flagged as a field trainee,
@@ -207,7 +209,7 @@ export default function Kiosk() {
       const dayIdx = Math.floor(
         (new Date(`${today}T12:00:00Z`) - new Date(`${cls.week_start_date}T12:00:00Z`)) / 86400000,
       )
-      if (dayIdx >= 2 && dayIdx <= 6 && t.is_field_trainee !== true && t.is_active_sales_rep !== true) {
+      if (dayIdx >= 1 && dayIdx <= 6 && t.is_field_trainee !== true && t.is_active_sales_rep !== true) {
         await supabase.from('trainees').update({ is_field_trainee: true }).eq('id', t.id)
         // A field trainee with no zone belongs to no manager, so they'd be flagged
         // and still invisible. Surface it here where a trainer can fix it, rather
