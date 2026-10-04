@@ -222,6 +222,7 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
     location_id: '',
     schedule_details: '',
     attendance_only: false,
+    virtual: true, // training is virtual now (Neal, 2026-10-04) — untick for an in-person week
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -282,6 +283,10 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
     if (err) {
       setError(err.message)
       return
+    }
+    if (form.virtual && !form.attendance_only) {
+      await fetch('/.netlify/functions/set-class-virtual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ class_id: data.id, virtual: true }) }).catch(() => {})
+      VIRTUAL = new Set([...VIRTUAL, data.id])
     }
     onSaved(data)
   }
@@ -391,6 +396,26 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
           />
         </label>
       </div>
+
+      {!form.attendance_only && (
+        <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3">
+          <label className="flex items-start gap-2 text-sm font-semibold text-indigo-900">
+            <input
+              type="checkbox"
+              checked={!!form.virtual}
+              onChange={(e) => update('virtual', e.target.checked)}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              🎥 Virtual (online)
+              <span className="mt-1 block text-xs font-normal text-indigo-800">
+                Trainees join the training room from their own link. No address or hotels.
+                Untick only for an in-person week at the training center.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
 
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
         <label className="flex items-start gap-2 text-sm font-semibold text-amber-900">
