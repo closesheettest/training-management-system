@@ -130,7 +130,7 @@ export const handler = async (event) => {
   const findRoom = async (slug) => { const s = String(slug || '').toLowerCase(); if (s === 'trial') return TRIAL; return (await loadRooms()).find((r) => r.slug === s) || null }
   const traineeByToken = async (t) => {
     if (!String(t || '').trim()) return null
-    const { data } = await sb.from('trainees').select('id, first_name, last_name, managed_region, region').eq('registration_token', String(t).trim()).maybeSingle()
+    const { data } = await sb.from('trainees').select('id, first_name, last_name, managed_region, region, class_id').eq('registration_token', String(t).trim()).maybeSingle()
     return data || null
   }
   // Trainees in a class running now (or starting within 3 days), still enrolled.
@@ -359,8 +359,35 @@ export const handler = async (event) => {
   const room = await findRoom(b.room)
   if (!room) return json(404, { ok: false, error: 'That meeting room does not exist.' })
 
+  // VIRTUAL TRAINING SIGN-IN (Neal, 2026-10-04 — Week A goes virtual): a trainee without a link
+  // types first + last name + email. We find them in this room's class (email first, then name),
+  // then carry on exactly like their own link (attendance + onboarding gate below).
+  const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z]/g, '')
+  const findTrainee = async () => {
+    const ids = [...(await trainingIds(room.training_week || 'A'))]
+    if (!ids.length) return null
+    const { data } = await sb.from('trainees').select('id, first_name, last_name, email, registration_token').in('id', ids)
+    const email = String(b.email || '').trim().toLowerCase(), first = norm(b.first), last = norm(b.last)
+    return (data || []).find((t) => email && String(t.email || '').trim().toLowerCase() === email)
+      || (data || []).find((t) => first && last && norm(t.first_name) === first && norm(t.last_name) === last)
+      || (data || []).find((t) => last && norm(t.last_name) === last && first && norm(t.first_name).startsWith(first.slice(0, 3)))
+      || null
+  }
+  if ((b.action === 'checkin' || b.action === 'onboarding_resend') && room.kind === 'training') {
+    if (!String(b.first || '').trim() || !String(b.last || '').trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email || '').trim())) return json(400, { ok: false, error: 'Please enter your first name, last name and email.' })
+    const t = await findTrainee()
+    if (!t) return json(200, { ok: false, error: "We couldn't find you on this week's class list. Use the name and email you registered with, or text your trainer." })
+    if (!t.email) await sb.from('trainees').update({ email: String(b.email).trim().toLowerCase() }).eq('id', t.id)
+    if (b.action === 'onboarding_resend') {
+      await sb.from('trainees').update({ onboarding_sms_sent_at: null }).eq('id', t.id)
+      const r = await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).then((x) => x.json()).catch(() => ({}))
+      return json(200, { ok: !!r.ok, sent: !!r.sent, error: r.ok ? null : (r.error || 'Could not send') })
+    }
+    b.action = 'join'; b.t = t.registration_token; b.pin = undefined
+  }
+
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
-  if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), ...(await openState(room)) }, host_code: !!room.host_code })
+  if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
     let name = null, identity = null, host = false
@@ -382,11 +409,27 @@ export const handler = async (event) => {
       name = gName; identity = `g:${h}:${seat()}`
     } else {
       const t = await traineeByToken(b.t)
-      if (t) { name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t) }
+      if (t) {
+        name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t)
+        // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
+        // until their onboarding paperwork is signed — it's sent to them right here (text + email).
+        if (room.kind === 'training' && !host) {
+          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at').eq('trainee_id', t.id).maybeSingle()
+          if (!ob?.signed_at) {
+            await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
+            return json(200, { ok: false, onboarding: true, first: t.first_name || '' })
+          }
+        }
+      }
     }
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     if (!host) { const st = await openState(room); if (!st.open) return json(200, { ok: false, not_open: true, room: publicRoom(room) }) }
+    // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
+    if (room.kind === 'training' && !host && identity.startsWith('t:')) {
+      const { data: tr } = await sb.from('trainees').select('class_id').eq('id', identity.slice(2)).maybeSingle()
+      if (tr?.class_id) await sb.from('attendance').upsert({ trainee_id: identity.slice(2), class_id: tr.class_id, attendance_date: etDay(), confirmed: true, confirmed_at: new Date().toISOString() }, { onConflict: 'trainee_id,attendance_date' })
+    }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
     at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host })
     // Open the room with its top line already set, so the first person in sees it.

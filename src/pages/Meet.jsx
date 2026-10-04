@@ -298,16 +298,26 @@ export default function Meet() {
   const [busy, setBusy] = useState(false)
   const [choices, setChoices] = useState(null)
   const [notOpen, setNotOpen] = useState(null) // { next_at } — no meeting on right now
+  const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
+  const [gate, setGate] = useState(null) // { first } — onboarding paperwork not signed yet
+  const [resent, setResent] = useState('')
   const [lastBody, setLastBody] = useState(null)
 
+  // Waiting on onboarding: look again every 20 seconds and let them in as soon as it's signed.
+  useEffect(() => {
+    if (!gate || !lastBody) return
+    const iv = setInterval(() => { call({ action: 'join', room: slug, ...lastBody }).then((j) => { if (j.ok) { setJoin(j); setGate(null) } }).catch(() => {}) }, 20000)
+    return () => clearInterval(iv)
+  }, [gate, lastBody]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${join?.room?.title || door?.title || 'Meeting'} · Meeting` }, [join, door])
   useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
 
   const doJoin = async (body) => {
     setBusy(true); setErr('')
-    const j = await call({ action: 'join', room: slug, ...body }).catch(() => ({ error: 'Network error — try again.' }))
+    const j = await call({ action: 'join', ...body, room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
-    if (j.ok) { setJoin(j); setNotOpen(null); return true }
+    if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
+    if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '' }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
@@ -328,6 +338,27 @@ export default function Meet() {
   const hTitle = { fontSize: L.light ? 34 : 22, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, lineHeight: 1.15 }
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
+
+  // ONBOARDING FIRST (Neal, 2026-10-04 — virtual Week A): the paperwork was just sent; they get in
+  // once it's signed. Wording is Neal's.
+  if (!join && gate) {
+    return shell(
+      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+        <h1 style={hTitle}>{gate.first ? `Welcome, ${gate.first}!` : 'Welcome!'}</h1>
+        <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, textAlign: 'left', lineHeight: 1.55 }}>
+          <div style={{ fontSize: 19, fontWeight: 900, color: L.head, marginBottom: 8 }}>📩 Check your email and/or text for your onboarding paperwork.</div>
+          <div style={{ fontSize: 15.5 }}>If you didn't get a text and you don't see it in your email, <b>check your junk mail</b>.</div>
+          <div style={{ fontSize: 15.5, marginTop: 8 }}>Once you finish onboarding, it'll let you into training.</div>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>This page checks on its own every 20 seconds.</div>
+        <button onClick={() => doJoin(lastBody || {})} style={{ ...big, marginTop: 14 }}>✅ I've finished, let me in</button>
+        {lastBody?.first && <button onClick={async () => { setResent('Sending…'); const j = await call({ action: 'onboarding_resend', room: slug, ...lastBody }).catch(() => ({})); setResent(j.ok && j.sent ? 'Sent again. Check your text and email (and junk mail).' : (j.error || 'Could not send. Text your trainer.')) }} style={{ marginTop: 10, background: 'none', border: 'none', color: L.button, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>Didn't get it? Send it again</button>}
+        {resent && <div style={{ marginTop: 6, fontSize: 13.5, color: L.text }}>{resent}</div>}
+        {err && <p style={{ color: '#fca5a5', marginTop: 10 }}>{err}</p>}
+      </div>
+    )
+  }
 
   // NO MEETING ON RIGHT NOW (Neal, 2026-10-04): say when the next one is, instead of an empty room.
   if (!join && notOpen && !hostMode) {
@@ -375,7 +406,18 @@ export default function Meet() {
         {header || <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>🎥 Meeting</h1>}
         {err && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{err}</p>}
         {busy || (!hostMode && auth && (auth.t || auth.pin) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
-          : door?.public && !hostMode ? (
+          : door?.kind === 'training' && !hostMode ? (
+            <>
+              <p style={{ color: L.muted, marginBottom: 12 }}>Sign in for training with the name and email you registered with.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={checkin.first} onChange={(e) => setCheckin({ ...checkin, first: e.target.value })} placeholder="First name" autoComplete="given-name" style={input} />
+                <input value={checkin.last} onChange={(e) => setCheckin({ ...checkin, last: e.target.value })} placeholder="Last name" autoComplete="family-name" style={input} />
+              </div>
+              <input type="email" value={checkin.email} onChange={(e) => setCheckin({ ...checkin, email: e.target.value })} placeholder="Email" autoComplete="email" style={input} />
+              <button disabled={busy} onClick={() => { setS('meet_checkin', JSON.stringify(checkin), localStorage); doJoin({ action: 'checkin', ...checkin }) }} style={big}>Submit</button>
+              <button onClick={() => { setErr(''); setHostMode(true) }} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>I'm the trainer</button>
+            </>
+          ) : door?.public && !hostMode ? (
             <>
               <p style={{ color: L.muted, marginBottom: 12 }}>Welcome! Tell us who you are to join.</p>
               <input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} placeholder="Your name" autoComplete="name" style={input} />
