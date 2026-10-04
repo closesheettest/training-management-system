@@ -23,6 +23,7 @@ import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
+import { PodcastStage } from '../components/PodcastStage.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -83,7 +84,14 @@ function TitleBar({ room, auth, isHost }) {
 function HostPanel({ room, auth, onClose, circle, setCircle }) {
   const people = useParticipants()
   const ctx = useRoomContext()
+  const info = useRoomInfo()
+  const stage = useMemo(() => { try { return JSON.parse(info.metadata || '{}').stage || [] } catch { return [] } }, [info.metadata])
   const [msg, setMsg] = useState('')
+  const setStage = async (next, label) => {
+    setMsg('')
+    const j = await call({ action: 'set_stage', room: room.slug, stage: next, ...auth }).catch(() => ({}))
+    setMsg(j.ok ? label : (j.error || 'Did not work'))
+  }
   // UNMUTE (Neal, 2026-10-04): the host's page tells that person's device to turn its own mic
   // back on (a server can't switch someone's mic on). Receivers only obey a host.
   const unmute = async (identities, label) => {
@@ -108,6 +116,8 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
         <button onClick={() => act('mute_all', null, 'Everyone muted')} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🔇 Mute everyone</button>
         <button onClick={() => unmute(null, 'Everyone unmuted')} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: '#15803d', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🎙 Unmute everyone</button>
       </div>
+      <div style={{ fontSize: 12.5, color: '#94a3b8', margin: '2px 0 6px' }}>🎙 <b style={{ color: '#e5e7eb' }}>Podcast mode</b>: tap ⭐ to put up to 4 people on stage. Everyone sees only them; everyone else is muted.</div>
+      {stage.length > 0 && <button onClick={() => setStage([], 'Back to the normal view')} style={{ width: '100%', padding: '7px 10px', marginBottom: 8, borderRadius: 8, border: '1px solid #f59e0b', background: '#422006', color: '#fcd34d', fontWeight: 800, cursor: 'pointer' }}>⏹ Leave podcast mode ({stage.length} on stage)</button>}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13.5 }}>
         <input type="checkbox" checked={circle} onChange={(e) => setCircle(e.target.checked)} /> Show my camera as a circle on my shared screen
       </label>
@@ -116,6 +126,11 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
         const me = p.isLocal
         return (
           <div key={p.identity} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', borderTop: '1px solid #1f2937' }}>
+            <button title={stage.includes(p.identity) ? 'Take off stage' : 'Put on stage'} onClick={() => {
+              const on = stage.includes(p.identity)
+              if (!on && stage.length >= 4) { setMsg('Up to 4 people on stage'); return }
+              setStage(on ? stage.filter((x) => x !== p.identity) : [...stage, p.identity], on ? `${p.name} off stage` : `${p.name} on stage`)
+            }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 0, opacity: stage.includes(p.identity) ? 1 : 0.35 }}>⭐</button>
             <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {p.name || p.identity}{me ? ' (you)' : ''}
               <span style={{ marginLeft: 6, fontSize: 12 }}>{p.isCameraEnabled ? '📷' : '🚫📷'}</span>
@@ -202,6 +217,18 @@ function Stage({ room, auth, isHost }) {
 
   // 📖 Scripture on screen: a full-screen slide for everyone, the sharing host as a circle.
   const sc = rmeta.scripture && rmeta.scripture.showing ? rmeta.scripture : null
+  // 🎙 Podcast mode: only the people on stage, side by side. Being put on stage unmutes you.
+  const stageIds = Array.isArray(rmeta.stage) ? rmeta.stage : []
+  const amOnStage = !!localParticipant && stageIds.includes(localParticipant.identity)
+  const wasOnStage = useRef(false)
+  useEffect(() => { if (amOnStage && !wasOnStage.current) localParticipant.setMicrophoneEnabled(true).catch(() => {}); wasOnStage.current = amOnStage }, [amOnStage]) // eslint-disable-line react-hooks/exhaustive-deps
+  const speakingIds = new Set(speakers.map((x) => x.identity))
+  const stagePeople = stageIds.map((id) => {
+    const cam = cams.find((t) => t.participant.identity === id)
+    const part = cam?.participant
+    return part ? { identity: id, name: part.name || id, track: isTrackReference(cam) && !cam.publication?.isMuted ? cam : null, speaking: speakingIds.has(id) } : null
+  }).filter(Boolean)
+  const podcast = stagePeople.length > 0 && !sc && !(share && !galleryDuringShare) && view !== 'gallery-override'
   const scCam = sc ? cams.find((t) => t.participant.identity === sc.by && isTrackReference(t) && !t.publication?.isMuted) : null
   const setScripture = async (next) => { await call({ action: 'set_scripture', room: room.slug, scripture: next, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
   const scriptureRoom = room.kind === 'prayer' || room.look === 'devotional'
@@ -225,6 +252,8 @@ function Stage({ room, auth, isHost }) {
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             {sc ? (
               <ScriptureSlide sc={sc} look={lookOf(room)} camTrack={scCam} />
+            ) : podcast ? (
+              <PodcastStage people={stagePeople} look={lookOf(room)} watching={Math.max(0, cams.length - stagePeople.length)} />
             ) : !focus ? (
               <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
             ) : (

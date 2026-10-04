@@ -393,6 +393,17 @@ export const handler = async (event) => {
       await setMeta({ scripture: sc })
       return json(200, { ok: true })
     }
+    // 🎙 PODCAST MODE: put people on stage (identities, max 4) or clear it ([]). Everyone NOT on
+    // stage is muted when the stage is set; the page unmutes the people on it.
+    if (b.action === 'set_stage') {
+      const stage = (Array.isArray(b.stage) ? b.stage : []).map(String).slice(0, 4)
+      if (stage.length) {
+        const list = await svc().listParticipants(room.slug)
+        for (const p of list) if (!stage.includes(p.identity) && !/^(egress|homeowner)/.test(p.identity)) { try { for (const tr of p.tracks || []) if (tr.type === TrackType.AUDIO && !tr.muted) await svc().mutePublishedTrack(room.slug, p.identity, tr.sid, true) } catch { /* left */ } }
+      }
+      await setMeta({ stage })
+      return json(200, { ok: true, stage })
+    }
     if (b.action === 'set_topic') {
       const topic = String(b.topic || '').slice(0, 200)
       if (room.slug !== 'trial') { const rooms = await loadRooms(); const r = rooms.find((x) => x.slug === room.slug); if (r) { r.topic = topic; await putSetting('meet_rooms', rooms) } }

@@ -9,6 +9,7 @@ import { Track, RoomEvent } from 'livekit-client'
 import '@livekit/components-styles'
 import { lookOf, FontsFor } from '../lib/meetLooks.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
+import { PodcastStage } from '../components/PodcastStage.jsx'
 
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
 
@@ -44,6 +45,7 @@ function Filmed({ room }) {
       )}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         {sc ? <ScriptureSlide sc={sc} look={L} camTrack={hostCam(sc.by)} />
+          : (meta.stage || []).length && !share ? <PodcastStage look={L} watching={0} people={(meta.stage || []).map((id) => { const c = cams.find((t) => t.participant.identity === id); return c ? { identity: id, name: c.participant.name || id, track: c } : null }).filter(Boolean)} />
           : share ? (
             <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
               <VideoTrack trackRef={share} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
