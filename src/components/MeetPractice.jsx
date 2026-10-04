@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParticipants } from '@livekit/components-react'
 import { Room, Track } from 'livekit-client'
 import { LiveHomeowner } from '../lib/geminiLive.js'
+import { supabase } from '../lib/supabase.js'
 import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, personaByKey, sectionByKey, homeownerPrompt } from '../lib/salesPractice.js'
 
 const ORDER = { 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }
@@ -24,6 +25,15 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const [who, setWho] = useState('')
   const [personaKey, setPersonaKey] = useState('welcome')
   const [sectionKey, setSectionKey] = useState('full')
+  // ONE SLIDE (and the 5-minute control drill) — pick which slide, same list as the Sales Training
+  // Customer page (training_days "Slide N" rows) (Neal, 2026-10-04).
+  const [slideN, setSlideN] = useState('')
+  const [slideList, setSlideList] = useState([])
+  useEffect(() => {
+    supabase.from('training_days').select('subject, title').order('position')
+      .then(({ data }) => setSlideList((data || []).filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()))))
+  }, [])
+  const picker = sectionKey === 'slide' || sectionKey === 'control'
   const [status, setStatus] = useState('setup') // setup → starting → listening/speaking → saving → done
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
@@ -36,7 +46,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const audioEl = useRef(null)
   const presenter = trainees.find((p) => p.identity === who)
   const persona = personaByKey(personaKey)
-  const section = sectionByKey(sectionKey)
+  const section = sectionByKey(picker ? (slideN ? `${sectionKey}:${slideN}` : 'full') : sectionKey)
 
   const cleanup = () => {
     try { hoRoom.current?.disconnect() } catch { /* gone */ }
@@ -106,6 +116,10 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
     await finish(out, null)
   }
 
+  // The control drill is timed (5 minutes): end and grade on its own.
+  const endRef = useRef(null); endRef.current = end
+  const isRunning = ['listening', 'speaking', 'silence'].includes(status)
+  useEffect(() => { if (!isRunning || !section.seconds) return; const t = setTimeout(() => endRef.current?.(), section.seconds * 1000); return () => clearTimeout(t) }, [isRunning, section.seconds]) // eslint-disable-line react-hooks/exhaustive-deps
   const box = { position: 'absolute', top: 8, left: 12, zIndex: 60, width: 340, maxHeight: '78vh', overflow: 'auto', background: '#111827', border: '1px solid #7c3aed', borderRadius: 12, padding: 12, color: '#e5e7eb', fontSize: 14 }
   const sel = { width: '100%', padding: '7px 8px', borderRadius: 8, border: '1px solid #374151', background: '#0b1220', color: '#fff', fontSize: 14, marginTop: 4, marginBottom: 8 }
   const running = ['starting', 'connecting', 'listening', 'speaking', 'silence'].includes(status)
@@ -125,10 +139,18 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
             {[...PERSONAS].sort((a, b) => ORDER[a.difficulty] - ORDER[b.difficulty]).map((p) => <option key={p.key} value={p.key}>{p.difficulty}: {p.name}</option>)}
           </select></label>
           <label>Section<select value={sectionKey} onChange={(e) => setSectionKey(e.target.value)} style={sel}>
-            {SECTIONS.filter((x) => !x.picker).map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+            {SECTIONS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select></label>
+          {picker && (
+            <label>Which slide<select value={slideN} onChange={(e) => setSlideN(e.target.value)} style={sel}>
+              <option value="">— pick the slide —</option>
+              {slideList.map((d) => { const n = parseInt(String(d.subject).match(/\d+/)[0], 10); return <option key={d.subject} value={n}>{d.subject}: {d.title}</option> })}
+            </select></label>
+          )}
           <p style={{ fontSize: 12.5, color: '#94a3b8', margin: '0 0 8px' }}>The homeowner joins as its own tile and hears only the presenter. Share the slides as usual and use ◀ ▶ here so the homeowner knows which slide is up. Ask everyone else to mute.</p>
-          <button onClick={start} disabled={!who} style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: who ? '#16a34a' : '#374151', color: '#fff', fontWeight: 900, cursor: who ? 'pointer' : 'default' }}>▶ Start</button>
+          <button onClick={start} disabled={!who || (picker && !slideN)} style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: who && !(picker && !slideN) ? '#16a34a' : '#374151', color: '#fff', fontWeight: 900, cursor: who ? 'pointer' : 'default' }}>▶ Start</button>
+          {!who && <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 6 }}>Pick who's presenting first.</div>}
+          {who && picker && !slideN && <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 6 }}>Pick the slide.</div>}
         </>
       )}
       {running && (
