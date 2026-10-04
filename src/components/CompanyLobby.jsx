@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 export const READY = ['Your camera is on', "You're in a quiet room", "You're not driving", "You're ready to learn"]
 export const SLIDES = [
   { kicker: 'Welcome to the team', big: 'U.S. Shingle & Metal', sub: "You're joining one of Florida's fastest-growing roofing companies.", logo: true },
-  { kicker: 'Experience', big: '15 Years', sub: 'Protecting Florida homes and businesses for 15 years.' },
+  { kicker: 'Experience', big: 'Over 15 Years', sub: 'Protecting Florida homes and businesses for over 15 years.' },
   { kicker: 'Trusted', big: 'Vetted', sub: 'Approved by a national finance company, so homeowners can say yes.' },
   { kicker: 'What customers say', big: '★★★★★', sub: '5-star rated on Google by the homeowners we serve.' },
   { kicker: 'Statewide', big: 'All of Florida', sub: 'Headquartered in Clearwater, serving communities across the state.' },
