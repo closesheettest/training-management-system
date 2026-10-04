@@ -355,12 +355,19 @@ export default function Meet() {
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
 
-  // MISSED A DAY: their link no longer lets them in (Neal's wording).
+  // MISSED A DAY: their link no longer lets them in. Neal's wording; made to look final — "you
+  // screwed up, you're not serious" (2026-10-04): red, stark, no buttons, no way forward.
   if (!join && removed) {
-    return shell(
-      <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
-        {door?.kind === 'training' ? welcome(door) : <><img src={door?.badge || ''} alt="" style={{ height: 64, marginBottom: 6, display: door?.badge ? 'inline' : 'none' }} /><h1 style={hTitle}>{door?.title || 'Training'}</h1></>}
-        <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, fontSize: 16.5, lineHeight: 1.6 }}>{removed}</div>
+    return (
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 20%, #3b0a0a 0%, #0b0b0f 70%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap" />
+        <div style={{ maxWidth: 560, width: '100%', textAlign: 'center' }}>
+          <div style={{ width: 92, height: 92, margin: '0 auto 18px', borderRadius: '50%', background: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52, fontWeight: 900, boxShadow: '0 0 0 8px rgba(185,28,28,.25), 0 0 40px rgba(220,38,38,.55)' }}>✕</div>
+          <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(30px, 6vw, 46px)', fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#f87171', lineHeight: 1.05 }}>Access closed</div>
+          <div style={{ marginTop: 6, fontSize: 14, letterSpacing: '.2em', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 700 }}>{door?.title || 'Training'}</div>
+          <div style={{ marginTop: 22, padding: '22px 22px', borderRadius: 14, background: 'rgba(127,29,29,.35)', border: '2px solid #dc2626', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 700, lineHeight: 1.5, color: '#fee2e2' }}>{removed}</div>
+          <div style={{ marginTop: 16, fontSize: 13, color: '#6b7280' }}>This link no longer gives access to training.</div>
+        </div>
       </div>
     )
   }
