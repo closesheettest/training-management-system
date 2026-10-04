@@ -477,8 +477,13 @@ export const handler = async (event) => {
     if (!host) { const st = await openState(room); if (!st.open) return json(200, { ok: false, not_open: true, room: publicRoom(room) }) }
     // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
     if (room.kind === 'training' && !host && identity.startsWith('t:')) {
-      const { data: tr } = await sb.from('trainees').select('class_id').eq('id', identity.slice(2)).maybeSingle()
+      const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
       if (tr?.class_id) await sb.from('attendance').upsert({ trainee_id: identity.slice(2), class_id: tr.class_id, attendance_date: etDay(), confirmed: true, confirmed_at: new Date().toISOString() }, { onConflict: 'trainee_id,attendance_date' })
+      // Same as the kiosk: signing in from the class's 3rd day on makes them a field trainee, so
+      // their regional manager sees them (Kiosk.jsx signIn). Only ever turns it ON.
+      const ws = tr?.classes?.week_start_date
+      const dayIdx = ws ? Math.floor((Date.parse(`${etDay()}T12:00:00Z`) - Date.parse(`${ws}T12:00:00Z`)) / 864e5) : -1
+      if (dayIdx >= 2 && dayIdx <= 6 && tr.is_field_trainee !== true && tr.is_active_sales_rep !== true) await sb.from('trainees').update({ is_field_trainee: true }).eq('id', identity.slice(2))
     }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
     at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host })
