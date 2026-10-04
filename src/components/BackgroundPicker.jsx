@@ -1,6 +1,6 @@
 // 🖼 BACKGROUND (Neal, 2026-10-04: "I can have any background I want. Like right now, a white screen
 // with the U.S. Shingle & Metal logo"). Replaces what's behind you on YOUR camera, so everyone in the
-// meeting (and the recording) sees it. Runs in your browser (LiveKit track-processors: it finds the
+// meeting (and the recording) sees it. Runs in your browser (our smartBackground.js processor: it finds the
 // person in each frame and swaps the rest), nothing is uploaded. The choice is remembered on this
 // device and put back on whenever the camera comes on.
 import { useEffect, useRef, useState } from 'react'
@@ -66,7 +66,9 @@ export function useBackground(localParticipant) {
   }, [choice])
   const pick = (k) => { setChoice(k); write(KEY, k) }
   const upload = async (file) => { const url = await shrink(file); setCustom(url); write(CUSTOM, url); pick('custom') }
-  return { choice, custom, pick, upload, supported: smartBackgroundSupported(), camOn: !!camTrack && !camTrack.isMuted }
+  // 🗑 on "My picture" (Neal, 2026-10-04): forget it; if it was on, go back to no background.
+  const removeCustom = () => { setCustom(null); write(CUSTOM, null); if (choice === 'custom') pick('none') }
+  return { choice, custom, pick, upload, removeCustom, supported: smartBackgroundSupported(), camOn: !!camTrack && !camTrack.isMuted }
 }
 
 export function BackgroundPanel({ bg, onClose }) {
@@ -80,13 +82,16 @@ export function BackgroundPanel({ bg, onClose }) {
         <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 8 }}>Everyone sees it behind you, and so does the recording.{!bg.camOn && ' Turn your camera on to see it.'}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {all.map((b) => (
-            <button key={b.key} onClick={() => bg.pick(b.key)} style={tile(bg.choice === b.key)}>
+            <div key={b.key} style={{ position: 'relative' }}>
+            {b.key === 'custom' && <button title="Delete my picture" onClick={() => { if (window.confirm('Delete your picture?')) bg.removeCustom() }} style={{ position: 'absolute', top: 4, right: 4, zIndex: 2, width: 26, height: 26, borderRadius: 13, border: 'none', background: 'rgba(185,28,28,.92)', color: '#fff', fontSize: 13, cursor: 'pointer' }}>🗑</button>}
+            <button onClick={() => bg.pick(b.key)} style={{ ...tile(bg.choice === b.key), width: '100%' }}>
               <div style={{ aspectRatio: '16 / 9', background: b.img ? `center / cover url(${b.img})` : b.key === 'blur' ? 'linear-gradient(135deg,#64748b,#cbd5e1,#64748b)' : '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, filter: b.key === 'blur' ? 'blur(.5px)' : 'none' }}>{!b.img && (b.key === 'blur' ? '≈' : '⦸')}</div>
               <div style={{ padding: '4px 7px', fontSize: 12, fontWeight: 700, color: '#e5e7eb' }}>{b.label}</div>
             </button>
+            </div>
           ))}
         </div>
-        <button onClick={() => file.current?.click()} style={{ marginTop: 10, width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed #64748b', background: 'transparent', color: '#e5e7eb', fontWeight: 800, cursor: 'pointer' }}>＋ Use my own picture…</button>
+        <button onClick={() => file.current?.click()} style={{ marginTop: 10, width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed #64748b', background: 'transparent', color: '#e5e7eb', fontWeight: 800, cursor: 'pointer' }}>{bg.custom ? '＋ Replace my picture…' : '＋ Use my own picture…'}</button>
         <input ref={file} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) bg.upload(f); e.target.value = '' }} />
         <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 8 }}>Tip: the edges around you look cleanest with even light on your face and a plain wall behind you.</div>
       </>)}
