@@ -368,8 +368,9 @@ export const handler = async (event) => {
     if (!ids.length) return null
     const { data } = await sb.from('trainees').select('id, first_name, last_name, email, registration_token').in('id', ids)
     const email = String(b.email || '').trim().toLowerCase(), first = norm(b.first), last = norm(b.last)
-    return (data || []).find((t) => email && String(t.email || '').trim().toLowerCase() === email)
-      || (data || []).find((t) => first && last && norm(t.first_name) === first && norm(t.last_name) === last)
+    const byEmail = (data || []).find((t) => email && String(t.email || '').trim().toLowerCase() === email)
+    if (byEmail) { byEmail._emailMatch = true; return byEmail }
+    return (data || []).find((t) => first && last && norm(t.first_name) === first && norm(t.last_name) === last)
       || (data || []).find((t) => last && norm(t.last_name) === last && first && norm(t.first_name).startsWith(first.slice(0, 3)))
       || null
   }
@@ -384,6 +385,9 @@ export const handler = async (event) => {
       return json(200, { ok: !!r.ok, sent: !!r.sent, error: r.ok ? null : (r.error || 'Could not send') })
     }
     b.action = 'join'; b.t = t.registration_token; b.pin = undefined
+    // Their own paperwork opens right here only when the email they typed is the one on file
+    // (or they came from their own link) — a name alone isn't enough to open someone's W-9.
+    b._direct = !!t._emailMatch || !t.email
   }
 
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
@@ -416,6 +420,12 @@ export const handler = async (event) => {
         if (room.kind === 'training' && !host) {
           const { data: ob } = await sb.from('trainee_onboarding').select('signed_at').eq('trainee_id', t.id).maybeSingle()
           if (!ob?.signed_at) {
+            // Signed in with their own link or a matching email → open the paperwork right here
+            // (Neal, 2026-10-04: "they're signing in anyways"). Otherwise send it by text + email.
+            const direct = b._direct !== false && (b._direct === true || !!String(b.t || '').trim())
+            if (direct) {
+              return json(200, { ok: false, onboarding: true, first: t.first_name || '', onboarding_url: `/onboarding/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` })
+            }
             await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
             return json(200, { ok: false, onboarding: true, first: t.first_name || '' })
           }

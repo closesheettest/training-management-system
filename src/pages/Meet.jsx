@@ -301,7 +301,7 @@ export default function Meet() {
   const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
   // ?preview=onboarding shows the onboarding screen exactly as a trainee sees it (nothing sent,
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
-  const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true } : null)) // { first } — onboarding paperwork not signed yet
+  const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
   const [lastBody, setLastBody] = useState(null)
 
@@ -319,7 +319,7 @@ export default function Meet() {
     const j = await call({ action: 'join', ...body, room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
-    if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '' }); return false }
+    if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
@@ -348,15 +348,24 @@ export default function Meet() {
       <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
         {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
         <h1 style={hTitle}>{gate.first ? `Welcome, ${gate.first}!` : 'Welcome!'}</h1>
+        {gate.url ? (
+          // Signed in with their own email/link → the paperwork opens right here, then back to class.
+          <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, lineHeight: 1.55 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: L.head, marginBottom: 6 }}>Before training, finish your onboarding paperwork.</div>
+            <div style={{ fontSize: 15 }}>Your W-9 and Independent Contractor Agreement. It takes about 5 minutes. When you've signed, you'll come straight back into training.</div>
+            <a href={gate.url} style={{ ...big, display: 'block', marginTop: 14, textDecoration: 'none', boxSizing: 'border-box' }}>📝 Start my onboarding paperwork</a>
+          </div>
+        ) : (
         <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, textAlign: 'left', lineHeight: 1.55 }}>
           <div style={{ fontSize: 19, fontWeight: 900, color: L.head, marginBottom: 8 }}>📩 Check your email and/or text for your onboarding paperwork.</div>
           <div style={{ fontSize: 15.5 }}>If you didn't get a text and you don't see it in your email, <b>check your junk mail</b>.</div>
           <div style={{ fontSize: 15.5, marginTop: 8 }}>Once you finish onboarding, it'll let you into training.</div>
         </div>
-        <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>This page checks on its own every 20 seconds.</div>
+        )}
+        {!gate.url && <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>This page checks on its own every 20 seconds.</div>}
         {gate.preview && <div style={{ marginTop: 10, padding: '6px 10px', borderRadius: 8, background: '#fef3c7', color: '#92400e', fontSize: 13, fontWeight: 700 }}>Preview only: nothing was sent.</div>}
-        <button onClick={() => (gate.preview ? null : doJoin(lastBody || {}))} style={{ ...big, marginTop: 14 }}>✅ I've finished, let me in</button>
-        {lastBody?.first && <button onClick={async () => { setResent('Sending…'); const j = await call({ action: 'onboarding_resend', room: slug, ...lastBody }).catch(() => ({})); setResent(j.ok && j.sent ? 'Sent again. Check your text and email (and junk mail).' : (j.error || 'Could not send. Text your trainer.')) }} style={{ marginTop: 10, background: 'none', border: 'none', color: L.button, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>Didn't get it? Send it again</button>}
+        {!gate.url && <button onClick={() => (gate.preview ? null : doJoin(lastBody || {}))} style={{ ...big, marginTop: 14 }}>✅ I've finished, let me in</button>}
+        {lastBody?.first && !gate.url && <button onClick={async () => { setResent('Sending…'); const j = await call({ action: 'onboarding_resend', room: slug, ...lastBody }).catch(() => ({})); setResent(j.ok && j.sent ? 'Sent again. Check your text and email (and junk mail).' : (j.error || 'Could not send. Text your trainer.')) }} style={{ marginTop: 10, background: 'none', border: 'none', color: L.button, fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>Didn't get it? Send it again</button>}
         {resent && <div style={{ marginTop: 6, fontSize: 13.5, color: L.text }}>{resent}</div>}
         {err && <p style={{ color: '#fca5a5', marginTop: 10 }}>{err}</p>}
       </div>

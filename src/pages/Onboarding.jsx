@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { AGREEMENT_BLOCKS, EXHIBIT_BLOCKS } from '../lib/agreementText.js'
 
 // Day-1 paperwork. The rep lands here from the text + email fired when they sign
@@ -16,6 +16,13 @@ const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-bas
 
 export default function Onboarding() {
   const { token } = useParams()
+  // Opened from the virtual training room (Neal, 2026-10-04): when they're done, a button takes them
+  // straight back into class. Only our own meeting pages are allowed as the way back.
+  const [sp] = useSearchParams()
+  const back = /^\/meet\/[a-z0-9-]+(\?[^\s]*)?$/.test(sp.get('back') || '') ? sp.get('back') : null
+  const GoToTraining = ({ label = '✅ Done, go to training →' }) => back ? (
+    <a href={back} className="mt-4 inline-block rounded-lg bg-emerald-600 px-6 py-3 text-lg font-bold text-white">{label}</a>
+  ) : null
   const [state, setState] = useState('loading')   // loading | form | done | error
   const [err, setErr] = useState(null)
   const [f, setF] = useState({})
@@ -99,6 +106,7 @@ export default function Onboarding() {
         <p className="mt-2 text-emerald-800">
           Your signed W-9 and Independent Contractor Agreement have been emailed to you. Keep them for your records.
         </p>
+        <GoToTraining />
       </div>
       {!compSigned && (
         <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-6 text-center">
@@ -117,6 +125,7 @@ export default function Onboarding() {
       {bankingOnly ? (
         <div className="mb-6 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           Your paperwork is signed — thank you. All that's left is your <strong>direct deposit details</strong> so you get paid on time.
+          {back && <div><GoToTraining label="Do this later, go to training →" /></div>}
         </div>
       ) : (
         <p className="mb-6 text-slate-600">
