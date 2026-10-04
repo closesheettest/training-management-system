@@ -49,6 +49,12 @@ export default function ClassDetail() {
   const [stays, setStays] = useState([])
   // Virtual (Zoom) class: no hotels, so no "needs hotel" prompts or Book Hotel buttons.
   const [virtualClass, setVirtualClass] = useState(false)
+  // VIRTUAL CLASSES READ AS VIRTUAL (Neal, 2026-10-04: Week B "still referencing classroom"):
+  // the schedule says "Virtual class" instead of "Classroom", no address/kiosk/hotels, and the
+  // kiosk button opens the week's training room instead.
+  const vText = (txt) => (virtualClass ? String(txt || '').replace(/\bClassroom\b/g, 'Virtual class').replace(/\bclassroom\b/g, 'virtual class') : txt)
+  const [trainingRooms, setTrainingRooms] = useState([])
+  useEffect(() => { if (!virtualClass) return; fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'room_list' }) }).then((r) => r.json()).then((j) => setTrainingRooms((j.rooms || []).filter((r) => r.kind === 'training'))).catch(() => {}) }, [virtualClass])
   useEffect(() => { let live = true; fetchVirtualClassIds().then((v) => { if (live) setVirtualClass(v.has(id)) }); return () => { live = false } }, [id])
   const [hotelBusyId, setHotelBusyId] = useState(null)
   const [locations, setLocations] = useState([])
@@ -1177,6 +1183,10 @@ export default function ClassDetail() {
           >
             Provision emails →
           </Link>
+          {virtualClass ? (() => {
+            const room = trainingRooms.find((r) => (viewWeek === 'B' ? r.slug === 'second-week-training' : r.slug === 'first-week-training')) || trainingRooms[0]
+            return room ? <a href={`/meet/${room.slug}`} target="_blank" rel="noopener noreferrer" className="rounded-md border border-indigo-600 bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white">🎥 Open training room →</a> : null
+          })() : (
           <Link
             to={`/kiosk/${cls.id}`}
             target="_blank"
@@ -1185,6 +1195,7 @@ export default function ClassDetail() {
           >
             Open kiosk →
           </Link>
+          )}
           {!cls.cancelled_at && (
             <button
               onClick={async () => {
@@ -1249,10 +1260,10 @@ export default function ClassDetail() {
                 weekWindow(cls.week_start_date, viewWeek, addDaysIso).start,
                 weekWindow(cls.week_start_date, viewWeek, addDaysIso).end,
               )}
-          {cls.locations?.street_address && <> · {formatAddress(cls.locations)}</>}
+          {virtualClass ? <> · 🎥 Virtual (online)</> : cls.locations?.street_address && <> · {formatAddress(cls.locations)}</>}
         </p>
         {!cls.attendance_only && (
-          <p className="mt-1 text-sm text-slate-500">{shortLine(viewWeek, timetable)}</p>
+          <p className="mt-1 text-sm text-slate-500">{vText(shortLine(viewWeek, timetable))}</p>
         )}
       </header>
 
@@ -1285,7 +1296,7 @@ export default function ClassDetail() {
         </div>
       )}
 
-      <RosterSummary summary={summary} />
+      <RosterSummary summary={virtualClass ? { ...summary, needsHotel: 0 } : summary} />
 
       {viewWeek === 'B' && !cls.attendance_only && <WeekBStatus classId={id} />}
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
@@ -1404,7 +1415,7 @@ export default function ClassDetail() {
              standard Week A/B hours are on the header line. */
           cls.schedule_details ? (
             <pre className="whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 font-sans text-xs text-slate-600">
-              {cls.schedule_details}
+              {vText(cls.schedule_details)}
             </pre>
           ) : (
             <p className="text-xs text-slate-500 italic">
@@ -1446,6 +1457,7 @@ export default function ClassDetail() {
                 </button>
               )}
             </div>
+            {virtualClass && !editingLocation && <p className="mt-1 text-sm font-semibold text-indigo-700">🎥 Virtual class: no training center. Trainees join the training room from their own link.</p>}
             {editingLocation ? (
               <div className="mt-1 space-y-2">
                 <select
