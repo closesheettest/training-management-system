@@ -42,6 +42,7 @@ import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 import { doorsFor, weekAFieldDays, EFFORT_DOORS, addDays } from './_effort.js'
+import { recipientsForEvent } from './_recipients.js'
 
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
 const SITE = 'https://trainingmanagementsys.netlify.app'
@@ -461,8 +462,19 @@ export const handler = async (event) => {
     if (!t) return json(401, { ok: false, error: 'Open this from your own link.' })
     const prob = (await getSetting('week_b_probation', {})) || {}
     if (!prob[t.id]) return json(404, { ok: false, error: 'Nothing to commit to.' })
+    const first = !prob[t.id].committed_at
     prob[t.id].committed_at = prob[t.id].committed_at || new Date().toISOString()
     await putSetting('week_b_probation', prob)
+    // Tell the office right away (Notifications → "Trainee committed to prove it"), the first click only.
+    if (first) {
+      const { recipients } = await recipientsForEvent(sb, 'week_b_commit', { legacyRole: 'admin' }).catch(() => ({ recipients: [] }))
+      const nm = fullName(t), avg = prob[t.id].week_a_avg
+      const msg = `🔥 ${nm} clicked "I still want Week B and I'll prove it." Week A average: ${avg ?? '?'} doors/day. Goal: 30 a day Mon–Fri this week; Saturday they're auto-enrolled if they make it.`
+      for (const r of recipients || []) {
+        if (r.phone && r.notify_via_sms !== false) { try { await sendSmsViaGhl(r.phone, msg, { firstName: (r.name || 'Office').split(' ')[0], lastName: 'Notify' }) } catch { /* next */ } }
+        if (r.email && r.notify_via_email !== false) { try { await sendEmail(r.email, `🔥 ${nm} committed to prove it (Week B)`, msg) } catch { /* next */ } }
+      }
+    }
     return json(200, { ok: true, committed_at: prob[t.id].committed_at })
   }
 

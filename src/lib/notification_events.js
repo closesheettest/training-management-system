@@ -146,6 +146,12 @@ export const NOTIFICATION_EVENTS = [
       'Every day at 12:00 PM ET, the sales system scans yesterday\'s JobNimbus sales and texts what\'s missing or wrong. Each zone\'s regional manager gets their deals; subscribers here get the company-wide summary. Check this to get the daily summary text; uncheck to stop. (Sent by the sales app — this just controls who gets the summary.)',
   },
   {
+    key: 'week_b_commit',
+    label: 'Trainee committed to "prove it" for Week B',
+    desc:
+      "Fires the moment a trainee who didn't show the effort for Week B (30 doors a day over Week A Thu–Sat) clicks \"I still want Week B and I'll prove it.\" The SMS + email give their name, their Week A average and their Monday–Friday goal. No click = they're gone. Subscribers = whoever follows up with trainees.",
+  },
+  {
     key: 'training_day_submitted',
     label: 'New training day submitted — needs review',
     desc:
