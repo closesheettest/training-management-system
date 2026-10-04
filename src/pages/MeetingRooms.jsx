@@ -26,6 +26,19 @@ export default function MeetingRooms() {
   const [open, setOpen] = useState(null) // { slug, tab:'people'|'attendance'|'guests', data }
   const [day, setDay] = useState(etDay())
   const [msg, setMsg] = useState('')
+  const [mail, setMail] = useState(null) // { slug, subject, message, test_to, log } — email a public room's list
+  const openMail = async (r) => {
+    setMail({ slug: r.slug, title: r.title, subject: '', message: '', test_to: '', log: null, note: '' })
+    const j = await call({ action: 'email_log', slug: r.slug }).catch(() => ({}))
+    setMail((m) => (m && m.slug === r.slug ? { ...m, log: j.log || [] } : m))
+  }
+  const sendMail = async (test) => {
+    if (!mail.subject.trim() || !mail.message.trim()) { setMail({ ...mail, note: 'Write a subject and a message first.' }); return }
+    if (test && !mail.test_to.trim()) { setMail({ ...mail, note: 'Type your email address for the test.' }); return }
+    if (!test && !window.confirm(`Email everyone on the ${mail.title} list who asked for emails?`)) return
+    const r = await fetch('/.netlify/functions/meet-email-background', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, slug: mail.slug, subject: mail.subject, message: mail.message, test_to: test ? mail.test_to.trim() : undefined }) }).catch(() => null)
+    setMail({ ...mail, note: !r || r.status >= 400 ? 'Could not send — try again.' : test ? `Test sent to ${mail.test_to}. Check that inbox (and spam).` : 'Sending now. It takes about a second per person; refresh this box in a minute to see the result.' })
+  }
   const [dragging, setDragging] = useState(null) // slug being dragged
   // Drag a card onto another to move it there; the new order saves straight away.
   const dropOn = async (target) => {
@@ -169,10 +182,32 @@ export default function MeetingRooms() {
               {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">📨 Send everyone their link</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
               {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
+              {r.public && <button onClick={() => (mail?.slug === r.slug ? setMail(null) : openMail(r))} className="rounded border border-blue-400 bg-blue-50 px-3 py-1 font-semibold text-blue-800">✉️ Email the list</button>}
               <span className="flex-1" />
               <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
             </div>
 
+            {mail?.slug === r.slug && (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
+                <div className="font-bold">✉️ Email everyone on the list who asked for emails</div>
+                <p className="mt-1 text-xs text-slate-600">It comes from "{r.title}", starts with "Hi (their first name)," and ends with an unsubscribe link. People who didn't tick "email me" or who unsubscribed are skipped.</p>
+                <input className={field} value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} placeholder="Subject, e.g. This week: walking through Psalm 23" />
+                <textarea className={field} rows={7} value={mail.message} onChange={(e) => setMail({ ...mail, message: e.target.value })} placeholder={`Message. Include the link so they can join:\n${site}/meet/${r.slug}`} />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={mail.test_to} onChange={(e) => setMail({ ...mail, test_to: e.target.value })} placeholder="your email for a test" />
+                  <button onClick={() => sendMail(true)} className="rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold">Send me a test</button>
+                  <span className="flex-1" />
+                  <button onClick={() => sendMail(false)} className="rounded-md bg-blue-700 px-4 py-2 font-bold text-white">Send to the list</button>
+                </div>
+                {mail.note && <div className="mt-2 font-semibold text-blue-900">{mail.note}</div>}
+                {mail.log && mail.log.length > 0 && (
+                  <div className="mt-3 border-t border-blue-200 pt-2 text-xs text-slate-600">
+                    <div className="mb-1 font-bold">Sent before <button onClick={() => openMail(r)} className="ml-2 font-normal text-blue-700 underline">refresh</button></div>
+                    {mail.log.map((l, i) => <div key={i}>{new Date(l.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · "{l.subject}" · {l.sent} of {l.to} sent{l.failed?.length ? ` · ${l.failed.length} failed` : ''}{l.by ? ` · by ${l.by}` : ''}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
             {open?.slug === r.slug && (
               <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
                 {!open.data ? 'Loading…' : open.data.error ? <span className="text-red-700">{open.data.error}</span> : open.tab === 'people' ? (

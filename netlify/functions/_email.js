@@ -28,7 +28,7 @@ function client() {
   return _client
 }
 
-// options: { attachments?: [{ filename, content }] }
+// options: { attachments?: [{ filename, content }], fromName?, force? }
 // `content` is base64-encoded bytes — Resend accepts that format directly.
 export async function sendEmail(toAddress, subject, body, options = {}) {
   if (!toAddress) return { ok: false, step: 'precheck', error: 'No email address provided' }
@@ -43,10 +43,13 @@ export async function sendEmail(toAddress, subject, body, options = {}) {
 
   // Support both env var names — ccg-claims-docs uses EMAIL_FROM,
   // TMS Netlify dashboard has FROM_EMAIL. Read whichever is set.
-  const from =
+  let from =
     process.env.EMAIL_FROM ||
     process.env.FROM_EMAIL ||
     'Training System <onboarding@resend.dev>'
+  // options.fromName: show a different sender name on the same verified address
+  // (the 9:15 Devotional's list emails come "from" 9:15 Devotional).
+  if (options.fromName) { const addr = (from.match(/<([^>]+)>/) || [null, from])[1]; from = `${String(options.fromName).replace(/[<>"]/g, '')} <${addr}>` }
 
   const payload = {
     from,

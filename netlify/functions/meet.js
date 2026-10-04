@@ -175,7 +175,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -252,6 +252,7 @@ export const handler = async (event) => {
       }
       return json(200, { ok: true, sent: results })
     }
+    if (b.action === 'email_log') return json(200, { ok: true, log: (await getSetting(`meet_email_log_${room.slug}`, [])) || [] })
     if (b.action === 'guests') {
       const { data } = await sb.from('app_settings').select('value').like('key', `meet_guest_${room.slug}_%`)
       const rows = (data || []).map((x) => { try { return typeof x.value === 'string' ? JSON.parse(x.value) : x.value } catch { return null } }).filter(Boolean)
