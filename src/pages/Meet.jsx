@@ -96,7 +96,7 @@ export default function Meet() {
         <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', marginBottom: 4 }}>{join.title}</h1>
         <p style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 10 }}>Joining as <b style={{ color: '#fff' }}>{join.name}</b>{join.host ? ' · host' : ''}. Cameras on, please.</p>
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: true }} persistUserChoices={false}
-          onSubmit={(c) => setChoices(c)} joinLabel="Join meeting" userLabel="Your name" />
+          onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
       </div>
     )
   }
