@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
+const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const nextLabel = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
@@ -100,6 +100,7 @@ export default function MeetingRooms() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
             <label className="text-sm font-semibold">Type<select className={field} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, public: e.target.value === 'prayer' ? true : form.public })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+            {form.kind === 'training' && <label className="text-sm font-semibold">Which week<select className={field} value={form.training_week || 'A'} onChange={(e) => setForm({ ...form, training_week: e.target.value })}><option value="A">Week A: trainees in their first week</option><option value="B">Week B: trainees in their second week</option><option value="both">Both weeks</option></select></label>}
             {form.kind === 'zone' && <label className="text-sm font-semibold">Team<select className={field} value={form.zone || 'Zone 1'} onChange={(e) => setForm({ ...form, zone: e.target.value })}>{Object.entries(ZONES).map(([z, n]) => <option key={z} value={z}>{n} ({z})</option>)}</select></label>}
             <label className="text-sm font-semibold">When (shown on the link)<input className={field} value={form.schedule} onChange={(e) => setForm({ ...form, schedule: e.target.value })} placeholder="e.g. Mon–Thu 9:30 AM" /></label>
             <label className="text-sm font-semibold sm:col-span-2">Today's topic (shown at the top; the host can change it in the meeting)<input className={field} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Today: Psalm 23" /></label>

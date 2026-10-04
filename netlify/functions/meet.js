@@ -138,6 +138,24 @@ export const handler = async (event) => {
     for (const c of data || []) if (!c.cancelled_at) for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) ids.add(t.id)
     return ids
   }
+  // TRAINING CLASS rooms (Neal, 2026-10-04 — virtual Week A): the trainees of the class that is in
+  // its Week A (first week) or Week B (second week) right now. Counted from the class start, with a
+  // 3-day lead so Friday's links can go out for Monday.
+  const trainingIds = (week) => (async () => {
+    const now = Date.now(), lead = 3 * 864e5
+    const { data } = await sb.from('classes').select('id, week_start_date, week_end_date, cancelled_at, trainees!class_id(id, enrolled, dropped_out_at, declined_at)')
+      .gte('week_end_date', etDay(now - 864e5)).lte('week_start_date', etDay(now + lead))
+    const ids = new Set()
+    for (const c of data || []) {
+      if (c.cancelled_at) continue
+      const start = Date.parse(`${c.week_start_date}T12:00:00Z`), wkB = start + 7 * 864e5
+      const inA = now >= start - lead && now < wkB - 864e5 * 2 // through Friday of week A (weekend → week B)
+      const inB = now >= wkB - lead && now <= Date.parse(`${c.week_end_date}T23:59:00Z`)
+      if (week === 'both' ? !(inA || inB) : week === 'B' ? !inB : !inA) continue
+      for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) ids.add(t.id)
+    }
+    return ids
+  })()
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
   const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
@@ -226,7 +244,7 @@ export const handler = async (event) => {
       if (!editing) { const base = slug; for (let n = 2; rooms.some((x) => x.slug === slug) || slug === 'trial'; n++) slug = `${base}-${n}` }
       if (!slug || !String(r.title || '').trim()) return json(400, { ok: false, error: 'The room needs a name.' })
       if (slug === 'trial') return json(400, { ok: false, error: 'Pick another name.' })
-      const kind = ['zone', 'managers', 'company', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
+      const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
@@ -241,6 +259,7 @@ export const handler = async (event) => {
         rec_keep_days: [30, 60, 90, 0].includes(Number(r.rec_keep_days)) ? Number(r.rec_keep_days) : 90,
         // The recordings page's private key (its link is shared with the editor, e.g. DeWayne's cousin).
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
+        training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
@@ -272,8 +291,9 @@ export const handler = async (event) => {
     if (b.action === 'audience' || b.action === 'send_links') {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
       let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
-      const nowIds = room.kind === 'company' ? await traineeIdsNow() : new Set()
-      if (room.kind === 'managers') q = q.not('managed_region', 'is', null)
+      const nowIds = room.kind === 'company' ? await traineeIdsNow() : room.kind === 'training' ? await trainingIds(room.training_week || 'A') : new Set()
+      if (room.kind === 'training') q = nowIds.size ? q.in('id', [...nowIds]) : q.eq('id', '00000000-0000-0000-0000-000000000000')
+      else if (room.kind === 'managers') q = q.not('managed_region', 'is', null)
       else if (room.kind === 'company' && nowIds.size) q = q.or(`is_active_sales_rep.eq.true,managed_region.not.is.null,id.in.(${[...nowIds].join(',')})`)
       else q = q.or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const { data } = await q
