@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, Link, Outlet } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import HiringManager from './pages/HiringManager.jsx'
@@ -10,6 +10,8 @@ import Kiosk from './pages/Kiosk.jsx'
 import Attendance from './pages/Attendance.jsx'
 import HomeworkStatus from './pages/HomeworkStatus.jsx'
 import Confirm from './pages/Confirm.jsx'
+// LiveKit is big — only load it for the meeting page.
+const Meet = lazy(() => import('./pages/Meet'))
 import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
@@ -72,6 +74,7 @@ export default function App() {
 
         {/* Public confirmation: trainee taps the link from the 24hr SMS reminder */}
         <Route path="/confirm/:token" element={<MinimalLayout><Confirm /></MinimalLayout>} />
+        <Route path="/meet/:room" element={<Suspense fallback={null}><Meet /></Suspense>} />
         <Route path="/onboarding/:token" element={<MinimalLayout><Onboarding /></MinimalLayout>} />
 
         {/* Public credentials: trainee taps the link from the day-2 SMS */}
