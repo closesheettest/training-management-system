@@ -4,8 +4,14 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { formatDateRange, formatMonth, groupByMonth, parseLocalDate } from '../lib/dates.js'
 import { formatAddress, FL_REGIONS } from '../lib/locations.js'
+import { fetchVirtualClassIds } from '../lib/schedule.js'
+
+// Virtual classes (app_settings.virtual_class_ids) show "🎥 Virtual" instead of the venue (Neal, 2026-10-04).
+let VIRTUAL = new Set()
 
 export default function Calendar() {
+  const [, setVirtualTick] = useState(0)
+  useEffect(() => { fetchVirtualClassIds().then((ids) => { VIRTUAL = ids; setVirtualTick((n) => n + 1) }) }, [])
   const [classes, setClasses] = useState([])
   const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -535,7 +541,8 @@ function PhaseRow({ phase, cls, monday, todayIso }) {
 
 function WeekCard({ week, isThisWeek, onDelete, todayIso }) {
   const { monday, A, B } = week
-  const venue = A?.locations?.name || B?.locations?.name
+  const virtual = (A && VIRTUAL.has(A.id)) || (B && VIRTUAL.has(B.id))
+  const venue = virtual ? '🎥 Virtual' : A?.locations?.name || B?.locations?.name
   const region = A?.region || B?.region
   const headcount = liveTrainees(A).length + continuingForWeekB(B, monday, todayIso).length
   const tbd = !venue
@@ -545,7 +552,7 @@ function WeekCard({ week, isThisWeek, onDelete, todayIso }) {
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="font-semibold text-slate-900">{formatDateRange(monday, addDaysIso(monday, 4))}</span>
           <span className="text-sm text-slate-500">{venue || `${region || 'Region'} — TBD`}</span>
-          {region && (
+          {region && !virtual && (
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{region}</span>
           )}
           {tbd && (
@@ -675,8 +682,8 @@ function ClassRow({ cls, isPast = false, onDelete }) {
   const graduated = enrolledTrainees.filter((t) =>
     (t.test_attempts || []).some((a) => a.submitted_at),
   ).length
-  const locationLabel = cls.locations?.name || `${cls.region || 'Region'} — TBD`
-  const isTBD = !cls.locations?.name
+  const locationLabel = VIRTUAL.has(cls.id) ? '🎥 Virtual' : cls.locations?.name || `${cls.region || 'Region'} — TBD`
+  const isTBD = !VIRTUAL.has(cls.id) && !cls.locations?.name
 
   return (
     <li className="flex items-stretch">
@@ -687,7 +694,7 @@ function ClassRow({ cls, isPast = false, onDelete }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-900">{locationLabel}</span>
-            {cls.region && (
+            {cls.region && !VIRTUAL.has(cls.id) && (
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
                 {cls.region}
               </span>
