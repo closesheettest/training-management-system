@@ -257,14 +257,28 @@ export default function MeetingRooms() {
                     {!open.data.people.length ? <span className="text-slate-500">Nobody joined that day.</span> : (
                       <table className="w-full">
                         <thead><tr className="text-left text-slate-500"><th>Name</th><th>Joined</th><th>Left</th><th>Minutes</th><th>Camera off</th></tr></thead>
-                        <tbody>{open.data.people.sort((a, c) => String(a.joins?.[0]?.in).localeCompare(String(c.joins?.[0]?.in))).map((p) => {
-                          const mins = Math.round((p.joins || []).reduce((s, j) => s + ((j.out ? Date.parse(j.out) : Date.now()) - Date.parse(j.in)), 0) / 60000)
-                          const offs = (p.camera || []).filter((c) => !c.on).length
-                          return (
-                            <tr key={p.identity} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}</td><td>{t(p.joins?.[0]?.in)}</td>
-                              <td>{(p.joins || []).some((j) => !j.out) ? <span className="text-emerald-700">still in</span> : t(p.joins?.[p.joins.length - 1]?.out)}</td><td>{mins}</td><td>{offs ? `${offs}×` : ''}</td></tr>
-                          )
-                        })}</tbody>
+                        <tbody>{(() => {
+                          // One row per PERSON (rejoining or a second device made extra rows), and a camera
+                          // that went off as they LEFT doesn't count as "camera off" (Neal, 2026-10-04).
+                          const by = new Map()
+                          for (const p of open.data.people) {
+                            const k = String(p.name || p.identity).trim().toLowerCase()
+                            const outs = (p.joins || []).map((j) => (j.out ? Date.parse(j.out) : null)).filter(Boolean)
+                            const offs = (p.camera || []).filter((c) => !c.on && !outs.some((o) => Math.abs(o - Date.parse(c.at)) < 15000)).length
+                            const mins = (p.joins || []).reduce((t, j) => t + ((j.out ? Date.parse(j.out) : Date.now()) - Date.parse(j.in)), 0) / 60000
+                            const first = (p.joins || [])[0]?.in, lastJ = (p.joins || [])[p.joins.length - 1]
+                            const cur = by.get(k) || { name: p.name, first: null, last: null, still: false, mins: 0, offs: 0 }
+                            if (first && (!cur.first || first < cur.first)) cur.first = first
+                            if (lastJ?.out && (!cur.last || lastJ.out > cur.last)) cur.last = lastJ.out
+                            if ((p.joins || []).some((j) => !j.out)) cur.still = true
+                            cur.mins += mins; cur.offs += offs
+                            by.set(k, cur)
+                          }
+                          return [...by.values()].sort((a, c) => String(a.first).localeCompare(String(c.first))).map((p) => (
+                            <tr key={p.name} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}</td><td>{t(p.first)}</td>
+                              <td>{p.still ? <span className="text-emerald-700">still in</span> : t(p.last)}</td><td>{Math.round(p.mins)}</td><td>{p.offs ? `${p.offs}×` : ''}</td></tr>
+                          ))
+                        })()}</tbody>
                       </table>
                     )}
                   </>
