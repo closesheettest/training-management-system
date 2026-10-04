@@ -125,12 +125,12 @@ export default function Onboarding() {
       {bankingOnly ? (
         <div className="mb-6 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
           Your paperwork is signed — thank you. All that's left is your <strong>direct deposit details</strong> so you get paid on time.
-          {back && <div><GoToTraining label="Do this later, go to training →" /></div>}
+          {back && <div className="mt-2">It's okay if you don't have them right now. <strong>You'll need to put them in tomorrow before it lets you into training.</strong><div><GoToTraining label="Do this tomorrow, go to training →" /></div></div>}
         </div>
       ) : (
         <p className="mb-6 text-slate-600">
           Please complete this before class starts. It takes about five minutes.
-          {' '}<strong>Don't have your bank details on you?</strong> That's fine — leave that section blank and we'll remind you later.
+          {' '}<strong>Don't know your bank details right now?</strong> That's okay. Leave that section blank, but you'll need to put it in <strong>tomorrow before it lets you into training</strong>.
         </p>
       )}
 
@@ -208,7 +208,7 @@ export default function Onboarding() {
         </>
       )}
 
-      <Section title="Direct deposit" note="How you get paid. If you don't have these on you right now, skip it — we'll remind you each day until it's in.">
+      <Section title="Direct deposit" note="How you get paid. It's okay if you don't know these right now: skip it today. You'll be required to put it in tomorrow before it lets you into training.">
         <Two>
           <L t="Bank name"><input className={input} value={f.bank_name || ''} onChange={set('bank_name')} /></L>
           <L t="Name on account"><input className={input} value={f.bank_account_name || ''} onChange={set('bank_account_name')} /></L>

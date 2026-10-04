@@ -418,7 +418,14 @@ export const handler = async (event) => {
         // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
         // until their onboarding paperwork is signed — it's sent to them right here (text + email).
         if (room.kind === 'training' && !host) {
-          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at').eq('trainee_id', t.id).maybeSingle()
+          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at').eq('trainee_id', t.id).maybeSingle()
+          // BANKING (Neal, 2026-10-04): okay to skip on the day they sign; from the NEXT day on,
+          // no training until their direct deposit details are in.
+          if (ob?.signed_at && !ob.banking_completed_at && etDay(Date.parse(ob.signed_at)) < etDay()) {
+            const ok2 = b._direct !== false
+            if (!ok2) await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
+            return json(200, { ok: false, onboarding: true, banking: true, first: t.first_name || '', onboarding_url: ok2 ? `/onboarding/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` : null })
+          }
           if (!ob?.signed_at) {
             // Signed in with their own link or a matching email → open the paperwork right here
             // (Neal, 2026-10-04: "they're signing in anyways"). Otherwise send it by text + email.

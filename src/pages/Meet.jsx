@@ -301,7 +301,7 @@ export default function Meet() {
   const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
   // ?preview=onboarding shows the onboarding screen exactly as a trainee sees it (nothing sent,
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
-  const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#' } : null)) // { first } — onboarding paperwork not signed yet
+  const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#', banking: sp.get('mode') === 'banking' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
   const [lastBody, setLastBody] = useState(null)
 
@@ -319,7 +319,7 @@ export default function Meet() {
     const j = await call({ action: 'join', ...body, room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
-    if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null }); return false }
+    if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null, banking: !!j.banking }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
@@ -351,9 +351,15 @@ export default function Meet() {
         {gate.url ? (
           // Signed in with their own email/link → the paperwork opens right here, then back to class.
           <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, lineHeight: 1.55 }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: L.head, marginBottom: 6 }}>Before training, finish your onboarding paperwork.</div>
-            <div style={{ fontSize: 15 }}>Your W-9 and Independent Contractor Agreement. It takes about 5 minutes. When you've signed, you'll come straight back into training.</div>
-            <a href={gate.url} style={{ ...big, display: 'block', marginTop: 14, textDecoration: 'none', boxSizing: 'border-box' }}>📝 Start my onboarding paperwork</a>
+            {gate.banking ? <>
+              <div style={{ fontSize: 18, fontWeight: 900, color: L.head, marginBottom: 6 }}>Before training today, add your direct deposit details.</div>
+              <div style={{ fontSize: 15 }}>Your bank name, routing number and account number, so you get paid. It takes a minute, then you'll come straight back into training.</div>
+              <a href={gate.url} style={{ ...big, display: 'block', marginTop: 14, textDecoration: 'none', boxSizing: 'border-box' }}>🏦 Add my direct deposit</a>
+            </> : <>
+              <div style={{ fontSize: 18, fontWeight: 900, color: L.head, marginBottom: 6 }}>Before training, finish your onboarding paperwork.</div>
+              <div style={{ fontSize: 15 }}>Your W-9 and Independent Contractor Agreement. It takes about 5 minutes. When you've signed, you'll come straight back into training.</div>
+              <a href={gate.url} style={{ ...big, display: 'block', marginTop: 14, textDecoration: 'none', boxSizing: 'border-box' }}>📝 Start my onboarding paperwork</a>
+            </>}
           </div>
         ) : (
         <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, textAlign: 'left', lineHeight: 1.55 }}>
