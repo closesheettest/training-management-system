@@ -283,8 +283,12 @@ export default function MeetingRooms() {
                   <table className="w-full">
                     <thead><tr className="text-left text-slate-500"><th>Name</th><th>Their link</th></tr></thead>
                     <tbody>{open.data.people.map((p) => (
-                      <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}</td>
-                        <td><button onClick={() => copy(p.link)} className="text-blue-700 underline">Copy link</button></td></tr>
+                      <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}
+                          {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>
+                        <td className="whitespace-nowrap"><button onClick={() => copy(p.link)} className="text-blue-700 underline">Copy link</button>
+                          {r.kind === 'training' && !p.early_a && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week A early?\n\nThey go into the field for the rest of Week A and stay in the class for Week B (their link keeps working).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'A' }); setMsg(j.ok ? `${j.name}: graduated Week A early ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-3 rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">🎓 Week A early</button>}
+                          {r.kind === 'training' && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week B early?\n\nThey become a JUNIOR REP on their team now (active sales rep).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'B' }); setMsg(j.ok ? `${j.name}: graduated Week B early, now a junior rep ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">🎓 Week B early</button>}
+                        </td></tr>
                     ))}</tbody>
                   </table>
                 ) : open.tab === 'attendance' ? (

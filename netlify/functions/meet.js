@@ -233,7 +233,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -287,6 +287,24 @@ export const handler = async (event) => {
       await putSetting('meet_rooms', rooms)
       return json(200, { ok: true })
     }
+    // GRADUATED EARLY (Neal, 2026-10-04), from a training room's people list:
+    //   Week A early → into the field for the rest of Week A, still IN for Week B (is_field_trainee
+    //     + week_b_force, the override the kiosk / class page / no-show rule already honour).
+    //   Week B early → a junior rep on their team now (the same switch as the field-trainee
+    //     "graduate": active sales rep, junior if no level yet, field trainee off).
+    if (b.action === 'early_grad') {
+      const tid = String(b.trainee_id || ''), week = b.week === 'B' ? 'B' : 'A', now = new Date().toISOString()
+      const { data: g } = await sb.from('trainees').select('id, first_name, last_name, rep_level, became_active_rep_at').eq('id', tid).maybeSingle()
+      if (!g) return json(404, { ok: false, error: 'Trainee not found' })
+      const patch = week === 'A' ? { is_field_trainee: true, week_b_force: true }
+        : { is_field_trainee: false, is_active_sales_rep: true, became_active_rep_at: g.became_active_rep_at || now, ...(g.rep_level ? {} : { rep_level: 'junior', rep_level_confirmed_at: now }) }
+      const { error } = await sb.from('trainees').update(patch).eq('id', tid)
+      if (error) return json(500, { ok: false, error: error.message })
+      const log = (await getSetting('early_grads', {})) || {}
+      log[tid] = { ...(log[tid] || {}), [week === 'A' ? 'week_a_at' : 'week_b_at']: now, by: admin }
+      await putSetting('early_grads', log)
+      return json(200, { ok: true, name: `${g.first_name || ''} ${g.last_name || ''}`.trim() })
+    }
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))
       return json(200, { ok: true })
@@ -305,7 +323,8 @@ export const handler = async (event) => {
       let people = (data || []).filter((p) => p.registration_token && (p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
       if (room.kind === 'custom') people = []
-      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p) }))
+      const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
+      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
       if (b.action === 'audience') return json(200, { ok: true, people: rows })
       // Every message goes by text AND email (texts alone miss people on Do Not Disturb).
