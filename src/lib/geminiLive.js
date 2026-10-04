@@ -89,7 +89,13 @@ export const LIVE_WS_URL = WS_URL
 export class LiveHomeowner {
   // getToken: async () => ({ token, model })
   // on: { status(s), transcript(entries), level(0..1), error(msg), closeSilence({held,seconds}) }
-  constructor({ getToken, systemPrompt, voice, on }) {
+  // inputStream / routeOut (Neal, 2026-10-04 — practice INSIDE a meeting): listen to the
+  // presenting trainee's meeting audio instead of this laptop's mic, and send the homeowner's
+  // voice to a stream (this.outStream) that is published into the meeting as its own tile,
+  // instead of to this laptop's speakers.
+  constructor({ getToken, systemPrompt, voice, on, inputStream = null, routeOut = false }) {
+    this.inputStream = inputStream
+    this.routeOut = routeOut
     this.getToken = getToken
     this.systemPrompt = systemPrompt
     this.voice = voice
@@ -112,13 +118,14 @@ export class LiveHomeowner {
 
   async start() {
     this.startedAt = new Date()
-    this.stream = await navigator.mediaDevices.getUserMedia({
+    this.stream = this.inputStream || await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     })
     // Which mic Chrome picked (AirPods vs the laptop's), shown on screen.
     this.on.mic?.(this.stream.getAudioTracks()[0]?.label || '')
     this.inCtx = new AudioContext({ sampleRate: 16000 })
     this.outCtx = new AudioContext({ sampleRate: 24000 })
+    if (this.routeOut) { this.outDest = this.outCtx.createMediaStreamDestination(); this.outStream = this.outDest.stream }
     await this.inCtx.audioWorklet.addModule('/practice-mic-worklet.js')
     const src = this.inCtx.createMediaStreamSource(this.stream)
     this.tap = new AudioWorkletNode(this.inCtx, 'mic-tap')
@@ -310,7 +317,7 @@ export class LiveHomeowner {
     buf.copyToChannel(f32, 0)
     const node = this.outCtx.createBufferSource()
     node.buffer = buf
-    node.connect(this.outCtx.destination)
+    node.connect(this.outDest || this.outCtx.destination)
     const at = Math.max(this.outCtx.currentTime + 0.02, this.nextPlay)
     node.start(at)
     this.nextPlay = at + buf.duration
@@ -350,7 +357,7 @@ export class LiveHomeowner {
     try { this.ws?.close() } catch { /* ignore */ }
     this.stopPlayback()
     try { this.tap?.disconnect() } catch { /* ignore */ }
-    for (const t of this.stream?.getTracks() || []) t.stop()
+    if (!this.inputStream) for (const t of this.stream?.getTracks() || []) t.stop() // a meeting track isn't ours to stop
     try { this.inCtx?.close() } catch { /* ignore */ }
     try { this.outCtx?.close() } catch { /* ignore */ }
     return { entries: this.entries.filter((e) => e.text && e.text.trim()), startedAt: this.startedAt, endedAt: new Date(), closeSilence: this.closeSilence, usage: this.usage }

@@ -20,6 +20,7 @@ import {
 } from '@livekit/components-react'
 import { Track } from 'livekit-client'
 import '@livekit/components-styles'
+import MeetPractice from '../components/MeetPractice.jsx'
 
 const FN = '/.netlify/functions/meet'
 const PIN_KEY = 'meet_host_pin'
@@ -112,6 +113,7 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
 function Stage({ room, auth, isHost }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
+  const [practice, setPractice] = useState(false) // 🎭 AI homeowner practice (trainer PIN only)
   const [circle, setCircle] = useState(true) // presenter circle — the sharer's choice, on by default
   const [lastSpeaker, setLastSpeaker] = useState(null)
   const layoutContext = useCreateLayoutContext()
@@ -148,6 +150,7 @@ function Stage({ room, auth, isHost }) {
           <button onClick={() => pickView('gallery')} style={btn(view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(view === 'speaker')}>◧ Speaker</button>
           <span style={{ flex: 1 }} />
+          {isHost && auth.pin && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -167,6 +170,7 @@ function Stage({ room, auth, isHost }) {
                 </div>
               </FocusLayoutContainer>
             )}
+            {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
           </div>
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />

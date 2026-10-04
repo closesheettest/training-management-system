@@ -225,6 +225,16 @@ export const handler = async (event) => {
     return json(200, { ok: true, url, token: await at.toJwt(), name, host, title: room.title, room: publicRoom(room) })
   }
 
+  // PRACTICE IN THE MEETING: a seat for the AI homeowner (its own tile), run from the trainer's
+  // browser. Admin PIN only — the Sales Training Customer spends Gemini money and is trainer-only.
+  if (b.action === 'homeowner_token') {
+    if (!(await verifyPin(b.pin))) return json(401, { ok: false, error: 'Trainer PIN required.' })
+    const nm = `${String(b.name || 'Homeowner').slice(0, 40)} (homeowner)`
+    const at = new AccessToken(key, secret, { identity: `homeowner:${Math.random().toString(36).slice(2, 8)}`, name: nm, ttl: '3h', metadata: JSON.stringify({ homeowner: true }) })
+    at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: false, canPublishData: false })
+    return json(200, { ok: true, url, token: await at.toJwt() })
+  }
+
   // Host actions: an admin PIN, or the link of a room host (the zone's manager, a named host).
   let hostOk = !!(await verifyPin(b.pin)) || !!(room.host_code && sameCode(b.host_code, room.host_code))
   if (!hostOk) { const t = await traineeByToken(b.t); hostOk = !!(t && isRoomHost(room, t)) }
