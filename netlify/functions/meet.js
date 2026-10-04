@@ -421,6 +421,8 @@ export const handler = async (event) => {
     // Each device gets its own seat — the same identity twice would kick the first device out.
     const seat = () => Math.random().toString(36).slice(2, 7)
     if (admin) { name = admin; identity = `host:${admin}:${seat()}`; host = true }
+    // The trainer's first arrival today starts the 2-minute door (training rooms).
+    if (admin && room.kind === 'training' && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
     else if (room.host_code && sameCode(b.host_code, room.host_code)) {
       name = String(b.name || '').trim().slice(0, 60) || 'Host'; identity = `host:${slugify(name)}:${seat()}`; host = true
     } else if (room.public && b.guest) {
@@ -452,6 +454,27 @@ export const handler = async (event) => {
             if (lastDay) {
               const { data: mine } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', lastDay).limit(1)
               if (!mine?.length) return json(200, { ok: false, removed: true, message: outMsg })
+            }
+          }
+          // LATE = LOCKED OUT (Neal, 2026-10-04): once the trainer is in, the doors stay open 2 more
+          // minutes, then close for anyone not already in today (someone who was in and dropped can
+          // always get back). Week A Day 1 → "call Brent to reschedule"; any other day → being on time.
+          const lock = await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null)
+          // The clock starts at whichever is LATER — the trainer arriving or the scheduled start — so
+          // a trainer who logs on early doesn't shut people out before class even begins.
+          const sched = hasSchedule(room) ? nextMeeting(room) : null
+          const lockBase = lock?.at ? Math.max(Date.parse(lock.at), sched && sched.start.getTime() <= Date.now() + 864e5 && etDay(sched.start.getTime()) === etDay() ? sched.start.getTime() : 0) : null
+          if (lockBase && Date.now() > lockBase + 120000) {
+            const { data: inToday } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', etDay()).limit(1)
+            if (!inToday?.length) {
+              const { data: cl } = await sb.from('classes').select('week_start_date').eq('id', me?.class_id || '').maybeSingle()
+              const day1A = (room.training_week || 'A') !== 'B' && cl?.week_start_date === etDay()
+              if (day1A) {
+                const { data: hm } = await sb.from('notification_recipients').select('name, phone').eq('active', true).eq('role', 'hiring_manager').order('created_at', { ascending: true }).limit(1).maybeSingle()
+                const who = (hm?.name || 'Brent').split(' ')[0]
+                return json(200, { ok: false, locked: true, day1: true, title: 'Training has already started', message: `Training has already started. You will have to call ${who} to reschedule.`, phone: hm?.phone || process.env.HIRING_MANAGER_PHONE || '' })
+              }
+              return json(200, { ok: false, locked: true, title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' })
             }
           }
           const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at').eq('trainee_id', t.id).maybeSingle()

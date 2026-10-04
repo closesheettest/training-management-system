@@ -340,6 +340,7 @@ export default function Meet() {
   // nothing saved) — for checking the wording (Neal, 2026-10-04).
   const [gate, setGate] = useState(() => (sp.get('preview') === 'onboarding' ? { first: 'Sam', preview: true, url: sp.get('mode') === 'sent' ? null : '#', banking: sp.get('mode') === 'banking' } : null)) // { first } — onboarding paperwork not signed yet
   const [resent, setResent] = useState('')
+  const [locked, setLocked] = useState(() => (sp.get('preview') === 'late1' ? { title: 'Training has already started', message: 'Training has already started. You will have to call Brent to reschedule.', phone: '' } : sp.get('preview') === 'late' ? { title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' } : null))
   const [removed, setRemoved] = useState(() => (sp.get('preview') === 'removed' ? "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors." : ''))
   const [lastBody, setLastBody] = useState(null)
 
@@ -358,6 +359,7 @@ export default function Meet() {
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
+    if (j.locked) { setLocked(j); return false }
     if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null, banking: !!j.banking }); return false }
     if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
     setErr(j.error || 'Could not join')
@@ -390,6 +392,22 @@ export default function Meet() {
   ) : null
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
+
+  // LATE: the doors closed 2 minutes after the trainer arrived (Neal, 2026-10-04).
+  if (!join && locked) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 20%, #3b0a0a 0%, #0b0b0f 70%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap" />
+        <div style={{ maxWidth: 560, width: '100%', textAlign: 'center' }}>
+          <div style={{ width: 92, height: 92, margin: '0 auto 18px', borderRadius: '50%', background: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 50, boxShadow: '0 0 0 8px rgba(185,28,28,.25), 0 0 40px rgba(220,38,38,.55)' }}>⏰</div>
+          <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(28px, 6vw, 44px)', fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#f87171', lineHeight: 1.05 }}>{locked.title}</div>
+          <div style={{ marginTop: 6, fontSize: 14, letterSpacing: '.2em', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 700 }}>{door?.title || 'Training'}</div>
+          <div style={{ marginTop: 22, padding: '22px', borderRadius: 14, background: 'rgba(127,29,29,.35)', border: '2px solid #dc2626', fontSize: 'clamp(18px, 2.6vw, 22px)', fontWeight: 700, lineHeight: 1.5, color: '#fee2e2' }}>{locked.message}</div>
+          {locked.phone && <a href={`tel:${String(locked.phone).replace(/[^\d+]/g, '')}`} style={{ display: 'inline-block', marginTop: 18, padding: '12px 22px', borderRadius: 10, background: '#fff', color: '#7f1d1d', fontWeight: 900, fontSize: 18, textDecoration: 'none' }}>📞 Call {String(locked.message).match(/call (\w+)/)?.[1] || ''} {locked.phone}</a>}
+        </div>
+      </div>
+    )
+  }
 
   // MISSED A DAY: their link no longer lets them in. Neal's wording; made to look final — "you
   // screwed up, you're not serious" (2026-10-04): red, stark, no buttons, no way forward.
