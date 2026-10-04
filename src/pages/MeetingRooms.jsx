@@ -78,7 +78,7 @@ export default function MeetingRooms() {
   // {link} are filled in for each person; every message goes by text AND email.
   const [compose, setCompose] = useState(null) // { slug, title, subject, message }
   // Custom rooms (a private standing meeting) invite with the schedule + how to bookmark the link.
-  const BOOKMARK = 'Save it so it is one tap away:\n• iPhone: open the link in Safari, tap Share, then "Add to Home Screen".\n• Android: open it in Chrome, tap ⋮, then "Add to Home screen".\n• Computer: press Ctrl+D (⌘+D on a Mac) to bookmark it.'
+  const BOOKMARK = 'Two ways to find it again:\n1) Bookmark this link so it is one tap away:\n• iPhone: open the link in Safari, tap Share, then "Add to Home Screen".\n• Android: open it in Chrome, tap ⋮, then "Add to Home screen".\n• Computer: press Ctrl+D (⌘+D on a Mac).\n2) Or open your My Tools page and tap "Your meetings". Every meeting you are part of is in there.'
   const sendLinks = (r) => setCompose(r.kind === 'custom'
     ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title}${r.schedule ? `, ${r.schedule}` : ''} (Eastern).\n\nThis is your own link. Use it every time: {link}\n\n${BOOKMARK}` }
     : r.kind === 'oneoff'
@@ -131,6 +131,7 @@ export default function MeetingRooms() {
             )}
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
               <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
+                <label className="mb-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone invited 5 minutes before each meeting (text + email with their link)</label>
                 <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
                 <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">

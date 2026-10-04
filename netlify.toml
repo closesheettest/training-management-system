@@ -144,6 +144,10 @@
 
 # Meeting recordings: delete files older than each room's "keep recordings" setting.
 # Daily 8:30 UTC (4:30 AM EDT). Mirrors export config.schedule in the function file.
+# Meeting reminders: every 5 minutes, texts + emails invitees 5 min before rooms with remind_5 on.
+[functions."cron-meet-reminders"]
+  schedule = "*/5 * * * *"
+
 [functions."cron-meet-recordings-cleanup"]
   schedule = "30 8 * * *"
 

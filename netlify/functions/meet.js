@@ -100,6 +100,38 @@ const nextMeeting = (r, now = Date.now()) => {
   const hit = out.map((x) => ({ start: x.start, end: new Date(x.start.getTime() + x.mins * 60000) })).filter((x) => x.end.getTime() > now).sort((a, b) => a.start - b.start)[0]
   return hit || null
 }
+// ⏰ 5-MINUTE REMINDER (Neal, 2026-10-04: "five minutes before the meeting, it sends everybody a
+// text message with the link"). Rooms with remind_5 on and an invite list (custom / one-time): each
+// invited person gets a text AND an email with their own link. Run by cron-meet-reminders every
+// 5 minutes; each meeting is reminded once (app_settings meet_remind_<room>_<start>).
+export async function runMeetReminders() {
+  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  const get = async (k) => { const { data } = await sb.from('app_settings').select('value').eq('key', k).maybeSingle(); try { return data ? JSON.parse(data.value) : null } catch { return null } }
+  const rooms = (await get('meet_rooms')) || [], sent = []
+  for (const room of rooms) {
+    if (!room.remind_5 || !(room.invitees || []).length) continue
+    const nm = nextMeeting(room)
+    if (!nm) continue
+    const mins = (nm.start.getTime() - Date.now()) / 60000
+    if (mins <= 0 || mins > 7) continue
+    const key = `meet_remind_${room.slug}_${nm.start.toISOString()}`
+    if (await get(key)) continue
+    await sb.from('app_settings').upsert({ key, value: JSON.stringify({ at: new Date().toISOString() }), updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    const ids = room.invitees.filter((x) => x.id).map((x) => x.id)
+    const { data: ppl } = ids.length ? await sb.from('trainees').select('first_name, last_name, phone, email, registration_token').in('id', ids) : { data: [] }
+    const rows = (ppl || []).filter((p) => p.registration_token).map((p) => ({ first: p.first_name || 'there', last: p.last_name || '', phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}` }))
+    for (const x of room.invitees.filter((y) => y.key)) rows.push({ first: (x.name || 'there').split(' ')[0], last: '', phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}` })
+    const at = nm.start.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+    for (const r of rows) {
+      const msg = `⏰ ${r.first}, ${room.title} starts in 5 minutes (${at} Eastern). Join here: ${r.link}`
+      if (r.phone) await sendSmsViaGhl(r.phone, msg, { firstName: r.first, lastName: r.last }).catch(() => {})
+      if (r.email) await sendEmail(r.email, `Starting in 5 minutes: ${room.title}`, msg).catch(() => {})
+      sent.push(`${room.slug}:${r.first}`)
+    }
+  }
+  return sent
+}
+
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
 export const handler = async (event) => {
@@ -262,6 +294,37 @@ export const handler = async (event) => {
     })
   }
 
+  // YOUR MEETINGS (Neal, 2026-10-04: "a button that says your meetings… the link for every meeting
+  // he is part of"). Signed in with their admin PIN (the same one they host with): every room this
+  // person belongs in — invited (custom / one-time), named as a host, or by their role (team,
+  // managers, company, everyone, prayer). One-time meetings that are over drop off.
+  if (b.action === 'mine_by_pin') {
+    const name = await verifyPin(b.pin)
+    if (!name) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
+    const parts = String(name).trim().split(/\s+/)
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1])
+    const ids = new Set((ts || []).map((x) => x.id))
+    const t = (ts || []).find((x) => x.managed_region) || (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0] || null
+    const nm0 = String(name).trim().toLowerCase()
+    const named = (r) => (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
+    const mine = (await loadRooms()).filter((r) => {
+      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => x.id && ids.has(x.id)) || named(r)
+      if (named(r)) return true
+      if (!t) return false
+      const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
+      if (r.kind === 'zone') return (t.region === r.zone || t.managed_region === r.zone) && (active || !!t.managed_region)
+      if (r.kind === 'managers') return !!t.managed_region
+      if (['everyone', 'prayer', 'company'].includes(r.kind)) return active || !!t.managed_region
+      return false
+    }).filter((r) => r.kind !== 'oneoff' || nextMeeting(r))
+    const rows = await Promise.all(mine.map(async (r) => {
+      const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextMeeting(r) : null
+      return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: `${SITE}/meet/${r.slug}` }
+    }))
+    rows.sort((a, c) => (c.live - a.live) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15)))
+    return json(200, { ok: true, name, rooms: rows })
+  }
+
   // ---- ADMIN: rooms ----
   if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
@@ -301,6 +364,7 @@ export const handler = async (event) => {
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         effort_gate: !!r.effort_gate,
+        remind_5: !!r.remind_5,
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
         invitees: kind === 'oneoff' || kind === 'custom' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
