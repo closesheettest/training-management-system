@@ -340,6 +340,18 @@ export default function Meet() {
   const input = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${L.fieldBorder}`, background: L.field, color: L.fieldText, fontSize: 16, marginBottom: 8 }
   const big = { width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', background: L.button, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }
   const hTitle = { fontSize: L.light ? 34 : 22, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, lineHeight: 1.15 }
+  // TRAINING ROOMS (Neal, 2026-10-04): the company logo and "U.S. Shingle & Metal welcomes you to
+  // First Week Training" on the sign-in, onboarding and no-class screens.
+  const welcome = (r) => r?.kind === 'training' ? (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'inline-block', background: '#fff', borderRadius: 14, padding: '10px 18px', boxShadow: '0 6px 20px rgba(0,0,0,.25)' }}>
+        <img src="/uss-logo.png" alt="U.S. Shingle & Metal" style={{ height: 96, display: 'block' }} />
+      </div>
+      <div style={{ marginTop: 14, fontSize: 15, letterSpacing: '.14em', textTransform: 'uppercase', color: L.muted, fontWeight: 700 }}>U.S. Shingle &amp; Metal welcomes you to</div>
+      <h1 style={{ ...hTitle, fontSize: 30, marginTop: 4 }}>{r.title}</h1>
+      {r.schedule && <div style={{ color: L.muted, fontSize: 13.5, marginTop: 4 }}>{r.schedule}</div>}
+    </div>
+  ) : null
   const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
 
@@ -347,8 +359,7 @@ export default function Meet() {
   if (!join && removed) {
     return shell(
       <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
-        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
-        <h1 style={hTitle}>{door?.title || 'Training'}</h1>
+        {door?.kind === 'training' ? welcome(door) : <><img src={door?.badge || ''} alt="" style={{ height: 64, marginBottom: 6, display: door?.badge ? 'inline' : 'none' }} /><h1 style={hTitle}>{door?.title || 'Training'}</h1></>}
         <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, fontSize: 16.5, lineHeight: 1.6 }}>{removed}</div>
       </div>
     )
@@ -359,8 +370,8 @@ export default function Meet() {
   if (!join && gate) {
     return shell(
       <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
-        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
-        <h1 style={hTitle}>{gate.first ? `Welcome, ${gate.first}!` : 'Welcome!'}</h1>
+        {door?.kind === 'training' ? welcome(door) : door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+        <h1 style={door?.kind === 'training' ? { ...hTitle, fontSize: 22 } : hTitle}>{gate.first ? `Welcome, ${gate.first}!` : 'Welcome!'}</h1>
         {gate.url ? (
           // Signed in with their own email/link → the paperwork opens right here, then back to class.
           <div style={{ marginTop: 14, padding: '18px 16px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}`, lineHeight: 1.55 }}>
@@ -396,10 +407,12 @@ export default function Meet() {
     const when = notOpen.next_at ? new Date(notOpen.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
     return shell(
       <div style={{ maxWidth: door?.banner_url ? 620 : 420, width: '100%', textAlign: 'center' }}>
-        {bannerImg(door)}
-        {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
-        <h1 style={hTitle}>{door?.title || 'Meeting'}</h1>
-        {schedLine(door)}
+        {door?.kind === 'training' ? welcome(door) : <>
+          {bannerImg(door)}
+          {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+          <h1 style={hTitle}>{door?.title || 'Meeting'}</h1>
+          {schedLine(door)}
+        </>}
         <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}` }}>
           <div style={{ fontSize: L.light ? 22 : 17, fontWeight: L.light ? 600 : 800, fontFamily: L.light ? L.fontHead : 'inherit', color: L.head }}>There's no {door?.kind === 'company' ? 'company meeting' : door?.kind === 'prayer' ? 'live devotional' : 'meeting'} right now.</div>
           {when ? <div style={{ marginTop: 6, color: L.text, fontSize: 15.5 }}>The next one is <b style={{ color: L.head }}>{when}</b> (Eastern).<br />You can come in 15 minutes early.</div>
@@ -413,7 +426,7 @@ export default function Meet() {
   }
 
   if (!join) {
-    const header = door && (
+    const header = door && door.kind === 'training' ? welcome(door) : door && (
       <div style={{ marginBottom: 14 }}>
         {bannerImg(door)}
         {door.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
