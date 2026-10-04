@@ -255,6 +255,48 @@ function Stage({ room, auth, isHost }) {
     const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
   }, [iPresent])
+  // ⌨ SHORTCUTS for Stream Deck buttons (Neal, 2026-10-04: Elgato Stream Deck → a "Hotkey" button
+  // per action). All are Control+Option (Ctrl+Alt on Windows) + a key, so they never fire while
+  // typing in chat. The meeting window has to be the one in front.
+  const [kbNote, setKbNote] = useState('')
+  const [kbHelp, setKbHelp] = useState(false)
+  const kbRef = useRef({})
+  kbRef.current = { dk, sc, iPresent, isHost, room, auth, bg, setDeck, setScripture, toggleRec, pickView, localParticipant, roomCtx, stageIds, recording: rmeta.recording }
+  useEffect(() => {
+    const say = (t) => { setKbNote(t); clearTimeout(say.t); say.t = setTimeout(() => setKbNote(''), 1800) }
+    const onKey = async (e) => {
+      if (!(e.ctrlKey && e.altKey) || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return
+      const k = kbRef.current, lp = k.localParticipant, code = e.code
+      const step = (d) => {
+        if (k.sc && k.isHost && k.sc.mode !== 'all') { k.setScripture({ ...k.sc, idx: Math.max(0, Math.min(k.sc.verses.length - 1, (k.sc.idx || 0) + d)) }); return say(d > 0 ? 'Next verse' : 'Previous verse') }
+        if (k.iPresent) { d > 0 ? deckApi.current?.next() : deckApi.current?.prev(); return say(d > 0 ? 'Next slide' : 'Back a slide') }
+      }
+      const host = async (action, label) => { if (!k.isHost) return say('Host only'); const j = await call({ action, room: k.room.slug, ...k.auth }).catch(() => ({})); say(j.ok ? label : (j.error || 'Did not work')) }
+      const map = {
+        ArrowRight: () => step(1), ArrowLeft: () => step(-1),
+        KeyS: () => { if (k.sc && k.isHost) { k.setScripture({ ...k.sc, showing: false }); say('Scripture off') } else if (k.dk && k.isHost) { k.setDeck({ ...k.dk, showing: false }); say('Stopped presenting') } },
+        KeyM: async () => { const on = lp.isMicrophoneEnabled; await lp.setMicrophoneEnabled(!on).catch(() => {}); say(on ? '🔇 You are muted' : '🎙 Mic on') },
+        KeyV: async () => { const on = lp.isCameraEnabled; await lp.setCameraEnabled(!on).catch(() => {}); say(on ? 'Camera off' : 'Camera on') },
+        KeyE: () => host('mute_all', '🔇 Everyone muted'),
+        KeyU: async () => { if (!k.isHost) return say('Host only'); await lp.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host' }).catch(() => {}); say('🎙 Asked everyone to unmute') },
+        KeyR: () => { if (!k.isHost || !k.room.recording_enabled) return say('Recording is off for this room'); k.toggleRec(); say(k.recording ? 'Stopping recording…' : 'Starting recording…') },
+        KeyG: () => { k.pickView('gallery'); say('Gallery view') },
+        KeyK: () => { k.pickView('speaker'); say('Speaker view') },
+        KeyP: () => { if (!k.isHost || !k.stageIds.length) return say('Podcast mode is not on'); host('set_stage', 'Left podcast mode') },
+        Digit1: () => { k.bg.pick('uss-white'); say('Background: white, logo right') },
+        Digit2: () => { k.bg.pick('uss-white-center'); say('Background: white, logo top') },
+        Digit3: () => { k.bg.pick('uss-navy'); say('Background: navy') },
+        Digit9: () => { k.bg.pick('blur'); say('Background: blur') },
+        Digit0: () => { k.bg.pick('none'); say('Background: none') },
+        Slash: () => setKbHelp((x) => !x),
+      }
+      const f = map[code]
+      if (!f) return
+      e.preventDefault()
+      await f()
+    }
+    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const btn = (on) => ({ padding: '6px 12px', borderRadius: 8, border: '1px solid #475569', background: on ? '#2563eb' : '#1f2937', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' })
   return (
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
@@ -265,6 +307,7 @@ function Stage({ room, auth, isHost }) {
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
+          <button title="Keyboard shortcuts (for Stream Deck)" onClick={() => setKbHelp((x) => !x)} style={btn(kbHelp)}>⌨</button>
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
@@ -319,6 +362,8 @@ function Stage({ room, auth, isHost }) {
               </div>
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
+            {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
+            {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
@@ -703,6 +748,30 @@ export default function Meet() {
         onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
         <Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} />
       </LiveKitRoom>
+    </div>
+  )
+}
+
+// The ⌨ list — what to put on each Stream Deck "Hotkey" button.
+const SHORTCUTS = [
+  ['→', 'Next slide / next verse', false], ['←', 'Back a slide / previous verse', false], ['S', 'Stop presenting / scripture off', true],
+  ['M', 'Mute / unmute me', false], ['V', 'Camera on / off', false], ['E', 'Mute everyone', true], ['U', 'Unmute everyone', true],
+  ['R', 'Start / stop recording', true], ['G', 'Gallery view', false], ['K', 'Speaker view', false], ['P', 'Leave podcast mode', true],
+  ['1', 'Background: white, logo right', false], ['2', 'Background: white, logo top', false], ['3', 'Background: navy', false], ['9', 'Background: blur', false], ['0', 'Background: none', false],
+]
+function ShortcutHelp({ isHost, onClose }) {
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+  const pre = mac ? '⌃ Control + ⌥ Option +' : 'Ctrl + Alt +'
+  return (
+    <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 340, maxHeight: '80vh', overflow: 'auto', background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 12, color: '#e5e7eb', fontSize: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}><b style={{ flex: 1 }}>⌨ Shortcuts (Stream Deck)</b><button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>
+      <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 8 }}>Hold <b>{pre}</b> the key. On the Stream Deck, drag a <b>Hotkey</b> action onto a button and press the same keys. Keep the meeting window in front.</div>
+      {SHORTCUTS.filter((x) => isHost || !x[2]).map(([k, label]) => (
+        <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0', borderTop: '1px solid #1f2937' }}>
+          <span style={{ minWidth: 34, textAlign: 'center', padding: '2px 6px', borderRadius: 6, background: '#1f2937', border: '1px solid #374151', fontWeight: 800 }}>{k}</span>
+          <span>{label}</span>
+        </div>
+      ))}
     </div>
   )
 }
