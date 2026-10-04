@@ -21,6 +21,22 @@ const splitBracketed = (txt) => {
   return out
 }
 
+// Book name → the code API.Bible uses (USFM), any common spelling (Neal, 2026-10-04: "philippians
+// 4:6-9" wasn't found — their search endpoint misses plain references, so we build the passage id).
+const BOOKS = {}
+'GEN Genesis Gen Ge Gn|EXO Exodus Exod Ex|LEV Leviticus Lev Lv|NUM Numbers Num Nm|DEU Deuteronomy Deut Dt|JOS Joshua Josh|JDG Judges Judg Jdg|RUT Ruth Ru|1SA 1Samuel 1Sam 1Sa|2SA 2Samuel 2Sam 2Sa|1KI 1Kings 1Kgs 1Ki|2KI 2Kings 2Kgs 2Ki|1CH 1Chronicles 1Chr 1Ch|2CH 2Chronicles 2Chr 2Ch|EZR Ezra Ezr|NEH Nehemiah Neh|EST Esther Esth Est|JOB Job Jb|PSA Psalms Psalm Ps Psa Pss|PRO Proverbs Prov Pr Prv|ECC Ecclesiastes Eccl Ecc Qoh|SNG SongofSolomon SongofSongs Song Sos Canticles|ISA Isaiah Isa Is|JER Jeremiah Jer Je|LAM Lamentations Lam La|EZK Ezekiel Ezek Eze Ezk|DAN Daniel Dan Dn|HOS Hosea Hos Ho|JOL Joel Jl|AMO Amos Am|OBA Obadiah Obad Ob|JON Jonah Jon Jnh|MIC Micah Mic Mi|NAM Nahum Nah Na|HAB Habakkuk Hab|ZEP Zephaniah Zeph Zep|HAG Haggai Hag Hg|ZEC Zechariah Zech Zec|MAL Malachi Mal Ml|MAT Matthew Matt Mt|MRK Mark Mk Mrk|LUK Luke Lk Luk|JHN John Jn Jhn|ACT Acts Ac|ROM Romans Rom Ro Rm|1CO 1Corinthians 1Cor 1Co|2CO 2Corinthians 2Cor 2Co|GAL Galatians Gal Ga|EPH Ephesians Eph|PHP Philippians Phil Php Pp|COL Colossians Col|1TH 1Thessalonians 1Thess 1Th|2TH 2Thessalonians 2Thess 2Th|1TI 1Timothy 1Tim 1Ti|2TI 2Timothy 2Tim 2Ti|TIT Titus Tit|PHM Philemon Phlm Phm|HEB Hebrews Heb|JAS James Jas Jm|1PE 1Peter 1Pet 1Pe 1Pt|2PE 2Peter 2Pet 2Pe 2Pt|1JN 1John 1Jn 1Jo|2JN 2John 2Jn 2Jo|3JN 3John 3Jn 3Jo|JUD Jude Jud|REV Revelation Revelations Rev Re Rv'.split('|').forEach((row) => { const [code, ...names] = row.split(' '); for (const n of names) BOOKS[n.toLowerCase()] = code })
+// "philippians 4:6-9", "1 John 1:9", "Ps 23", "John 3:16-4:2" → "PHP.4.6-PHP.4.9"
+function passageId(ref) {
+  const m = String(ref).trim().match(/^((?:[123]|i{1,3})\s*)?([a-z ]+?)\.?\s+(\d+)(?::(\d+))?(?:\s*[-–]\s*(?:(\d+):)?(\d+))?$/i)
+  if (!m) return null
+  const num = (m[1] || '').trim().toLowerCase().replace(/^iii$/, '3').replace(/^ii$/, '2').replace(/^i$/, '1')
+  const code = BOOKS[(num + m[2]).toLowerCase().replace(/\s+/g, '')]
+  if (!code) return null
+  const ch = m[3], v1 = m[4], ch2 = m[5] || ch, v2 = m[6]
+  if (!v1) return `${code}.${ch}` // whole chapter
+  return v2 ? `${code}.${ch}.${v1}-${code}.${ch2}.${v2}` : `${code}.${ch}.${v1}`
+}
+
 export const handler = async (event) => {
   const q = event.queryStringParameters || {}
   const ref = String(q.ref || '').trim().slice(0, 60), v = String(q.v || 'NIV').toUpperCase()
@@ -54,13 +70,16 @@ export const handler = async (event) => {
     }
     const id = bibleIds[v]
     if (!id) return json(200, { ok: false, error: `${v} isn't on our plan — pick it on API.Bible, or paste the verses.` })
-    // The search endpoint understands a reference like "Psalm 23:1-6" and returns the passage.
-    const s = await (await fetch(`https://rest.api.bible/v1/bibles/${id}/search?query=${encodeURIComponent(ref)}`, { headers: H })).json()
-    const pass = s.data?.passages?.[0]
-    if (!pass) return json(200, { ok: false, error: "Couldn't find that passage. Try like: Psalm 23:1-6" })
+    // Build the passage id ourselves; only if we can't read the reference, ask their search.
+    let pass = { id: passageId(ref) }
+    if (!pass.id) {
+      const s = await (await fetch(`https://rest.api.bible/v1/bibles/${id}/search?query=${encodeURIComponent(ref)}`, { headers: H })).json()
+      pass = s.data?.passages?.[0]
+      if (!pass) return json(200, { ok: false, error: "Couldn't find that passage. Try like: Psalm 23:1-6" })
+    }
     const p = await (await fetch(`https://rest.api.bible/v1/bibles/${id}/passages/${encodeURIComponent(pass.id)}?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=true&include-verse-spans=false`, { headers: H })).json()
-    const verses = splitBracketed(p.data?.content || pass.content)
-    if (!verses.length) return json(200, { ok: false, error: "Couldn't read that passage." })
+    const verses = splitBracketed(p.data?.content || pass.content || '')
+    if (!verses.length) return json(200, { ok: false, error: "Couldn't find that passage. Check the book, chapter and verses (like Philippians 4:6-9)." })
     return json(200, { ok: true, ref: p.data?.reference || pass.reference || ref, version: v, verses })
   } catch (e) {
     return json(200, { ok: false, error: `Lookup failed: ${e.message}` })
