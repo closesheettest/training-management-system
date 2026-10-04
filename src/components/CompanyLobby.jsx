@@ -20,14 +20,31 @@ export const SLIDES = [
 
 const fmt = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
 
+// Mix the real reviews in: a company fact, a Google review, a past trainee, … (shuffled each visit).
+const shuffle = (a) => a.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1])
+function buildDeck(facts, rev) {
+  if (!rev?.ok) return facts
+  const g = shuffle(rev.reviews || []).map((r) => ({ kind: 'google', quote: r.text, who: r.name, when: r.when }))
+  const t = shuffle(rev.trainees || []).slice(0, 8).map((r) => ({ kind: 'trainee', quote: r.text, who: r.name }))
+  const f = facts.map((x) => (x.big === '★★★★★' && rev.rating ? { ...x, big: `${rev.rating} ★`, sub: `From ${rev.total} Google reviews by the homeowners we serve.` } : x))
+  const out = [f[0]]
+  let gi = 0, ti = 0
+  for (let k = 1; k < f.length; k++) { out.push(f[k]); if (g[gi]) out.push(g[gi++]); if (t[ti]) out.push(t[ti++]) }
+  while (g[gi] || t[ti]) { if (g[gi]) out.push(g[gi++]); if (t[ti]) out.push(t[ti++]) }
+  return out
+}
+
 export default function CompanyLobby({ title, nextAt, first, onCheck }) {
+  const [deck, setDeck] = useState(SLIDES)
+  useEffect(() => { fetch('/.netlify/functions/company-reviews').then((r) => r.json()).then((rev) => setDeck(buildDeck(SLIDES, rev))).catch(() => {}) }, [])
   const [i, setI] = useState(0)
   const [now, setNow] = useState(Date.now())
-  useEffect(() => { const t = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 7000); return () => clearInterval(t) }, [])
+  // Quotes need longer on screen than a one-line fact.
+  useEffect(() => { const s0 = deck[i] || {}; const ms = s0.quote ? Math.min(16000, 6000 + s0.quote.length * 35) : 7000; const t = setTimeout(() => setI((x) => (x + 1) % deck.length), ms); return () => clearTimeout(t) }, [i, deck])
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   // Let them in as soon as the room opens (15 min before start) — ask every 30 seconds.
   useEffect(() => { const t = setInterval(() => onCheck?.(), 30000); return () => clearInterval(t) }, [onCheck])
-  const s = SLIDES[i]
+  const s = deck[i] || deck[0]
   const left = nextAt ? Math.max(0, Date.parse(nextAt) - 15 * 60000 - now) : null
   const mm = left != null ? Math.floor(left / 60000) : null
   return (
@@ -39,13 +56,19 @@ export default function CompanyLobby({ title, nextAt, first, onCheck }) {
         <div style={{ fontSize: 14, color: '#9fb0c8', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{first ? `Welcome, ${first}` : 'Welcome'} · {title}</div>
       </div>
       <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 6%', animation: 'lobbyIn .8s ease' }}>
+        {s.quote ? (<>
+          <div style={{ fontSize: 'clamp(14px, 1.8vw, 20px)', letterSpacing: '.3em', textTransform: 'uppercase', color: s.kind === 'google' ? '#fcd34d' : '#60a5fa', fontWeight: 800 }}>{s.kind === 'google' ? '★★★★★ Google review' : 'From a past trainee'}</div>
+          <div style={{ fontSize: s.quote.length > 260 ? 'clamp(18px, 2.4vw, 30px)' : 'clamp(22px, 3.2vw, 40px)', lineHeight: 1.4, maxWidth: 1000, margin: '18px 0', fontStyle: 'italic', color: '#f1f5f9' }}>“{s.quote}”</div>
+          <div style={{ fontSize: 'clamp(15px, 1.8vw, 22px)', fontWeight: 800, color: '#cbd5e1' }}>— {s.who}{s.kind === 'google' ? `${s.when ? `, ${s.when}` : ''} · Google` : ', past trainee'}</div>
+        </>) : <>
         {s.logo && <div style={{ background: '#fff', borderRadius: 18, padding: '16px 28px', marginBottom: 28, boxShadow: '0 20px 60px rgba(0,0,0,.45)' }}><img src="/uss-logo.png" alt="" style={{ height: 'clamp(90px, 16vh, 170px)', display: 'block' }} /></div>}
         <div style={{ fontSize: 'clamp(14px, 1.8vw, 20px)', letterSpacing: '.3em', textTransform: 'uppercase', color: '#f87171', fontWeight: 800 }}>{s.kicker}</div>
         <div style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: s.logo ? 'clamp(34px, 6vw, 72px)' : 'clamp(48px, 10vw, 128px)', fontWeight: 700, lineHeight: 1.02, margin: '10px 0 18px', textShadow: '0 6px 30px rgba(0,0,0,.5)' }}>{s.big}</div>
         <div style={{ fontSize: 'clamp(18px, 2.4vw, 30px)', color: '#dbe4f3', maxWidth: 900, lineHeight: 1.35 }}>{s.sub}</div>
+        </>}
       </div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
-        {SLIDES.map((_, k) => <span key={k} style={{ width: k === i ? 26 : 8, height: 8, borderRadius: 99, background: k === i ? '#f87171' : 'rgba(255,255,255,.3)', transition: 'all .4s' }} />)}
+        {deck.map((_, k) => <span key={k} style={{ width: k === i ? 26 : 8, height: 8, borderRadius: 99, background: k === i ? '#f87171' : 'rgba(255,255,255,.3)', transition: 'all .4s' }} />)}
       </div>
       <div style={{ background: 'rgba(200,16,46,.95)', padding: '12px 16px', textAlign: 'center', fontWeight: 800, fontSize: 'clamp(14px, 1.8vw, 18px)' }}>
         ✅ Your paperwork is done.{' '}

@@ -25,11 +25,20 @@ export const handler = async (event) => {
     const seen = new Set(), reviews = []
     for (const r of [...(a.result?.reviews || []), ...(b.result?.reviews || [])]) {
       const k = `${r.author_name}|${r.time}`
-      if (seen.has(k) || r.rating < 5 || !String(r.text || '').trim()) continue
+      if (seen.has(k) || r.rating < 5 || String(r.text || '').trim().length < 40) continue
       seen.add(k)
       reviews.push({ name: String(r.author_name || '').split(' ').map((w, i) => (i ? `${w[0]}.` : w)).join(' '), stars: r.rating, text: String(r.text).trim(), when: r.relative_time_description || '' })
     }
-    const out = { ok: true, name: a.result?.name || '', rating: a.result?.rating || null, total: a.result?.user_ratings_total || null, reviews }
+    // PAST TRAINEES (Neal, 2026-10-04): their answers to "is Neal's training worth my time?" from the
+    // final test, ones the office marked for testimonials — word for word (never reworded), and
+    // short enough to read on a slide.
+    const { data: tr } = await sb.from('test_responses').select('essay_response, question_prompt, test_attempts(trainees(first_name, last_name))')
+      .eq('question_type', 'essay').eq('use_for_testimonial', true).not('essay_response', 'is', null).ilike('question_prompt', '%worth my time%').order('created_at', { ascending: false }).limit(200)
+    const trainees = (tr || []).map((x) => ({ text: String(x.essay_response || '').trim(), t: x.test_attempts?.trainees }))
+      .filter((x) => x.text.length >= 60 && x.text.length <= 420 && x.t?.first_name)
+      .map((x) => ({ name: `${x.t.first_name} ${String(x.t.last_name || '').slice(0, 1)}${x.t.last_name ? '.' : ''}`.trim(), text: x.text }))
+      .slice(0, 30)
+    const out = { ok: true, name: a.result?.name || '', rating: a.result?.rating || null, total: a.result?.user_ratings_total || null, reviews, trainees }
     await sb.from('app_settings').upsert({ key: 'company_reviews', value: JSON.stringify(out), updated_at: new Date().toISOString() }, { onConflict: 'key' })
     return json(200, out)
   } catch (e) { return json(200, { ok: false, error: e.message }) }
