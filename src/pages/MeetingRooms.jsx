@@ -107,6 +107,24 @@ export default function MeetingRooms() {
                 <button onClick={() => setForm({ ...form, once: [...(form.once || []), ''] })} className="mt-1 block text-sm font-semibold text-blue-700">+ Add a date</button>
               </div>
             </div>
+            {/* LOOK: how the room's pages look (Neal, 2026-10-04 — the devotional should feel like
+                915devotional.com, not a company tool). */}
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+              <div className="text-sm font-bold">Look</div>
+              <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                {[['team', 'Team colors (dark)'], ['company', 'Company (navy + red)'], ['devotional', '9:15 Devotional (cream, navy & gold)']].map(([k, l]) => (
+                  <label key={k} className={`cursor-pointer rounded border px-3 py-1.5 font-semibold ${(form.look || (form.kind === 'company' ? 'company' : 'team')) === k ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
+                    <input type="radio" className="hidden" checked={(form.look || (form.kind === 'company' ? 'company' : 'team')) === k} onChange={() => setForm({ ...form, look: k })} />{l}
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <label className="text-sm font-semibold sm:col-span-2">Banner picture (web address, optional)<input className={field} value={form.banner_url || ''} onChange={(e) => setForm({ ...form, banner_url: e.target.value })} placeholder="https://…/banner.jpg" /></label>
+                <label className="text-sm font-semibold sm:col-span-2">Welcome line (shown before joining)<input className={field} value={form.welcome || ''} onChange={(e) => setForm({ ...form, welcome: e.target.value })} placeholder="e.g. A short daily devotional: we open scripture and close in prayer." /></label>
+                <label className="text-sm font-semibold">"No meeting now" button text<input className={field} value={form.back_label || ''} onChange={(e) => setForm({ ...form, back_label: e.target.value })} placeholder="e.g. Watch Past Devotionals" /></label>
+                <label className="text-sm font-semibold">…and where it goes<input className={field} value={form.back_url || ''} onChange={(e) => setForm({ ...form, back_url: e.target.value })} placeholder="https://…" /></label>
+              </div>
+            </div>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.cameras_required} onChange={(e) => setForm({ ...form, cameras_required: e.target.checked })} /> Cameras on</label>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.public} onChange={(e) => setForm({ ...form, public: e.target.checked })} /> Open to the public (guests sign in with name + email)</label>
           </div>

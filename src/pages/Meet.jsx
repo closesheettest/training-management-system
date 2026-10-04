@@ -28,6 +28,19 @@ const GUEST_KEY = 'meet_guest'
 const call = async (body) => (await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()
 const getS = (k, s) => { try { return (s || sessionStorage).getItem(k) || '' } catch { return '' } }
 const setS = (k, v, s) => { try { (s || sessionStorage).setItem(k, v) } catch { /* private mode */ } }
+// LOOKS (Neal, 2026-10-04: "when somebody clicks on the devotional … it looks like it's part of
+// the page"). Each room picks a look on the admin page; the door, the "no meeting" screen, the
+// title bar and the topic banner all take it. 'devotional' matches 915devotional.com: cream,
+// navy + gold, Cormorant Garamond headings.
+const LOOKS = {
+  team: { bg: '#0b0f17', text: '#e5e7eb', muted: '#94a3b8', head: '#ffffff', card: '#111827', border: '#334155', button: '#2563eb', bar: '#0f172a', field: '#111827', fieldText: '#fff', fieldBorder: '#374151', fontHead: 'inherit', fontBody: 'inherit', banner: null },
+  company: { bg: '#0b1426', text: '#e5e7eb', muted: '#9fb0c8', head: '#ffffff', card: '#12203a', border: '#2b3d5e', button: '#c8102e', bar: '#0e1a33', field: '#0e1a33', fieldText: '#fff', fieldBorder: '#2b3d5e', fontHead: "'Oswald', 'Arial Narrow', sans-serif", fontBody: 'inherit', banner: { bg: 'linear-gradient(90deg,#c8102e,#8e0b21)', color: '#fff', font: "'Oswald', 'Arial Narrow', sans-serif", upper: true } },
+  devotional: { light: true, bg: '#FAF7F2', text: '#334155', muted: '#6b7280', head: '#1A4870', accent: '#B8893D', card: '#ffffff', border: '#e7e0d3', button: '#1A4870', bar: '#ffffff', field: '#fffdf9', fieldText: '#1f2937', fieldBorder: '#ddd5c6', fontHead: "'Cormorant Garamond', Georgia, 'Times New Roman', serif", fontBody: "Inter, system-ui, sans-serif", banner: { bg: '#1A4870', color: '#fff', font: "'Cormorant Garamond', Georgia, serif", upper: false, rule: '#B8893D' } },
+}
+const lookOf = (r) => LOOKS[r?.look] || LOOKS.team
+const FontsFor = ({ look }) => (look === LOOKS.devotional
+  ? <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  : <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@600;700&display=swap" />)
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
 
 // The bar across the top: badge, team, title, and the topic line (host can edit it live).
@@ -42,17 +55,20 @@ function TitleBar({ room, auth, isHost }) {
     await call({ action: 'set_topic', room: room.slug, topic: draft, ...auth }).catch(() => {})
   }
   const color = room.color || '#2563eb'
+  const L = lookOf(room)
+  const bn = L.banner || { bg: `linear-gradient(90deg, ${color}, ${color}cc)`, color: '#fff', font: "'Oswald', 'Arial Narrow', sans-serif", upper: true }
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: '#0f172a', color: '#e5e7eb' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: L.bar, color: L.text, borderBottom: L.light ? `1px solid ${L.border}` : 'none' }}>
+        {room.banner_url && L.light && <img src={room.banner_url} alt="" style={{ height: 44, borderRadius: 6 }} />}
         {room.badge && <img src={room.badge} alt="" style={{ height: 40, width: 40, objectFit: 'contain' }} />}
-        <div style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ flex: 1, minWidth: 0, fontSize: L.light ? 24 : 17, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {room.team && <span style={{ color, marginRight: 8 }}>{room.team}</span>}{room.title}
         </div>
         {isHost && !editing && <button onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ background: 'none', border: '1px solid #334155', borderRadius: 8, padding: '5px 10px', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>✏️ {topic ? 'Change' : 'Add'} today's topic</button>}
       </div>
       {editing && (
-        <div style={{ display: 'flex', gap: 6, padding: '8px 14px', background: '#0f172a' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '8px 14px', background: L.bar }}>
           <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
             placeholder="e.g. Stop Being Lazy" style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid #475569', background: '#111827', color: '#fff', fontSize: 16 }} />
           <button onClick={save} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>Show it</button>
@@ -62,7 +78,7 @@ function TitleBar({ room, auth, isHost }) {
       {/* TOPIC BANNER (Neal, 2026-10-04: "a banner going across, not this tiny little thing"):
           full width, the team's color, big — everyone sees it, and it changes live. */}
       {topic && !editing && (
-        <div style={{ background: `linear-gradient(90deg, ${color}, ${color}cc)`, color: '#fff', textAlign: 'center', padding: '10px 16px', fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(20px, 3.2vw, 34px)', fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', textShadow: '0 2px 6px rgba(0,0,0,.35)', lineHeight: 1.15, borderTop: '1px solid rgba(255,255,255,.25)', borderBottom: '1px solid rgba(0,0,0,.35)' }}>
+        <div style={{ background: bn.bg, color: bn.color, textAlign: 'center', padding: '10px 16px', fontFamily: bn.font, fontSize: bn.upper ? 'clamp(20px, 3.2vw, 34px)' : 'clamp(24px, 3.6vw, 40px)', fontWeight: bn.upper ? 800 : 600, letterSpacing: bn.upper ? '.04em' : '.01em', textTransform: bn.upper ? 'uppercase' : 'none', textShadow: '0 2px 6px rgba(0,0,0,.35)', lineHeight: 1.15, borderTop: `${bn.rule ? 3 : 1}px solid ${bn.rule || 'rgba(255,255,255,.25)'}`, borderBottom: `${bn.rule ? 3 : 1}px solid ${bn.rule || 'rgba(0,0,0,.35)'}` }}>
           {topic}
         </div>
       )}
@@ -145,7 +161,7 @@ function Stage({ room, auth, isHost }) {
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <TitleBar room={room} auth={auth} isHost={isHost} />
-        <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: '#0b0f17' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(view === 'speaker')}>◧ Speaker</button>
@@ -219,25 +235,32 @@ export default function Meet() {
     else if (auth?.t) doJoin({ t: auth.t })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const L = lookOf(join?.room || door)
   const shell = (children) => (
-    <div data-lk-theme="default" style={{ minHeight: '100vh', background: '#0b0f17', color: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>{children}</div>
+    <div data-lk-theme="default" style={{ minHeight: '100vh', background: L.bg, color: L.text, fontFamily: L.fontBody, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}><FontsFor look={L} />{children}</div>
   )
-  const input = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#111827', color: '#fff', fontSize: 16, marginBottom: 8 }
-  const big = { width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }
+  const input = { width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${L.fieldBorder}`, background: L.field, color: L.fieldText, fontSize: 16, marginBottom: 8 }
+  const big = { width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', background: L.button, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }
+  const hTitle = { fontSize: L.light ? 34 : 22, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, lineHeight: 1.15 }
+  const bannerImg = (r) => r?.banner_url ? <img src={r.banner_url} alt="" style={{ width: '100%', borderRadius: 14, boxShadow: '0 10px 30px rgba(0,0,0,.18)', marginBottom: 14 }} /> : null
+  const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
 
   // NO MEETING ON RIGHT NOW (Neal, 2026-10-04): say when the next one is, instead of an empty room.
   if (!join && notOpen && !hostMode) {
     const when = notOpen.next_at ? new Date(notOpen.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
     return shell(
-      <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+      <div style={{ maxWidth: door?.banner_url ? 620 : 420, width: '100%', textAlign: 'center' }}>
+        {bannerImg(door)}
         {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
-        <h1 style={{ fontSize: 22, fontWeight: 900 }}>{door?.title || 'Meeting'}</h1>
-        <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: '#111827', border: '1px solid #334155' }}>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>There's no {door?.kind === 'company' ? 'company meeting' : 'meeting'} right now.</div>
-          {when ? <div style={{ marginTop: 6, color: '#cbd5e1', fontSize: 15.5 }}>The next one is <b style={{ color: '#fff' }}>{when}</b> (Eastern).<br />You can come in 15 minutes early.</div>
-            : <div style={{ marginTop: 6, color: '#cbd5e1' }}>Nothing is scheduled yet. Check back later.</div>}
+        <h1 style={hTitle}>{door?.title || 'Meeting'}</h1>
+        {schedLine(door)}
+        <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}` }}>
+          <div style={{ fontSize: L.light ? 22 : 17, fontWeight: L.light ? 600 : 800, fontFamily: L.light ? L.fontHead : 'inherit', color: L.head }}>There's no {door?.kind === 'company' ? 'company meeting' : door?.kind === 'prayer' ? 'live devotional' : 'meeting'} right now.</div>
+          {when ? <div style={{ marginTop: 6, color: L.text, fontSize: 15.5 }}>The next one is <b style={{ color: L.head }}>{when}</b> (Eastern).<br />You can come in 15 minutes early.</div>
+            : <div style={{ marginTop: 6, color: L.text }}>Nothing is scheduled yet. Check back later.</div>}
         </div>
-        <button onClick={() => doJoin(lastBody || {})} style={{ marginTop: 14, padding: '10px 18px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>↻ Check again</button>
+        <button onClick={() => doJoin(lastBody || {})} style={{ marginTop: 14, padding: '10px 18px', borderRadius: 8, border: 'none', background: L.button, color: '#fff', fontWeight: 800, cursor: 'pointer' }}>↻ Check again</button>
+        {door?.back_url && <div><a href={door.back_url} style={{ display: 'inline-block', marginTop: 10, padding: '10px 18px', borderRadius: 8, border: `2px solid ${L.button}`, color: L.light ? L.button : '#fff', fontWeight: 700, textDecoration: 'none' }}>{door.back_label || 'Watch past meetings'}</a></div>}
         <div><button onClick={() => { setErr(''); setHostMode(true) }} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>I'm the host</button></div>
       </div>
     )
@@ -246,10 +269,12 @@ export default function Meet() {
   if (!join) {
     const header = door && (
       <div style={{ marginBottom: 14 }}>
+        {bannerImg(door)}
         {door.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
-        <h1 style={{ fontSize: 22, fontWeight: 900 }}>{door.team && <span style={{ color: door.color, marginRight: 8 }}>{door.team}</span>}{door.title}</h1>
-        {door.topic && <p style={{ color: '#cbd5e1', marginTop: 4 }}>{door.topic}</p>}
-        {door.schedule && <p style={{ color: '#94a3b8', fontSize: 13.5, marginTop: 2 }}>{door.schedule}</p>}
+        {schedLine(door)}
+        <h1 style={{ ...hTitle, marginTop: 6 }}>{door.team && <span style={{ color: door.color, marginRight: 8 }}>{door.team}</span>}{door.title}</h1>
+        {door.welcome && <p style={{ color: L.text, marginTop: 8, fontSize: 16, lineHeight: 1.5 }}>{door.welcome}</p>}
+        {door.topic && <p style={{ color: L.head, marginTop: 8, fontFamily: L.fontHead, fontSize: L.light ? 22 : 16, fontWeight: 600 }}>{door.topic}</p>}
       </div>
     )
     const hostJoin = async () => {
@@ -262,16 +287,16 @@ export default function Meet() {
       if (door?.host_code) { setAuth({ host_code: c }); doJoin({ host_code: c, name: hostName.trim() }) } else setErr('PIN not recognised.')
     }
     return shell(
-      <div style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
+      <div style={{ maxWidth: door?.banner_url ? 620 : 400, width: '100%', textAlign: 'center' }}>
         {header || <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>🎥 Meeting</h1>}
         {err && <p style={{ color: '#fca5a5', marginBottom: 12 }}>{err}</p>}
         {busy || (!hostMode && auth && (auth.t || auth.pin) && !err) ? <p style={{ color: '#9ca3af' }}>Getting your seat…</p>
           : door?.public && !hostMode ? (
             <>
-              <p style={{ color: '#9ca3af', marginBottom: 12 }}>Welcome! Tell us who you are to join.</p>
+              <p style={{ color: L.muted, marginBottom: 12 }}>Welcome! Tell us who you are to join.</p>
               <input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} placeholder="Your name" autoComplete="name" style={input} />
               <input type="email" value={guest.email} onChange={(e) => setGuest({ ...guest, email: e.target.value })} placeholder="Your email" autoComplete="email" style={input} />
-              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left', fontSize: 13.5, color: '#cbd5e1', margin: '2px 0 12px' }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left', fontSize: 13.5, color: L.text, margin: '2px 0 12px' }}>
                 <input type="checkbox" checked={!!guest.opt_in} onChange={(e) => setGuest({ ...guest, opt_in: e.target.checked })} style={{ marginTop: 3 }} />
                 Email me the {door.title} link and updates. I can unsubscribe any time.
               </label>
@@ -296,8 +321,8 @@ export default function Meet() {
     return shell(
       <div style={{ width: '100%', maxWidth: 560 }}>
         <style>{'.lk-prejoin .lk-username-container input, .lk-prejoin input#username { display: none !important; }'}</style>
-        <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', marginBottom: 4 }}>{join.room?.title || join.title}</h1>
-        <p style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 10 }}>Joining as <b style={{ color: '#fff' }}>{join.name}</b>{join.host ? ' · host' : ''}.{join.room?.cameras_required ? ' Cameras on, please.' : ''}</p>
+        <h1 style={{ ...hTitle, textAlign: 'center', marginBottom: 4 }}>{join.room?.title || join.title}</h1>
+        <p style={{ textAlign: 'center', color: '#9ca3af', marginBottom: 10 }}>Joining as <b style={{ color: L.head }}>{join.name}</b>{join.host ? ' · host' : ''}.{join.room?.cameras_required ? ' Cameras on, please.' : ''}</p>
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: true }} persistUserChoices={false}
           onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
       </div>
@@ -305,7 +330,8 @@ export default function Meet() {
   }
 
   return (
-    <div data-lk-theme="default" style={{ height: '100vh', background: '#0b0f17' }}>
+    <div data-lk-theme="default" style={{ height: '100vh', background: L.bg, fontFamily: L.fontBody }}>
+      <FontsFor look={L} />
       <LiveKitRoom serverUrl={join.url} token={join.token} connect
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
         audio={choices.audioEnabled ? { deviceId: choices.audioDeviceId } : false}

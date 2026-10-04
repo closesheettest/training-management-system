@@ -64,6 +64,8 @@ const publicRoom = (r) => ({
   slug: r.slug, title: r.title, kind: r.kind, zone: r.zone || null, team: r.zone ? TEAMS[r.zone] || null : null,
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : null, color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
+  look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
+  back_label: r.back_label || '', back_url: r.back_url || '',
   next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null, scheduled: !!hasSchedule(r),
 })
 // SCHEDULE (Neal, 2026-10-04: "if they pressed it and there is no company meeting, it could tell
@@ -174,6 +176,10 @@ export const handler = async (event) => {
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
+        look: ['team', 'company', 'devotional'].includes(r.look) ? r.look : (kind === 'company' ? 'company' : 'team'),
+        banner_url: /^https:\/\/\S+$/.test(String(r.banner_url || '').trim()) ? String(r.banner_url).trim().slice(0, 300) : '',
+        welcome: String(r.welcome || '').slice(0, 400), back_label: String(r.back_label || '').slice(0, 60),
+        back_url: /^https:\/\/\S+$/.test(String(r.back_url || '').trim()) ? String(r.back_url).trim().slice(0, 300) : '',
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
