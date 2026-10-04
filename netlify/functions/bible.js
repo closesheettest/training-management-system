@@ -70,6 +70,9 @@ export const handler = async (event) => {
     }
     const id = bibleIds[v]
     if (!id) return json(200, { ok: false, error: `${v} isn't on our plan — pick it on API.Bible, or paste the verses.` })
+    // Just a book name ("philippians") → ask for the chapter instead of a dead end.
+    const bookOnly = ref.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^iii/, '3').replace(/^ii/, '2')
+    if (BOOKS[bookOnly]) { const nice = ref.trim().replace(/\b\w/g, (c) => c.toUpperCase()); return json(200, { ok: false, error: `Add the chapter and verses, like ${nice} 4:6-9 (or just ${nice} 4 for the whole chapter).` }) }
     // Build the passage id ourselves; only if we can't read the reference, ask their search.
     let pass = { id: passageId(ref) }
     if (!pass.id) {
