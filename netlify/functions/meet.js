@@ -162,7 +162,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'audience', 'send_links', 'attendance', 'guests'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'audience', 'send_links', 'attendance', 'guests'].includes(b.action)) {
     const admin = await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -197,6 +197,15 @@ export const handler = async (event) => {
       else rooms.push({ ...clean, created_at: clean.updated_at })
       await putSetting('meet_rooms', rooms)
       return json(200, { ok: true, room: { ...clean, ...publicRoom(clean) } })
+    }
+    // ORDER (Neal, 2026-10-04: drag the rooms into any order). The list order is also the order
+    // the rooms show on a rep's dashboard.
+    if (b.action === 'reorder') {
+      const want = (Array.isArray(b.slugs) ? b.slugs : []).map(String)
+      const pos = (x) => { const k = want.indexOf(x.slug); return k < 0 ? 1e9 : k }
+      rooms.sort((a, c) => pos(a) - pos(c))
+      await putSetting('meet_rooms', rooms)
+      return json(200, { ok: true })
     }
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))

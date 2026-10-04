@@ -26,6 +26,16 @@ export default function MeetingRooms() {
   const [open, setOpen] = useState(null) // { slug, tab:'people'|'attendance'|'guests', data }
   const [day, setDay] = useState(etDay())
   const [msg, setMsg] = useState('')
+  const [dragging, setDragging] = useState(null) // slug being dragged
+  // Drag a card onto another to move it there; the new order saves straight away.
+  const dropOn = async (target) => {
+    if (!dragging || dragging === target) { setDragging(null); return }
+    const list = rooms.filter((r) => r.slug !== dragging)
+    list.splice(list.findIndex((r) => r.slug === target) + (rooms.findIndex((r) => r.slug === dragging) < rooms.findIndex((r) => r.slug === target) ? 1 : 0), 0, rooms.find((r) => r.slug === dragging))
+    setRooms(list); setDragging(null)
+    const j = await call({ action: 'reorder', slugs: list.map((r) => r.slug) }).catch(() => ({}))
+    if (!j.ok) { setMsg('Could not save the new order'); load() }
+  }
 
   const load = async () => {
     const j = await call({ action: 'rooms' }).catch(() => ({}))
@@ -138,8 +148,11 @@ export default function MeetingRooms() {
       <div className="mt-5 space-y-3">
         {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>+ New room</b>.</p>}
         {rooms.map((r) => (
-          <div key={r.slug} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}` }}>
+          <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
+            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
             <div className="flex flex-wrap items-center gap-3">
+              <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
               {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
