@@ -66,7 +66,10 @@ const publicRoom = (r) => ({
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
-  next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null, scheduled: !!hasSchedule(r),
+  next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null,
+  // A company meeting only exists on the dates you add, so with none it reads "nothing scheduled",
+  // never "always open" (Neal, 2026-10-04).
+  scheduled: !!hasSchedule(r) || r.kind === 'company',
 })
 // SCHEDULE (Neal, 2026-10-04: "if they pressed it and there is no company meeting, it could tell
 // them when the meeting is scheduled for"). A room can repeat on weekdays at a time (days 0=Sun…6,
@@ -132,7 +135,7 @@ export const handler = async (event) => {
   const openState = async (r) => {
     let live = false
     try { live = (await svc().listParticipants(r.slug)).some((p) => { try { return JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room not open */ }
-    if (!hasSchedule(r)) return { live, open: true }
+    if (!hasSchedule(r)) return { live, open: r.kind === 'company' ? live : true }
     const nm = nextMeeting(r)
     const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
     return { live, open }
@@ -151,6 +154,16 @@ export const handler = async (event) => {
       (r.kind === 'managers' && t.managed_region) ||
       ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
     const openOf = Object.fromEntries(await Promise.all(mine.map(async (r) => [r.slug, await openState(r)])))
+    // COMPANY MEETING DAY (Neal, 2026-10-04): on a day with a company meeting, the rep's regular
+    // meetings that day are greyed out ("Company Meeting today instead") and the company one
+    // stands out. Only meetings still to come today count.
+    const today = etDay()
+    const dayOf = (r) => { const nm = hasSchedule(r) ? nextMeeting(r) : null; return nm ? etDay(nm.start.getTime()) : null }
+    const company = mine.find((r) => r.kind === 'company' && dayOf(r) === today)
+    if (company) for (const r of mine) {
+      if (r === company) openOf[r.slug] = { ...openOf[r.slug], today: true }
+      else if (r.kind !== 'prayer' && dayOf(r) === today && !openOf[r.slug].live) openOf[r.slug] = { ...openOf[r.slug], instead: company.title }
+    }
     return json(200, {
       ok: true,
       rooms: mine.map((r) => {
