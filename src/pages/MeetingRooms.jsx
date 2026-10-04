@@ -154,6 +154,17 @@ export default function MeetingRooms() {
               <p className="mt-1 text-xs text-slate-500">Pressing Record mutes everyone except the host (they can unmute themselves), switches everyone to speaker view on the host, and records.</p>
               {form.recording_enabled && (
                 <div className="mt-2 space-y-3 text-sm">
+                  {/* The room's recordings page — share it or open it from here (Neal, 2026-10-04). */}
+                  <div className="rounded border border-blue-200 bg-white p-2">
+                    <div className="font-semibold">🎞 Recordings page</div>
+                    {form.rec_key ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <code className="min-w-0 flex-1 truncate rounded bg-slate-100 px-2 py-1 text-xs">{`${site}/recordings/${form.original_slug || form.slug}?k=${form.rec_key}`}</code>
+                        <button onClick={() => copy(`${site}/recordings/${form.original_slug || form.slug}?k=${form.rec_key}`)} className="rounded border border-slate-300 px-2 py-1 font-semibold">📋 Copy</button>
+                        <a href={`/recordings/${form.original_slug || form.slug}?k=${form.rec_key}`} target="_blank" rel="noreferrer" className="rounded bg-blue-700 px-2 py-1 font-semibold text-white">Open ↗</a>
+                      </div>
+                    ) : <div className="mt-1 text-xs text-slate-500">Save the room once and its recordings page link appears here.</div>}
+                  </div>
                   <div>
                     <div className="font-semibold">Email the recording to</div>
                     {(form.rec_to || []).map((p, i) => (
