@@ -10,11 +10,10 @@ import { useEffect, useState } from 'react'
 export const SLIDES = [
   { kicker: 'Welcome to the team', big: 'U.S. Shingle & Metal', sub: "You're joining one of Florida's fastest-growing roofing companies.", logo: true },
   { kicker: 'Experience', big: '15 Years', sub: 'Protecting Florida homes and businesses for 15 years.' },
-  { kicker: 'Who we are', big: 'Veteran-Owned', sub: 'Built on discipline, integrity and doing the job right.' },
+  { kicker: 'Trusted', big: 'Vetted', sub: 'Approved by a national finance company, so homeowners can say yes.' },
   { kicker: 'What customers say', big: '★★★★★', sub: '5-star rated on Google by the homeowners we serve.' },
   { kicker: 'Licensed & insured', big: 'CCC1331960', sub: 'Florida Certified Roofing Contractor, fully licensed and insured.' },
   { kicker: 'Statewide', big: 'All of Florida', sub: 'Headquartered in Clearwater, serving communities across the state.' },
-  { kicker: 'Trusted', big: 'Third-Party Vetted', sub: 'Approved by a national finance company, so homeowners can say yes.' },
   { kicker: 'Your future', big: 'Your Career Starts Today', sub: 'Skills and tools can be taught. Effort is the one thing you bring. Bring it every day.' },
 ]
 
