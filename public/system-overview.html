@@ -698,6 +698,19 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 weekend between the weeks and Week B Friday are never policed — a false no-show unenrols the trainee, has IT delete their Google
 account and cancels their hotel room. Hotels follow the same shape: <strong>Week A 2 nights</strong> (out Wed),
 <strong>Week B 3 nights</strong> (out Thu).</p>
+<h2>Meeting rooms (our own Zoom)</h2>
+<p><b>Team → Meeting rooms</b> (<code>/meeting-rooms</code>, admin PIN). Video meetings on LiveKit, in place of Zoom. Each room has a permanent address <code>/meet/&lt;room&gt;</code>. Reps, trainees and managers join from <b>their own link</b> (<code>?t=</code> their TMS token), so their real name is on their tile. Nothing to install.</p>
+<ul>
+<li><b>Room types:</b> team room (one zone, with the team badge and name and that zone's manager as host), managers, prayer call, everyone, custom. Each room has a schedule line, cameras-on, and extra hosts.</li>
+<li><b>Top bar:</b> badge, team, room title, and a <b>topic line</b> (for example "Today: Psalm 23"). The host changes it during the meeting and it updates for everyone.</li>
+<li><b>Views:</b> each person picks Gallery or Speaker. A shared screen shows the host's camera as a <b>presenter circle</b> in the bottom-right corner (the host can turn it off).</li>
+<li><b>Host controls:</b> mute one person, mute everyone, remove someone, see camera and mic status.</li>
+<li><b>People &amp; links / Send links:</b> who the room is for comes from the TMS roster. "Send everyone their link" texts AND emails each person.</li>
+<li><b>Attendance</b> takes itself: LiveKit's join/leave webhook (<code>meet-webhook</code>) logs joined, left, minutes and camera-off per person per day.</li>
+<li><b>Public rooms</b> (the prayer call): outside guests join with name + email and an opt-in box. That builds the guest email list (CSV download). A <b>host code</b> lets a host who isn't in TMS run the room.</li>
+</ul>
+<p>Files: <code>src/pages/Meet.jsx</code>, <code>src/pages/MeetingRooms.jsx</code>, <code>netlify/functions/meet.js</code>, <code>meet-webhook.js</code>. Rooms are stored in <code>app_settings.meet_rooms</code>, attendance in <code>meet_att_&lt;day&gt;_&lt;room&gt;_&lt;who&gt;</code>, guests in <code>meet_guest_&lt;room&gt;_&lt;hash&gt;</code>. Env: LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET.</p>
+
 <h2>Class page</h2>
 <p>Opening a week from the Schedule carries <code>?week=A</code> or <code>?week=B</code>, so the class page shows
 <strong>that week's dates and hours</strong> rather than the whole three-week cohort span, with a link across to the other week.

@@ -12,6 +12,7 @@ import HomeworkStatus from './pages/HomeworkStatus.jsx'
 import Confirm from './pages/Confirm.jsx'
 // LiveKit is big — only load it for the meeting page.
 const Meet = lazy(() => import('./pages/Meet'))
+const MeetingRooms = lazy(() => import('./pages/MeetingRooms'))
 import Provision from './pages/Provision.jsx'
 import ProvisioningHub from './pages/ProvisioningHub.jsx'
 import Credentials from './pages/Credentials.jsx'
@@ -187,6 +188,7 @@ export default function App() {
           <Route path="/personas" element={<RouteGate pageKey="settings.personas"><Personas /></RouteGate>} />
           <Route path="/group-messages" element={<RouteGate pageKey="settings.group_messages"><GroupMessages /></RouteGate>} />
           <Route path="/active-reps" element={<RouteGate pageKey="settings.active_reps"><ActiveReps /></RouteGate>} />
+          <Route path="/meeting-rooms" element={<RouteGate pageKey="settings.active_reps"><PinGate title="Meeting Rooms" storageKey="meet_admin_ok" keepPin><Suspense fallback={null}><MeetingRooms /></Suspense></PinGate></RouteGate>} />
           <Route path="/regional-managers" element={<RouteGate pageKey="settings.active_reps"><PinGate title="Regional Managers" keepPin><RegionalManagers /></PinGate></RouteGate>} />
           <Route path="/offboarding" element={<RouteGate pageKey="settings.offboarding"><OffboardingReps /></RouteGate>} />
           <Route path="/manage-directory" element={<RouteGate pageKey="settings.active_reps"><DirectoryAdmin /></RouteGate>} />
@@ -247,6 +249,7 @@ function AdminLayout() {
   const teamItems = [
     { key: 'settings.active_reps', to: '/active-reps', label: 'Active sales reps' },
     { key: 'settings.active_reps', to: '/regional-managers', label: 'Regional managers' },
+    { key: 'settings.active_reps', to: '/meeting-rooms', label: 'Meeting rooms' },
     { key: 'team.map', to: '/rep-map', label: 'Sales team map' },
     { key: 'team.regions', to: '/regions', label: 'Zones' },
     { key: 'settings.group_messages', to: '/group-messages', label: 'Group messages' },
