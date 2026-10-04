@@ -163,10 +163,12 @@ export default function MeetingRooms() {
               <button onClick={() => setForm({ ...blank, ...r, hosts: (r.hosts || []).join(', '), original_slug: r.slug })} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Edit</button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2 text-sm">
-              {r.kind !== 'custom' && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People & links</button>}
-              {r.kind !== 'custom' && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">📨 Send everyone their link</button>}
+              {/* A public room (the devotional) is for people OUTSIDE the company: its people are the
+                  ones who signed in with name + email, not the TMS roster (Neal, 2026-10-04). */}
+              {r.kind !== 'custom' && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People & links</button>}
+              {r.kind !== 'custom' && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">📨 Send everyone their link</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
-              {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">📧 Guest email list</button>}
+              {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
               <span className="flex-1" />
               <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
             </div>
