@@ -40,26 +40,31 @@ function TitleBar({ room, auth, isHost }) {
     setEditing(false)
     await call({ action: 'set_topic', room: room.slug, topic: draft, ...auth }).catch(() => {})
   }
+  const color = room.color || '#2563eb'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: '#0f172a', borderBottom: `3px solid ${room.color || '#334155'}`, color: '#e5e7eb', minHeight: 56 }}>
-      {room.badge && <img src={room.badge} alt="" style={{ height: 40, width: 40, objectFit: 'contain' }} />}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 17, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {room.team && <span style={{ color: room.color || '#fff', marginRight: 8 }}>{room.team}</span>}{room.title}
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: '#0f172a', color: '#e5e7eb' }}>
+        {room.badge && <img src={room.badge} alt="" style={{ height: 40, width: 40, objectFit: 'contain' }} />}
+        <div style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {room.team && <span style={{ color, marginRight: 8 }}>{room.team}</span>}{room.title}
         </div>
-        {editing ? (
-          <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-            <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
-              placeholder="e.g. Today: Psalm 23" style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid #475569', background: '#111827', color: '#fff', fontSize: 14 }} />
-            <button onClick={save} style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Show it</button>
-          </div>
-        ) : (
-          <div style={{ fontSize: 14.5, color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {topic || (isHost ? <span style={{ color: '#64748b' }}>No topic yet</span> : '')}
-            {isHost && <button onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ marginLeft: 8, background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✏️ {topic ? 'Change' : 'Add'} today's topic</button>}
-          </div>
-        )}
+        {isHost && !editing && <button onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ background: 'none', border: '1px solid #334155', borderRadius: 8, padding: '5px 10px', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>✏️ {topic ? 'Change' : 'Add'} today's topic</button>}
       </div>
+      {editing && (
+        <div style={{ display: 'flex', gap: 6, padding: '8px 14px', background: '#0f172a' }}>
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            placeholder="e.g. Stop Being Lazy" style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid #475569', background: '#111827', color: '#fff', fontSize: 16 }} />
+          <button onClick={save} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>Show it</button>
+          <button onClick={() => setEditing(false)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #475569', background: 'none', color: '#cbd5e1', cursor: 'pointer' }}>Cancel</button>
+        </div>
+      )}
+      {/* TOPIC BANNER (Neal, 2026-10-04: "a banner going across, not this tiny little thing"):
+          full width, the team's color, big — everyone sees it, and it changes live. */}
+      {topic && !editing && (
+        <div style={{ background: `linear-gradient(90deg, ${color}, ${color}cc)`, color: '#fff', textAlign: 'center', padding: '10px 16px', fontFamily: "'Oswald', 'Arial Narrow', sans-serif", fontSize: 'clamp(20px, 3.2vw, 34px)', fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', textShadow: '0 2px 6px rgba(0,0,0,.35)', lineHeight: 1.15, borderTop: '1px solid rgba(255,255,255,.25)', borderBottom: '1px solid rgba(0,0,0,.35)' }}>
+          {topic}
+        </div>
+      )}
     </div>
   )
 }
