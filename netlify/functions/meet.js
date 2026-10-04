@@ -421,7 +421,8 @@ export const handler = async (event) => {
       }
       const list = await svc().listParticipants(room.slug)
       const meta = (p) => { try { return JSON.parse(p.metadata || '{}') } catch { return {} } }
-      for (const p of list) if (!meta(p).host) { try { await muteMic(p) } catch { /* left */ } }
+      let mutedN = 0
+      for (const p of list) if (!meta(p).host && !/^(egress|homeowner)/.test(p.identity)) { try { await muteMic(p); mutedN++ } catch { /* left */ } }
       let saved = false, note = ''
       const { REC_S3_ACCESS_KEY: ak, REC_S3_SECRET: sk, REC_S3_REGION: region } = process.env
       if (ak && sk) {
@@ -439,7 +440,8 @@ export const handler = async (event) => {
         } catch (e) { note = `Recording didn't start: ${e.message}`; for (const id of ids) { try { await egress.stopEgress(id) } catch { /* ignore */ } } }
       } else note = 'Muted and switched everyone to speaker view. Saving the video needs storage set up (ask Neal).'
       await setMeta({ recording: saved, spotlight: String(b.identity || '') })
-      return json(200, { ok: true, recording: saved, note })
+      const mutedLine = mutedN ? `Muted ${mutedN} ${mutedN === 1 ? 'person' : 'people'}.` : 'Nobody else to mute.'
+      return json(200, { ok: true, recording: saved, note: saved ? `⏺ Recording. ${mutedLine}` : `${mutedLine} ${note}`.trim() })
     }
     if (b.action === 'mute' || b.action === 'remove') {
       const identity = String(b.identity || '')
