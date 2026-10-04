@@ -33,7 +33,7 @@ export default function RecordingsPage() {
             <span style={{ fontSize: 26 }}>🎞</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, color: L.head, fontFamily: L.light ? L.fontHead : 'inherit', fontSize: L.light ? 20 : 15.5 }}>{when(x.started)}</div>
-              <div style={{ fontSize: 13, color: L.muted }}>{x.kind === 'raw' ? "Host's camera only" : 'The meeting as people saw it'}{x.minutes ? ` · ${x.minutes} min` : ''}{x.mb ? ` · ${x.mb} MB` : ''}</div>
+              <div style={{ fontSize: 13, color: L.muted }}>{x.kind === 'raw' ? "Host's camera only" : 'The meeting as people saw it'}{x.seconds != null ? ` · ${x.seconds < 60 ? `${x.seconds} sec` : `${Math.round(x.seconds / 60)} min`}` : x.minutes ? ` · ${x.minutes} min` : ''}{x.mb ? ` · ${x.mb} MB` : ''}</div>
             </div>
             {x.link ? <a href={x.link} style={{ flexShrink: 0, padding: '10px 16px', borderRadius: 10, background: L.button, color: '#fff', fontWeight: 800, textDecoration: 'none' }}>⬇ Download</a>
               : x.deleted ? <span style={{ fontSize: 13, color: L.muted }}>Deleted (past keep date)</span>

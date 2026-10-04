@@ -37,7 +37,7 @@ export const handler = async (event) => {
     const ok = Number(info.status) === 3 // EGRESS_COMPLETE
     rec.ended = new Date().toISOString(); rec.ready = ok; rec.error = ok ? null : (info.error || `status ${info.status}`)
     const fr = (info.fileResults || [])[0] || info.file || {}
-    if (fr.duration) rec.minutes = Math.round(Number(fr.duration) / 6e10) / 1 // ns → minutes
+    if (fr.duration) { rec.seconds = Math.round(Number(fr.duration) / 1e9); rec.minutes = Math.round(rec.seconds / 6) / 10 } // ns → s / min
     if (fr.size) rec.mb = Math.round(Number(fr.size) / 1048576)
     const room = ((await get('meet_rooms')) || []).find((r) => r.slug === slug)
     if (ok && room && (room.rec_to || []).length) {

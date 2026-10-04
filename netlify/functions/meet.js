@@ -164,7 +164,7 @@ export const handler = async (event) => {
     for (const x of log.slice(0, 120)) {
       let link = null
       if (x.ready && !x.deleted) { const { data } = await sb.storage.from('meeting-recordings').createSignedUrl(x.file, 3600, { download: `${r.title} ${String(x.started).slice(0, 10)}${x.kind === 'raw' ? ' host camera' : ''}.mp4` }); link = data?.signedUrl || null }
-      out.push({ started: x.started, kind: x.kind, minutes: x.minutes || null, mb: x.mb || null, ready: !!x.ready, deleted: !!x.deleted, error: x.error || null, link })
+      out.push({ started: x.started, kind: x.kind, minutes: x.minutes || null, seconds: x.seconds ?? null, mb: x.mb || null, ready: !!x.ready, deleted: !!x.deleted, error: x.error || null, link })
     }
     return json(200, { ok: true, room: publicRoom(r), keep_days: r.rec_keep_days ?? 90, recordings: out })
   }
