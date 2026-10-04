@@ -18,7 +18,9 @@ const post = async (fn, body) => (await fetch(`/.netlify/functions/${fn}`, { met
 
 export default function MeetPractice({ roomSlug, pin, onClose }) {
   const people = useParticipants()
-  const trainees = people.filter((p) => !p.isLocal && /^t:/.test(p.identity))
+  // Anyone in the meeting can present — trainees, reps, managers, outside guests (Neal, 2026-10-04:
+  // Chad joined from a one-time invite and wasn't in the list). Not you, not the homeowner itself.
+  const trainees = people.filter((p) => !p.isLocal && !/^(homeowner|egress)/.test(p.identity))
   const [who, setWho] = useState('')
   const [personaKey, setPersonaKey] = useState('welcome')
   const [sectionKey, setSectionKey] = useState('full')
@@ -87,7 +89,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const finish = async (out, guess) => {
     setStatus('saving')
     const session = {
-      trainee_id: presenter?.identity?.slice(2) || who.slice(2) || null, trainee_name: presenter?.name || 'Trainee', class_id: null,
+      trainee_id: /^t:/.test(presenter?.identity || who) ? (presenter?.identity || who).slice(2) : null, trainee_name: presenter?.name || 'Trainee', class_id: null,
       persona_key: persona.key, section: section.key, started_at: out.startedAt, ended_at: out.endedAt,
       transcript: out.entries, close_silence: out.closeSilence, usage: out.usage, via: 'meeting',
       ...(impulse ? { impulse: { actual: impulse, guess: guess || 'unsure' } } : {}),
@@ -116,7 +118,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
       {status === 'setup' && (
         <>
           <label>Who's presenting<select value={who} onChange={(e) => setWho(e.target.value)} style={sel}>
-            <option value="">— pick a trainee in the meeting —</option>
+            <option value="">{trainees.length ? '— pick who is presenting —' : '— nobody else in the meeting yet —'}</option>
             {trainees.map((p) => <option key={p.identity} value={p.identity}>{p.name}{p.isMicrophoneEnabled ? '' : ' (muted)'}</option>)}
           </select></label>
           <label>Homeowner<select value={personaKey} onChange={(e) => setPersonaKey(e.target.value)} style={sel}>
