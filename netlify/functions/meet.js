@@ -169,7 +169,12 @@ export const handler = async (event) => {
     if (b.action === 'rooms') return json(200, { ok: true, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r) })), site: SITE })
     if (b.action === 'save_room') {
       const r = b.room || {}
-      const slug = slugify(r.slug || r.title)
+      // A NEW room gets its own address. Team rooms all called "Morning Sales Training" used to
+      // share one, so saving the second wrote over the first (Neal, 2026-10-04). Team rooms take
+      // the team name (morning-sales-training-hurricane); any clash after that gets -2, -3….
+      const editing = r.original_slug ? rooms.find((x) => x.slug === r.original_slug) : null
+      let slug = editing ? editing.slug : slugify(`${r.title || ''}${r.kind === 'zone' && TEAMS[r.zone] ? ` ${TEAMS[r.zone]}` : ''}`)
+      if (!editing) { const base = slug; for (let n = 2; rooms.some((x) => x.slug === slug) || slug === 'trial'; n++) slug = `${base}-${n}` }
       if (!slug || !String(r.title || '').trim()) return json(400, { ok: false, error: 'The room needs a name.' })
       if (slug === 'trial') return json(400, { ok: false, error: 'Pick another name.' })
       const kind = ['zone', 'managers', 'company', 'prayer', 'everyone', 'custom'].includes(r.kind) ? r.kind : 'custom'
@@ -186,14 +191,10 @@ export const handler = async (event) => {
         hosts: (Array.isArray(r.hosts) ? r.hosts : String(r.hosts || '').split(',')).map((h) => String(h).trim()).filter(Boolean).slice(0, 10),
         updated_at: new Date().toISOString(), updated_by: admin,
       }
-      const i = rooms.findIndex((x) => x.slug === (r.original_slug || slug))
-      if (i >= 0) {
-        if (clean.slug !== rooms[i].slug && rooms.some((x) => x.slug === clean.slug)) return json(409, { ok: false, error: 'A room with that name already exists.' })
-        rooms[i] = { ...rooms[i], ...clean }
-      } else {
-        if (rooms.some((x) => x.slug === slug)) return json(409, { ok: false, error: 'A room with that name already exists.' })
-        rooms.push({ ...clean, created_at: clean.updated_at })
-      }
+      // Editing keeps the room's address, so links already sent keep working.
+      const i = editing ? rooms.indexOf(editing) : -1
+      if (i >= 0) rooms[i] = { ...rooms[i], ...clean }
+      else rooms.push({ ...clean, created_at: clean.updated_at })
       await putSetting('meet_rooms', rooms)
       return json(200, { ok: true, room: { ...clean, ...publicRoom(clean) } })
     }
