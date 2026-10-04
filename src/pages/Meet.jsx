@@ -27,6 +27,7 @@ import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
 import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
+import { useBackground, BackgroundPanel } from '../components/BackgroundPicker.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
 const FN = '/.netlify/functions/meet'
@@ -165,6 +166,8 @@ function Stage({ room, auth, isHost }) {
   const layoutContext = useCreateLayoutContext()
   const [showChat, setShowChat] = useState(false)
   const { localParticipant } = useLocalParticipant()
+  const bg = useBackground(localParticipant)
+  const [bgPanel, setBgPanel] = useState(false)
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
   // ⏺ RECORD: when the host starts recording, EVERYONE switches to speaker view on that host
@@ -261,6 +264,7 @@ function Stage({ room, auth, isHost }) {
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
+          <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
@@ -314,6 +318,7 @@ function Stage({ room, auth, isHost }) {
                 ))}
               </div>
             )}
+            {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
