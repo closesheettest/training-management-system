@@ -12,6 +12,9 @@ const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zon
 const KINDS = [['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (link only)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
+const slotsOfForm = (f) => (Array.isArray(f.slots) && f.slots.length ? f.slots : (f.days || []).filter(() => f.time).map((d) => ({ day: d, time: f.time, minutes: f.minutes || 60 })))
+const endLabel = (t, m) => { const [h, mi] = t.split(':').map(Number); const e = h * 60 + mi + (Number(m) || 0); const hh = Math.floor(e / 60) % 24, mm = e % 60; return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh >= 12 ? 'PM' : 'AM'}` }
 const nextLabel = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
 const etDay = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 const t = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : '')
@@ -58,7 +61,7 @@ export default function MeetingRooms() {
 
   const save = async () => {
     setMsg('')
-    const j = await call({ action: 'save_room', room: { ...form, once: (form.once || []).filter(Boolean), hosts: String(form.hosts || '').split(',').map((s) => s.trim()).filter(Boolean) } })
+    const j = await call({ action: 'save_room', room: { ...form, slots: slotsOfForm(form), once: (form.once || []).filter(Boolean), hosts: String(form.hosts || '').split(',').map((s) => s.trim()).filter(Boolean) } })
     if (!j.ok) { setMsg(j.error || 'Could not save'); return }
     setForm(null); load()
   }
@@ -110,18 +113,32 @@ export default function MeetingRooms() {
                 next meeting is (Neal, 2026-10-04). Leave it all empty for an always-open room. */}
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
               <div className="text-sm font-bold">When it meets <span className="font-normal text-slate-500">(Eastern time; leave empty for always open)</span></div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-semibold">Repeats on</span>
-                {DOW.map((d, i) => (
-                  <label key={d} className={`cursor-pointer rounded border px-2 py-1 ${(form.days || []).includes(i) ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
-                    <input type="checkbox" className="hidden" checked={(form.days || []).includes(i)} onChange={(e) => setForm({ ...form, days: e.target.checked ? [...(form.days || []), i].sort() : (form.days || []).filter((x) => x !== i) })} />{d}
-                  </label>
-                ))}
-                <span className="ml-2 font-semibold">at</span><input type="time" value={form.time || ''} onChange={(e) => setForm({ ...form, time: e.target.value })} className="rounded border border-slate-300 px-2 py-1" />
-                <span className="ml-2 font-semibold">for</span><input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" /> min
+              {/* One row per day, each with its own time and length — repeats every week. */}
+              <div className="mt-2 space-y-1 text-sm">
+                {DOW.map((d, i) => {
+                  const sl = slotsOfForm(form).find((x) => x.day === i)
+                  const setSl = (patch) => setForm({ ...form, slots: [...slotsOfForm(form).filter((x) => x.day !== i), ...(patch ? [{ day: i, time: '14:00', minutes: 120, ...(sl || {}), ...patch }] : [])].sort((a, b) => a.day - b.day), days: [], time: '' })
+                  return (
+                    <div key={d} className="flex flex-wrap items-center gap-2">
+                      <label className={`flex w-16 cursor-pointer items-center justify-center rounded border px-2 py-1 font-semibold ${sl ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
+                        <input type="checkbox" className="hidden" checked={!!sl} onChange={(e) => setSl(e.target.checked ? {} : null)} />{d}
+                      </label>
+                      {sl ? (
+                        <>
+                          <span className="text-slate-500">starts</span>
+                          <input type="time" value={sl.time} onChange={(e) => setSl({ time: e.target.value })} className="rounded border border-slate-300 px-2 py-1" />
+                          <span className="text-slate-500">for</span>
+                          <input type="number" min="10" max="600" value={sl.minutes} onChange={(e) => setSl({ minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" />
+                          <span className="text-slate-500">min{sl.time ? ` (ends ${endLabel(sl.time, sl.minutes)})` : ''}</span>
+                        </>
+                      ) : <span className="text-slate-400">no meeting</span>}
+                    </div>
+                  )
+                })}
               </div>
               <div className="mt-3 text-sm">
                 <span className="font-semibold">One-time meetings</span> <span className="text-slate-500">(e.g. a company meeting)</span>
+                {(form.once || []).length > 0 && <span className="ml-2 text-slate-500">each lasts <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-16 rounded border border-slate-300 px-1 py-0.5" /> min</span>}
                 {(form.once || []).map((o, i) => (
                   <div key={i} className="mt-1 flex items-center gap-2">
                     <input type="datetime-local" value={o} onChange={(e) => setForm({ ...form, once: form.once.map((x, j) => (j === i ? e.target.value : x)) })} className="rounded border border-slate-300 px-2 py-1" />

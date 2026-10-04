@@ -80,18 +80,22 @@ const publicRoom = (r) => ({
 // is in it; otherwise people get "no meeting right now — next one is …". No schedule = always open.
 const etOffsetMin = (d) => { const m = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).formatToParts(d).find((x) => x.type === 'timeZoneName')?.value.match(/GMT([+-]\d+)(?::(\d+))?/); return m ? Number(m[1]) * 60 + Math.sign(Number(m[1])) * Number(m[2] || 0) : -300 }
 const etWall = (day, time) => { const guess = new Date(`${day}T${time}:00Z`); return new Date(guess.getTime() - etOffsetMin(guess) * 60000) }
-const hasSchedule = (r) => (Array.isArray(r.days) && r.days.length && /^\d{2}:\d{2}$/.test(r.time || '')) || (Array.isArray(r.once) && r.once.length)
+// Weekly slots, each day with its OWN time and length (Neal, 2026-10-04: "Week A does Monday at
+// 2 to 4, Tuesday is different…"). Old rooms (one time for all days) read as slots too.
+const slotsOf = (r) => (Array.isArray(r.slots) && r.slots.length ? r.slots
+  : (Array.isArray(r.days) && /^\d{2}:\d{2}$/.test(r.time || '') ? r.days.map((d) => ({ day: d, time: r.time, minutes: r.minutes })) : []))
+  .filter((x) => x && x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time || ''))
+const hasSchedule = (r) => slotsOf(r).length > 0 || (Array.isArray(r.once) && r.once.length)
 // The current or next meeting: { start, end } as Dates, or null.
 const nextMeeting = (r, now = Date.now()) => {
-  const mins = Math.max(10, Number(r.minutes) || 60), out = []
-  if (Array.isArray(r.days) && r.days.length && /^\d{2}:\d{2}$/.test(r.time || '')) {
-    for (let i = 0; i < 15; i++) {
-      const day = etDay(now + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
-      if (r.days.includes(dow)) out.push(etWall(day, r.time))
-    }
+  const dflt = Math.max(10, Number(r.minutes) || 60), out = []
+  const slots = slotsOf(r)
+  for (let i = -1; i < 15; i++) {
+    const day = etDay(now + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
+    for (const sl of slots) if (sl.day === dow) out.push({ start: etWall(day, sl.time), mins: Math.max(10, Number(sl.minutes) || dflt) })
   }
-  for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) out.push(etWall(m[1], m[2])) }
-  const hit = out.map((st) => ({ start: st, end: new Date(st.getTime() + mins * 60000) })).filter((x) => x.end.getTime() > now).sort((a, b) => a.start - b.start)[0]
+  for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) out.push({ start: etWall(m[1], m[2]), mins: dflt }) }
+  const hit = out.map((x) => ({ start: x.start, end: new Date(x.start.getTime() + x.mins * 60000) })).filter((x) => x.end.getTime() > now).sort((a, b) => a.start - b.start)[0]
   return hit || null
 }
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
@@ -261,7 +265,8 @@ export const handler = async (event) => {
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
-        days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d) => d >= 0 && d <= 6), time: /^\d{2}:\d{2}$/.test(r.time || '') ? r.time : '',
+        slots: (Array.isArray(r.slots) ? r.slots : []).map((x) => ({ day: Number(x.day), time: String(x.time || ''), minutes: Math.min(600, Math.max(10, Number(x.minutes) || 60)) })).filter((x) => x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time)).sort((a, b) => a.day - b.day),
+        days: [], time: '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
         hosts: (Array.isArray(r.hosts) ? r.hosts : String(r.hosts || '').split(',')).map((h) => String(h).trim()).filter(Boolean).slice(0, 10),
         updated_at: new Date().toISOString(), updated_by: admin,
