@@ -669,7 +669,8 @@ export const handler = async (event) => {
         early_zones: (rooms.find((x) => x.slug === r.original_slug) || {}).early_zones || [],
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
-        also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
+        // Neal is the corporate trainer: every training room carries him (Neal, 2026-10-05).
+        also: [...new Set([...(Array.isArray(r.also) ? r.also : []), ...(kind === 'training' || kind === 'retraining' ? ['neal'] : [])])].filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
         invitees: INVITE_KINDS.includes(kind) ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
