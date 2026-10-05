@@ -973,6 +973,13 @@ export const handler = async (event) => {
       await setMeta({ stage, ...(b.auto_off !== undefined ? { auto_off: !!b.auto_off } : {}) })
       return json(200, { ok: true, stage })
     }
+    // How the presenter's camera sits beside slides / scripture (Neal, 2026-10-05): circle (small, in
+    // the corner) | split (half and half) | side (slides big, camera beside) | stack (camera on top).
+    if (b.action === 'set_layout') {
+      const layout = ['circle', 'split', 'side', 'stack'].includes(b.layout) ? b.layout : 'circle'
+      await setMeta({ layout })
+      return json(200, { ok: true, layout })
+    }
     if (b.action === 'set_topic') {
       const topic = String(b.topic || '').slice(0, 200)
       if (room.slug !== 'trial') { const rooms = await loadRooms(); const r = rooms.find((x) => x.slug === room.slug); if (r) { r.topic = topic; await putSetting('meet_rooms', rooms) } }

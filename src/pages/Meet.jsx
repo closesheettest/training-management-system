@@ -242,6 +242,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   // 🎙 Podcast mode: only the people on stage, side by side. Being put on stage unmutes you.
   const stageIds = Array.isArray(rmeta.stage) ? rmeta.stage : []
   const amOnStage = !!localParticipant && stageIds.includes(localParticipant.identity)
+  // Presenter-camera layout for slides / scripture, picked by a host, the same on every screen.
+  const layout = ['circle', 'split', 'side', 'stack'].includes(rmeta.layout) ? rmeta.layout : 'circle'
+  const pickLayout = (l) => call({ action: 'set_layout', room: room.slug, layout: l, ...auth }).catch(() => {})
   // 🎙 AUTOMATIC PODCAST VIEW (Neal, 2026-10-04: "two hosts so it focuses on those, almost like a
   // podcast"). Rooms with auto_stage: once 2+ hosts are in, they go side by side on stage for
   // everyone; nobody is muted. One host's page (the first by name order) keeps it in step as hosts
@@ -346,9 +349,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             {pr ? (
               <PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />
             ) : sc ? (
-              <ScriptureSlide sc={sc} look={lookOf(room)} camTrack={scCam} />
+              <PresenterFrame layout={layout} cam={scCam} isHost={isHost} onLayout={pickLayout}><ScriptureSlide sc={sc} look={lookOf(room)} camTrack={layout === 'circle' ? scCam : null} /></PresenterFrame>
             ) : dk ? (
-              <DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={dkCam} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} />
+              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} /></PresenterFrame>
             ) : podcast ? (
               <PodcastStage people={stagePeople} look={lookOf(room)} watching={Math.max(0, cams.length - stagePeople.length)} />
             ) : !focus ? (
@@ -810,6 +813,35 @@ function ShortcutHelp({ isHost, onClose }) {
           <span>{label}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+// 🖼 PRESENTER LAYOUTS (Neal, 2026-10-05: "he can be a small circle, or split screen, or one on top
+// of the other, or side by side" — for every room). Wraps the slides / scripture; in 'circle' the
+// content draws its own corner circle. Hosts get a small picker in the top-right corner.
+const LAYOUTS = [['circle', '◉ Circle'], ['split', '◧ Split'], ['side', '▭▯ Side by side'], ['stack', '⬒ Stacked']]
+function PresenterFrame({ layout, cam, isHost, onLayout, children }) {
+  const camBox = cam && layout !== 'circle' ? (
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, background: '#000', minWidth: 0, minHeight: 0, ...(layout === 'split' ? { flex: '1 1 50%' } : layout === 'side' ? { flex: '0 0 30%' } : { flex: '0 0 34%' }) }}>
+      <VideoTrack trackRef={cam} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+    </div>
+  ) : null
+  const body = <div style={{ position: 'relative', minWidth: 0, minHeight: 0, ...(camBox ? { flex: layout === 'split' ? '1 1 50%' : '1 1 auto' } : { width: '100%', height: '100%' }) }}>{children}</div>
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
+      {camBox ? (
+        <div style={{ display: 'flex', flexDirection: layout === 'stack' ? 'column' : 'row', gap: 8, padding: 8, width: '100%', height: '100%' }}>
+          {layout === 'stack' ? <>{camBox}{body}</> : <>{body}{camBox}</>}
+        </div>
+      ) : body}
+      {isHost && (
+        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 30, display: 'flex', gap: 4, background: 'rgba(15,23,42,.85)', padding: 4, borderRadius: 10 }}>
+          {LAYOUTS.map(([k, l]) => (
+            <button key={k} onClick={() => onLayout(k)} style={{ padding: '5px 9px', borderRadius: 7, border: 'none', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', background: layout === k ? '#2563eb' : '#334155', color: '#fff' }}>{l}</button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
