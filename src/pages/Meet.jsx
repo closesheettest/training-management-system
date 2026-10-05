@@ -383,6 +383,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                     <button onClick={() => setDeck({ ...dk, showing: false })} style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}>⏹ Stop presenting</button>
                   </>
                 )}
+                <LayoutPick layout={layout} onLayout={pickLayout} />
                 <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
                 {decksFor(room).map((d) => (
                   <button key={d.key} onClick={() => setDeck({ key: d.key, pos: d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }, showing: true })} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
@@ -392,7 +393,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
-            {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} />}
+            {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
           </div>
@@ -862,6 +863,21 @@ function TextMeBox({ slug, who, L }) {
       <div style={{ marginTop: 4, color: L.text }}>1) From your phone, text <b>START</b> to <a href="sms:+17273493584&body=START" style={{ color: '#60a5fa', fontWeight: 800 }}>(727) 349-3584</a>.<br />2) Then tap:</div>
       <button onClick={go} disabled={st?.busy} style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{st?.busy ? 'Sending…' : '📲 Text me my link'}</button>
       {st && !st.busy && <div style={{ marginTop: 6, fontWeight: 700, color: st.ok ? '#4ade80' : '#fbbf24' }}>{st.ok ? `✅ Sent to your phone ending ${st.last4}. If it doesn't arrive in a minute, tell your manager.` : `${st.error}${st.last4 ? ` (Phone on file ends ${st.last4}.)` : ''}`}</div>}
+    </div>
+  )
+}
+
+// The same choice inside the Present / Scripture panels, so it's set BEFORE presenting (Neal,
+// 2026-10-05: "you don't want to be switching back and forth while you're in a presentation").
+function LayoutPick({ layout, onLayout }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 4 }}>Your camera while presenting:</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+        {LAYOUTS.map(([k, l]) => (
+          <button key={k} onClick={() => onLayout(k)} style={{ padding: '6px 8px', borderRadius: 7, border: 'none', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', background: layout === k ? '#2563eb' : '#334155', color: '#fff' }}>{l}</button>
+        ))}
+      </div>
     </div>
   )
 }

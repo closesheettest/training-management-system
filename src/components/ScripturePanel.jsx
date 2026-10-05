@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { VERSIONS, versionOf, fetchPassage, splitPasted } from './Scripture.jsx'
 
-export default function ScripturePanel({ current, onSet, onClose }) {
+export default function ScripturePanel({ current, onSet, onClose, layoutPick = null }) {
   const [ref, setRef] = useState(current?.ref || '')
   const [version, setVersion] = useState(current?.version || 'NIV')
   const [pasted, setPasted] = useState('')
@@ -37,6 +37,7 @@ export default function ScripturePanel({ current, onSet, onClose }) {
         <b style={{ flex: 1 }}>📖 Scripture</b>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button>
       </div>
+      {layoutPick}
       {showing ? (
         <>
           <div style={{ fontWeight: 800, marginBottom: 4 }}>{current.ref} · {current.version}</div>
