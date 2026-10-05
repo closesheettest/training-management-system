@@ -365,6 +365,33 @@ export const handler = async (event) => {
     return json(200, { ok: true, rooms: await roomsForPerson([t], fullName(t), (r) => (t.registration_token ? `${SITE}/meet/${r.slug}?t=${t.registration_token}` : `${SITE}/meet/${r.slug}`)) })
   }
 
+  // 📅 A MANAGER SETS UP A MEETING from their dashboard (Neal, 2026-10-05: "need to set up a
+  // meeting with your team, or an individual on your team"). Their whole team or picked reps (only
+  // people in their own zone), a date + time: a one-time meeting with them as host, the 5-minute
+  // reminder on, and everyone (manager too) texted + emailed an invite to confirm.
+  if (b.action === 'mgr_create_meeting') {
+    const tok = String(b.token || '').trim()
+    const { data: m } = tok ? await sb.from('trainees').select('id, first_name, last_name, managed_region').eq('manager_access_token', tok).maybeSingle() : { data: null }
+    if (!m?.managed_region) return json(401, { ok: false, error: 'Open this from your own dashboard link.' })
+    const { data: team } = await sb.from('trainees').select('id, rep_level').eq('region', m.managed_region).or('is_active_sales_rep.eq.true,is_field_trainee.eq.true')
+    const teamIds = new Set((team || []).filter((x) => x.rep_level !== 'non_field').map((x) => x.id))
+    const picked = b.whole ? [...teamIds] : (Array.isArray(b.ids) ? b.ids : []).map(String).filter((id) => teamIds.has(id))
+    if (!picked.length) return json(400, { ok: false, error: 'Pick your team or at least one person.' })
+    const when = String(b.when || '')
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when) || etWall(when.slice(0, 10), when.slice(11, 16)).getTime() < Date.now() - 5 * 60000) return json(400, { ok: false, error: 'Pick a date and time that hasn\'t passed.' })
+    const mName = fullName(m)
+    const title = String(b.title || '').trim().slice(0, 80) || (b.whole ? `${TEAMS[m.managed_region] || 'Team'} meeting` : 'Meeting with ' + m.first_name)
+    const room = { title, kind: 'oneoff', look: 'team', topic: String(b.topic || '').slice(0, 200), cameras_required: true, once: [when], minutes: Math.min(240, Math.max(10, Number(b.minutes) || 30)), invitees: [...new Set([...picked, m.id])].map((id) => ({ id })), hosts: [mName], remind_5: true, schedule: '' }
+    INTERNAL = true
+    try {
+      const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room }) })).body)
+      if (!saved.ok) return json(400, saved)
+      const msg = `Hi {first}, ${m.first_name} set up a meeting: ${title}${room.topic ? ` (${room.topic})` : ''} on {when} (Eastern). Please confirm you'll be there: {link}`
+      const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `Meeting: ${title}` }) })).body)
+      return json(200, { ok: true, slug: saved.room.slug, invited: picked.length, sent: (sent.sent || []).filter((x) => x.sms || x.email).length })
+    } finally { INTERNAL = false }
+  }
+
   // ---- ADMIN: rooms ----
   if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)

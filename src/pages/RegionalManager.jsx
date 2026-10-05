@@ -229,8 +229,9 @@ export default function RegionalManager() {
               ['', <a href="/find-the-button" target="_blank" rel="noreferrer" className="mb-3 flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4 no-underline hover:bg-amber-500/20"><span className="text-2xl">🎯</span><div className="min-w-0"><div className="text-base font-bold text-white">Find their button (FIGS) — the class</div><div className="text-xs text-slate-200/80">Questions to ask on the warm-up and each slide to find Fear of loss, Indifference, Greed or Sense of urgency — and how to close on it.</div></div><span className="ml-auto text-slate-300">↗</span></a>],
               ['', <HarvestPracticeLink />],
             ] },
-          { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Your meetings, zone Zoom, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',
+          { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Set up a meeting with your team, your meetings, zone Zoom, WhatsApp', color: 'from-teal-600 to-teal-800',
             parts: [
+              ['📅 Set up a meeting with your team (or one person)', <SetUpMeeting token={token} reps={reps} />],
               ['📅 Your meetings', <YourMeetings token={token} />],
               ['📞 Zone Zoom', <QuickActions manager={manager} />],
               ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
@@ -2595,6 +2596,67 @@ function YourMeetings({ token, banner = false }) {
           <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
         </a>
       ))}
+    </div>
+  )
+}
+
+// ── 📅 Set up a meeting (Neal, 2026-10-05) ────────────────────────
+// With the whole team or picked reps: date, time, length, topic → a one-time meeting with the
+// manager as host; everyone is texted + emailed an invite to confirm, and reminded 5 min before.
+// It then shows under Your meetings (and flashes on the day). Server: meet.js mgr_create_meeting.
+function SetUpMeeting({ token, reps }) {
+  const [who, setWho] = useState('team')
+  const [ids, setIds] = useState([])
+  const [title, setTitle] = useState('')
+  const [topic, setTopic] = useState('')
+  const [when, setWhen] = useState('')
+  const [minutes, setMinutes] = useState(30)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const team = (reps || []).filter((r) => r.id)
+  const count = who === 'team' ? team.length : ids.length
+  const go = async () => {
+    setMsg('')
+    if (!when) { setMsg('Pick a date and time.'); return }
+    if (!count) { setMsg('Pick at least one person.'); return }
+    const whenTxt = new Date(when).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    if (!window.confirm(`Create this meeting for ${whenTxt} and text + email an invite to ${count} ${count === 1 ? 'person' : 'people'} (and you)?`)) return
+    setBusy(true)
+    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mgr_create_meeting', token, whole: who === 'team', ids, title, topic, when, minutes }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+    setBusy(false)
+    if (!j.ok) { setMsg(j.error || 'Could not create it.'); return }
+    setMsg(`✅ Done. ${j.invited} invited; invites sent to ${j.sent}. It's under Your meetings, and everyone gets a reminder 5 minutes before.`)
+    setIds([]); setTitle(''); setTopic(''); setWhen('')
+  }
+  const field = 'mt-1 w-full rounded-md border border-white/20 bg-slate-900/60 px-3 py-2 text-white placeholder-slate-500'
+  return (
+    <div className="rounded-lg border border-white/15 bg-slate-900/40 p-4 text-slate-100">
+      <div className="flex flex-wrap gap-2">
+        {[['team', `👥 My whole team (${team.length})`], ['pick', '🙋 Pick people']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setWho(k)} className={`rounded-md px-3 py-1.5 text-sm font-bold ${who === k ? 'bg-teal-600 text-white' : 'bg-white/10 text-slate-200'}`}>{l}</button>
+        ))}
+      </div>
+      {who === 'pick' && (
+        <div className="mt-3 max-h-56 overflow-auto rounded-md border border-white/15">
+          {team.map((r) => {
+            const on = ids.includes(r.id)
+            return (
+              <label key={r.id} className="flex cursor-pointer items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm">
+                <input type="checkbox" checked={on} onChange={(e) => setIds(e.target.checked ? [...ids, r.id] : ids.filter((x) => x !== r.id))} />
+                {r.first_name} {r.last_name}
+              </label>
+            )
+          })}
+        </div>
+      )}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-sm font-semibold">Date & time (Eastern)<input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} /></label>
+        <label className="text-sm font-semibold">How long<select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className={field}>{[15, 30, 45, 60, 90].map((m) => <option key={m} value={m}>{m} minutes</option>)}</select></label>
+        <label className="text-sm font-semibold">Name (optional)<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={who === 'team' ? 'e.g. Team huddle' : 'e.g. One-on-one'} className={field} /></label>
+        <label className="text-sm font-semibold">What it's about (optional)<input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Go-backs this week" className={field} /></label>
+      </div>
+      <button type="button" disabled={busy} onClick={go} className="mt-4 w-full rounded-md bg-teal-600 px-4 py-2.5 text-base font-extrabold text-white disabled:opacity-60">{busy ? 'Setting it up…' : `📨 Set it up & send invites${count ? ` (${count})` : ''}`}</button>
+      {msg && <p className={`mt-2 text-sm font-semibold ${msg.startsWith('✅') ? 'text-emerald-300' : 'text-amber-300'}`}>{msg}</p>}
     </div>
   )
 }
