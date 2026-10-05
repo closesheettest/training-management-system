@@ -101,7 +101,7 @@ export default function RepAttendance({ managerToken } = {}) {
     setPin(p); setPinInput(''); load(p)
   }
 
-  // One cell per rep per weekday.
+  // One cell per rep per day (Saturday/Sunday too: counted when worked, 'off' otherwise).
   const cell = (r, ds) => {
     const a = data.reps[r.jnid] || {}
     const x = a.days?.[ds]
@@ -120,6 +120,8 @@ export default function RepAttendance({ managerToken } = {}) {
       return { kind: 'in', x: { ...(x || {}), first, last: x?.last || mapAt }, via: x?.first && mapAt ? 'both' : x?.first ? 'dash' : 'map', doors, appts, hrs, span, trained }
     }
     if (trained) return { kind: 'training', doors, appts, hrs, span }
+    // Saturday / Sunday they didn't work: just off — not missed, nothing to explain (Neal, 2026-10-05).
+    if ((data.weekend_days || []).includes(ds)) return { kind: 'weekend', doors, appts, hrs, span }
     if (x?.reason) return { kind: 'reason', x, doors, appts, hrs, span }
     if (ds === data.today) return { kind: 'today', doors, appts, hrs, span }
     const mapStart = Object.keys(data.map_first?.[r.jnid] || {}).sort()[0]
@@ -168,7 +170,7 @@ export default function RepAttendance({ managerToken } = {}) {
     <section className="mb-4 rounded-xl border-2 border-indigo-700 bg-white">
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-indigo-700 px-4 py-3 text-left text-white">
         <span className="text-lg font-bold">🗓️ Rep attendance</span>
-        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Who checked in each weekday, and why not'}</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Who checked in each day, and why not'}</span>
       </button>
       {open && (
         <div className="p-3">
@@ -219,7 +221,7 @@ export default function RepAttendance({ managerToken } = {}) {
                         <th className="px-2 py-1.5 text-center" title="Doors worked on DoorDispatcher across these days">🚪 Doors</th>
                         <th className="px-2 py-1.5 text-center" title="Active hours knocking on DoorDispatcher (gaps over 30 min left out), added up over these days">⏱ Hrs</th>
                         <th className="px-2 py-1.5 text-center" title="Average doors on the days that count toward the daily goal (not training, sick, personal, vacation or holidays)">🎯 Avg / pin day</th>
-                        {data.days.map((ds) => <th key={ds} className="whitespace-nowrap px-2 py-1.5 text-center">{dayLabel(ds)}</th>)}
+                        {data.days.map((ds) => <th key={ds} className={`whitespace-nowrap px-2 py-1.5 text-center ${(data.weekend_days || []).includes(ds) ? 'bg-slate-100 text-slate-500' : ''}`}>{dayLabel(ds)}</th>)}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -268,6 +270,7 @@ export default function RepAttendance({ managerToken } = {}) {
                               {c.kind === 'today' && <span className="text-slate-400">not yet</span>}
                               {c.kind === 'before' && <span className="text-slate-300" title="Before their first check-in — not counted">—</span>}
                               {c.kind === 'off' && <span className="text-slate-400">holiday</span>}
+                              {c.kind === 'weekend' && <span className="text-slate-300">off</span>}
                               {c.hrs > 0 && <div className="mt-0.5 text-[11px] font-bold text-slate-700" title={`Active knocking time (gaps over 30 min left out). First door ${c.span}`}>⏱ {c.hrs}h</div>}
                               {c.appts > 0 && <div className="mt-0.5 text-[11px] font-bold text-indigo-700" title="Sales appointments that day">📅 {c.appts}</div>}
                               {c.kind !== 'before' && c.kind !== 'nopin' && c.kind !== 'notstarted' || c.doors > 0 ? (
