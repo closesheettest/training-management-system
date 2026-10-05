@@ -39,7 +39,7 @@ import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, E
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { sendSmsViaGhl, getSmsStatus } from './_ghl.js'
+import { sendSmsViaGhl, getSmsStatus, ghlHeaders } from './_ghl.js'
 import { sendEmail } from './_email.js'
 import { doorsFor, weekAFieldDays, EFFORT_DOORS, addDays } from './_effort.js'
 import { recipientsForEvent } from './_recipients.js'
@@ -627,6 +627,62 @@ export const handler = async (event) => {
   // meeting with your team, or an individual on your team"). Their whole team or picked reps (only
   // people in their own zone), a date + time: a one-time meeting with them as host, the 5-minute
   // reminder on, and everyone (manager too) texted + emailed an invite to confirm.
+  // 📞 CALL (Neal, 2026-10-05: "pick somebody, let's say Brent Davidson… I press the button, it sends
+  // him a text with a link and we're both in a meeting room"). An admin (PIN) picks a person: anyone
+  // in TMS, office staff from GoHighLevel's user list (Brent isn't in TMS), or a name + cell typed in.
+  // A private room is made for right now, they get "join now" by text + email, and the caller goes
+  // straight in as host. Call rooms are kind 'oneoff' with call:true; ones over 2 days old are cleared.
+  if (b.action === 'call_people' || b.action === 'call_start') {
+    const caller = await verifyPin(b.pin)
+    if (!caller) return json(401, { ok: false, error: 'PIN not recognised.' })
+    const digits = (x) => String(x || '').replace(/\D/g, '').slice(-10)
+    if (b.action === 'call_people') {
+      const { data } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, is_active_sales_rep, registration_token').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
+      const people = (data || []).filter((p) => p.registration_token && p.phone).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : TEAMS[p.region] || 'Rep', ph: digits(p.phone) }))
+      let staff = []
+      try {
+        const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
+        staff = (u.users || []).filter((x) => x.phone && !x.deleted).map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', tag: 'Office / staff', ph: digits(x.phone) }))
+      } catch { /* TMS people still listed */ }
+      const seen = new Set(people.map((p) => p.ph))
+      const all = [...people, ...staff.filter((x) => x.name && !seen.has(x.ph) && seen.add(x.ph))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
+      return json(200, { ok: true, people: all })
+    }
+    // call_start
+    const to = b.to || {}
+    let invitee = null, name = ''
+    if (to.id) {
+      const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, registration_token').eq('id', String(to.id)).maybeSingle()
+      if (!t || !t.registration_token) return json(400, { ok: false, error: "Can't call that person (no TMS link)." })
+      invitee = { id: t.id }; name = fullName(t)
+    } else {
+      name = String(to.name || '').trim().slice(0, 60)
+      if (!name || digits(to.phone).length !== 10) return json(400, { ok: false, error: 'Pick someone, or type a name and a 10-digit cell.' })
+      invitee = { key: crypto.randomBytes(6).toString('base64url'), name, phone: String(to.phone).trim().slice(0, 20), email: String(to.email || '').trim().toLowerCase().slice(0, 120) }
+    }
+    const start = new Date(Date.now() - 60000)
+    const p2 = (n) => String(n).padStart(2, '0')
+    const hm = start.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })
+    const once = `${etDay(start.getTime())}T${hm.slice(0, 2)}:${p2(hm.slice(3, 5))}`
+    const callerFirst = String(caller).split(' ')[0]
+    const room = { title: `📞 ${callerFirst} ↔ ${name.split(' ')[0]}`, kind: 'oneoff', call: true, look: 'team', topic: '', cameras_required: false, once: [once], minutes: 60, invitees: [invitee], hosts: [String(caller)] }
+    // Clear finished calls (over 2 days old) so Meeting Room Setup doesn't fill up with them.
+    const cutoff = Date.now() - 2 * 86400000
+    const kept = (await loadRooms()).filter((r) => !(r.call && (r.once || [])[0] && etWall(r.once[0].slice(0, 10), r.once[0].slice(11, 16)).getTime() < cutoff))
+    await putSetting('meet_rooms', kept)
+    INTERNAL = true
+    try {
+      const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room }) })).body)
+      if (!saved.ok) return json(400, saved)
+      // Your own words first when you typed a message (Neal, 2026-10-05), the join link under it.
+      const note = String(b.note || '').trim().slice(0, 600)
+      const msg = note ? `${note}\n\n📞 ${callerFirst} is calling you on video now. Tap to join: {link}` : `📞 Hi {first}, ${callerFirst} is calling you on video RIGHT NOW. Tap to join: {link}`
+      const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `📞 ${callerFirst} is calling you now` }) })).body)
+      const r0 = (sent.sent || [])[0] || {}
+      return json(200, { ok: true, slug: saved.room.slug, name, sms: !!r0.sms, email: !!r0.email })
+    } finally { INTERNAL = false }
+  }
+
   if (b.action === 'mgr_create_meeting') {
     const tok = String(b.token || '').trim()
     const { data: m } = tok ? await sb.from('trainees').select('id, first_name, last_name, managed_region').eq('manager_access_token', tok).maybeSingle() : { data: null }
@@ -765,6 +821,7 @@ export const handler = async (event) => {
         early_zones: (rooms.find((x) => x.slug === r.original_slug) || {}).early_zones || [],
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
+        call: !!r.call,
         // Neal is the corporate trainer: every training room carries him (Neal, 2026-10-05).
         also: [...new Set([...(Array.isArray(r.also) ? r.also : []), ...(kind === 'training' || kind === 'retraining' ? ['neal'] : [])])].filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
