@@ -511,7 +511,8 @@ export default function Meet() {
     return () => clearInterval(iv)
   }, [gate, lastBody]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${join?.room?.title || door?.title || 'Meeting'} · Meeting` }, [join, door])
-  useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
+  // Combined with another team today → go straight to that room, keeping their own link (?t=…).
+  useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok && j.room?.merged_into) { window.location.replace(`/meet/${j.room.merged_into}${window.location.search}`); return } if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
 
   const doJoin = async (body) => {
     setBusy(true); setErr('')

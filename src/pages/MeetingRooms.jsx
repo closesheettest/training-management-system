@@ -81,6 +81,22 @@ export default function MeetingRooms() {
   // SEND LINKS with your own message (Neal, 2026-10-04 — the virtual Week A notice). {first} and
   // {link} are filled in for each person; every message goes by text AND email.
   const [compose, setCompose] = useState(null) // { slug, title, subject, message }
+  // 🔀 Combine today: { slug, into, reason, busy } (Neal, 2026-10-05).
+  const [combine, setCombine] = useState(null)
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const doCombine = async (r, cancel) => {
+    if (cancel) { await call({ action: 'combine_today', slug: r.slug, into: r.merge.into, cancel: true }); load(); return }
+    const into = rooms.find((x) => x.slug === combine.into)
+    if (!into) { setMsg('Pick the room they are joining.'); return }
+    if (!window.confirm(`Today only: send ${r.team || r.title} to ${into.team || into.title}'s room, and text + email both teams their link?`)) return
+    setCombine({ ...combine, busy: true })
+    const j = await call({ action: 'combine_today', slug: r.slug, into: into.slug, reason: combine.reason || '', notify: true })
+    setCombine(null)
+    if (!j.ok) { setMsg(j.error || 'Did not work'); return }
+    const ok = (j.sent || []).filter((x) => x.sms || x.email).length
+    setMsg(`🔀 Done. ${r.team || r.title} goes to ${into.team || into.title} today. Texted + emailed ${ok} of ${(j.sent || []).length}.`)
+    load()
+  }
   // Custom rooms (a private standing meeting) invite with the schedule + how to bookmark the link.
   const BOOKMARK = 'Two ways to find it again:\n1) Bookmark this link so it is one tap away:\n• iPhone: open the link in Safari, tap Share, then "Add to Home Screen".\n• Android: open it in Chrome, tap ⋮, then "Add to Home screen".\n• Computer: press Ctrl+D (⌘+D on a Mac).\n2) Or open your My Tools page and tap "Your meetings". Every meeting you are part of is in there.'
   const sendLinks = (r) => setCompose(r.kind === 'custom'
@@ -134,6 +150,9 @@ export default function MeetingRooms() {
               {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
               {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' || r.kind === 'custom' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
               <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
+              {r.kind === 'zone' && (r.merge?.date === todayET
+                ? <span className="rounded border border-amber-400 bg-amber-50 px-3 py-1 font-semibold text-amber-800">🔀 Today: joining {(rooms.find((x) => x.slug === r.merge.into) || {}).team || r.merge.into} <button onClick={() => doCombine(r, true)} className="ml-1 text-xs text-red-600 underline">undo</button></span>
+                : <button onClick={() => setCombine(combine?.slug === r.slug ? null : { slug: r.slug, into: '', reason: '' })} className="rounded border border-amber-400 bg-amber-50 px-3 py-1 font-semibold text-amber-800">🔀 Combine today</button>)}
               {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
               {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
               {r.recording_enabled && r.rec_key && <button onClick={() => copy(`${site}/recordings/${r.slug}?k=${r.rec_key}`)} className="rounded border border-slate-300 px-3 py-1 font-semibold">🔗 Copy recordings page link</button>}
@@ -142,6 +161,21 @@ export default function MeetingRooms() {
               <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
             </div>
 
+            {combine?.slug === r.slug && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
+                <div className="font-bold">🔀 Today only: send {r.team || r.title} to another team's room</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span>Joining:</span>
+                  <select value={combine.into} onChange={(e) => setCombine({ ...combine, into: e.target.value })} className="rounded border border-slate-300 px-2 py-1">
+                    <option value="">Pick a room…</option>
+                    {rooms.filter((x) => x.slug !== r.slug && x.kind === 'zone').map((x) => <option key={x.slug} value={x.slug}>{x.team ? `${x.team} ` : ''}{x.title}</option>)}
+                  </select>
+                </div>
+                <input value={combine.reason} onChange={(e) => setCombine({ ...combine, reason: e.target.value })} placeholder="Why (optional), e.g. Anthony is out today" className="mt-2 w-full rounded border border-slate-300 px-2 py-1" />
+                <div className="mt-1 text-xs text-slate-600">Both teams get a text + email with their own link to that room. Their usual link and dashboard button also take them there today. Back to normal tomorrow.</div>
+                <button disabled={combine.busy} onClick={() => doCombine(r)} className="mt-2 rounded-md bg-amber-600 px-4 py-2 font-bold text-white">{combine.busy ? 'Sending…' : 'Combine & send'}</button>
+              </div>
+            )}
             {compose?.slug === r.slug && (
               <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
                 <div className="font-bold">📨 Send everyone their link (text + email)</div>

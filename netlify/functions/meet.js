@@ -724,6 +724,42 @@ export const handler = async (event) => {
     //     + week_b_force, the override the kiosk / class page / no-show rule already honour).
     //   Week B early → a junior rep on their team now (the same switch as the field-trainee
     //     "graduate": active sales rep, junior if no level yet, field trainee off).
+    // 🔀 COMBINE TODAY (Neal, 2026-10-05: "Anthony is out today so all of his team is meeting up with
+    // Chad's team"). For today only, this room's people are sent to another team's room; both teams
+    // are texted + emailed their own link to it. Tomorrow it's back to normal by itself.
+    if (b.action === 'combine_today') {
+      const into = rooms.find((x) => x.slug === b.into)
+      if (!into || into.slug === room.slug) return json(400, { ok: false, error: 'Pick the room they are joining.' })
+      if (b.cancel) { delete room.merge; await putSetting('meet_rooms', rooms); return json(200, { ok: true, cancelled: true }) }
+      room.merge = { into: into.slug, date: etDay(), at: new Date().toISOString() }
+      await putSetting('meet_rooms', rooms)
+      const sent = []
+      if (b.notify) {
+        INTERNAL = true
+        let away = [], host = []
+        try {
+          away = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'audience', slug: room.slug }) })).body).people || []
+          host = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'audience', slug: into.slug }) })).body).people || []
+        } finally { INTERNAL = false }
+        const awayMgr = String(b.away_manager || '').trim().toLowerCase()
+        const t1 = room.zone ? TEAMS[room.zone] || room.title : room.title, t2 = into.zone ? TEAMS[into.zone] || into.title : into.title
+        const nm = nextMeeting(into), at = nm ? nm.start.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : ''
+        const seen = new Set()
+        const send = async (p, msg) => {
+          const ph = String(p.phone || '').replace(/\D/g, '').slice(-10); if (ph && seen.has(ph)) return; if (ph) seen.add(ph)
+          const first = String(p.name || '').split(' ')[0] || 'there', r = { name: p.name, sms: false, email: false }
+          const text = msg.replace('{first}', first)
+          if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, text, { firstName: first, lastName: '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
+          if (p.email) { try { const x = await sendEmail(p.email, `Today: ${t1} meets with ${t2}`, text); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
+          sent.push(r)
+        }
+        const linkFor = (p) => String(p.link || '').replace(`/meet/${room.slug}`, `/meet/${into.slug}`)
+        // The away team's own host (their manager, who's out) isn't texted.
+        for (const p of away) { if (p.host || (awayMgr && String(p.name || '').toLowerCase() === awayMgr)) continue; await send({ ...p, link: linkFor(p) }, `Hi {first}, ${b.reason ? `${String(b.reason).trim().replace(/[.!]?$/, ',')} so ` : ''}${t1} is joining ${t2} for ${into.title}${at ? ` at ${at}` : ''} today. Tap here to join: ${linkFor(p)}`) }
+        for (const p of host) await send(p, `Hi {first}, heads up: ${t1} is joining our ${into.title} today${b.reason ? ` (${String(b.reason).trim().replace(/[.!]$/, '')})` : ''}. Same time${at ? `, ${at}` : ''}. Your link: ${p.link}`)
+      }
+      return json(200, { ok: true, merged: room.merge, sent })
+    }
     if (b.action === 'early_grad') {
       const tid = String(b.trainee_id || ''), week = b.week === 'B' ? 'B' : 'A', now = new Date().toISOString()
       const { data: g } = await sb.from('trainees').select('id, first_name, last_name, rep_level, became_active_rep_at').eq('id', tid).maybeSingle()
@@ -975,7 +1011,9 @@ export const handler = async (event) => {
   }
 
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
-  if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, ...(await openState(room)) }, host_code: !!room.host_code })
+  // 🔀 COMBINED TODAY: this room's people go to another team's room (redirect on the page).
+  const mergedInto = room.merge && room.merge.date === etDay() ? room.merge.into : null
+  if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
     let name = null, identity = null, host = false, isRetrainee = false
