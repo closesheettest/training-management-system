@@ -39,7 +39,7 @@ import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, E
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { sendSmsViaGhl } from './_ghl.js'
+import { sendSmsViaGhl, getSmsStatus } from './_ghl.js'
 import { sendEmail } from './_email.js'
 import { doorsFor, weekAFieldDays, EFFORT_DOORS, addDays } from './_effort.js'
 import { recipientsForEvent } from './_recipients.js'
@@ -432,6 +432,47 @@ export const handler = async (event) => {
       return json(200, { ok: true, locked: true, title: r.title, until: ses.end.toISOString(), join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}` })
     }
     return json(200, { ok: true, locked: false })
+  }
+
+  // 📵 TEXT CHECK (Neal, 2026-10-05: William Hennis says he isn't getting our texts). A card at the
+  // top of a flagged rep's dashboard: their cell on file, "Send me a test text", then "Did you get
+  // it?" Yes clears the card; No tells Neal (text + email) with GoHighLevel's delivery status.
+  // Who sees it: app_settings text_check_reps (trainee ids). State: text_check_<trainee id>.
+  if (b.action === 'rep_textcheck' || b.action === 'rep_textcheck_send' || b.action === 'rep_textcheck_answer') {
+    const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) }).then((r) => r.json()).catch(() => ({}))
+    if (!who.ok || !who.jnid || who.viewer) return json(200, { ok: true, show: false })
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, is_active_sales_rep').eq('jobnimbus_id', who.jnid)
+    const t = (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0]
+    const flagged = await getSetting('text_check_reps', [])
+    if (!t || !(ts || []).some((x) => flagged.includes(x.id))) return json(200, { ok: true, show: false })
+    const key = `text_check_${t.id}`, st = await getSetting(key, {})
+    const view = async (x) => {
+      let status = null
+      if (x.message_id && !x.answer) { const g = await getSmsStatus(x.message_id); if (g.ok) status = g.status || null }
+      return { ok: true, show: x.answer !== 'yes', phone: t.phone || '', sent_at: x.sent_at || null, status, answer: x.answer || null }
+    }
+    if (b.action === 'rep_textcheck') return json(200, await view(st))
+    if (b.action === 'rep_textcheck_send') {
+      if (!t.phone) return json(200, { ok: false, error: "We don't have a cell number for you. Fix it below." })
+      if (st.sent_at && Date.now() - Date.parse(st.sent_at) < 60000) return json(200, { ok: false, error: 'Just sent. Give it a minute.' })
+      const r = await sendSmsViaGhl(t.phone, `Hi ${t.first_name}, this is a TEST text from U.S. Shingle. Did you receive this message? Reply YES, and tap "Yes, I got it" on your dashboard.`, { firstName: t.first_name, lastName: t.last_name })
+      const next = { sent_at: new Date().toISOString(), message_id: r.messageId || null, send_error: r.ok ? null : r.error, phone: t.phone, answer: null }
+      await putSetting(key, next)
+      if (!r.ok) return json(200, { ok: false, error: `The text didn't go out (${r.error}). Neal has been told.` })
+      return json(200, await view(next))
+    }
+    // rep_textcheck_answer
+    const yes = b.answer === 'yes'
+    let status = null
+    if (st.message_id) { const g = await getSmsStatus(st.message_id); if (g.ok) status = g.status || null }
+    await putSetting(key, { ...st, answer: yes ? 'yes' : 'no', answered_at: new Date().toISOString(), status })
+    if (!yes) {
+      const nm = fullName(t), at = st.sent_at ? new Date(st.sent_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'n/a'
+      const msg = `📵 ${nm} did NOT get the test text to ${t.phone} (sent ${at} ET). GoHighLevel delivery status: ${status || st.send_error || 'unknown'}.`
+      await sendSmsViaGhl('727-503-7017', msg).catch(() => {})
+      await sendEmail('neals@shingleusa.com', `Text check: ${nm} did not get the test text`, msg).catch(() => {})
+    }
+    return json(200, { ok: true, show: !yes, answer: yes ? 'yes' : 'no', status, phone: t.phone || '' })
   }
 
   // 📱 WAITING ON YOU (Neal, 2026-10-05): things we texted a rep that they haven't done — unsigned
