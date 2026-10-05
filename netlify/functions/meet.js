@@ -318,18 +318,15 @@ export const handler = async (event) => {
   // he is part of"). Signed in with their admin PIN (the same one they host with): every room this
   // person belongs in — invited (custom / one-time), named as a host, or by their role (team,
   // managers, company, everyone, prayer). One-time meetings that are over drop off.
-  if (b.action === 'mine_by_pin') {
-    const name = await verifyPin(b.pin)
-    if (!name) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
-    const parts = String(name).trim().split(/\s+/)
-    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1])
+  // Every room one person belongs in (invited, named host, Also include, or by role), soonest first.
+  const roomsForPerson = async (ts, name, linkFor) => {
     const ids = new Set((ts || []).map((x) => x.id))
     const t = (ts || []).find((x) => x.managed_region) || (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0] || null
-    const nm0 = String(name).trim().toLowerCase()
-    const named = (r) => (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
+    const nm0 = String(name || '').trim().toLowerCase()
+    const named = (r) => !!nm0 && (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
     const mine = (await loadRooms()).filter((r) => {
       if (alsoIds(r).some((id) => ids.has(id))) return true
-      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
+      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && nm0 && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
       if (!t) return false
       const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
@@ -338,12 +335,31 @@ export const handler = async (event) => {
       if (['everyone', 'prayer', 'company'].includes(r.kind)) return active || !!t.managed_region
       return false
     }).filter((r) => r.kind !== 'oneoff' || nextMeeting(r))
+    const today = etDay()
     const rows = await Promise.all(mine.map(async (r) => {
       const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextMeeting(r) : null
-      return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: `${SITE}/meet/${r.slug}` }
+      return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, today: !!nm && etDay(nm.start.getTime()) === today, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: linkFor(r, t) }
     }))
     rows.sort((a, c) => (c.live - a.live) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15)))
-    return json(200, { ok: true, name, rooms: rows })
+    return rows
+  }
+
+  // YOUR MEETINGS (Neal, 2026-10-04): by admin PIN (/my-meetings, My Tools "Your meetings").
+  if (b.action === 'mine_by_pin') {
+    const name = await verifyPin(b.pin)
+    if (!name) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
+    const parts = String(name).trim().split(/\s+/)
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1])
+    return json(200, { ok: true, name, rooms: await roomsForPerson(ts, name, (r) => `${SITE}/meet/${r.slug}`) })
+  }
+  // …and by a manager's dashboard token (TMS /regional-manager/<token>), with their OWN join link
+  // so they come in as themselves (Neal, 2026-10-05: "show up on their personal dashboards").
+  if (b.action === 'mine_by_mgr_token') {
+    const tok = String(b.token || '').trim()
+    if (!tok) return json(401, { ok: false })
+    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('manager_access_token', tok).maybeSingle()
+    if (!t) return json(401, { ok: false })
+    return json(200, { ok: true, rooms: await roomsForPerson([t], fullName(t), (r) => (t.registration_token ? `${SITE}/meet/${r.slug}?t=${t.registration_token}` : `${SITE}/meet/${r.slug}`)) })
   }
 
   // ---- ADMIN: rooms ----

@@ -165,6 +165,9 @@ export default function RegionalManager() {
         </div>
       </header>
 
+      {/* A meeting today (or live now) flashes right here, above everything (Neal, 2026-10-05). */}
+      <YourMeetings token={token} banner />
+
       {/* THE DASHBOARD AS BUTTONS (Neal, 2026-09-30: "so much on it… only opening what you
           want"). Every section is a tile; tap to open it under the tiles, tap again (or ✕)
           to close. Several can be open at once. Which ones are open is remembered on this
@@ -222,9 +225,10 @@ export default function RegionalManager() {
               ['', <a href="/find-the-button" target="_blank" rel="noreferrer" className="mb-3 flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-4 no-underline hover:bg-amber-500/20"><span className="text-2xl">🎯</span><div className="min-w-0"><div className="text-base font-bold text-white">Find their button (FIGS) — the class</div><div className="text-xs text-slate-200/80">Questions to ask on the warm-up and each slide to find Fear of loss, Indifference, Greed or Sense of urgency — and how to close on it.</div></div><span className="ml-auto text-slate-300">↗</span></a>],
               ['', <HarvestPracticeLink />],
             ] },
-          { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Zone Zoom, managers meeting, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',
+          { key: 'comms', emoji: '💬', title: 'Communication', sub: 'Your meetings, zone Zoom, WhatsApp, meeting ideas', color: 'from-teal-600 to-teal-800',
             parts: [
-              ['📞 Meetings', <QuickActions manager={manager} />],
+              ['📅 Your meetings', <YourMeetings token={token} />],
+              ['📞 Zone Zoom', <QuickActions manager={manager} />],
               ['💬 WhatsApp groups', <WhatsAppGroups token={token} reps={reps} zone={manager.region} />],
               ['', <MeetingIdea token={token} />],
             ] },
@@ -2529,16 +2533,66 @@ function BackToRetailWins({ zone, autoLoad = false }) {
 // "Mark as departed" button that opens a small inline confirm with an
 // optional reason field.
 
+// ── Your meetings (Neal, 2026-10-05) ──────────────────────────────
+// Every meeting room this manager belongs in (Managers Meeting, their team room, company,
+// anything they're invited to), each with their OWN join link. A meeting that's on TODAY
+// flashes; one that's live now says so. `banner` = the compact flashing strip at the very top
+// of the dashboard, shown only on a meeting day.
+function YourMeetings({ token, banner = false }) {
+  const [rooms, setRooms] = useState(null)
+  useEffect(() => {
+    const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mine_by_mgr_token', token }) })
+      .then((r) => r.json()).then((j) => setRooms(j.ok ? j.rooms : [])).catch(() => setRooms([]))
+    load(); const iv = setInterval(load, 60000); return () => clearInterval(iv)
+  }, [token])
+  const at = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const day = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  if (!rooms) return banner ? null : <p className="text-sm text-slate-400">Loading your meetings…</p>
+  // Flash only what's special today — the Managers Meeting, a company meeting, a one-off or invite
+  // meeting — or anything live now. Daily rooms (devotional, team training) would flash every day.
+  const hot = rooms.filter((r) => r.live || (r.today && ['managers', 'company', 'oneoff', 'custom'].includes(r.kind)))
+  if (banner) {
+    if (!hot.length) return null
+    return (
+      <div className="mb-4 space-y-2">
+        <style>{'@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.55)}50%{box-shadow:0 0 0 10px rgba(250,204,21,0)}}'}</style>
+        {hot.map((r) => (
+          <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" style={{ animation: 'rmPulse 1.6s ease-in-out infinite' }}
+            className={`flex items-center gap-3 rounded-xl border-2 p-3 no-underline ${r.live ? 'border-emerald-400 bg-emerald-500/20' : 'border-amber-400 bg-amber-500/15'}`}>
+            <span className="text-2xl">{r.live ? '🔴' : '📅'}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-white">{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
+              <span className="block text-sm text-slate-200">{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}</span>
+            </span>
+            <span className={`rounded-lg px-3 py-1.5 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
+          </a>
+        ))}
+      </div>
+    )
+  }
+  if (!rooms.length) return <p className="text-sm text-slate-400">No meetings yet.</p>
+  return (
+    <div className="space-y-2">
+      {rooms.map((r) => (
+        <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" className={`flex items-center gap-3 rounded-lg border p-3 no-underline hover:bg-white/5 ${r.live ? 'border-emerald-400' : r.today ? 'border-amber-400' : 'border-white/15'}`}>
+          {r.badge ? <img src={r.badge} alt="" className="h-9 w-9" /> : <span className="text-2xl">🎥</span>}
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-white">{r.title}</span>
+            <span className="block text-xs text-slate-300">{r.live ? <b className="text-emerald-300">● LIVE now</b> : r.next_at ? <>{r.today ? <b className="text-amber-300">TODAY </b> : ''}{day(r.next_at)}</> : (r.schedule || 'Open any time')}{r.schedule && r.next_at ? ` · ${r.schedule}` : ''}</span>
+          </span>
+          <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
+        </a>
+      ))}
+    </div>
+  )
+}
+
 // ── Quick Actions ──────────────────────────────────────────────────
 // Touch-friendly tiles at the top of the page: Roof Inspection Records
 // (auto-resolved by zone), Join Zone Zoom (admin-set URL, falls back to
-// a "Coming soon" pill when null), the fixed Managers Meeting link, and
+// a "Coming soon" pill when null), and
 // Message a rep (opens the inline composer below).
-// Company-wide regional-managers meeting — same link for every manager
-// (Mon–Thu 8:30 AM ET). Passcode is embedded in the pwd param, so tapping
-// joins directly. If the room changes, update this one line.
-const MANAGERS_MEETING_URL =
-  'https://us06web.zoom.us/j/3462393037?pwd=wSzImr09UTv0imz9h6b6nYi6Hc2yM5.1'
+// The Managers Meeting moved off Zoom to our own room — see YourMeetings above (2026-10-05).
 
 function QuickActions({ manager }) {
   const hasZoom = !!(manager.zoom_url && String(manager.zoom_url).trim())
@@ -2551,12 +2605,6 @@ function QuickActions({ manager }) {
           subtitle="Daily sales training · 9:30 AM Eastern"
           href={hasZoom ? manager.zoom_url : null}
           comingSoonNote="Zoom link coming soon — admin is finalizing."
-        />
-        <ActionTile
-          icon="👔"
-          title="Managers Meeting"
-          subtitle="Mon–Thu · 8:30 AM Eastern"
-          href={MANAGERS_MEETING_URL}
         />
       </div>
     </section>
