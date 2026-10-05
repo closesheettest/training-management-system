@@ -165,9 +165,6 @@ export default function RegionalManager() {
         </div>
       </header>
 
-      {/* A meeting today (or live now) flashes right here, above everything (Neal, 2026-10-05). */}
-      <YourMeetings token={token} banner />
-
       {/* THE DASHBOARD AS BUTTONS (Neal, 2026-09-30: "so much on it… only opening what you
           want"). Every section is a tile; tap to open it under the tiles, tap again (or ✕)
           to close. Several can be open at once. Which ones are open is remembered on this
@@ -185,6 +182,10 @@ export default function RegionalManager() {
         <span className="whitespace-nowrap text-lg font-extrabold uppercase tracking-widest text-amber-300">🧰 Your tools</span>
         <div className="h-1 flex-1 rounded-full bg-gradient-to-l from-transparent via-amber-400 to-amber-400" />
       </div>
+
+      {/* Today's special meeting (Managers Meeting, company, invite) or anything live — flashing,
+          as the header of Your tools, under the leaderboard (Neal, 2026-10-05). */}
+      <YourMeetings token={token} banner />
 
       <TileBoard
         counts={todo}
@@ -2558,7 +2559,7 @@ function YourMeetings({ token, banner = false }) {
     if (!hot.length) return null
     return (
       <div className="mb-4 space-y-2">
-        <style>{'@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.55)}50%{box-shadow:0 0 0 10px rgba(250,204,21,0)}}'}</style>
+        <style>{'@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.7);filter:brightness(1)}50%{box-shadow:0 0 0 12px rgba(250,204,21,0);filter:brightness(1.35)}}'}</style>
         {hot.map((r) => (
           <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" style={{ animation: 'rmPulse 1.6s ease-in-out infinite' }}
             className={`flex items-center gap-3 rounded-xl border-2 p-3 no-underline ${r.live ? 'border-emerald-400 bg-emerald-500/20' : 'border-amber-400 bg-amber-500/15'}`}>
