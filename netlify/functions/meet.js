@@ -988,7 +988,20 @@ export const handler = async (event) => {
     if (b.action === 'people_search') {
       const now = await traineeIdsNow()
       const { data } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, is_active_sales_rep, rep_level, registration_token').or(`is_active_sales_rep.eq.true,managed_region.not.is.null${now.size ? `,id.in.(${[...now].join(',')})` : ''}`)
-      return json(200, { ok: true, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
+      // EVERYONE ELSE IN THE COMPANY (Neal, 2026-10-05: Nikki, Hank want department meetings): office
+      // staff from GoHighLevel's user list who aren't already in TMS, with their cell + email. Picked
+      // ones go on the invite list as outside guests (their own link by text + email).
+      const dg = (x) => String(x || '').replace(/\D/g, '').slice(-10)
+      const { data: allT } = await sb.from('trainees').select('phone').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
+      const tms = new Set((allT || []).map((x) => dg(x.phone)).filter(Boolean))
+      let staff = []
+      try {
+        const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
+        const seen = new Set()
+        staff = (u.users || []).filter((x) => !x.deleted && x.phone && dg(x.phone).length === 10 && !tms.has(dg(x.phone)) && !seen.has(dg(x.phone)) && seen.add(dg(x.phone)))
+          .map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', cell: dg(x.phone) })).filter((x) => x.name).sort((a, c) => a.name.localeCompare(c.name))
+      } catch { /* reps still listed */ }
+      return json(200, { ok: true, staff, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
     }
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))

@@ -46,7 +46,9 @@ export default function MeetingRooms() {
   // ONE-OFF MEETINGS: who can be invited (TMS people), searchable.
   const [people, setPeople] = useState(null)
   const [pq, setPq] = useState('')
-  const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []) }
+  const [staff, setStaff] = useState(null)
+  const [sq, setSq] = useState('')
+  const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []); setStaff(j.ok ? j.staff || [] : []) }
   // The invite list loads as soon as the Who's invited box shows (editing a room never loaded it).
   useEffect(() => { if (form && (form.kind === 'oneoff' || form.kind === 'custom')) loadPeople() }, [form?.kind, form?.original_slug]) // eslint-disable-line react-hooks/exhaustive-deps
   const [dragging, setDragging] = useState(null) // slug being dragged
@@ -324,6 +326,7 @@ export default function MeetingRooms() {
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
               <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
                 <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
+                <div className="mt-2 font-semibold text-slate-800">👥 Active sales reps <span className="font-normal text-slate-500">(and managers, trainees)</span></div>
                 <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
                   {!people ? <div className="p-2 text-slate-500">Loading…</div> : people.filter((x) => !pq || `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => {
@@ -332,6 +335,22 @@ export default function MeetingRooms() {
                   })}
                 </div>
                 {people && pq && <button onClick={() => { const add = people.filter((x) => `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => ({ id: x.id })); setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !add.some((a) => a.id === y.id)), ...add] }) }} className="mt-1 text-xs font-semibold text-blue-700">+ Invite everyone matching "{pq}"</button>}
+                {/* EVERYONE ELSE IN THE COMPANY (Neal, 2026-10-05: Nikki, Hank want department meetings).
+                    Office staff from GoHighLevel; picked ones get their own link by text + email. */}
+                <div className="mt-4 font-semibold text-slate-800">🏢 Everyone else in the company <span className="font-normal text-slate-500">(office staff from GoHighLevel)</span></div>
+                <input value={sq} onChange={(e) => setSq(e.target.value)} onFocus={loadPeople} placeholder="Search office staff by name…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+                <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
+                  {!staff ? <div className="p-2 text-slate-500">Loading…</div> : staff.filter((x) => !sq || x.name.toLowerCase().includes(sq.toLowerCase())).map((x) => {
+                    const dg = (v) => String(v || '').replace(/\D/g, '').slice(-10)
+                    const on = (form.invitees || []).some((y) => !y.id && dg(y.phone) === x.cell)
+                    return (
+                      <label key={x.cell} className="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-2 py-1">
+                        <input type="checkbox" checked={on} onChange={(e) => setForm({ ...form, invitees: e.target.checked ? [...(form.invitees || []), { name: x.name, phone: x.phone, email: x.email }] : (form.invitees || []).filter((y) => y.id || dg(y.phone) !== x.cell) })} />
+                        <span className="flex-1">{x.name}</span><span className="text-xs text-slate-500">📱 …{x.cell.slice(-4)}{x.email ? ' · ✉️' : ''}</span>
+                      </label>
+                    )
+                  })}
+                </div>
                 <div className="mt-3 font-bold">Someone not in TMS?</div>
                 {(form.invitees || []).filter((y) => !y.id).map((y, i) => (
                   <div key={y.key || i} className="mt-1 flex flex-wrap gap-2">
