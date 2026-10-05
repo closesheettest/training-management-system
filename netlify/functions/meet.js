@@ -35,7 +35,7 @@
 // Who you are is decided HERE, never by the page: the name on your tile comes from TMS, so
 // nobody can join as someone else. Env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
 // SUPABASE_URL, SUPABASE_SECRET_KEY, URL.
-import { AccessToken, RoomServiceClient, TrackType, EgressClient, EncodedFileOutput, S3Upload } from 'livekit-server-sdk'
+import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, EncodedFileOutput, S3Upload } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
@@ -68,6 +68,7 @@ const publicRoom = (r) => ({
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : null, color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
+  mic_lock: !!r.mic_lock,
   auto_stage: !!r.auto_stage,
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
@@ -316,7 +317,7 @@ export const handler = async (event) => {
       rooms: mine.map((r) => {
         const pr = publicRoom(r)
         // Viewing as a rep (Neal's view-as) shows the rooms but never their personal link.
-        return { ...pr, ...openOf[r.slug], badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.slug}?t=${t.registration_token}` }
+        return { ...pr, ...openOf[r.slug], badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.joins_room || r.slug}?t=${t.registration_token}` }
       }),
     })
   }
@@ -345,7 +346,7 @@ export const handler = async (event) => {
     const today = etDay()
     const rows = await Promise.all(mine.map(async (r) => {
       const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextMeeting(r) : null
-      return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, today: !!nm && etDay(nm.start.getTime()) === today, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: linkFor(r, t) }
+      return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, today: !!nm && etDay(nm.start.getTime()) === today, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: linkFor({ ...r, slug: r.joins_room || r.slug }, t) }
     }))
     rows.sort((a, c) => (c.live - a.live) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15)))
     return rows
@@ -457,7 +458,8 @@ export const handler = async (event) => {
       const ptok = crypto.randomBytes(18).toString('base64url')
       await sb.from('sales_practice_sessions').insert({ trainee_id: p.id, trainee_name: name, trainer_name: mName, persona_key: 'ready', section: 'slides_1_5', grade_status: 'invited', transcript: [],
         report: { retrain: room.slug, invite: { token: ptok, expires_at: expires, phone: p.phone || null, email: email || null, sent_by: mName } } })
-      const link = p.registration_token ? `${SITE}/meet/${room.slug}?t=${p.registration_token}` : `${SITE}/meet/${room.slug}`
+      const tgt = room.joins_room || room.slug
+      const link = p.registration_token ? `${SITE}/meet/${tgt}?t=${p.registration_token}` : `${SITE}/meet/${tgt}`
       const due = first ? first.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'the first session'
       const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title}: ${sessionLine(room)} (Eastern).\n\nYour link to join each day: ${link}\n\nHOMEWORK, done before ${due}:\n1) Study the full sales script: ${RETRAIN_SCRIPT}\n2) Do your practice test: present slides 1–5 to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones: ${SITE}/practice/${ptok}`
       const r = { name, sms: false, email: false }
@@ -508,6 +510,8 @@ export const handler = async (event) => {
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         effort_gate: !!r.effort_gate,
         remind_5: !!r.remind_5,
+        mic_lock: !!r.mic_lock,
+        joins_room: kind === 'retraining' ? String(r.joins_room || '').slice(0, 60) : '',
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
         also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
@@ -590,7 +594,7 @@ export const handler = async (event) => {
       const extra = alsoIds(room).filter((id) => !people.some((p) => p.id === id))
       if (extra.length) { const { data: lx } = await sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep').in('id', extra); people = people.concat((lx || []).filter((p) => p.registration_token)) }
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
-      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
+      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.joins_room || room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
       // People outside TMS on the invite list, each with their own key.
       if (invited) for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
@@ -773,7 +777,7 @@ export const handler = async (event) => {
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
-    let name = null, identity = null, host = false
+    let name = null, identity = null, host = false, isRetrainee = false
     const admin = await verifyPin(b.pin)
     // Each device gets its own seat — the same identity twice would kick the first device out.
     const seat = () => Math.random().toString(36).slice(2, 7)
@@ -800,7 +804,11 @@ export const handler = async (event) => {
         name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t)
         // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
         // until their onboarding paperwork is signed — it's sent to them right here (text + email).
-        if (room.kind === 'training' && !host) {
+        // RETRAINING (Neal, 2026-10-05): reps a manager picked for a retraining that "joins" this
+        // room come in alongside the trainees — none of the trainee-only checks apply to them.
+        const retrainee = room.kind === 'training' && (await loadRooms()).some((r) => r.kind === 'retraining' && r.joins_room === room.slug && (r.invitees || []).some((x) => x.id === t.id))
+        isRetrainee = retrainee
+        if (room.kind === 'training' && !host && !retrainee) {
           // MISSED A DAY = OUT (Neal, 2026-10-04): if the class met on its last day before today
           // (someone in the class signed in) and this trainee didn't, their link stops working.
           // Their own week_b_force flag (the existing admin override) lets them back in.
@@ -880,7 +888,7 @@ export const handler = async (event) => {
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     if (!host) { const st = await openState(room); if (!st.open) return json(200, { ok: false, not_open: true, room: publicRoom(room) }) }
     // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
-    if (room.kind === 'training' && !host && identity.startsWith('t:')) {
+    if (room.kind === 'training' && !host && !isRetrainee && identity.startsWith('t:')) {
       const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
       if (tr?.class_id) await sb.from('attendance').upsert({ trainee_id: identity.slice(2), class_id: tr.class_id, attendance_date: etDay(), confirmed: true, confirmed_at: new Date().toISOString() }, { onConflict: 'trainee_id,attendance_date' })
       // Same as the kiosk: signing in from the class's 2nd day on makes them a field trainee, so
@@ -890,10 +898,14 @@ export const handler = async (event) => {
       if (dayIdx >= 1 && dayIdx <= 6 && tr.is_field_trainee !== true && tr.is_active_sales_rep !== true) await sb.from('trainees').update({ is_field_trainee: true }).eq('id', identity.slice(2))
     }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
-    at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host })
+    // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
+    // muted and they cannot unmute. I am the only one that can unmute"). Non-hosts may publish
+    // their camera only; the host's Unmute grants the mic (allow_mic) and Mute takes it back.
+    const micLocked = !!room.mic_lock && !host
+    at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
     // Open the room with its top line already set, so the first person in sees it.
     try { await svc().createRoom({ name: room.slug, emptyTimeout: 600, metadata: JSON.stringify({ topic: room.topic || '' }) }) } catch { /* already open */ }
-    return json(200, { ok: true, url, token: await at.toJwt(), name, host, title: room.title, room: publicRoom(room) })
+    return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room) })
   }
 
   // PRACTICE IN THE MEETING: a seat for the AI homeowner (its own tile), run from the trainer's
@@ -1011,17 +1023,26 @@ export const handler = async (event) => {
       const mutedLine = mutedN ? `Muted ${mutedN} ${mutedN === 1 ? 'person' : 'people'}.` : 'Nobody else to mute.'
       return json(200, { ok: true, recording: saved, note: saved ? `⏺ Recording. ${mutedLine}` : `${mutedLine} ${note}`.trim() })
     }
+    // Locked-mic rooms: give someone (or everyone) their mic, or take it back.
+    const micPerm = (on) => ({ canSubscribe: true, canPublish: true, canPublishData: true, canPublishSources: on ? [TrackSource.CAMERA, TrackSource.MICROPHONE] : [TrackSource.CAMERA] })
+    const isHostP = (p) => { try { return !!JSON.parse(p.metadata || '{}').host } catch { return false } }
+    if (b.action === 'allow_mic' || b.action === 'lock_mic') {
+      const on = b.action === 'allow_mic'
+      const list = (await svc().listParticipants(room.slug)).filter((p) => !isHostP(p) && !/^(egress|homeowner)/.test(p.identity) && (b.all || (Array.isArray(b.identities) ? b.identities : [b.identity]).includes(p.identity)))
+      for (const p of list) { try { if (!on) await muteMic(p); await svc().updateParticipant(room.slug, p.identity, undefined, micPerm(on)) } catch { /* left */ } }
+      return json(200, { ok: true, n: list.length })
+    }
     if (b.action === 'mute' || b.action === 'remove') {
       const identity = String(b.identity || '')
       if (!identity) return json(400, { ok: false, error: 'Who?' })
       if (b.action === 'remove') await svc().removeParticipant(room.slug, identity)
-      else await muteMic(await svc().getParticipant(room.slug, identity))
+      else { const p = await svc().getParticipant(room.slug, identity); await muteMic(p); if (room.mic_lock && !isHostP(p)) await svc().updateParticipant(room.slug, identity, undefined, micPerm(false)).catch(() => {}) }
       return json(200, { ok: true })
     }
     if (b.action === 'mute_all') {
       const list = await svc().listParticipants(room.slug)
       const meta = (p) => { try { return JSON.parse(p.metadata || '{}') } catch { return {} } }
-      for (const p of list) if (!meta(p).host) await muteMic(p)
+      for (const p of list) if (!meta(p).host) { await muteMic(p); if (room.mic_lock) await svc().updateParticipant(room.slug, p.identity, undefined, micPerm(false)).catch(() => {}) }
       return json(200, { ok: true, muted: list.length })
     }
   } catch (e) {

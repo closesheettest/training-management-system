@@ -18,7 +18,7 @@ import {
   ControlBar, Chat, RoomAudioRenderer, LayoutContextProvider, ConnectionStateToast, VideoTrack,
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
-import { Track, RoomEvent } from 'livekit-client'
+import { Track, RoomEvent, ParticipantEvent } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
@@ -101,6 +101,8 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
   // back on (a server can't switch someone's mic on). Receivers only obey a host.
   const unmute = async (identities, label) => {
     setMsg('')
+    // 🔇 Locked-mic room: give them the mic first, then tell their device to turn it on.
+    if (room.mic_lock) await call({ action: 'allow_mic', room: room.slug, ...(identities ? { identities } : { all: true }), ...auth }).catch(() => {})
     try {
       await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', ...(identities ? { destinationIdentities: identities } : {}) })
       setMsg(`${label} ✓`)
@@ -156,7 +158,7 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
 // The stage. Each person picks their own view, like Zoom:
 //   Gallery — everyone in tiles (pages when the class is big); a shared screen joins the grid
 //   Speaker — whoever is talking big (or the shared screen), everyone else in a strip
-function Stage({ room, auth, isHost }) {
+function Stage({ room, auth, isHost, micLocked = false }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
   const [scripturePanel, setScripturePanel] = useState(false)
@@ -168,6 +170,16 @@ function Stage({ room, auth, isHost }) {
   const layoutContext = useCreateLayoutContext()
   const [showChat, setShowChat] = useState(false)
   const { localParticipant } = useLocalParticipant()
+  // 🔇 Locked mics: has the host given me my mic? (TrackSource 2 = microphone.) Re-checked whenever
+  // my permissions change.
+  const micOk = () => { const src = localParticipant?.permissions?.canPublishSources; return !micLocked || (Array.isArray(src) && (src.length === 0 || src.includes(2))) }
+  const [micAllowed, setMicAllowed] = useState(!micLocked)
+  useEffect(() => {
+    if (!localParticipant) return
+    const upd = () => setMicAllowed(micOk())
+    upd(); localParticipant.on(ParticipantEvent.ParticipantPermissionsChanged, upd)
+    return () => { localParticipant.off(ParticipantEvent.ParticipantPermissionsChanged, upd) }
+  }, [localParticipant, micLocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const bg = useBackground(localParticipant)
   const [bgPanel, setBgPanel] = useState(false)
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
@@ -383,7 +395,8 @@ function Stage({ room, auth, isHost }) {
           </div>
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />
         </div>
-        <ControlBar controls={{ chat: true, screenShare: true, camera: true, microphone: true, leave: true }} />
+        {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
+        <ControlBar controls={{ chat: true, screenShare: !micLocked || isHost, camera: true, microphone: micAllowed, leave: true }} />
       </div>
       <RoomAudioRenderer />
       <ConnectionStateToast />
@@ -758,7 +771,7 @@ export default function Meet() {
             {READY.map((x) => <div key={x} style={{ fontSize: 15.5, fontWeight: 700, margin: '3px 0' }}><span style={{ color: '#16a34a', marginRight: 8 }}>✔</span>{x}</div>)}
           </div>
         )}
-        <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: true }} persistUserChoices={false}
+        <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: !join.mic_locked }} persistUserChoices={false}
           onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
       </div>
     )
@@ -769,9 +782,9 @@ export default function Meet() {
       <FontsFor look={L} />
       <LiveKitRoom serverUrl={join.url} token={join.token} connect
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
-        audio={choices.audioEnabled ? { deviceId: choices.audioDeviceId } : false}
+        audio={choices.audioEnabled && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
         onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
-        <Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} />
+        <Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} />
       </LiveKitRoom>
     </div>
   )

@@ -311,6 +311,15 @@ export default function MeetingRooms() {
                 ))}
                 <span className="text-xs text-slate-500">They get the links and reminders, see it on Your meetings, and host it.</span>
               </div>
+              <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.mic_lock} onChange={(e) => setForm({ ...form, mic_lock: e.target.checked })} /> 🔇 Lock mics: everyone comes in muted and only a host can unmute them</label>
+              {form.kind === 'retraining' && (
+                <label className="mt-2 flex flex-wrap items-center gap-2 font-semibold">🔁 Picked reps join this room:
+                  <select value={form.joins_room || ''} onChange={(e) => setForm({ ...form, joins_room: e.target.value })} className="rounded border border-slate-300 px-2 py-1 font-normal">
+                    <option value="">Its own room</option>
+                    {rooms.filter((x) => x.kind === 'training').map((x) => <option key={x.slug} value={x.slug}>{x.title}</option>)}
+                  </select>
+                </label>
+              )}
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.auto_stage} onChange={(e) => setForm({ ...form, auto_stage: e.target.checked })} /> 🎙 Podcast view: when 2+ hosts are in, show them side by side for everyone (nobody is muted)</label>
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone 5 minutes before each meeting (text + email with their own link)</label>
             </div>
