@@ -463,7 +463,7 @@ export const handler = async (event) => {
       const tgt = room.joins_room || room.slug
       const link = p.registration_token ? `${SITE}/meet/${tgt}?t=${p.registration_token}` : `${SITE}/meet/${tgt}`
       const due = first ? first.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'the first session'
-      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title}: ${sessionLine(room)} (Eastern).\n\nYour link to join each day: ${link}\n\nHOMEWORK, done before ${due}:\n1) Study the full sales script: ${RETRAIN_SCRIPT}\n2) Do your practice test: present slides 1–5 to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones: ${SITE}/practice/${ptok}`
+      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title}: ${sessionLine(room)} (Eastern).\n\nYour link to join each day: ${link}\n\nHOMEWORK, done before ${due}:\n1) Learn slides 1–5 and the points on each (tap a slide to read it): ${SITE}/homework/slides?from=1&to=5\n2) The full sales script: ${RETRAIN_SCRIPT}\n3) Do your practice test: present slides 1–5 to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones: ${SITE}/practice/${ptok}`
       const r = { name, sms: false, email: false }
       if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: fn, lastName: p.last_name || '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
       if (email) { try { const x = await sendEmail(email, `You're signed up: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }

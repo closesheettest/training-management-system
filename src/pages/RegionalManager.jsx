@@ -2634,7 +2634,7 @@ function RetrainingPick({ token }) {
           <div key={room.slug} className="rounded-xl border-2 border-fuchsia-400 bg-gradient-to-r from-fuchsia-900/60 to-purple-900/60 p-4 text-slate-100">
             <div className="text-lg font-extrabold text-white">🔁 {room.title} this week</div>
             <div className="mt-0.5 text-sm font-semibold text-fuchsia-100">{room.sessions} (Eastern)</div>
-            <div className="mt-2 text-sm text-slate-200">Tick which of your reps need it, then Submit. Each one gets their link plus homework: the full sales script and a practice test (slides 1–5, the easy homeowner), done before the first session.</div>
+            <div className="mt-2 text-sm text-slate-200">Tick which of your reps need it, then Submit. Each one gets their link plus homework: slides 1–5 with their points, the full sales script, and a practice test (slides 1–5, the easy homeowner), done before the first session.</div>
             <div className="mt-3 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
               {room.team.map((t) => (
                 <label key={t.id} className={`flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm ${t.picked ? '' : 'cursor-pointer'}`}>
