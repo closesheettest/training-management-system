@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
+const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting: sales staff, trainees & managers'], ['company_pick', 'Company meeting: others (you pick who)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', host_ids: [], public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
@@ -143,7 +143,7 @@ export default function MeetingRooms() {
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
                 {(r.host_names || []).length > 0 && <div className="text-sm font-semibold text-slate-700">👤 Host: {r.host_names.join(' & ')}</div>}
-                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
+                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === (r.kind === 'custom' && r.look === 'company' ? 'company_pick' : r.kind))?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
               <a href={`/meet/${r.slug}?as=attendee`} target="_blank" rel="noreferrer" className="rounded-md border border-blue-600 bg-white px-3 py-1.5 text-sm font-bold text-blue-700">Join as attendee</a>
@@ -306,7 +306,11 @@ export default function MeetingRooms() {
           <h2 className="text-lg font-bold">{form.original_slug ? (form.kind === 'oneoff' ? 'Edit one-time meeting' : 'Edit room') : (form.kind === 'oneoff' ? 'Create a one-time meeting' : 'Create a meeting room')}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
-            <label className="text-sm font-semibold">Type<select className={field} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, public: e.target.value === 'prayer' ? true : form.public })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+            <label className="text-sm font-semibold">Type<select className={field} value={form.kind === 'custom' && form.look === 'company' ? 'company_pick' : form.kind} onChange={(e) => { const v = e.target.value
+              // "Company meeting: others" (Neal, 2026-10-05) = a private invite-list room in the company look:
+              // office, foremen, PAs… picked from "Everyone else in the company" below.
+              if (v === 'company_pick') { setForm({ ...form, kind: 'custom', look: 'company', public: false }); loadPeople(); return }
+              setForm({ ...form, kind: v, look: form.kind === 'custom' && form.look === 'company' ? '' : form.look, public: v === 'prayer' ? true : form.public }) }}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             {/* A one-time meeting's date + time live in the ONE "When" section below (Neal, 2026-10-05:
                 Nikki — "the time is in three locations to enter"). */}
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
