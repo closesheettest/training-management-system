@@ -913,16 +913,11 @@ function SharePanel({ room, onClose }) {
   const link = `https://trainingmanagementsys.netlify.app/meet/${room.slug}`
   const [copied, setCopied] = useState(false)
   const copy = async () => { try { await navigator.clipboard.writeText(link) } catch { const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove() } setCopied(true); setTimeout(() => setCopied(false), 2000) }
-  const text = `Join ${room.title}: ${link}`
   return (
     <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 360, background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 14, color: '#e5e7eb', fontSize: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}><b style={{ flex: 1 }}>🔗 Share {room.title}</b><button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>
       <div style={{ padding: '8px 10px', borderRadius: 8, background: '#0b1220', border: '1px solid #374151', fontFamily: 'ui-monospace, monospace', fontSize: 13, wordBreak: 'break-all' }}>{link}</div>
       <button onClick={copy} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: copied ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copied ? '✓ Copied. Paste it anywhere' : '📋 Copy link'}</button>
-      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-        <a href={`sms:?&body=${encodeURIComponent(text)}`} style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#334155', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>💬 Text it</a>
-        <a href={`mailto:?subject=${encodeURIComponent(room.title)}&body=${encodeURIComponent(text)}`} style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#334155', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>✉️ Email it</a>
-      </div>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{room.public ? 'Anyone with this link can join (they put in their name and email).' : 'People from the company sign in with their own link; this link is the way in.'}</div>
     </div>
   )
