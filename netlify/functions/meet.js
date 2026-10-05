@@ -866,7 +866,7 @@ export const handler = async (event) => {
     if (!room) return json(404, { ok: false, error: 'No such room.' })
     if (b.action === 'audience' || b.action === 'send_links') {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
-      let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
+      let q = sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
       // A Custom room has an invite list too (Neal, 2026-10-04: the 8 AM meeting with DeWayne).
       const invited = INVITE_KINDS.includes(room.kind)
       const invIds = invited ? (room.invitees || []).filter((x) => x.id).map((x) => x.id) : []
@@ -882,9 +882,11 @@ export const handler = async (event) => {
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
       // Neal / DeWayne ticked "Also include" on this room.
       const extra = alsoIds(room).filter((id) => !people.some((p) => p.id === id))
-      if (extra.length) { const { data: lx } = await sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep').in('id', extra); people = people.concat((lx || []).filter((p) => p.registration_token)) }
+      if (extra.length) { const { data: lx } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, registration_token, rep_level, is_active_sales_rep').in('id', extra); people = people.concat((lx || []).filter((p) => p.registration_token)) }
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
-      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.joins_room || room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
+      // Company email first (Neal, 2026-10-05: William Hennis never got the meeting email — it went to his
+      // personal iCloud address). Same order as the 5-minute reminders.
+      const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.company_email || p.email, link: `${SITE}/meet/${room.joins_room || room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
       // People outside TMS on the invite list, each with their own key.
       if (invited) for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
