@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)']]
+const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
@@ -437,9 +437,9 @@ export default function MeetingRooms() {
         {/* Grouped (Neal, 2026-10-05): standing rooms, then one-time meetings still to come, then
             past ones. Each heading opens/closes; Past starts closed. Remembered on this device. */}
         {[
-          ['recurring', '🔁 Recurring meetings', rooms.filter((r) => r.kind !== 'oneoff')],
-          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => r.kind === 'oneoff' && (r.next_at || !(r.once || []).filter(Boolean).length))],
-          ['past', '🗂️ Past meetings', rooms.filter((r) => r.kind === 'oneoff' && !r.next_at && (r.once || []).filter(Boolean).length)],
+          ['recurring', '🔁 Recurring meetings', rooms.filter((r) => r.kind !== 'oneoff' && r.kind !== 'retraining')],
+          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => (r.kind === 'oneoff' || r.kind === 'retraining') && (r.next_at || !(r.once || []).filter(Boolean).length))],
+          ['past', '🗂️ Past meetings', rooms.filter((r) => (r.kind === 'oneoff' || r.kind === 'retraining') && !r.next_at && (r.once || []).filter(Boolean).length)],
         ].map(([key, label, list]) => (
           <section key={key}>
             <button onClick={() => toggleGroup(key)} className="flex w-full items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-left text-white">

@@ -148,6 +148,8 @@ const LEADERS = [
   { key: 'neal', name: 'Neal', id: '78c97338-b102-4d7c-92d2-5829cb241536' },
   { key: 'dewayne', name: 'DeWayne', id: 'd1770dd6-bea9-419e-a6a1-98bbe5bfae03' },
 ]
+// Rooms whose people are an invite list (picked by hand, or by managers for retraining).
+const INVITE_KINDS = ['oneoff', 'custom', 'retraining']
 const alsoIds = (room) => LEADERS.filter((l) => (room.also || []).includes(l.key)).map((l) => l.id)
 // The reminder job asks this same file for a room's people (no PIN in a scheduled job).
 let INTERNAL = false
@@ -290,6 +292,8 @@ export const handler = async (event) => {
     if (!t || !t.registration_token) return json(200, { ok: true, rooms: [] })
     const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
     const mine = (await loadRooms()).filter((r) =>
+      (INVITE_KINDS.includes(r.kind) && (r.invitees || []).some((x) => x.id === t.id) && (r.kind !== 'oneoff' || nextMeeting(r))) ||
+      alsoIds(r).includes(t.id) ||
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
       ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
@@ -301,7 +305,7 @@ export const handler = async (event) => {
     const dayOf = (r) => { const nm = hasSchedule(r) ? nextMeeting(r) : null; return nm ? etDay(nm.start.getTime()) : null }
     // Special meetings flash on their day (Neal, 2026-10-05: "none of them are flashing"): the
     // Managers Meeting, a company meeting, a one-off or invite meeting. Daily rooms don't.
-    for (const r of mine) if (['managers', 'company', 'oneoff', 'custom'].includes(r.kind) && dayOf(r) === today) openOf[r.slug] = { ...openOf[r.slug], today: true }
+    for (const r of mine) if (['managers', 'company', 'oneoff', 'custom', 'retraining'].includes(r.kind) && dayOf(r) === today) openOf[r.slug] = { ...openOf[r.slug], today: true }
     const company = mine.find((r) => r.kind === 'company' && dayOf(r) === today)
     if (company) for (const r of mine) {
       if (r === company) openOf[r.slug] = { ...openOf[r.slug], today: true }
@@ -329,7 +333,7 @@ export const handler = async (event) => {
     const named = (r) => !!nm0 && (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
     const mine = (await loadRooms()).filter((r) => {
       if (alsoIds(r).some((id) => ids.has(id))) return true
-      if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && nm0 && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
+      if (INVITE_KINDS.includes(r.kind)) return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && nm0 && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
       if (!t) return false
       const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
@@ -337,7 +341,7 @@ export const handler = async (event) => {
       if (r.kind === 'managers') return !!t.managed_region
       if (['everyone', 'prayer', 'company'].includes(r.kind)) return active || !!t.managed_region
       return false
-    }).filter((r) => r.kind !== 'oneoff' || nextMeeting(r))
+    }).filter((r) => (r.kind !== 'oneoff' && r.kind !== 'retraining') || nextMeeting(r))
     const today = etDay()
     const rows = await Promise.all(mine.map(async (r) => {
       const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextMeeting(r) : null
@@ -392,6 +396,77 @@ export const handler = async (event) => {
     } finally { INTERNAL = false }
   }
 
+  // 🔁 RETRAINING (Neal, 2026-10-05; the same flow Week B trainees will go through). The office
+  // sets up a 'retraining' room with its session dates; each regional manager picks which of their
+  // reps need it (Today's work). Each picked rep is texted + emailed: their join link for every
+  // session, and homework due before the first one — the full sales script and a practice test
+  // (slides 1–5, the easy homeowner) on their own device. Managers see who's done the practice.
+  const RETRAIN_SCRIPT = `${SITE}/sales-pitch/sales-script.pdf`
+  const mgrByToken = async (tok) => {
+    const { data: m } = String(tok || '').trim() ? await sb.from('trainees').select('id, first_name, last_name, managed_region').eq('manager_access_token', String(tok).trim()).maybeSingle() : { data: null }
+    if (!m?.managed_region) return null
+    const { data: team } = await sb.from('trainees').select('id, first_name, last_name, rep_level').eq('region', m.managed_region).eq('is_active_sales_rep', true).order('first_name')
+    return { m, team: (team || []).filter((x) => x.rep_level !== 'non_field') }
+  }
+  const sessionsOf = (r) => (r.once || []).filter(Boolean).map((o) => ({ start: etWall(o.slice(0, 10), o.slice(11, 16)), mins: Math.max(10, Number(r.minutes) || 60) })).sort((a, c) => a.start - c.start)
+  const sessionLine = (r) => sessionsOf(r).map((x) => {
+    const f = (d, o) => d.toLocaleString('en-US', { timeZone: 'America/New_York', ...o })
+    const end = new Date(x.start.getTime() + x.mins * 60000)
+    return `${f(x.start, { weekday: 'short', month: 'short', day: 'numeric' })} ${f(x.start, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}–${f(end, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}`
+  }).join(' · ')
+  const practiceDone = async (ids, slug) => {
+    if (!ids.length) return {}
+    const { data } = await sb.from('sales_practice_sessions').select('trainee_id, grade_status, report').in('trainee_id', ids).eq('section', 'slides_1_5')
+    const out = {}
+    for (const x of data || []) if (x.report?.retrain === slug) out[x.trainee_id] = x.grade_status === 'invited' ? 'sent' : 'done'
+    return out
+  }
+  if (b.action === 'retrain_open') {
+    const who = await mgrByToken(b.token)
+    if (!who) return json(401, { ok: false })
+    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r))
+    const out = []
+    for (const r of list) {
+      const mine = (r.invitees || []).filter((x) => x.id && who.team.some((t) => t.id === x.id))
+      const pr = await practiceDone(mine.map((x) => x.id), r.slug)
+      out.push({ slug: r.slug, title: r.title, sessions: sessionLine(r), first_at: sessionsOf(r)[0]?.start.toISOString() || null,
+        team: who.team.map((t) => ({ id: t.id, name: fullName(t), picked: mine.some((x) => x.id === t.id), practice: pr[t.id] || null })) })
+    }
+    return json(200, { ok: true, rooms: out })
+  }
+  if (b.action === 'retrain_nominate') {
+    const who = await mgrByToken(b.token)
+    if (!who) return json(401, { ok: false, error: 'Open this from your own dashboard link.' })
+    const rooms0 = await loadRooms()
+    const room = rooms0.find((r) => r.slug === b.slug && r.kind === 'retraining')
+    if (!room || !nextMeeting(room)) return json(404, { ok: false, error: 'That retraining is not open.' })
+    const fresh = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((id) => who.team.some((t) => t.id === id) && !(room.invitees || []).some((x) => x.id === id))
+    if (!fresh.length) return json(400, { ok: false, error: 'Pick at least one rep who isn\'t signed up yet.' })
+    const mName = fullName(who.m), at = new Date().toISOString()
+    room.invitees = [...(room.invitees || []), ...fresh.map((id) => ({ id, by: mName, at }))]
+    await putSetting('meet_rooms', rooms0)
+    const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').in('id', fresh)
+    const first = sessionsOf(room)[0]?.start
+    const expires = new Date(Math.max(first ? first.getTime() : 0, Date.now() + 24 * 3600000)).toISOString()
+    const results = []
+    for (const p of ppl || []) {
+      const fn = p.first_name || 'there', name = fullName(p)
+      const email = p.company_email || p.email || ''
+      // Their practice test: slides 1–5 with the easy homeowner, on their own device.
+      const ptok = crypto.randomBytes(18).toString('base64url')
+      await sb.from('sales_practice_sessions').insert({ trainee_id: p.id, trainee_name: name, trainer_name: mName, persona_key: 'ready', section: 'slides_1_5', grade_status: 'invited', transcript: [],
+        report: { retrain: room.slug, invite: { token: ptok, expires_at: expires, phone: p.phone || null, email: email || null, sent_by: mName } } })
+      const link = p.registration_token ? `${SITE}/meet/${room.slug}?t=${p.registration_token}` : `${SITE}/meet/${room.slug}`
+      const due = first ? first.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'the first session'
+      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title}: ${sessionLine(room)} (Eastern).\n\nYour link to join each day: ${link}\n\nHOMEWORK, done before ${due}:\n1) Study the full sales script: ${RETRAIN_SCRIPT}\n2) Do your practice test: present slides 1–5 to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones: ${SITE}/practice/${ptok}`
+      const r = { name, sms: false, email: false }
+      if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: fn, lastName: p.last_name || '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
+      if (email) { try { const x = await sendEmail(email, `You're signed up: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
+      results.push(r)
+    }
+    return json(200, { ok: true, added: results.length, sent: results })
+  }
+
   // ---- ADMIN: rooms ----
   if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)
@@ -414,7 +489,7 @@ export const handler = async (event) => {
       if (!editing) { const base = slug; for (let n = 2; rooms.some((x) => x.slug === slug) || slug === 'trial'; n++) slug = `${base}-${n}` }
       if (!slug || !String(r.title || '').trim()) return json(400, { ok: false, error: 'The room needs a name.' })
       if (slug === 'trial') return json(400, { ok: false, error: 'Pick another name.' })
-      const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom', 'oneoff'].includes(r.kind) ? r.kind : 'custom'
+      const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom', 'oneoff', 'retraining'].includes(r.kind) ? r.kind : 'custom'
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
         schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
@@ -436,8 +511,8 @@ export const handler = async (event) => {
         also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
-        invitees: kind === 'oneoff' || kind === 'custom' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
-          ? { id: String(x.id) }
+        invitees: INVITE_KINDS.includes(kind) ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
+          ? { id: String(x.id), ...(x.by ? { by: String(x.by).slice(0, 60), at: String(x.at || '') } : {}) }
           : { key: String(x?.key || crypto.randomBytes(6).toString('base64url')), name: String(x?.name || '').trim().slice(0, 60), phone: String(x?.phone || '').trim().slice(0, 20), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => x.id || x.name) : [], // Week B: needs an average of 30 doors/day on Week A Thu–Sat
         public: !!r.public, host_code: String(r.host_code || '').trim().slice(0, 20),
         slots: (Array.isArray(r.slots) ? r.slots : []).map((x) => ({ day: Number(x.day), time: String(x.time || ''), minutes: Math.min(600, Math.max(10, Number(x.minutes) || 60)) })).filter((x) => x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time)).sort((a, b) => a.day - b.day),
@@ -497,7 +572,7 @@ export const handler = async (event) => {
       // Who the room is FOR — straight from TMS, so it follows the roster on its own.
       let q = sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep')
       // A Custom room has an invite list too (Neal, 2026-10-04: the 8 AM meeting with DeWayne).
-      const invited = room.kind === 'oneoff' || room.kind === 'custom'
+      const invited = INVITE_KINDS.includes(room.kind)
       const invIds = invited ? (room.invitees || []).filter((x) => x.id).map((x) => x.id) : []
       if (invited) q = invIds.length ? q.in('id', invIds) : q.eq('id', '00000000-0000-0000-0000-000000000000')
       const nowIds = room.kind === 'company' ? await traineeIdsNow() : room.kind === 'training' ? await trainingIds(room.training_week || 'A') : new Set()
@@ -715,7 +790,7 @@ export const handler = async (event) => {
       const now = new Date().toISOString()
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
-    } else if ((room.kind === 'oneoff' || room.kind === 'custom') && b.g && outsiderOf(b.g)) {
+    } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
       const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`
     } else {
       const t = await traineeByToken(b.t)

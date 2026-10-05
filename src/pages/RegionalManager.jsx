@@ -196,6 +196,7 @@ export default function RegionalManager() {
               // Today's Managers Meeting / company / invite meeting (or anything live), flashing,
               // first thing in Today's work (Neal, 2026-10-05). Nothing shows on a no-meeting day.
               ['', <YourMeetings token={token} banner />],
+              ['', <RetrainingPick token={token} />],
               ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts'],
               ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} onCount={counter('deals')} />, 'deals'],
               ['🛠️ Deals to fix', <DealsToFix zone={manager.region} onCount={counter('fix')} />, 'fix'],
@@ -2555,7 +2556,7 @@ function YourMeetings({ token, banner = false }) {
   if (!rooms) return banner ? null : <p className="text-sm text-slate-400">Loading your meetings…</p>
   // Flash only what's special today — the Managers Meeting, a company meeting, a one-off or invite
   // meeting — or anything live now. Daily rooms (devotional, team training) would flash every day.
-  const hot = rooms.filter((r) => r.live || (r.today && ['managers', 'company', 'oneoff', 'custom'].includes(r.kind)))
+  const hot = rooms.filter((r) => r.live || (r.today && ['managers', 'company', 'oneoff', 'custom', 'retraining'].includes(r.kind)))
   if (banner) {
     if (!hot.length) return null
     return (
@@ -2596,6 +2597,59 @@ function YourMeetings({ token, banner = false }) {
           <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
         </a>
       ))}
+    </div>
+  )
+}
+
+// ── 🔁 Retraining: pick your reps (Neal, 2026-10-05) ───────────────
+// When the office opens a retraining (Meeting Room Setup → type Retraining), each manager picks
+// which of their reps need it. Submitting texts + emails each one their join link and homework
+// (full script + slides 1–5 practice test, due before the first session). Shows who's picked and
+// whether their practice is done. The same flow Week B trainees will go through.
+function RetrainingPick({ token }) {
+  const [d, setD] = useState(null)
+  const [sel, setSel] = useState({})
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState('')
+  const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'retrain_open', token }) }).then((r) => r.json()).then((j) => setD(j.ok ? j.rooms : [])).catch(() => setD([]))
+  useEffect(() => { load() }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d || !d.length) return null
+  const submit = async (room) => {
+    const ids = Object.keys(sel[room.slug] || {}).filter((k) => sel[room.slug][k])
+    if (!ids.length) { setMsg('Tick the reps who need retraining first.'); return }
+    if (!window.confirm(`Sign up ${ids.length} rep${ids.length > 1 ? 's' : ''} for ${room.title}? Each one is texted + emailed their link and homework right away.`)) return
+    setBusy(room.slug); setMsg('')
+    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'retrain_nominate', token, slug: room.slug, ids }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+    setBusy('')
+    if (!j.ok) { setMsg(j.error || 'Did not work.'); return }
+    const miss = (j.sent || []).filter((x) => !x.sms && !x.email).map((x) => x.name)
+    setMsg(`✅ Signed up ${j.added}. Invites and homework sent.${miss.length ? ` Couldn't reach: ${miss.join(', ')}.` : ''}`)
+    setSel({ ...sel, [room.slug]: {} }); load()
+  }
+  return (
+    <div className="space-y-3">
+      {d.map((room) => {
+        const picked = room.team.filter((t) => t.picked)
+        return (
+          <div key={room.slug} className="rounded-xl border-2 border-fuchsia-400 bg-gradient-to-r from-fuchsia-900/60 to-purple-900/60 p-4 text-slate-100">
+            <div className="text-lg font-extrabold text-white">🔁 {room.title} this week</div>
+            <div className="mt-0.5 text-sm font-semibold text-fuchsia-100">{room.sessions} (Eastern)</div>
+            <div className="mt-2 text-sm text-slate-200">Tick which of your reps need it, then Submit. Each one gets their link plus homework: the full sales script and a practice test (slides 1–5, the easy homeowner), done before the first session.</div>
+            <div className="mt-3 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
+              {room.team.map((t) => (
+                <label key={t.id} className={`flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm ${t.picked ? '' : 'cursor-pointer'}`}>
+                  <input type="checkbox" disabled={t.picked} checked={t.picked || !!sel[room.slug]?.[t.id]} onChange={(e) => setSel({ ...sel, [room.slug]: { ...(sel[room.slug] || {}), [t.id]: e.target.checked } })} />
+                  <span className="flex-1">{t.name}</span>
+                  {t.picked && <span className={`rounded px-1.5 text-xs font-bold ${t.practice === 'done' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-amber-500/30 text-amber-200'}`}>{t.practice === 'done' ? '✓ signed up · practice done' : '✓ signed up · practice not done yet'}</span>}
+                </label>
+              ))}
+            </div>
+            <button type="button" disabled={busy === room.slug} onClick={() => submit(room)} className="mt-3 w-full rounded-md bg-fuchsia-600 px-4 py-2.5 font-extrabold text-white disabled:opacity-60">{busy === room.slug ? 'Sending…' : 'Submit: sign them up & send their homework'}</button>
+            {picked.length > 0 && <div className="mt-2 text-xs text-slate-300">{picked.length} signed up so far.</div>}
+            {msg && <p className={`mt-2 text-sm font-semibold ${msg.startsWith('✅') ? 'text-emerald-300' : 'text-amber-300'}`}>{msg}</p>}
+          </div>
+        )
+      })}
     </div>
   )
 }
