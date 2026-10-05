@@ -2011,6 +2011,43 @@ function ReinviteButton({ t }) {
   )
 }
 
+// 🔎 AUDIT (Neal, 2026-10-05): for one trainee — did they confirm, every logged notice we sent
+// (text / email out, link opened), and GoHighLevel's last texts to their phone with delivery
+// status and replies. meet.js trainee_audit. Read-only.
+function AuditButton({ t }) {
+  const [d, setD] = useState(null)
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '')
+  const open = async () => {
+    if (d) { setD(null); return }
+    setD({ busy: true })
+    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'trainee_audit', trainee_id: t.id }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+    setD(j)
+  }
+  const tone = (st) => (/deliver|read/i.test(st) ? 'text-emerald-700' : /fail|undeliver|error/i.test(st) ? 'text-red-700' : 'text-slate-500')
+  return (
+    <>
+      <button onClick={open} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">{d ? '✕ Close audit' : '🔎 Audit'}</button>
+      {d && (
+        <div className="mt-2 basis-full w-[min(36rem,85vw)] rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+          {d.busy ? 'Checking…' : !d.ok ? <span className="text-red-700">{d.error || 'Could not load.'}</span> : (<>
+            <div className="text-sm font-bold text-slate-900">{d.name} · {d.phone || 'no phone'} · {d.email || 'no email'}</div>
+            <div className="mt-1">Confirmed: {d.confirmation === 'confirmed' ? <b className="text-emerald-700">✅ yes ({fmt(d.confirmed_at)})</b> : d.confirmation === 'declined' ? <b className="text-red-700">❌ said no ({fmt(d.confirmed_at)})</b> : <b className="text-amber-700">not yet</b>}
+              {d.dnd ? <b className="ml-2 text-red-700">· Texts BLOCKED (Do Not Disturb in GoHighLevel): use "Fix texts" in the ⋯ menu</b> : null}</div>
+            <div className="mt-2 font-bold text-slate-900">Notices we sent</div>
+            {d.notices.length ? d.notices.map((n, i) => (
+              <div key={i} className="mt-0.5">{fmt(n.at)} · {n.title} · text {n.sms ? '✅' : '❌'} · email {n.email ? '✅' : '❌'} · {n.opened ? <b className="text-emerald-700">opened {fmt(n.opened)}{n.opens > 1 ? ` (${n.opens}×)` : ''}</b> : <span className="text-amber-700">not opened</span>}</div>
+            )) : <div className="mt-0.5 text-slate-500">None logged for this trainee.</div>}
+            <div className="mt-2 font-bold text-slate-900">Last texts with their phone (GoHighLevel)</div>
+            {d.texts.length ? d.texts.map((x, i) => (
+              <div key={i} className="mt-0.5">{fmt(x.at)} · {x.dir === 'inbound' ? <b>↩ they replied</b> : 'we sent'} {x.dir !== 'inbound' && <b className={tone(x.status)}>{x.status || 'sent'}</b>} · <span className="text-slate-500">{x.body}</span></div>
+            )) : <div className="mt-0.5 text-slate-500">{d.ghl_found ? 'No texts yet.' : 'No texts on record for this number.'}</div>}
+          </>)}
+        </div>
+      )}
+    </>
+  )
+}
+
 function TraineeGroup({
   virtualClass = false,
   startDayLabel,
@@ -2257,6 +2294,7 @@ function TraineeGroup({
                       </button>
                       )}
                       {!hideSend && t.registration_token && t.confirmation_status !== 'confirmed' && <ReinviteButton t={t} />}
+                      {!hideSend && <AuditButton t={t} />}
                     </div>
                   </div>
                 )}

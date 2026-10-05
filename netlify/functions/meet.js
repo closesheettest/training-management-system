@@ -343,7 +343,8 @@ export const handler = async (event) => {
     if (!room) return json(400, { ok: false, error: `${t.first_name} isn't in a training week that's on now.` })
     const gate = `meet_reinvite_${t.id}`, prev = await getSetting(gate, null)
     if (prev && Date.now() - Date.parse(prev) < 5 * 60000) return json(200, { ok: false, error: 'Just sent. Give it a few minutes.' })
-    const link = `${SITE}/meet/${room.slug}?t=${t.registration_token}&confirm=1`
+    const tag = `reinvite-${etDay()}`
+    const link = `${SITE}/meet/${room.slug}?t=${t.registration_token}&confirm=1&tag=${tag}`
     const nm = nextMeeting(room)
     const when = nm ? nm.start.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
     const msg = `Hi ${t.first_name}, this is U.S. Shingle & Metal. ${when ? `Your training is ${when} (Eastern), on video.` : 'Your training is on video.'} Tap to confirm you'll be there. The same link gets you into class, so keep it: ${link}`
@@ -352,8 +353,50 @@ export const handler = async (event) => {
     const em = t.email || t.company_email
     if (em) { const r = await sendEmail(em, `Confirm your training: ${room.title}`, msg).catch(() => null); out.email = !!(r && r.ok !== false) }
     await putSetting(gate, new Date().toISOString())
+    // Logged like the class notices, so the Audit shows it and when they open it.
+    const au = (await getSetting(`invite_audit_${tag}`, null)) || { title: `Training invite re-sent (${etDay()})`, sent_at: new Date().toISOString(), sends: {}, opens: {} }
+    au.sends[t.id] = { name: fullName(t), phone: t.phone || '', email: em || '', sms: out.sms, email_ok: out.email, at: new Date().toISOString() }
+    await putSetting(`invite_audit_${tag}`, au)
     if (!out.sms && !out.email) return json(200, { ok: false, error: `Nothing went out${out.sms_error ? ` (text: ${out.sms_error})` : ''}.` })
     return json(200, { ok: true, ...out, room: room.title })
+  }
+
+  // 🔎 TRAINEE AUDIT (Neal, 2026-10-05: "would be nice to have an audit button as well"). For one
+  // trainee on the class page: did they confirm, every logged notice we sent them (text / email went
+  // out, did they open the link), and GoHighLevel's last texts to their phone with delivery status
+  // and any replies. Read-only.
+  if (b.action === 'trainee_audit') {
+    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, confirmation_status, confirmation_at, registration_token, created_at').eq('id', String(b.trainee_id || '')).maybeSingle()
+    if (!t) return json(404, { ok: false, error: 'No such trainee.' })
+    const notices = []
+    const { data: au } = await sb.from('app_settings').select('key, value').like('key', 'invite_audit_%')
+    for (const row of au || []) {
+      let v = null; try { v = typeof row.value === 'string' ? JSON.parse(row.value) : row.value } catch { continue }
+      const snd = v?.sends?.[t.id]; if (!snd) continue
+      const op = (v.opens || {})[t.id] || []
+      notices.push({ title: v.title || row.key.slice(13), at: snd.at || v.sent_at, sms: !!snd.sms, email: !!snd.email_ok, opened: op.length ? op[op.length - 1] : null, opens: op.length })
+    }
+    notices.sort((a, c) => String(c.at).localeCompare(String(a.at)))
+    const texts = []
+    let dnd = null
+    const ph = String(t.phone || '').replace(/\D/g, '').slice(-10)
+    if (ph.length === 10) {
+      try {
+        const B = 'https://services.leadconnectorhq.com', L = process.env.GHL_LOCATION_ID
+        const q = await fetch(`${B}/contacts/search/duplicate?locationId=${L}&number=${encodeURIComponent('+1' + ph)}`, { headers: ghlHeaders() }).then((r) => r.json())
+        const c = q.contact
+        if (c) {
+          dnd = !!c.dnd || Object.values(c.dndSettings || {}).some((x) => x && x.status === 'active')
+          const cv = await fetch(`${B}/conversations/search?locationId=${L}&contactId=${c.id}`, { headers: ghlHeaders() }).then((r) => r.json())
+          for (const x of (cv.conversations || []).slice(0, 2)) {
+            const m = await fetch(`${B}/conversations/${x.id}/messages?limit=15`, { headers: ghlHeaders() }).then((r) => r.json())
+            for (const y of (m.messages?.messages || [])) if (/SMS/i.test(y.messageType || '')) texts.push({ at: y.dateAdded, dir: y.direction, status: y.status || '', body: String(y.body || '').slice(0, 90) })
+          }
+          texts.sort((a, c2) => String(c2.at).localeCompare(String(a.at)))
+        }
+      } catch { /* GHL down: the rest still shows */ }
+    }
+    return json(200, { ok: true, name: fullName(t), phone: t.phone || '', email: t.email || t.company_email || '', confirmation: t.confirmation_status || null, confirmed_at: t.confirmation_at || null, dnd, notices, texts: texts.slice(0, 12), ghl_found: texts.length > 0 || dnd !== null })
   }
 
   // RECORDINGS PAGE (/recordings/<room>?k=…): the room's recordings with download links, for the
