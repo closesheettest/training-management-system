@@ -1338,7 +1338,7 @@ export const handler = async (event) => {
     // WHERE EVERYONE IS (Neal, 2026-10-05: "I can see that they're in the room, doing their onboarding
     // paperwork, paperwork's complete, they're in the lobby"). Each trainee's latest step on this room
     // today, for the People panel: meet_seen_<room>_<trainee id> = { state, step, at }.
-    const mark = (state, step = '') => (String(identity || '').startsWith('t:') ? putSetting(`meet_seen_${room.slug}_${identity.slice(2)}`, { state, step, at: new Date().toISOString(), day: etDay() }).catch(() => {}) : Promise.resolve())
+    const mark = (state, step = '') => (String(identity || '').startsWith('t:') ? Promise.resolve(putSetting(`meet_seen_${room.slug}_${identity.slice(2)}`, { state, step, at: new Date().toISOString(), day: etDay() })).catch(() => {}) : Promise.resolve())
     let name = null, identity = null, host = false, isRetrainee = false
     const admin = await verifyPin(b.pin)
     // Each device gets its own seat — the same identity twice would kick the first device out.
