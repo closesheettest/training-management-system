@@ -26,7 +26,7 @@ export default function MeetingLauncher() {
               {r.live ? <span style={{ display: 'inline-block', marginTop: 3, padding: '1px 8px', borderRadius: 999, background: '#dc2626', fontSize: 11.5, fontWeight: 900 }}>● LIVE NOW</span>
                 : r.scheduled ? <div style={{ fontSize: 12.5, color: '#fcd34d', fontWeight: 700, marginTop: 2 }}>{r.next_at ? `Next: ${when(r.next_at)}` : 'Nothing scheduled yet'}</div> : null}
             </div>
-            <a href={r.link} target="_blank" rel="noreferrer" style={{ flexShrink: 0, padding: '9px 16px', borderRadius: 10, background: r.live || r.open ? '#16a34a' : '#475569', color: '#fff', fontWeight: 900, textDecoration: 'none' }}>🎥 Join</a>
+            <a href={r.link} target="_blank" rel="noreferrer" style={{ flexShrink: 0, padding: '9px 16px', borderRadius: 10, background: r.live || (r.open && r.scheduled) ? '#16a34a' : '#475569', color: '#fff', fontWeight: 900, textDecoration: 'none' }}>🎥 Join</a>
           </div>
         ))}
       </div>

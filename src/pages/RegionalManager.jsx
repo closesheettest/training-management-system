@@ -2579,7 +2579,7 @@ function YourMeetings({ token, banner = false }) {
               <span className="block text-lg font-extrabold text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
               <span className="block text-sm font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}{(r.host_names || []).length ? ` · Host: ${r.host_names.join(' & ')}` : ''}</span>
             </span>
-            <span className={`rounded-lg px-4 py-2 text-sm font-extrabold ${r.live || r.open ? 'bg-white text-emerald-700' : 'bg-white/90 text-orange-700'}`}>{r.live || r.open ? 'Join now' : 'Open'}</span>
+            <span className={`rounded-lg px-4 py-2 text-sm font-extrabold ${r.live || (r.open && r.scheduled) ? 'bg-white text-emerald-700' : 'bg-white/90 text-orange-700'}`}>{r.live || (r.open && r.scheduled) ? 'Join now' : 'Open'}</span>
           </a>
         ))}
       </div>
@@ -2595,7 +2595,7 @@ function YourMeetings({ token, banner = false }) {
             <span className="block font-semibold text-white">{r.title}{(r.host_names || []).length > 0 && <span className="ml-2 text-xs font-normal text-slate-300">👤 {r.host_names.join(' & ')}</span>}</span>
             <span className="block text-xs text-slate-300">{r.live ? <b className="text-emerald-300">● LIVE now</b> : r.next_at ? <>{r.today ? <b className="text-amber-300">TODAY </b> : ''}{day(r.next_at)}</> : (r.schedule || 'Open any time')}{r.schedule && r.next_at ? ` · ${r.schedule}` : ''}</span>
           </span>
-          <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
+          <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || (r.open && r.scheduled) ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || (r.open && r.scheduled) ? 'Join' : 'Open'}</span>
         </a>
       ))}
     </div>

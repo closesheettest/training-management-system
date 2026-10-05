@@ -32,7 +32,7 @@ function List() {
                 {r.schedule && !r.live && r.next_at ? <span className="text-slate-400"> · {r.schedule}</span> : null}
               </div>
             </div>
-            <a href={r.link} target="_blank" rel="noreferrer" className={`rounded-md px-4 py-2 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-brand-navy'}`}>{r.live || r.open ? '▶ Join now' : 'Open'}</a>
+            <a href={r.link} target="_blank" rel="noreferrer" className={`rounded-md px-4 py-2 text-sm font-bold text-white ${r.live || (r.open && r.scheduled) ? 'bg-emerald-600' : 'bg-brand-navy'}`}>{r.live || (r.open && r.scheduled) ? '▶ Join now' : 'Open'}</a>
           </div>
         ))}
       </div>
