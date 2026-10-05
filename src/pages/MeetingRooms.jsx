@@ -165,7 +165,7 @@ export default function MeetingRooms() {
               {r.recording_enabled && r.rec_key && <button onClick={() => copy(`${site}/recordings/${r.slug}?k=${r.rec_key}`)} className="rounded border border-slate-300 px-3 py-1 font-semibold">🔗 Copy recordings page link</button>}
               {r.public && <button onClick={() => (mail?.slug === r.slug ? setMail(null) : openMail(r))} className="rounded border border-blue-400 bg-blue-50 px-3 py-1 font-semibold text-blue-800">✉️ Email the list</button>}
               <span className="flex-1" />
-              <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
+              <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { const j = await call({ action: 'delete_room', slug: r.slug }).catch(() => ({ error: 'Network error' })); if (j.ok) { setMsg(`Deleted "${r.title}"`); setForm(null) } else setMsg(`Couldn't delete: ${j.error || 'try again'}`); load() } }} className="text-xs text-red-600">Delete</button>
             </div>
 
             {combine?.slug === r.slug && (
