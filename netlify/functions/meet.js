@@ -648,7 +648,9 @@ export const handler = async (event) => {
     const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('jobnimbus_id', who.jnid).maybeSingle()
     if (!t || !t.registration_token) return json(200, { ok: true, rooms: [] })
     const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
-    const mine = (await loadRooms()).filter((r) =>
+    // 📞 Calls never show on dashboards (Neal, 2026-10-05: the Nikki call kept flashing after it ended) —
+    // they happen through the texted link.
+    const mine = (await loadRooms()).filter((r) => !r.call).filter((r) =>
       (INVITE_KINDS.includes(r.kind) && (r.invitees || []).some((x) => x.id === t.id || (!x.id && String(x.name || '').trim().toLowerCase().split(' ')[0] === String(t.first_name || '').toLowerCase() && String(x.phone || '').replace(/\D/g, '').slice(-10) === String(t.phone || '').replace(/\D/g, '').slice(-10))) && (r.kind !== 'oneoff' || nextMeeting(r))) ||
       alsoIds(r).includes(t.id) ||
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
@@ -691,7 +693,7 @@ export const handler = async (event) => {
     const t = (ts || []).find((x) => x.managed_region) || (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0] || null
     const nm0 = String(name || '').trim().toLowerCase()
     const named = (r) => !!nm0 && (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
-    const mine = (await loadRooms()).filter((r) => {
+    const mine = (await loadRooms()).filter((r) => !r.call).filter((r) => {
       if (alsoIds(r).some((id) => ids.has(id))) return true
       if (INVITE_KINDS.includes(r.kind)) return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && nm0 && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
