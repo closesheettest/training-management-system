@@ -424,7 +424,8 @@ export const handler = async (event) => {
   if (b.action === 'retrain_open') {
     const who = await mgrByToken(b.token)
     if (!who) return json(401, { ok: false })
-    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r))
+    // visible_from: managers don't see it before then (Neal, 2026-10-05: reveal it on the 8:30 call).
+    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now()))
     const out = []
     for (const r of list) {
       const mine = (r.invitees || []).filter((x) => x.id && who.team.some((t) => t.id === x.id))
@@ -507,6 +508,7 @@ export const handler = async (event) => {
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         effort_gate: !!r.effort_gate,
         remind_5: !!r.remind_5,
+        visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
         also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
