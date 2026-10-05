@@ -135,6 +135,30 @@ async function sendRetrainDay(sb, room, p, k, byName) {
   if (email) { try { const x = await sendEmail(email, `${room.title}: ${fmtSession(ses)}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
   return r
 }
+// CCG rep_date_blocks for a picked rep's retraining hours (see retrain_nominate).
+async function blockRetrainHours(room, traineeIds) {
+  const CU = process.env.CCG_SUPABASE_URL, CK = process.env.CCG_SUPABASE_SECRET_KEY
+  if (!CU || !CK || !traineeIds.length) return
+  const H = { apikey: CK, Authorization: `Bearer ${CK}`, 'Content-Type': 'application/json' }
+  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  const { data: ts } = await sb.from('trainees').select('jobnimbus_id').in('id', traineeIds)
+  const jn = (ts || []).map((x) => x.jobnimbus_id).filter(Boolean)
+  if (!jn.length) return
+  const reps = await (await fetch(`${CU}/rest/v1/sales_reps?jobnimbus_id=in.(${jn.map((x) => `"${x}"`).join(',')})&select=id`, { headers: H })).json().catch(() => [])
+  const slots = []
+  for (const x of retrainSessions(room)) {
+    const day = etDay(x.start.getTime())
+    const hm = (d) => { const [h, m] = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit' }).split(':').map(Number); return h * 60 + m }
+    for (let m = Math.floor(hm(x.start) / 60) * 60 - 60; m < hm(x.end); m += 60) slots.push({ date: day, start_min: m })
+  }
+  for (const r of reps || []) {
+    const have = await (await fetch(`${CU}/rest/v1/rep_date_blocks?rep_id=eq.${r.id}&select=date,start_min`, { headers: H })).json().catch(() => [])
+    const got = new Set((have || []).map((b) => `${b.date}:${b.start_min}`))
+    const rows = slots.filter((x) => !got.has(`${x.date}:${x.start_min}`)).map((x) => ({ rep_id: r.id, ...x }))
+    if (rows.length) await fetch(`${CU}/rest/v1/rep_date_blocks`, { method: 'POST', headers: { ...H, Prefer: 'return=minimal' }, body: JSON.stringify(rows) })
+  }
+}
+
 // Nightly (7 PM ET): everyone picked for a retraining whose NEXT session is tomorrow gets that
 // day's page — unless they already have it (e.g. picked today).
 export async function runRetrainHomework() {
@@ -583,6 +607,10 @@ export const handler = async (event) => {
     const k = Math.max(0, retrainSessions(room).findIndex((x) => x.start.getTime() > Date.now()))
     const results = []
     for (const p of ppl || []) results.push(await sendRetrainDay(sb, room, p, k, mName))
+    // BLOCK THEIR SCHEDULE (Neal, 2026-10-05: "their schedule makes them not available, so nothing can
+    // be booked for them"): CCG rep_date_blocks for the hour before each session through its end —
+    // the setter portal, come-back booking, door cards and reassignments all honour these.
+    await blockRetrainHours(room, (ppl || []).map((p) => p.id)).catch((e) => console.warn('retrain blocks', e.message))
     return json(200, { ok: true, added: results.length, sent: results })
   }
 
