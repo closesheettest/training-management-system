@@ -110,12 +110,13 @@ export default function MeetingRooms() {
   // Each card tinted in its own colour so the page has some separation (Neal, 2026-10-05): a team
   // room in its team colour, the rest by type.
   // Training cards (Week A / Week B / retraining) in U.S. Shingle navy + red, with the logo.
-  const isUSS = (r) => r.kind === 'training' || r.kind === 'retraining'
-  const cardColor = (r) => r.color || ({ prayer: '#B8893D', company: '#1B2557', training: '#1F2A5C', managers: '#7C3AED', custom: '#475569', oneoff: '#2563EB', retraining: '#1F2A5C', everyone: '#EA580C' }[r.kind] || '#334155')
+  // …and the Company Meeting carries the logo in U.S. Shingle red, to set it apart.
+  const isUSS = (r) => ['training', 'retraining', 'company'].includes(r.kind)
+  const cardColor = (r) => r.color || ({ prayer: '#B8893D', company: '#E04A3A', training: '#1F2A5C', managers: '#7C3AED', custom: '#475569', oneoff: '#2563EB', retraining: '#1F2A5C', everyone: '#EA580C' }[r.kind] || '#334155')
   const roomCard = (r) => (
           <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
-            className="rounded-lg p-4 shadow-sm" style={{ background: isUSS(r) ? 'linear-gradient(90deg, #1F2A5C24, #E04A3A1a)' : `linear-gradient(90deg, ${cardColor(r)}26, ${cardColor(r)}0d)`, border: `1px solid ${isUSS(r) ? '#E04A3A66' : `${cardColor(r)}66`}`, borderLeft: `6px solid ${cardColor(r)}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
+            className="rounded-lg p-4 shadow-sm" style={{ background: `linear-gradient(90deg, ${cardColor(r)}26, ${cardColor(r)}0d)`, border: `1px solid ${cardColor(r)}66`, borderLeft: `6px solid ${cardColor(r)}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
             <div className="flex flex-wrap items-center gap-3">
               <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
               {r.badge ? <img src={r.badge} alt="" className={isUSS(r) ? 'h-10 w-16 rounded bg-white object-contain p-0.5' : 'h-10 w-10 object-contain'} /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
