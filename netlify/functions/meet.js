@@ -1125,6 +1125,27 @@ export const handler = async (event) => {
         for (const x of seen || []) { try { const v = typeof x.value === 'string' ? JSON.parse(x.value) : x.value; if (v?.day === etDay()) seenBy[x.key.slice(`meet_seen_${room.slug}_`.length)] = v } catch { /* skip */ } }
         let liveIds = new Set()
         try { liveIds = new Set((await svc().listParticipants(room.slug)).map((p) => String(p.identity || '')).filter((i) => i.startsWith('t:')).map((i) => i.slice(2))) } catch { /* room not open */ }
+        // TODAY'S TIMELINE (Neal, 2026-10-05: "joined at a certain time and then stayed the whole time
+        // or left at a certain time"). From meet-webhook's LiveKit join/leave log (meet_att_<day>_<room>_t:<id>).
+        // The class end = the last time anyone in the room left (or now, if it's still going).
+        const { data: att } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${etDay()}_${room.slug}_%`)
+        const attBy = {}
+        let classEnd = 0
+        for (const x of att || []) {
+          let v = null; try { v = typeof x.value === 'string' ? JSON.parse(x.value) : x.value } catch { continue }
+          const joins = (v?.joins || []).filter((j) => j.in)
+          for (const j of joins) classEnd = Math.max(classEnd, j.out ? Date.parse(j.out) : Date.now())
+          const id = String(v?.identity || '').startsWith('t:') ? v.identity.slice(2) : null
+          if (id) attBy[id] = { joins, camera: v.camera || [] }
+        }
+        for (const r of rows) {
+          const a = attBy[r.id]
+          if (!a || !a.joins.length) continue
+          const first = Date.parse(a.joins[0].in), lastOut = a.joins[a.joins.length - 1].out
+          const mins = Math.round(a.joins.reduce((n, j) => n + ((j.out ? Date.parse(j.out) : Date.now()) - Date.parse(j.in)), 0) / 60000)
+          const camOn = (a.camera || []).find((c) => c.on)
+          r.today = { joined: a.joins[0].in, left: lastOut, stayed: !lastOut || Date.parse(lastOut) >= classEnd - 3 * 60000, drops: a.joins.length - 1, minutes: mins, camera_on: camOn ? camOn.at : null, class_end: classEnd ? new Date(classEnd).toISOString() : null, first_ms: first }
+        }
         for (const r of rows) {
           if (liveIds.has(r.id)) r.now = { state: 'in', live: true }
           else if (seenBy[r.id]) r.now = { ...seenBy[r.id], state: seenBy[r.id].state === 'in' ? 'left' : seenBy[r.id].state }

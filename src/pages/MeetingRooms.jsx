@@ -92,6 +92,19 @@ export default function MeetingRooms() {
     return () => clearInterval(iv)
   }, [open?.slug, open?.tab]) // eslint-disable-line react-hooks/exhaustive-deps
   // 🟢 in the room · 🟡 in the lobby · 📝 doing paperwork (which) · ↩ left · — not here yet.
+  // TODAY: joined 2:14 · stayed to the end (3:54) / left 3:05 · 51 min · camera on 2:14 · 1 drop.
+  const todayLine = (t) => {
+    if (!t) return null
+    const tm = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : '')
+    const camLate = t.camera_on && Date.parse(t.camera_on) - Date.parse(t.joined) > 5 * 60000
+    return (
+      <span className="text-xs text-slate-700">
+        Joined <b>{tm(t.joined)}</b> · {t.stayed ? <b className="text-emerald-700">{t.left ? `stayed to the end (${tm(t.left)})` : 'still in'}</b> : <b className="text-red-700">left {tm(t.left)}</b>} · {t.minutes} min
+        {t.camera_on ? <span className={camLate ? 'font-bold text-amber-700' : ''}> · camera on {tm(t.camera_on)}</span> : <span className="font-bold text-red-700"> · camera never on</span>}
+        {t.drops > 0 && <span className="text-amber-700"> · dropped {t.drops}×</span>}
+      </span>
+    )
+  }
   const nowPill = (n) => {
     const at = n?.at ? new Date(n.at).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : ''
     if (!n) return <span className="rounded bg-slate-100 px-1.5 text-xs text-slate-500">— not here yet</span>
@@ -246,7 +259,7 @@ export default function MeetingRooms() {
                       const P = open.data.people.filter((q) => !q.host), c = (st) => P.filter((q) => q.now?.state === st).length
                       return <caption className="mb-2 caption-top text-left text-sm font-semibold text-slate-700">Right now: 🟢 {c('in')} in the room · 🟡 {c('lobby')} in the lobby · 📝 {c('paperwork')} doing paperwork · {P.filter((q) => !q.now).length} not here yet <span className="font-normal text-slate-400">(updates every 20 sec)</span></caption>
                     })()}
-                    <thead><tr className="text-left text-slate-500"><th>Name</th>{open.data.people.some((q) => 'now' in q) && <th>Right now</th>}<th>Their link</th></tr></thead>
+                    <thead><tr className="text-left text-slate-500"><th>Name</th>{open.data.people.some((q) => 'now' in q) && <th>Right now</th>}{open.data.people.some((q) => q.today) && <th>Today</th>}<th>Their link</th></tr></thead>
                     <tbody>{open.data.people.map((p) => (
                       <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}
                           {open.data.people.some((q) => 'rsvp' in q) && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.rsvp?.status === 'yes' ? 'bg-emerald-100 text-emerald-800' : p.rsvp?.status === 'no' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-600'}`}>{p.rsvp?.status === 'yes' ? '✅ Confirmed' : p.rsvp?.status === 'no' ? "❌ Can't make it" : 'No answer yet'}</span>}
@@ -254,7 +267,7 @@ export default function MeetingRooms() {
                           {p.probation && !p.probation.result && <span className="ml-2 text-xs text-slate-500">{p.probation.seen_at ? `👀 opened ${new Date(p.probation.seen_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '👀 not opened yet'}</span>}
                           {p.probation?.committed_at && !p.probation.result && p.probation.so_far != null && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.probation.so_far >= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} title={Object.entries(p.probation.so_far_perDay || {}).map(([d, n]) => `${d}: ${n}`).join(' · ')}>this week: {p.probation.so_far}/day {p.probation.so_far >= 30 ? '· on track ✓' : '· needs 30'}</span>}
                           {p.probation && <span className={`ml-2 rounded px-1.5 text-xs ${p.probation.result === 'enrolled' ? 'bg-emerald-100 text-emerald-800' : p.probation.committed_at ? 'bg-orange-100 text-orange-800' : 'bg-slate-200 text-slate-700'}`}>{p.probation.result === 'enrolled' ? '✅ proved it, enrolled' : p.probation.result === 'did_not_qualify' ? `didn't make 30 (${p.probation.week_avg})` : p.probation.result === 'did_not_commit' ? "didn't commit: gone" : p.probation.committed_at ? `🔥 Committed ${new Date(p.probation.committed_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : "Didn't commit"}</span>}
-                          {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>{open.data.people.some((q) => 'now' in q) && <td className="py-1 pr-2">{p.host ? null : nowPill(p.now)}</td>}
+                          {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>{open.data.people.some((q) => 'now' in q) && <td className="py-1 pr-2">{p.host ? null : nowPill(p.now)}</td>}{open.data.people.some((q) => q.today) && <td className="py-1 pr-2">{p.host ? null : todayLine(p.today) || <span className="text-xs text-slate-400">didn't join</span>}</td>}
                         <td className="whitespace-nowrap"><button onClick={() => copy(p.link)} className="text-blue-700 underline">Copy link</button>
                           {r.kind === 'training' && !p.early_a && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week A early?\n\nThey go into the field for the rest of Week A and stay in the class for Week B (their link keeps working).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'A' }); setMsg(j.ok ? `${j.name}: graduated Week A early ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-3 rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">🎓 Week A early</button>}
                           {r.kind === 'training' && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week B early?\n\nThey become a JUNIOR REP on their team now (active sales rep).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'B' }); setMsg(j.ok ? `${j.name}: graduated Week B early, now a junior rep ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">🎓 Week B early</button>}
