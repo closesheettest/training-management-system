@@ -229,11 +229,14 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const focus = share && !galleryDuringShare ? share
     : view === 'speaker' && !share ? ((rmeta.recording && cams.find((t) => t.participant.identity === rmeta.spotlight)) || cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
     : null
-  const others = focus ? cams.filter((t) => t !== focus) : cams
   const gridTracks = share ? [share, ...cams] : cams
   // Presenter circle: the sharer's own camera in the corner of their shared screen — for a host
   // who has it on and whose camera is on.
   const sharerCam = share ? cams.find((t) => t.participant.identity === share.participant.identity && isTrackReference(t) && !t.publication?.isMuted) : null
+  // A host sharing their screen: their camera is shown WITH the share (circle / split / stacked,
+  // same choices as slides), so it isn't repeated in the strip down the side (Neal, 2026-10-05).
+  const shareCamOk = !!(focus && focus === share && sharerCam && metaOf(share.participant).host)
+  const others = focus ? cams.filter((t) => t !== focus && !(shareCamOk && t.participant.identity === share.participant.identity)) : cams
   const circleOn = share ? (share.participant.isLocal ? circle : share.participant.attributes?.circle !== 'off') : false
   const showCircle = !!(focus && focus === share && sharerCam && circleOn && metaOf(share.participant).host)
 
@@ -357,6 +360,23 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             ) : !focus ? (
               <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
             ) : (
+              (() => {
+                const main = shareCamOk ? (
+                  <PresenterFrame layout={layout} cam={sharerCam} isHost={isHost} onLayout={pickLayout}>
+                    <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+                      <FocusLayout trackRef={focus} style={{ height: '100%' }} />
+                      {layout === 'circle' && showCircle && (
+                        <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
+                          <VideoTrack trackRef={sharerCam} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  </PresenterFrame>
+                ) : null
+                if (main && !others.length) return <div style={{ height: '100%' }}>{main}</div>
+                if (main) return <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={others}><ParticipantTile /></CarouselLayout>{main}</FocusLayoutContainer>
+                return null
+              })() || (
               <FocusLayoutContainer style={{ height: '100%' }}>
                 <CarouselLayout tracks={others}><ParticipantTile /></CarouselLayout>
                 <div style={{ position: 'relative', height: '100%', width: '100%' }}>
@@ -368,6 +388,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                   )}
                 </div>
               </FocusLayoutContainer>
+              )
             )}
             {isHost && deckPanel && (
               <div style={{ position: 'absolute', top: 8, left: 12, zIndex: 60, width: 320, maxHeight: '80vh', overflow: 'auto', background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 12, color: '#e5e7eb', fontSize: 14 }}>
