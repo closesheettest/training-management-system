@@ -325,6 +325,28 @@ export const handler = async (event) => {
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
   // GoHighLevel users kept OFF our people lists (test logins etc.). app_settings staff_hide = [names].
   // Neal, 2026-10-05: "get rid of the Neal S, that was for testing".
+  // EVERYONE ELSE IN THE COMPANY = JobNimbus (Neal, 2026-10-05: "GoHighLevel is fine for the sales
+  // reps but for everyone else it should be JobNimbus" — the GHL list was mostly inactive salespeople
+  // and no foremen). CCG company-directory gives active JN users + department + any known cell; a
+  // missing cell is filled from GoHighLevel / TMS by email or name. Sales departments are left out
+  // (they're on the Active sales reps list). Each: { name, email, phone, cell, dept }.
+  const SALES_DEPTS = ['retail sales', 'insurance sales rep']
+  const companyStaff = async () => {
+    const d = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/company-directory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: process.env.DIRECTORY_KEY }) }).then((r) => r.json()).catch(() => ({}))
+    if (!d.ok) return []
+    const dg = (x) => String(x || '').replace(/\D/g, '').slice(-10)
+    let gu = []
+    try { gu = (await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())).users || [] } catch { /* fine */ }
+    const gBy = {}
+    for (const x of gu) if (x.phone) { if (x.email) gBy[x.email.toLowerCase()] = x.phone; gBy[`n:${`${x.firstName || ''} ${x.lastName || ''}`.trim().toLowerCase()}`] = x.phone }
+    const { data: tt } = await sb.from('trainees').select('first_name, last_name, phone, email, company_email').not('phone', 'is', null)
+    for (const x of tt || []) { for (const m of [x.email, x.company_email]) if (m && !gBy[m.toLowerCase()]) gBy[m.toLowerCase()] = x.phone; const nk = `n:${fullName(x).toLowerCase()}`; if (!gBy[nk]) gBy[nk] = x.phone }
+    const hide = await staffHidden()
+    return (d.people || []).filter((p) => !SALES_DEPTS.includes(String(p.dept).toLowerCase()) && !hide.has(p.name.toLowerCase())).map((p) => {
+      const phone = p.phone || gBy[p.email || '-'] || gBy[`n:${p.name.toLowerCase()}`] || ''
+      return { name: p.name, email: p.email || '', phone, cell: dg(phone).length === 10 ? dg(phone) : '', dept: p.dept }
+    })
+  }
   const staffHidden = async () => new Set(((await getSetting('staff_hide', null)) || ['Neal S']).map((n) => String(n).trim().toLowerCase()))
   // Who the room shows as its host: the people picked as Host (plus any names typed in); with
   // none picked, the team's manager (team room) and Neal / DeWayne when they're Also included.
@@ -745,14 +767,10 @@ export const handler = async (event) => {
       const { data } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, is_active_sales_rep, registration_token').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       // Everyone is listed with the cell we have (last 4), so you can see before you call; no cell = flagged.
       const people = (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : TEAMS[p.region] || 'Rep', ph: digits(p.phone), cell: digits(p.phone).length === 10 ? digits(p.phone) : '', has_email: !!(p.company_email || p.email) }))
-      let staff = []
-      try {
-        const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
-        staff = (u.users || []).filter((x) => x.phone && !x.deleted).map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', tag: 'Office / staff', ph: digits(x.phone), cell: digits(x.phone), has_email: !!x.email }))
-      } catch { /* TMS people still listed */ }
+      const staff = (await companyStaff()).map((x) => ({ name: x.name, phone: x.phone, email: x.email, tag: x.dept, ph: x.cell, cell: x.cell, has_email: !!x.email }))
       const seen = new Set(people.map((p) => p.ph).filter(Boolean))
-      const hide = await staffHidden()
-      const all = [...people, ...staff.filter((x) => x.name && !hide.has(x.name.toLowerCase()) && !seen.has(x.ph) && seen.add(x.ph))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
+      const tmsNames = new Set(people.map((p) => p.name.toLowerCase()))
+      const all = [...people, ...staff.filter((x) => !tmsNames.has(x.name.toLowerCase()) && (!x.ph || (!seen.has(x.ph) && seen.add(x.ph))))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
       return json(200, { ok: true, people: all })
     }
     // call_start
@@ -895,7 +913,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'set_staff_cell', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -1043,6 +1061,12 @@ export const handler = async (event) => {
     }
     // Everyone you can invite to a one-off meeting: TMS people who are active reps, managers, staff
     // or in a class running now.
+    // A cell typed in on the invite list for someone JobNimbus has no number for (foremen etc.) —
+    // kept in CCG's staff_cells so every list and Call has it from now on.
+    if (b.action === 'set_staff_cell') {
+      const r = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/company-directory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: process.env.DIRECTORY_KEY, action: 'set_cell', email: b.email || '', name: b.name || '', phone: b.phone || '' }) }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Could not save.' }))
+      return json(r.ok ? 200 : 400, r)
+    }
     if (b.action === 'people_search') {
       const now = await traineeIdsNow()
       const { data } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, is_active_sales_rep, rep_level, registration_token').or(`is_active_sales_rep.eq.true,managed_region.not.is.null${now.size ? `,id.in.(${[...now].join(',')})` : ''}`)
@@ -1052,14 +1076,7 @@ export const handler = async (event) => {
       const dg = (x) => String(x || '').replace(/\D/g, '').slice(-10)
       const { data: allT } = await sb.from('trainees').select('phone').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const tms = new Set((allT || []).map((x) => dg(x.phone)).filter(Boolean))
-      let staff = []
-      const hide = await staffHidden()
-      try {
-        const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
-        const seen = new Set()
-        staff = (u.users || []).filter((x) => !x.deleted && x.phone && dg(x.phone).length === 10 && !tms.has(dg(x.phone)) && !seen.has(dg(x.phone)) && seen.add(dg(x.phone)))
-          .map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', cell: dg(x.phone) })).filter((x) => x.name && !hide.has(x.name.toLowerCase())).sort((a, c) => a.name.localeCompare(c.name))
-      } catch { /* reps still listed */ }
+      const staff = (await companyStaff()).filter((x) => !x.cell || !tms.has(x.cell)).sort((a, c) => a.dept.localeCompare(c.dept) || a.name.localeCompare(c.name))
       return json(200, { ok: true, staff, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
     }
     if (b.action === 'delete_room') {
