@@ -210,6 +210,7 @@ export default function RegionalManager() {
             render: () => (<div className="space-y-4">
               <ApptConversion zone={manager.region} />
               {/* Your team only (Neal, 2026-10-01) — trimmed server-side by regional-manager-api. */}
+              <MorningMeetingReport token={token} />
               <RepAttendance managerToken={token} />
               <PresentationActivity managerToken={token} />
               <ManagerPayReport />
@@ -2544,6 +2545,56 @@ function BackToRetailWins({ zone, autoLoad = false }) {
 // anything they're invited to), each with their OWN join link. A meeting that's on TODAY
 // flashes; one that's live now says so. `banner` = the compact flashing strip at the very top
 // of the dashboard, shown only on a meeting day.
+// 📋 MORNING MEETING REPORT (Neal, 2026-10-05): the team's Morning Sales Training for a day — each
+// rep joined at, stayed to the end or left at, minutes, camera on, drops; who didn't join. From the
+// meeting room's own join/leave log (meet.js mgr_meeting_report).
+function MorningMeetingReport({ token }) {
+  const etToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const [day, setDay] = useState(etToday)
+  const [open, setOpen] = useState(false)
+  const [d, setD] = useState(null)
+  useEffect(() => {
+    if (!open) return
+    setD(null)
+    fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mgr_meeting_report', token, day }) })
+      .then((r) => r.json()).then(setD).catch(() => setD({ ok: false, error: 'Could not load.' }))
+  }, [open, day, token])
+  const tm = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : '')
+  const joined = d?.people?.filter((p) => p.today) || [], missed = d?.people?.filter((p) => !p.today) || []
+  return (
+    <div className="rounded-xl border border-white/15 bg-white/5">
+      <button onClick={() => setOpen((x) => !x)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+        <span className="text-xl">📋</span>
+        <span className="flex-1"><span className="block font-bold text-white">Morning meeting attendance</span><span className="block text-xs text-slate-300">Who joined your team's sales meeting, when, and whether they stayed</span></span>
+        <span className="text-slate-300">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-white/10 px-4 py-3 text-sm text-slate-100">
+          <label className="mb-2 flex items-center gap-2 text-xs text-slate-300">Day <input type="date" value={day} max={etToday} onChange={(e) => setDay(e.target.value)} className="rounded border border-white/20 bg-slate-900 px-2 py-1 text-white" /></label>
+          {!d ? <p className="text-slate-400">Loading…</p> : !d.ok ? <p className="text-red-300">{d.error}</p> : !d.room ? <p className="text-slate-400">Your team has no meeting room yet.</p> : (<>
+            <p className="mb-2 font-semibold">{d.room.team} {d.room.title}: {joined.length} joined · {missed.length} didn't</p>
+            <div className="space-y-1">
+              {joined.map((p) => {
+                const t = p.today, camLate = t.camera_on && Date.parse(t.camera_on) - Date.parse(t.joined) > 5 * 60000
+                return (
+                  <div key={p.name} className="rounded bg-white/5 px-3 py-2">
+                    <b>{p.name}</b> <span className="text-slate-300">· joined {tm(t.joined)} · </span>
+                    {t.stayed ? <span className="font-bold text-emerald-300">{t.left ? `stayed to the end (${tm(t.left)})` : 'still in'}</span> : <span className="font-bold text-red-300">left {tm(t.left)}</span>}
+                    <span className="text-slate-300"> · {t.minutes} min</span>
+                    {t.camera_on ? <span className={camLate ? 'font-bold text-amber-300' : 'text-slate-300'}> · camera on {tm(t.camera_on)}</span> : <span className="font-bold text-red-300"> · camera never on</span>}
+                    {t.drops > 0 && <span className="text-amber-300"> · dropped {t.drops}×</span>}
+                  </div>
+                )
+              })}
+              {missed.length > 0 && <div className="mt-2 rounded bg-red-500/10 px-3 py-2 text-red-200"><b>Didn't join:</b> {missed.map((p) => p.name).join(', ')}</div>}
+            </div>
+          </>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function YourMeetings({ token, banner = false }) {
   const [rooms, setRooms] = useState(null)
   useEffect(() => {

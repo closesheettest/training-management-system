@@ -880,6 +880,22 @@ export const handler = async (event) => {
     for (const x of data || []) if (x.report?.retrain === slug) out[x.trainee_id] = x.grade_status === 'invited' ? 'sent' : 'done'
     return out
   }
+  // 📋 MORNING MEETING REPORT for a regional manager (Neal, 2026-10-05: "the same audience report for
+  // the regional manager morning sales training meetings"). Their own team room: every rep, joined /
+  // stayed or left / minutes / camera / drops, for a day (default today). Manager link token.
+  if (b.action === 'mgr_meeting_report') {
+    const who = await mgrByToken(b.token)
+    if (!who) return json(401, { ok: false, error: 'Open this from your own dashboard link.' })
+    const room = (await loadRooms()).find((r) => r.kind === 'zone' && r.zone === who.m.managed_region)
+    if (!room) return json(200, { ok: true, room: null, people: [] })
+    INTERNAL = true
+    try {
+      const a = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'audience', slug: room.slug, day: b.day }) })).body)
+      const people = (a.people || []).filter((p) => !p.host).map((p) => ({ name: p.name, today: p.today || null }))
+      people.sort((x, c) => (x.today ? 0 : 1) - (c.today ? 0 : 1) || (x.today?.first_ms || 0) - (c.today?.first_ms || 0) || x.name.localeCompare(c.name))
+      return json(200, { ok: true, room: { title: room.title, team: TEAMS[room.zone] || '' }, day: /^\d{4}-\d{2}-\d{2}$/.test(String(b.day || '')) ? b.day : etDay(), people })
+    } finally { INTERNAL = false }
+  }
   if (b.action === 'retrain_open') {
     const who = await mgrByToken(b.token)
     if (!who) return json(401, { ok: false })
@@ -1128,7 +1144,8 @@ export const handler = async (event) => {
         // TODAY'S TIMELINE (Neal, 2026-10-05: "joined at a certain time and then stayed the whole time
         // or left at a certain time"). From meet-webhook's LiveKit join/leave log (meet_att_<day>_<room>_t:<id>).
         // The class end = the last time anyone in the room left (or now, if it's still going).
-        const { data: att } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${etDay()}_${room.slug}_%`)
+        const aDay = /^\d{4}-\d{2}-\d{2}$/.test(String(b.day || '')) ? String(b.day) : etDay()
+        const { data: att } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${aDay}_${room.slug}_%`)
         const attBy = {}
         let classEnd = 0
         for (const x of att || []) {
