@@ -91,8 +91,16 @@ export const handler = async () => {
     const ids = [...new Set(att.filter((r) => r.attendance_date === lastDay).map((r) => r.trainee_id))]
     if (!ids.length) continue
     const { data: tr } = await supabase
-      .from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').in('id', ids)
-    for (const t of tr || []) classRoster.push({ ...t, group: `Class ${cl.week_start_date}`, last_day: lastDay })
+      .from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token, is_active_sales_rep, left_company_at, dropped_out_at, declined_at').in('id', ids)
+    // ACTIVE PEOPLE ONLY (Neal, 2026-10-05: "some of these people are not active sales reps anymore").
+    // From a finished class, only those who became active reps; a class still running (ended within
+    // the last week) keeps its trainees. Anyone who left, dropped out or declined is off.
+    const recent = cl.week_end_date >= new Date(Date.now() - 7 * 86400000).toLocaleDateString('en-CA')
+    for (const t of tr || []) {
+      if (t.left_company_at || t.dropped_out_at || t.declined_at) continue
+      if (!t.is_active_sales_rep && !recent) continue
+      classRoster.push({ ...t, group: `Class ${cl.week_start_date}`, last_day: lastDay })
+    }
   }
 
   // A trainee already flagged as a field rep is one person, not two rows.
