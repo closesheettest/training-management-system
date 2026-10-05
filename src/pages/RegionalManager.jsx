@@ -2559,14 +2559,22 @@ function YourMeetings({ token, banner = false }) {
     if (!hot.length) return null
     return (
       <div className="mb-4 space-y-2">
-        <style>{'@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.7);filter:brightness(1)}50%{box-shadow:0 0 0 12px rgba(250,204,21,0);filter:brightness(1.35)}}'}</style>
+        <style>{`
+          @keyframes rmFlame{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+          @keyframes rmFlicker{0%,100%{box-shadow:0 0 14px 2px rgba(255,90,0,.75),0 0 34px 6px rgba(255,190,0,.35)}25%{box-shadow:0 0 22px 5px rgba(255,60,0,.9),0 0 44px 10px rgba(255,160,0,.45)}50%{box-shadow:0 0 10px 1px rgba(255,120,0,.6),0 0 28px 4px rgba(255,210,0,.3)}75%{box-shadow:0 0 26px 6px rgba(255,40,0,.85),0 0 50px 12px rgba(255,140,0,.4)}}
+          @keyframes rmEmber{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.15)}}
+          @keyframes rmLive{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.7)}50%{box-shadow:0 0 0 12px rgba(52,211,153,0)}}
+          .rm-fire{background:linear-gradient(90deg,#7f1d1d,#dc2626,#f97316,#facc15,#f97316,#dc2626,#7f1d1d);background-size:200% 100%;animation:rmFlame 2.4s linear infinite,rmFlicker 1.1s ease-in-out infinite}
+          .rm-live{animation:rmLive 1.6s ease-in-out infinite}
+          .rm-ember{display:inline-block;animation:rmEmber .9s ease-in-out infinite}
+        `}</style>
         {hot.map((r) => (
-          <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" style={{ animation: 'rmPulse 1.6s ease-in-out infinite' }}
-            className={`flex items-center gap-3 rounded-xl border-2 p-4 no-underline ${r.live ? 'border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-700' : 'border-amber-300 bg-gradient-to-r from-amber-500 to-orange-600'}`}>
-            <span className="text-2xl">{r.live ? '🔴' : '📅'}</span>
+          <a key={r.slug} href={r.link} target="_blank" rel="noreferrer"
+            className={`flex items-center gap-3 rounded-xl border-2 p-4 no-underline ${r.live ? 'rm-live border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-700' : 'rm-fire border-yellow-300'}`}>
+            <span className={`text-3xl ${r.live ? '' : 'rm-ember'}`}>{r.live ? '🔴' : '🔥'}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-lg font-extrabold text-white">{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
-              <span className="block text-sm font-semibold text-white/90">{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}</span>
+              <span className="block text-lg font-extrabold text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
+              <span className="block text-sm font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}</span>
             </span>
             <span className={`rounded-lg px-4 py-2 text-sm font-extrabold ${r.live || r.open ? 'bg-white text-emerald-700' : 'bg-white/90 text-orange-700'}`}>{r.live || r.open ? 'Join now' : 'Open'}</span>
           </a>
