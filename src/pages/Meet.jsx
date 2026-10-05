@@ -357,12 +357,28 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            {/* SCREEN SHARE, WHOLE SCREEN (Neal, 2026-10-05: a trainee "couldn't see the full screen"): the
+                shared screen is fitted inside the window, never cropped, and anyone can go full screen. */}
+            <style>{'.lk-participant-tile[data-lk-source="screen_share"] video, .lk-focus-layout video[data-lk-source="screen_share"] { object-fit: contain !important; background: #000; }'}</style>
+            {share && !dk && !sc && !pr && (
+              <button onClick={() => { const el = document.querySelector('.lk-focus-layout') || document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) }}
+                style={{ position: 'absolute', top: 8, right: 8, zIndex: 30, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.8)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>⛶ Full screen</button>
+            )}
             {pr ? (
               <PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />
             ) : sc ? (
               <PresenterFrame layout={layout} cam={scCam} isHost={isHost} onLayout={pickLayout}><ScriptureSlide sc={sc} look={lookOf(room)} camTrack={layout === 'circle' ? scCam : null} /></PresenterFrame>
             ) : dk ? (
-              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} /></PresenterFrame>
+              (() => {
+                // 👀 FACES WHILE PRESENTING (Neal, 2026-10-05: "on the left-hand side the gallery … I want to
+                // see their faces as I'm training them"). The host sees everyone in a strip beside the
+                // slides; everyone else still gets the slides full size.
+                const deckEl = (
+              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
+                )
+                const faces = cams.filter((t) => t.participant.identity !== localParticipant?.identity)
+                return isHost && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{deckEl}</div></FocusLayoutContainer> : deckEl
+              })()
             ) : podcast ? (
               (() => {
                 // Everyone not on stage in a strip down the side (Neal: "it didn't show a gallery of people").
@@ -420,7 +436,13 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 <LayoutPick layout={layout} onLayout={pickLayout} />
                 <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
                 {decksFor(room).map((d) => (
-                  <button key={d.key} onClick={() => setDeck({ key: d.key, pos: d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }, showing: true })} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
+                  <button key={d.key} onClick={() => {
+                    // RESUME (Neal, 2026-10-05: stop presenting on slide 37, start again → back on 37). The room
+                    // keeps the last position after Stop; this device remembers it too.
+                    let last = rmeta.deck && rmeta.deck.key === d.key && rmeta.deck.pos ? rmeta.deck.pos : null
+                    if (!last) { try { last = JSON.parse(localStorage.getItem(`deck_pos_${room.slug}_${d.key}`) || 'null') } catch { /* none */ } }
+                    setDeck({ key: d.key, pos: last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
+                  }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
                 ))}
               </div>
             )}
