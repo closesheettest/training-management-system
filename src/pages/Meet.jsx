@@ -11,7 +11,7 @@
 // of Gallery or Speaker view (like Zoom), screen share with the PRESENTER CIRCLE (the host's
 // camera in the bottom-right of the shared screen, the corner the slides keep empty), chat,
 // and host controls.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   LiveKitRoom, PreJoin, GridLayout, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
@@ -246,6 +246,12 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   // 🎙 Podcast mode: only the people on stage, side by side. Being put on stage unmutes you.
   const stageIds = Array.isArray(rmeta.stage) ? rmeta.stage : []
   const amOnStage = !!localParticipant && stageIds.includes(localParticipant.identity)
+  // Podcast view switched OFF in setup but the room still has the stage it set → clear it (Neal,
+  // 2026-10-05: "I got rid of the podcast view … every time I go back in, it still goes to it").
+  useEffect(() => {
+    if (room.auto_stage || !isHost || !rmeta.stage_auto || !stageIds.length) return
+    call({ action: 'set_stage', room: room.slug, stage: [], no_mute: true, ...auth }).catch(() => {})
+  }, [room.auto_stage, isHost, rmeta.stage_auto, stageIds.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   // Presenter-camera layout for slides / scripture, picked by a host, the same on every screen.
   const layout = { side: 'split', stack: 'stack_top' }[rmeta.layout] || (['circle', 'split', 'stack_top', 'stack_bottom'].includes(rmeta.layout) ? rmeta.layout : 'circle')
   const pickLayout = (l) => call({ action: 'set_layout', room: room.slug, layout: l, ...auth }).catch(() => {})
@@ -258,7 +264,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
     if (!room.auto_stage || !isHost || rmeta.auto_off || hostIdsNow[0] !== localParticipant?.identity) return
     const want = hostIdsNow.length >= 2 ? hostIdsNow : []
     if (want.join('|') === stageIds.join('|')) return
-    call({ action: 'set_stage', room: room.slug, stage: want, no_mute: true, ...auth }).catch(() => {})
+    call({ action: 'set_stage', room: room.slug, stage: want, no_mute: true, auto: true, ...auth }).catch(() => {})
   }, [hostIdsNow.join('|'), stageIds.join('|'), rmeta.auto_off, isHost]) // eslint-disable-line react-hooks/exhaustive-deps
   const wasOnStage = useRef(false)
   useEffect(() => { if (amOnStage && !wasOnStage.current) localParticipant.setMicrophoneEnabled(true).catch(() => {}); wasOnStage.current = amOnStage }, [amOnStage]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -358,7 +364,12 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             ) : dk ? (
               <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => setDeck({ ...dk, pos, showing: true })} /></PresenterFrame>
             ) : podcast ? (
-              <PodcastStage people={stagePeople} look={lookOf(room)} watching={Math.max(0, cams.length - stagePeople.length)} />
+              (() => {
+                // Everyone not on stage in a strip down the side (Neal: "it didn't show a gallery of people").
+                const audience = cams.filter((t) => !stageIds.includes(t.participant.identity))
+                const stageView = <PodcastStage people={stagePeople} look={lookOf(room)} watching={Math.max(0, cams.length - stagePeople.length)} />
+                return audience.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={audience}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{stageView}</div></FocusLayoutContainer> : stageView
+              })()
             ) : !focus ? (
               <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
             ) : (
@@ -821,7 +832,7 @@ export default function Meet() {
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
         audio={choices.audioEnabled && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
         onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
-        <Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} />
+        <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} /></MeetErrorBoundary>
       </LiveKitRoom>
     </div>
   )
@@ -929,4 +940,27 @@ function SharePanel({ room, onClose }) {
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{room.public ? 'Anyone with this link can join (they put in their name and email).' : 'People from the company sign in with their own link; this link is the way in.'}</div>
     </div>
   )
+}
+
+// NO WHITE SCREENS (Neal, 2026-10-05: joining the Managers Meeting white-screened). If anything in the
+// meeting view throws, show a Rejoin button instead of a blank page, and report the error so it can
+// be fixed (meet.js client_error → app_settings meet_client_errors).
+class MeetErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  componentDidCatch(err, info) {
+    try { fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'client_error', room: this.props.slug, message: String(err?.message || err).slice(0, 500), stack: String(err?.stack || '').slice(0, 1500), where: String(info?.componentStack || '').slice(0, 1500), ua: navigator.userAgent.slice(0, 200) }) }) } catch { /* best effort */ }
+  }
+  render() {
+    if (!this.state.err) return this.props.children
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b1220', color: '#fff', textAlign: 'center', padding: 20 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 900 }}>Something went wrong on this screen</div>
+          <div style={{ marginTop: 8, color: '#94a3b8' }}>You're still in the meeting. Tap Rejoin to bring it back.</div>
+          <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '12px 22px', borderRadius: 10, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 900, fontSize: 16, cursor: 'pointer' }}>↻ Rejoin</button>
+        </div>
+      </div>
+    )
+  }
 }

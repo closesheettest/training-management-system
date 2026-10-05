@@ -449,6 +449,14 @@ export const handler = async (event) => {
     return json(200, { ok: false, last4, error: blocked ? 'Texts are still blocked. Text START to (727) 349-3584 from your phone, wait a moment, then tap again.' : 'The text didn\'t go out. Tell your manager.' })
   }
 
+  // A meeting screen crashed (MeetErrorBoundary): keep the last 30 so the cause can be found.
+  if (b.action === 'client_error') {
+    const list = (await getSetting('meet_client_errors', [])) || []
+    list.unshift({ at: new Date().toISOString(), room: String(b.room || '').slice(0, 60), message: String(b.message || '').slice(0, 500), stack: String(b.stack || '').slice(0, 1500), where: String(b.where || '').slice(0, 1500), ua: String(b.ua || '').slice(0, 200) })
+    await putSetting('meet_client_errors', list.slice(0, 30))
+    return json(200, { ok: true })
+  }
+
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
@@ -1172,7 +1180,7 @@ export const handler = async (event) => {
         const list = await svc().listParticipants(room.slug)
         for (const p of list) if (!stage.includes(p.identity) && !/^(egress|homeowner)/.test(p.identity)) { try { for (const tr of p.tracks || []) if (tr.type === TrackType.AUDIO && !tr.muted) await svc().mutePublishedTrack(room.slug, p.identity, tr.sid, true) } catch { /* left */ } }
       }
-      await setMeta({ stage, ...(b.auto_off !== undefined ? { auto_off: !!b.auto_off } : {}) })
+      await setMeta({ stage, stage_auto: !!b.auto && stage.length > 0, ...(b.auto_off !== undefined ? { auto_off: !!b.auto_off } : {}) })
       return json(200, { ok: true, stage })
     }
     // How the presenter's camera sits beside slides / scripture (Neal, 2026-10-05): circle (small, in
