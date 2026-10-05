@@ -299,6 +299,9 @@ export const handler = async (event) => {
     // stands out. Only meetings still to come today count.
     const today = etDay()
     const dayOf = (r) => { const nm = hasSchedule(r) ? nextMeeting(r) : null; return nm ? etDay(nm.start.getTime()) : null }
+    // Special meetings flash on their day (Neal, 2026-10-05: "none of them are flashing"): the
+    // Managers Meeting, a company meeting, a one-off or invite meeting. Daily rooms don't.
+    for (const r of mine) if (['managers', 'company', 'oneoff', 'custom'].includes(r.kind) && dayOf(r) === today) openOf[r.slug] = { ...openOf[r.slug], today: true }
     const company = mine.find((r) => r.kind === 'company' && dayOf(r) === today)
     if (company) for (const r of mine) {
       if (r === company) openOf[r.slug] = { ...openOf[r.slug], today: true }
