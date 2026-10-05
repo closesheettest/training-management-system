@@ -18,7 +18,7 @@ import {
   ControlBar, Chat, RoomAudioRenderer, LayoutContextProvider, ConnectionStateToast, VideoTrack,
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
-import { Track, RoomEvent, ParticipantEvent } from 'livekit-client'
+import { Track, RoomEvent, ParticipantEvent, VideoPresets } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
@@ -810,6 +810,14 @@ export default function Meet() {
     <div data-lk-theme="default" style={{ height: '100vh', background: L.bg, fontFamily: L.fontBody }}>
       <FontsFor look={L} />
       <LiveKitRoom serverUrl={join.url} token={join.token} connect
+        // SMOOTH VIDEO (Neal, 2026-10-05: "when I move … it seems choppy"). 720p at 30 fps from the camera;
+        // when the connection or computer is stretched, keep the FRAME RATE and soften the picture
+        // instead of stuttering; a little more bitrate; viewers only get the size they display.
+        options={{
+          adaptiveStream: true, dynacast: true,
+          videoCaptureDefaults: { resolution: VideoPresets.h720.resolution },
+          publishDefaults: { videoEncoding: { maxBitrate: 2_500_000, maxFramerate: 30 }, videoSimulcastLayers: [VideoPresets.h360, VideoPresets.h540], degradationPreference: 'maintain-framerate' },
+        }}
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
         audio={choices.audioEnabled && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
         onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
