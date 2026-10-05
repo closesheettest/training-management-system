@@ -2562,13 +2562,13 @@ function YourMeetings({ token, banner = false }) {
         <style>{'@keyframes rmPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.7);filter:brightness(1)}50%{box-shadow:0 0 0 12px rgba(250,204,21,0);filter:brightness(1.35)}}'}</style>
         {hot.map((r) => (
           <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" style={{ animation: 'rmPulse 1.6s ease-in-out infinite' }}
-            className={`flex items-center gap-3 rounded-xl border-2 p-3 no-underline ${r.live ? 'border-emerald-400 bg-emerald-500/20' : 'border-amber-400 bg-amber-500/15'}`}>
+            className={`flex items-center gap-3 rounded-xl border-2 p-4 no-underline ${r.live ? 'border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-700' : 'border-amber-300 bg-gradient-to-r from-amber-500 to-orange-600'}`}>
             <span className="text-2xl">{r.live ? '🔴' : '📅'}</span>
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold text-white">{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
-              <span className="block text-sm text-slate-200">{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}</span>
+              <span className="block text-lg font-extrabold text-white">{r.live ? 'LIVE NOW: ' : 'TODAY: '}{r.title}</span>
+              <span className="block text-sm font-semibold text-white/90">{r.live ? 'Tap to join' : `${at(r.next_at)} Eastern${r.topic ? ` · ${r.topic}` : ''}`}</span>
             </span>
-            <span className={`rounded-lg px-3 py-1.5 text-sm font-bold text-white ${r.live || r.open ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || r.open ? 'Join' : 'Open'}</span>
+            <span className={`rounded-lg px-4 py-2 text-sm font-extrabold ${r.live || r.open ? 'bg-white text-emerald-700' : 'bg-white/90 text-orange-700'}`}>{r.live || r.open ? 'Join now' : 'Open'}</span>
           </a>
         ))}
       </div>
