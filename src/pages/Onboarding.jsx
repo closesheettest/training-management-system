@@ -106,13 +106,13 @@ export default function Onboarding() {
         <p className="mt-2 text-emerald-800">
           Your signed W-9 and Independent Contractor Agreement have been emailed to you. Keep them for your records.
         </p>
-        <GoToTraining />
+        {compSigned && <GoToTraining />}
       </div>
       {!compSigned && (
         <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-6 text-center">
           <h2 className="text-xl font-bold text-amber-900">One more step: your pay documents</h2>
-          <p className="mt-2 text-amber-900">Please sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures.</p>
-          <a href={`/comp-agreement/${token}`} className="mt-4 inline-block rounded-lg bg-brand-navy px-6 py-3 text-lg font-bold text-white">Sign my pay documents →</a>
+          <p className="mt-2 text-amber-900">Please sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures.{back ? ' Then it takes you into training.' : ''}</p>
+          <a href={`/comp-agreement/${token}${back ? `?back=${encodeURIComponent(back)}` : ''}`} className="mt-4 inline-block rounded-lg bg-brand-navy px-6 py-3 text-lg font-bold text-white">Sign my pay documents →</a>
         </div>
       )}
     </Shell>

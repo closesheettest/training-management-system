@@ -20,6 +20,8 @@ const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-bas
 
 export default function CompAgreement() {
   const { token } = useParams()
+  // Came from the training room's paperwork step: when both are signed, send them back in (Neal, 2026-10-05).
+  const back = (() => { try { const v = new URLSearchParams(window.location.search).get('back') || ''; return v.startsWith('/meet/') ? v : '' } catch { return '' } })()
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
@@ -79,8 +81,9 @@ export default function CompAgreement() {
         <h2 className="text-lg font-bold text-emerald-900">✅ Signed — thank you</h2>
         <p className="mt-1 text-sm text-emerald-800">
           Both documents were signed on {new Date(done).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.
-          The office has your copy on file. You can close this page.
+          The office has your copy on file.{back ? '' : ' You can close this page.'}
         </p>
+        {back && <a href={back} className="mt-4 inline-block rounded-lg bg-emerald-600 px-6 py-3 text-lg font-bold text-white">✅ Done, go to training →</a>}
       </div>
     </Shell>
   )

@@ -973,7 +973,7 @@ export const handler = async (event) => {
               return json(200, { ok: false, locked: true, title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' })
             }
           }
-          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at').eq('trainee_id', t.id).maybeSingle()
+          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at, comp_signed_at').eq('trainee_id', t.id).maybeSingle()
           // BANKING (Neal, 2026-10-04): okay to skip on the day they sign; from the NEXT day on,
           // no training until their direct deposit details are in.
           if (ob?.signed_at && !ob.banking_completed_at && etDay(Date.parse(ob.signed_at)) < etDay()) {
@@ -990,6 +990,11 @@ export const handler = async (event) => {
             }
             await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
             return json(200, { ok: false, onboarding: true, first: t.first_name || '' })
+          }
+          // PAY DOCUMENTS (Neal, 2026-10-05: onboarding = ICA + W-9 + the draw and inspection
+          // commission). Signed the first two but not these → straight to them, then back in.
+          if (ob?.signed_at && !ob.comp_signed_at && String(b.t || '').trim()) {
+            return json(200, { ok: false, onboarding: true, first: t.first_name || '', onboarding_url: `/comp-agreement/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` })
           }
         }
       }
