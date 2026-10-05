@@ -482,11 +482,13 @@ export default function Meet() {
   const { room: slug } = useParams()
   const [sp] = useSearchParams()
   const t = sp.get('t') || ''
+  // ?as=attendee: an admin's PIN joins without host controls (Meeting Room Setup → Join as attendee).
+  const asAttendee = sp.get('as') === 'attendee'
   const g = sp.get('g') || '' // an outside invitee's key (one-off meetings)
   const [door, setDoor] = useState(null) // the room's public info, before signing in
   const [auth, setAuth] = useState(() => (getS(PIN_KEY) ? { pin: getS(PIN_KEY) } : t ? { t } : g ? { g } : null))
   const [guest, setGuest] = useState(() => { try { return JSON.parse(getS(GUEST_KEY, localStorage) || 'null') || { name: '', email: '', opt_in: false } } catch { return { name: '', email: '', opt_in: false } } })
-  const [hostMode, setHostMode] = useState(false)
+  const [hostMode, setHostMode] = useState(asAttendee)
   const [codeInput, setCodeInput] = useState('')
   const [hostName, setHostName] = useState('')
   const [join, setJoin] = useState(null)
@@ -516,7 +518,7 @@ export default function Meet() {
 
   const doJoin = async (body) => {
     setBusy(true); setErr('')
-    const j = await call({ action: 'join', ...body, room: slug }).catch(() => ({ error: 'Network error — try again.' }))
+    const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
@@ -752,7 +754,7 @@ export default function Meet() {
       const c = codeInput.trim(); if (!c) return
       // Try it as an admin PIN first, then as this room's own host code.
       setBusy(true); setErr('')
-      const asPin = await call({ action: 'join', room: slug, pin: c }).catch(() => ({}))
+      const asPin = await call({ action: 'join', room: slug, pin: c, ...(asAttendee ? { attendee: true } : {}) }).catch(() => ({}))
       setBusy(false)
       if (asPin.ok) { setS(PIN_KEY, c); setAuth({ pin: c }); setJoin(asPin); return }
       if (door?.host_code) { setAuth({ host_code: c }); doJoin({ host_code: c, name: hostName.trim() }) } else setErr('PIN not recognised.')
@@ -787,10 +789,11 @@ export default function Meet() {
             </>
           ) : (
             <>
-              {!door?.public && <p style={{ color: '#9ca3af', marginBottom: 12 }}>Reps and trainees: open the meeting from the link we texted you. Hosting? Sign in below.</p>}
+              {asAttendee ? <p style={{ color: '#9ca3af', marginBottom: 12 }}>Admin: your PIN puts you in as an attendee, with no host controls.</p>
+                : !door?.public && <p style={{ color: '#9ca3af', marginBottom: 12 }}>Reps and trainees: open the meeting from the link we texted you. Hosting? Sign in below.</p>}
               <input type="password" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') hostJoin() }} placeholder={door?.host_code ? 'Host code or admin PIN' : 'Admin PIN'} style={input} />
               {door?.host_code && <input value={hostName} onChange={(e) => setHostName(e.target.value)} placeholder="Your name (shown on your tile)" style={input} />}
-              <button disabled={busy} onClick={hostJoin} style={big}>Join as host</button>
+              <button disabled={busy} onClick={hostJoin} style={big}>{asAttendee ? 'Join as attendee' : 'Join as host'}</button>
               {door?.public && <button onClick={() => { setErr(''); setHostMode(false) }} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>← Join as a guest</button>}
             </>
           )}

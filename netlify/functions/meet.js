@@ -1057,9 +1057,12 @@ export const handler = async (event) => {
     const admin = await verifyPin(b.pin)
     // Each device gets its own seat — the same identity twice would kick the first device out.
     const seat = () => Math.random().toString(36).slice(2, 7)
-    if (admin) { name = admin; identity = `host:${admin}:${seat()}`; host = true }
+    // ?as=attendee (Neal, 2026-10-05: "as admin, we should have the ability to join the meeting. But
+    // not as a host"): an admin PIN joins as a plain attendee, with no host controls.
+    const asAttendee = !!admin && !!b.attendee
+    if (admin) { name = admin; identity = asAttendee ? `a:${slugify(admin)}:${seat()}` : `host:${admin}:${seat()}`; host = !asAttendee }
     // The trainer's first arrival today starts the 2-minute door (training rooms).
-    if (admin && room.kind === 'training' && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
+    if (admin && !asAttendee && room.kind === 'training' && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
     else if (room.host_code && sameCode(b.host_code, room.host_code)) {
       name = String(b.name || '').trim().slice(0, 60) || 'Host'; identity = `host:${slugify(name)}:${seat()}`; host = true
     } else if (room.public && b.guest) {

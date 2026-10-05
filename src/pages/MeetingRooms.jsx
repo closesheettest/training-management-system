@@ -143,6 +143,7 @@ export default function MeetingRooms() {
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
+              <a href={`/meet/${r.slug}?as=attendee`} target="_blank" rel="noreferrer" className="rounded-md border border-blue-600 bg-white px-3 py-1.5 text-sm font-bold text-blue-700">Join as attendee</a>
               <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? '📋 Copy invite link' : 'Copy host link'}</button>
               <button onClick={() => setForm({ ...blank, ...r, hosts: (r.hosts || []).join(', '), original_slug: r.slug })} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Edit</button>
             </div>
