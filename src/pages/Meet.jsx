@@ -534,7 +534,14 @@ export default function Meet() {
   const [confirmStep, setConfirmStep] = useState(() => (sp.get('confirm') === '1' && t ? { loading: true } : null))
   useEffect(() => {
     if (!confirmStep?.loading) return
-    call({ action: 'class_confirm', room: slug, t, tag: sp.get('tag') || '' }).then((j) => setConfirmStep(j.ok ? { ...j } : null)).catch(() => setConfirmStep(null))
+    // Class starting within the hour (or on now) and they've already confirmed → straight in, no card
+    // (Neal, 2026-10-05: 13 minutes before class nobody was in — the card told confirmed trainees to
+    // "open this same link 15 minutes before class" while they were ON it, and stopped there).
+    call({ action: 'class_confirm', room: slug, t, tag: sp.get('tag') || '' }).then((j) => {
+      const soon = j?.next_at && Date.parse(j.next_at) - Date.now() < 60 * 60000
+      if (j?.ok && j.status === 'confirmed' && soon) { setConfirmStep(null); doJoin({ t }); return }
+      setConfirmStep(j.ok ? { ...j, soon } : null)
+    }).catch(() => setConfirmStep(null))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Their own link, or a PIN already entered this session → straight in.
   useEffect(() => {
@@ -683,7 +690,13 @@ export default function Meet() {
   // CONFIRM ATTENDANCE (the virtual notice link).
   if (!join && confirmStep && !confirmStep.loading) {
     const when = confirmStep.next_at ? new Date(confirmStep.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
-    const answer = async (status) => { const j = await call({ action: 'class_confirm', room: slug, t, status }).catch(() => ({})); if (j.ok) setConfirmStep({ ...confirmStep, status: j.status }) }
+    const answer = async (status) => {
+      const j = await call({ action: 'class_confirm', room: slug, t, status }).catch(() => ({}))
+      if (!j.ok) return
+      // Saying yes right before class → go straight in.
+      if (j.status === 'confirmed' && confirmStep.soon) { setConfirmStep(null); doJoin({ t }); return }
+      setConfirmStep({ ...confirmStep, status: j.status })
+    }
     return shell(
       <div style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
         {welcome({ ...(door || confirmStep.room), kind: 'training', title: (door || confirmStep.room)?.title })}
@@ -698,7 +711,7 @@ export default function Meet() {
           <button onClick={() => answer('yes')} style={{ ...big, flex: 2, background: '#16a34a' }}>✅ I'll be there</button>
           <button onClick={() => answer('no')} style={{ ...big, flex: 1, background: '#475569' }}>❌ Can't make it</button>
         </div>
-        {confirmStep.status === 'confirmed' && <button onClick={() => { setConfirmStep(null); doJoin({ t }) }} style={{ marginTop: 14, background: 'none', border: 'none', color: L.muted, textDecoration: 'underline', cursor: 'pointer', fontSize: 14 }}>Do my onboarding paperwork now</button>}
+        {confirmStep.status === 'confirmed' && <button onClick={() => { setConfirmStep(null); doJoin({ t }) }} style={{ ...big, marginTop: 14, background: '#2563eb' }}>▶ Go to training now (paperwork first if it's not done)</button>}
       </div>
     )
   }
