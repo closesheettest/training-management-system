@@ -478,11 +478,13 @@ export const handler = async (event) => {
     }
     return json(200, {
       ok: true,
+      // In the order they're attended (Neal, 2026-10-05): live now, then by next start; rooms with
+      // no time (always open / nothing scheduled) last.
       rooms: mine.map((r) => {
         const pr = publicRoom(r)
         // Viewing as a rep (Neal's view-as) shows the rooms but never their personal link.
         return { ...pr, ...openOf[r.slug], badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.joins_room || r.slug}?t=${t.registration_token}` }
-      }),
+      }).sort((a, c) => ((c.live ? 1 : 0) - (a.live ? 1 : 0)) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15))),
     })
   }
 
