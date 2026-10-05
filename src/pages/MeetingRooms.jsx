@@ -133,6 +133,7 @@ export default function MeetingRooms() {
   // Training cards (Week A / Week B / retraining) in U.S. Shingle navy + red, with the logo.
   const cardColor = (r) => r.color || ({ prayer: '#B8893D', company: '#E04A3A', training: '#1F2A5C', managers: '#7C3AED', custom: '#475569', oneoff: '#2563EB', retraining: '#1F2A5C', everyone: '#EA580C' }[r.kind] || '#334155')
   const roomCard = (r) => (
+        <div key={r.slug}>
           <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
             className="rounded-lg p-4 shadow-sm" style={{ background: `linear-gradient(90deg, ${cardColor(r)}26, ${cardColor(r)}0d)`, border: `1px solid ${cardColor(r)}66`, borderLeft: `6px solid ${cardColor(r)}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
@@ -295,20 +296,12 @@ export default function MeetingRooms() {
               </div>
             )}
           </div>
+          {form && form.original_slug === r.slug && <div className="mb-2" ref={(el) => { if (el && !el.dataset.shown) { el.dataset.shown = '1'; el.scrollIntoView({ behavior: 'smooth', block: 'start' }) } }}>{formPanel}</div>}
+        </div>
   )
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-brand-navy">🛠️ Meeting Room Setup</h1>
-        <span className="flex-1" />
-        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">📅 Create a one-time meeting</button>
-        <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">🎥 Create a meeting room</button>
-      </div>
-      <p className="mt-1 text-sm text-slate-600">Our own meetings, in place of Zoom. Everyone joins from their own link: no app, no meeting ID, and attendance takes itself.</p>
-      {err && <div className="mt-3 text-sm font-semibold text-red-700">{err}</div>}
-      {msg && <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{msg}</div>}
-
-      {form && (
+  // The create / edit form. Edit opens right under the card you clicked (Neal, 2026-10-05: "I scroll
+  // down … hit edit … it's not opening … it's all the way up top").
+  const formPanel = form && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-bold">{form.original_slug ? (form.kind === 'oneoff' ? 'Edit one-time meeting' : 'Edit room') : (form.kind === 'oneoff' ? 'Create a one-time meeting' : 'Create a meeting room')}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -525,7 +518,21 @@ export default function MeetingRooms() {
             <button onClick={() => setForm(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">Cancel</button>
           </div>
         </div>
-      )}
+  )
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold text-brand-navy">🛠️ Meeting Room Setup</h1>
+        <span className="flex-1" />
+        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">📅 Create a one-time meeting</button>
+        <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">🎥 Create a meeting room</button>
+      </div>
+      <p className="mt-1 text-sm text-slate-600">Our own meetings, in place of Zoom. Everyone joins from their own link: no app, no meeting ID, and attendance takes itself.</p>
+      {err && <div className="mt-3 text-sm font-semibold text-red-700">{err}</div>}
+      {msg && <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{msg}</div>}
+
+      {/* A NEW room's form opens here at the top; EDITING one opens right under its card. */}
+      {form && !form.original_slug && formPanel}
 
       <div className="mt-5 space-y-3">
         {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>🎥 Create a meeting room</b>.</p>}
