@@ -2554,9 +2554,10 @@ function YourMeetings({ token, banner = false }) {
   const at = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
   const day = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   if (!rooms) return banner ? null : <p className="text-sm text-slate-400">Loading your meetings…</p>
-  // Flash only what's special today — the Managers Meeting, a company meeting, a one-off or invite
-  // meeting — or anything live now. Daily rooms (devotional, team training) would flash every day.
-  const hot = rooms.filter((r) => r.live || (r.today && ['managers', 'company', 'oneoff', 'custom', 'retraining'].includes(r.kind)))
+  // Flash what the manager has to be at today: their own team meeting (they run it), the Managers
+  // Meeting, a company / one-off / invite / retraining meeting — or anything live now. Not the
+  // devotional (Neal, 2026-10-05: "it should show his sales meeting").
+  const hot = rooms.filter((r) => r.live || (r.today && ['managers', 'company', 'oneoff', 'custom', 'retraining', 'zone'].includes(r.kind)))
   if (banner) {
     if (!hot.length) return null
     return (
