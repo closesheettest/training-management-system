@@ -383,6 +383,38 @@ export const handler = async (event) => {
     return json(200, { ok: true, locked: false })
   }
 
+  // 📱 WAITING ON YOU (Neal, 2026-10-05): things we texted a rep that they haven't done — unsigned
+  // pay documents, a retraining page not opened — for an alert on their dashboard, with a button to
+  // re-send them all by text once they've texted START to our number (texts were blocked).
+  if (b.action === 'rep_pending' || b.action === 'rep_resend') {
+    const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) }).then((r) => r.json()).catch(() => ({}))
+    if (!who.ok || !who.jnid || who.viewer) return json(200, { ok: true, items: [] })
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, registration_token, is_active_sales_rep').eq('jobnimbus_id', who.jnid)
+    const t = (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0]
+    if (!t) return json(200, { ok: true, items: [] })
+    const ids = (ts || []).map((x) => x.id), items = []
+    const { data: ob } = await sb.from('trainee_onboarding').select('comp_signed_at').in('trainee_id', ids)
+    if (t.registration_token && !(ob || []).some((x) => x.comp_signed_at)) items.push({ key: 'pay', label: 'Sign your pay documents (Draw Program + Inspection Compensation Plan)', link: `${SITE}/comp-agreement/${t.registration_token}` })
+    const { data: pr } = await sb.from('sales_practice_sessions').select('report, grade_status').in('trainee_id', ids).eq('grade_status', 'invited')
+    for (const x of pr || []) {
+      const inv = x.report?.invite
+      if (!x.report?.retrain || x.report?.opened_at || !inv?.token || Date.parse(inv.expires_at) < Date.now()) continue
+      items.push({ key: `prep-${inv.token.slice(0, 6)}`, label: 'Your retraining: tomorrow\'s link and homework', link: `${SITE}/prep/${inv.token}` })
+    }
+    const last4 = String(t.phone || '').replace(/\D/g, '').slice(-4)
+    if (b.action === 'rep_pending') return json(200, { ok: true, items, last4 })
+    if (!items.length) return json(200, { ok: true, sent: false, error: 'Nothing waiting.' })
+    if (!t.phone) return json(200, { ok: false, error: "We don't have a cell number for you. Tell your manager." })
+    const gate = `meet_resend_${t.id}`, prev = await getSetting(gate, null)
+    if (prev && Date.now() - Date.parse(prev) < 60000) return json(200, { ok: false, last4, error: 'Just sent. Give it a minute.' })
+    await putSetting(gate, new Date().toISOString())
+    const msg = `${t.first_name || 'Hi'}, here's what's waiting for you:\n` + items.map((x, i) => `${i + 1}) ${x.label}: ${x.link}`).join('\n')
+    const r = await sendSmsViaGhl(t.phone, msg, { firstName: t.first_name || '', lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message }))
+    if (r?.ok) return json(200, { ok: true, sent: true, last4 })
+    const blocked = /dnd|do not disturb|unsubscrib|opt/i.test(String(r?.error || ''))
+    return json(200, { ok: false, last4, error: blocked ? 'Texts are still blocked. Text START to (727) 349-3584 from your phone, wait a moment, then tap again.' : 'The text didn\'t go out. Tell your manager.' })
+  }
+
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
