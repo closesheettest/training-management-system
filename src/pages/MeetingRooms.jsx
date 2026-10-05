@@ -72,6 +72,8 @@ export default function MeetingRooms() {
     setForm(null); load()
   }
   const show = async (slug, tab, d = day) => {
+    // Same button again (or ✕ Hide) closes it (Neal, 2026-10-05). Changing the attendance day doesn't.
+    if (d === day && open?.slug === slug && open?.tab === tab) { setOpen(null); return }
     setOpen({ slug, tab, data: null }); setMsg('')
     const j = await call({ action: tab === 'people' ? 'audience' : tab, slug, date: d })
     setOpen({ slug, tab, data: j.ok ? j : { error: j.error } })
@@ -173,6 +175,7 @@ export default function MeetingRooms() {
             )}
             {open?.slug === r.slug && (
               <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
+                <div className="mb-1 flex justify-end"><button onClick={() => setOpen(null)} className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">✕ Hide</button></div>
                 {open.tab === 'people' && open.data?.people?.some((q) => q.probation) && (() => {
                   const P = open.data.people.filter((q) => q.probation).map((q) => q.probation)
                   return <div className="mb-2 rounded bg-white p-2 text-sm font-semibold">Second chance: {P.length} turned away · {P.filter((x) => x.seen_at).length} opened · <span className="text-orange-700">{P.filter((x) => x.committed_at).length} 🔥 committed</span> · <span className="text-emerald-700">{P.filter((x) => x.committed_at && (x.so_far ?? 0) >= 30).length} on track</span>{P.some((x) => x.result) ? ` · ${P.filter((x) => x.result === 'enrolled').length} enrolled` : ''}</div>
