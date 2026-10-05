@@ -107,10 +107,13 @@ export default function MeetingRooms() {
   const [closedGroups, setClosedGroups] = useState(() => { try { return JSON.parse(localStorage.getItem('meet_rooms_groups') || '{"past":true}') } catch { return { past: true } } })
   const toggleGroup = (k) => setClosedGroups((g) => { const n = { ...g, [k]: !g[k] }; try { localStorage.setItem('meet_rooms_groups', JSON.stringify(n)) } catch { /* private */ } return n })
   // One room's card (used in every group below).
+  // Each card tinted in its own colour so the page has some separation (Neal, 2026-10-05): a team
+  // room in its team colour, the rest by type.
+  const cardColor = (r) => r.color || ({ prayer: '#B8893D', company: '#1B2557', training: '#0D9488', managers: '#7C3AED', custom: '#475569', oneoff: '#2563EB', retraining: '#C026D3', everyone: '#EA580C' }[r.kind] || '#334155')
   const roomCard = (r) => (
           <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
+            className="rounded-lg p-4 shadow-sm" style={{ background: `linear-gradient(90deg, ${cardColor(r)}26, ${cardColor(r)}0d)`, border: `1px solid ${cardColor(r)}66`, borderLeft: `6px solid ${cardColor(r)}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
             <div className="flex flex-wrap items-center gap-3">
               <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
               {r.badge ? <img src={r.badge} alt="" className="h-10 w-10 object-contain" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
