@@ -369,6 +369,15 @@ export const handler = async (event) => {
       const ses = retrainSessions(r).find((x) => now >= x.start.getTime() - 15 * 60000 && now < x.end.getTime())
       if (!ses) continue
       const t = (ts || []).find((x) => x.id === me.id), tgt = r.joins_room || r.slug
+      // FINISHED EARLY (Neal: "I close it at 11:30, then it just automatically activates their door
+      // dispatcher"): once the host has been in today's session and no host is in the room any more,
+      // class is over — unlocked.
+      const hostin = await getSetting(`meet_hostin_${tgt}_${etDay()}`, null)
+      if (hostin?.at && Date.parse(hostin.at) >= ses.start.getTime() - 60 * 60000) {
+        let hostHere = false
+        try { hostHere = (await svc().listParticipants(tgt)).some((p) => { try { return !!JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room closed */ }
+        if (!hostHere) return json(200, { ok: true, locked: false, ended: true })
+      }
       return json(200, { ok: true, locked: true, title: r.title, until: ses.end.toISOString(), join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}` })
     }
     return json(200, { ok: true, locked: false })
