@@ -721,6 +721,7 @@ export default function Meet() {
           {bannerImg(door)}
           {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
           <h1 style={hTitle}>{door?.title || 'Meeting'}</h1>
+          {(door?.host_names || []).length > 0 && <p style={{ color: L.text, marginTop: 4, fontSize: 15, fontWeight: 700 }}>👤 Hosted by {door.host_names.join(' & ')}</p>}
           {schedLine(door)}
         </>}
         <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}` }}>
@@ -742,6 +743,7 @@ export default function Meet() {
         {door.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
         {schedLine(door)}
         <h1 style={{ ...hTitle, marginTop: 6 }}>{door.team && <span style={{ color: door.color, marginRight: 8 }}>{door.team}</span>}{door.title}</h1>
+        {(door.host_names || []).length > 0 && <p style={{ color: L.text, marginTop: 4, fontSize: 15, fontWeight: 700 }}>👤 Hosted by {door.host_names.join(' & ')}</p>}
         {door.welcome && <p style={{ color: L.text, marginTop: 8, fontSize: 16, lineHeight: 1.5 }}>{door.welcome}</p>}
         {door.topic && <p style={{ color: L.head, marginTop: 8, fontFamily: L.fontHead, fontSize: L.light ? 22 : 16, fontWeight: 600 }}>{door.topic}</p>}
       </div>

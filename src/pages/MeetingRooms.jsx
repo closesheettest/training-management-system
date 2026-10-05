@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
 const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting (all reps, trainees & managers)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
-const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
+const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', host_ids: [], public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
 const slotsOfForm = (f) => (Array.isArray(f.slots) && f.slots.length ? f.slots : (f.days || []).filter(() => f.time).map((d) => ({ day: d, time: f.time, minutes: f.minutes || 60 })))
@@ -24,6 +24,7 @@ export default function MeetingRooms() {
   const call = async (body) => (await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, ...body }) })).json()
   const [rooms, setRooms] = useState([])
   const [site, setSite] = useState('')
+  const [hostPeople, setHostPeople] = useState([])
   const [err, setErr] = useState('')
   const [form, setForm] = useState(null) // room being created/edited
   const [open, setOpen] = useState(null) // { slug, tab:'people'|'attendance'|'guests', data }
@@ -61,7 +62,7 @@ export default function MeetingRooms() {
 
   const load = async () => {
     const j = await call({ action: 'rooms' }).catch(() => ({}))
-    if (j.ok) { setRooms(j.rooms); setSite(j.site) } else setErr(j.error || 'Could not load rooms')
+    if (j.ok) { setRooms(j.rooms); setSite(j.site); setHostPeople(j.host_people || []) } else setErr(j.error || 'Could not load rooms')
   }
   useEffect(() => { document.title = 'Meeting Room Setup · TMS'; load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -138,6 +139,7 @@ export default function MeetingRooms() {
               {r.badge ? <img src={r.badge} alt="" className={r.badge === '/uss-logo.png' ? 'h-10 w-16 rounded bg-white object-contain p-0.5' : 'h-10 w-10 object-contain'} /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
+                {(r.host_names || []).length > 0 && <div className="text-sm font-semibold text-slate-700">👤 Host: {r.host_names.join(' & ')}</div>}
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
@@ -344,6 +346,19 @@ export default function MeetingRooms() {
             {form.kind === 'zone' && <label className="text-sm font-semibold">Team<select className={field} value={form.zone || 'Zone 1'} onChange={(e) => setForm({ ...form, zone: e.target.value })}>{Object.entries(ZONES).map(([z, n]) => <option key={z} value={z}>{n} ({z})</option>)}</select></label>}
             <label className="text-sm font-semibold">When (shown on the link)<input className={field} value={form.schedule} onChange={(e) => setForm({ ...form, schedule: e.target.value })} placeholder="e.g. Mon–Thu 9:30 AM" /></label>
             <label className="text-sm font-semibold sm:col-span-2">Today's topic (shown at the top; the host can change it in the meeting)<input className={field} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Today: Psalm 23" /></label>
+            {/* 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is"). Shown on the
+                card, every dashboard and the join screen; whoever is picked hosts from their own link. */}
+            <div className="rounded-md border-2 border-blue-300 bg-blue-50 p-3 text-sm sm:col-span-2">
+              <div className="font-bold">👤 Host</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {hostPeople.map((x) => { const on = (form.host_ids || []).includes(x.id); return (
+                  <button key={x.id} type="button" onClick={() => setForm({ ...form, host_ids: on ? form.host_ids.filter((y) => y !== x.id) : [...(form.host_ids || []), x.id] })}
+                    className={`rounded-full border px-3 py-1 font-semibold ${on ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>{on ? '✓ ' : ''}{x.name}{x.tag ? <span className={`ml-1 text-xs font-normal ${on ? 'text-blue-100' : 'text-slate-400'}`}>{x.tag}</span> : null}</button>
+                ) })}
+              </div>
+              <label className="mt-2 block font-semibold">Someone else (names, comma-separated)<input className={field} value={form.hosts} onChange={(e) => setForm({ ...form, hosts: e.target.value })} placeholder="optional" /></label>
+              <div className="mt-1 text-xs text-slate-500">{(form.host_ids || []).length || String(form.hosts || '').trim() ? 'Shown as the host everywhere this meeting appears.' : form.kind === 'zone' ? "None picked: the team's manager shows as host." : 'None picked: Neal / DeWayne show as host when they\'re included below.'}</div>
+            </div>
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm sm:col-span-2">
               <div className="flex flex-wrap items-center gap-4">
                 <span className="font-semibold">Also include:</span>
@@ -364,7 +379,6 @@ export default function MeetingRooms() {
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.auto_stage} onChange={(e) => setForm({ ...form, auto_stage: e.target.checked })} /> 🎙 Podcast view: when 2+ hosts are in, show them side by side for everyone (nobody is muted)</label>
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone 5 minutes before each meeting (text + email with their own link)</label>
             </div>
-            <label className="text-sm font-semibold">Extra hosts (names, comma-separated)<input className={field} value={form.hosts} onChange={(e) => setForm({ ...form, hosts: e.target.value })} placeholder="A team room's manager is host automatically" /></label>
             <label className="text-sm font-semibold">Host code (for a host who isn't in TMS)<input className={field} value={form.host_code} onChange={(e) => setForm({ ...form, host_code: e.target.value })} placeholder="optional" /></label>
             {/* SCHEDULE: when the room is open. Outside it, people who tap Join are told when the
                 next meeting is (Neal, 2026-10-04). Leave it all empty for an always-open room. */}

@@ -26,6 +26,7 @@ function List() {
             {r.badge ? <img src={r.badge} alt="" className="h-10 w-14 rounded bg-white object-contain p-0.5" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
             <div className="min-w-0 flex-1">
               <div className="font-bold text-slate-900">{r.team && <span className="mr-1" style={{ color: r.color || undefined }}>{r.team}</span>}{r.title}</div>
+              {(r.host_names || []).length > 0 && <div className="text-sm font-semibold text-slate-700">👤 Host: {r.host_names.join(' & ')}</div>}
               <div className="text-sm text-slate-600">
                 {r.live ? <span className="font-bold text-emerald-700">● LIVE now</span> : r.next_at ? <>Next: <b>{when(r.next_at)}</b> (Eastern)</> : r.schedule || 'Open any time'}
                 {r.schedule && !r.live && r.next_at ? <span className="text-slate-400"> · {r.schedule}</span> : null}

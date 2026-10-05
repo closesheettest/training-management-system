@@ -72,6 +72,9 @@ const publicRoom = (r) => ({
   recording_enabled: !!r.recording_enabled,
   mic_lock: !!r.mic_lock,
   auto_stage: !!r.auto_stage,
+  // 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is… the 9:15 devotional,
+  // DeWayne is always the host"). Shown on every card, dashboard and the join screen.
+  host_names: Array.isArray(r.host_names) ? r.host_names : [],
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
   next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null,
@@ -300,7 +303,21 @@ export const handler = async (event) => {
     return ids
   })()
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
-  const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
+  // Who the room shows as its host: the people picked as Host (plus any names typed in); with
+  // none picked, the team's manager (team room) and Neal / DeWayne when they're Also included.
+  const hostNamesFor = async (r) => {
+    const ids = [...(r.host_ids || [])]
+    let names = []
+    if (ids.length) { const { data } = await sb.from('trainees').select('id, first_name, last_name').in('id', ids); names = ids.map((id) => (data || []).find((x) => x.id === id)).filter(Boolean).map(fullName) }
+    names = [...names, ...(r.hosts || [])]
+    if (!names.length) {
+      if (r.zone) { const { data } = await sb.from('trainees').select('first_name, last_name').eq('managed_region', r.zone); names = (data || []).map(fullName) }
+      const al = alsoIds(r)
+      if (al.length) { const { data } = await sb.from('trainees').select('id, first_name, last_name').in('id', al); names = [...names, ...al.map((id) => (data || []).find((x) => x.id === id)).filter(Boolean).map(fullName)] }
+    }
+    return [...new Set(names.filter(Boolean))]
+  }
+  const isRoomHost = (room, t) => (room.host_ids || []).includes(t.id) || !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
   // Is a host in the room right now, and may non-hosts come in?
   const openState = async (r) => {
@@ -555,7 +572,7 @@ export const handler = async (event) => {
     if (parts.length < 2) return json(200, { ok: true, rooms: [] })
     const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`)
     const rows = await roomsForPerson(ts, name, (r) => `${SITE}/meet/${r.slug}`)
-    return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today).map(({ slug, title, live, open, today, next_at, topic, badge, kind }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, link: `${SITE}/meet/${slug}` })) })
+    return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today).map(({ slug, title, live, open, today, next_at, topic, badge, kind, host_names }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, link: `${SITE}/meet/${slug}` })) })
   }
   if (b.action === 'mine_by_mgr_token') {
     const tok = String(b.token || '').trim()
@@ -665,7 +682,14 @@ export const handler = async (event) => {
       const { data: rs } = await sb.from('app_settings').select('key, value').like('key', 'meet_rsvp_%')
       const tally = {}
       for (const x of rs || []) { const r = rooms.find((rm) => x.key.startsWith(`meet_rsvp_${rm.slug}_`)); if (!r) continue; let v = {}; try { v = JSON.parse(x.value) } catch { /* skip */ } const tt = (tally[r.slug] = tally[r.slug] || { yes: 0, no: 0 }); if (v.status === 'yes') tt.yes++; else if (v.status === 'no') tt.no++ }
-      return json(200, { ok: true, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r), ...(r.kind === 'oneoff' ? { rsvp: { ...(tally[r.slug] || { yes: 0, no: 0 }), invited: (r.invitees || []).length } } : {}) })), site: SITE })
+      // Rooms saved before the Host setting get their host worked out once and kept.
+      let filled = false
+      for (const r of rooms) if (!Array.isArray(r.host_names)) { r.host_names = await hostNamesFor(r); filled = true }
+      if (filled) await putSetting('meet_rooms', rooms)
+      // People to pick as Host: Neal, DeWayne and the regional managers.
+      const { data: hp } = await sb.from('trainees').select('id, first_name, last_name, managed_region').or(`managed_region.not.is.null,id.in.(${LEADERS.map((l) => l.id).join(',')})`)
+      const host_people = (hp || []).map((x) => ({ id: x.id, name: fullName(x), tag: x.managed_region ? `${TEAMS[x.managed_region] || x.managed_region} manager` : '' })).sort((a, c) => a.name.localeCompare(c.name))
+      return json(200, { ok: true, host_people, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r), ...(r.kind === 'oneoff' ? { rsvp: { ...(tally[r.slug] || { yes: 0, no: 0 }), invited: (r.invitees || []).length } } : {}) })), site: SITE })
     }
     if (b.action === 'save_room') {
       const r = b.room || {}
@@ -712,8 +736,10 @@ export const handler = async (event) => {
         days: [], time: '',
         minutes: Math.min(600, Math.max(10, Number(r.minutes) || 60)), once: (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).slice(0, 20),
         hosts: (Array.isArray(r.hosts) ? r.hosts : String(r.hosts || '').split(',')).map((h) => String(h).trim()).filter(Boolean).slice(0, 10),
+        host_ids: (Array.isArray(r.host_ids) ? r.host_ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 10),
         updated_at: new Date().toISOString(), updated_by: admin,
       }
+      clean.host_names = await hostNamesFor(clean)
       // Editing keeps the room's address, so links already sent keep working.
       const i = editing ? rooms.indexOf(editing) : -1
       if (i >= 0) rooms[i] = { ...rooms[i], ...clean }
