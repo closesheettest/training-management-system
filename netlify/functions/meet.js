@@ -353,6 +353,27 @@ export const handler = async (event) => {
       practice_done: row.grade_status !== 'invited', practice_expires: row.report.invite?.expires_at || null })
   }
 
+  // 🚫 IN CLASS = NO DOORDISPATCHER (Neal, 2026-10-05: "during those times they're supposed to be in
+  // class, door dispatcher will not work for them"). The map asks with the rep's JobNimbus id; from
+  // 15 minutes before a retraining session they were picked for until it ends, it's locked.
+  if (b.action === 'class_lock') {
+    const jn = String(b.jnid || '').trim()
+    if (!jn) return json(200, { ok: true, locked: false })
+    const { data: ts } = await sb.from('trainees').select('id, registration_token').eq('jobnimbus_id', jn)
+    const ids = new Set((ts || []).map((x) => x.id))
+    if (!ids.size) return json(200, { ok: true, locked: false })
+    const now = Date.now()
+    for (const r of (await loadRooms()).filter((x) => x.kind === 'retraining')) {
+      const me = (r.invitees || []).find((x) => x.id && ids.has(x.id))
+      if (!me) continue
+      const ses = retrainSessions(r).find((x) => now >= x.start.getTime() - 15 * 60000 && now < x.end.getTime())
+      if (!ses) continue
+      const t = (ts || []).find((x) => x.id === me.id), tgt = r.joins_room || r.slug
+      return json(200, { ok: true, locked: true, title: r.title, until: ses.end.toISOString(), join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}` })
+    }
+    return json(200, { ok: true, locked: false })
+  }
+
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
