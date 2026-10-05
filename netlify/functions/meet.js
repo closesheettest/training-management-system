@@ -1115,6 +1115,20 @@ export const handler = async (event) => {
         .sort((a, c) => a.name.localeCompare(c.name))
       // People outside TMS on the invite list, each with their own key.
       if (invited) for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
+      // WHERE EVERYONE IS RIGHT NOW (Neal, 2026-10-05): in the room (LiveKit says so), else their last
+      // step today — doing paperwork (which one), or waiting in the lobby — else not here yet.
+      if (b.action === 'audience') {
+        const { data: seen } = await sb.from('app_settings').select('key, value').like('key', `meet_seen_${room.slug}_%`)
+        const seenBy = {}
+        for (const x of seen || []) { try { const v = typeof x.value === 'string' ? JSON.parse(x.value) : x.value; if (v?.day === etDay()) seenBy[x.key.slice(`meet_seen_${room.slug}_`.length)] = v } catch { /* skip */ } }
+        let liveIds = new Set()
+        try { liveIds = new Set((await svc().listParticipants(room.slug)).map((p) => String(p.identity || '')).filter((i) => i.startsWith('t:')).map((i) => i.slice(2))) } catch { /* room not open */ }
+        for (const r of rows) {
+          if (liveIds.has(r.id)) r.now = { state: 'in', live: true }
+          else if (seenBy[r.id]) r.now = { ...seenBy[r.id], state: seenBy[r.id].state === 'in' ? 'left' : seenBy[r.id].state }
+          else r.now = null
+        }
+      }
       if (room.kind === 'oneoff') {
         // Everyone's RSVP.
         const { data: rs } = await sb.from('app_settings').select('key, value').like('key', `meet_rsvp_${room.slug}_%`)
@@ -1321,6 +1335,10 @@ export const handler = async (event) => {
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
+    // WHERE EVERYONE IS (Neal, 2026-10-05: "I can see that they're in the room, doing their onboarding
+    // paperwork, paperwork's complete, they're in the lobby"). Each trainee's latest step on this room
+    // today, for the People panel: meet_seen_<room>_<trainee id> = { state, step, at }.
+    const mark = (state, step = '') => (String(identity || '').startsWith('t:') ? putSetting(`meet_seen_${room.slug}_${identity.slice(2)}`, { state, step, at: new Date().toISOString(), day: etDay() }).catch(() => {}) : Promise.resolve())
     let name = null, identity = null, host = false, isRetrainee = false
     const admin = await verifyPin(b.pin)
     // Each device gets its own seat — the same identity twice would kick the first device out.
@@ -1416,6 +1434,7 @@ export const handler = async (event) => {
           if (ob?.signed_at && !ob.banking_completed_at && etDay(Date.parse(ob.signed_at)) < etDay()) {
             const ok2 = b._direct !== false
             if (!ok2) await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
+            await mark('paperwork', 'Direct deposit')
             return json(200, { ok: false, onboarding: true, banking: true, first: t.first_name || '', onboarding_url: ok2 ? `/onboarding/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` : null })
           }
           if (!ob?.signed_at) {
@@ -1423,14 +1442,17 @@ export const handler = async (event) => {
             // (Neal, 2026-10-04: "they're signing in anyways"). Otherwise send it by text + email.
             const direct = b._direct !== false && (b._direct === true || !!String(b.t || '').trim())
             if (direct) {
+              await mark('paperwork', 'ICA + W-9')
               return json(200, { ok: false, onboarding: true, first: t.first_name || '', onboarding_url: `/onboarding/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` })
             }
             await fetch(`${SITE}/.netlify/functions/send-onboarding-sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trainee_id: t.id }) }).catch(() => {})
+            await mark('paperwork', 'ICA + W-9 (sent by text)')
             return json(200, { ok: false, onboarding: true, first: t.first_name || '' })
           }
           // PAY DOCUMENTS (Neal, 2026-10-05: onboarding = ICA + W-9 + the draw and inspection
           // commission). Signed the first two but not these → straight to them, then back in.
           if (ob?.signed_at && !ob.comp_signed_at && String(b.t || '').trim()) {
+            await mark('paperwork', 'Pay documents')
             return json(200, { ok: false, onboarding: true, first: t.first_name || '', onboarding_url: `/comp-agreement/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` })
           }
         }
@@ -1438,7 +1460,7 @@ export const handler = async (event) => {
     }
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
-    if (!host) { const st = await openState(room); if (!st.open) return json(200, { ok: false, not_open: true, room: publicRoom(room) }) }
+    if (!host) { const st = await openState(room); if (!st.open) { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } }
     // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
     if (room.kind === 'training' && !host && !isRetrainee && identity.startsWith('t:')) {
       const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
@@ -1461,6 +1483,7 @@ export const handler = async (event) => {
     at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
     // Open the room with its top line already set, so the first person in sees it.
     try { await svc().createRoom({ name: room.slug, emptyTimeout: 600, metadata: JSON.stringify({ topic: room.topic || '' }) }) } catch { /* already open */ }
+    await mark('in')
     return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room) })
   }
 
