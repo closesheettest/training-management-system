@@ -15,6 +15,7 @@ const Meet = lazy(() => import('./pages/Meet'))
 const MeetingRooms = lazy(() => import('./pages/MeetingRooms'))
 const MeetingLauncher = lazy(() => import('./pages/MeetingLauncher'))
 const MyMeetings = lazy(() => import('./pages/MyMeetings'))
+const RetrainPrep = lazy(() => import('./pages/RetrainPrep'))
 const RecordingsPage = lazy(() => import('./pages/RecordingsPage'))
 const Recorder = lazy(() => import('./pages/Recorder'))
 import Provision from './pages/Provision.jsx'
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/recordings/:room" element={<Suspense fallback={null}><RecordingsPage /></Suspense>} />
         <Route path="/meetings" element={<Suspense fallback={null}><MeetingLauncher /></Suspense>} />
         <Route path="/my-meetings" element={<Suspense fallback={null}><MyMeetings /></Suspense>} />
+        <Route path="/prep/:token" element={<Suspense fallback={null}><RetrainPrep /></Suspense>} />
         <Route path="/meet/:room" element={<Suspense fallback={null}><Meet /></Suspense>} />
         <Route path="/onboarding/:token" element={<MinimalLayout><Onboarding /></MinimalLayout>} />
 

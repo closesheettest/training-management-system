@@ -287,6 +287,25 @@ export const handler = async (event) => {
   }
 
   // ---- A REP'S OWN ROOMS (their dashboard) ----
+  // 📋 A RETRAINING REP'S OWN PAGE (/prep/<token>, Neal 2026-10-05: "one link … on that page it
+  // lists everything"). The token is their practice-test token: schedule, join link, homework.
+  if (b.action === 'retrain_page') {
+    const tok = String(b.token || '').trim()
+    if (tok.length < 20) return json(404, { ok: false, error: 'This link is not valid.' })
+    const { data: row } = await sb.from('sales_practice_sessions').select('id, trainee_id, grade_status, report').filter('report->invite->>token', 'eq', tok).maybeSingle()
+    if (!row?.report?.retrain) return json(404, { ok: false, error: 'This link is not valid.' })
+    const room = (await loadRooms()).find((r) => r.slug === row.report.retrain)
+    if (!room) return json(404, { ok: false, error: 'This retraining is no longer on the schedule.' })
+    const { data: t } = await sb.from('trainees').select('first_name, registration_token').eq('id', row.trainee_id).maybeSingle()
+    if (!row.report.opened_at) { const rep = { ...row.report, opened_at: new Date().toISOString() }; await sb.from('sales_practice_sessions').update({ report: rep }).eq('id', row.id) }
+    const ses = (room.once || []).filter(Boolean).map((o) => { const st = etWall(o.slice(0, 10), o.slice(11, 16)); return { start: st.toISOString(), end: new Date(st.getTime() + Math.max(10, Number(room.minutes) || 60) * 60000).toISOString() } }).sort((x, y) => x.start.localeCompare(y.start))
+    const tgt = room.joins_room || room.slug
+    return json(200, { ok: true, first: t?.first_name || '', title: room.title, topic: room.topic || '', sessions: ses,
+      join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}`,
+      slides: `${SITE}/homework/slides?from=1&to=5`, script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
+      practice_done: row.grade_status !== 'invited', practice_expires: row.report.invite?.expires_at || null })
+  }
+
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
@@ -463,7 +482,7 @@ export const handler = async (event) => {
       const tgt = room.joins_room || room.slug
       const link = p.registration_token ? `${SITE}/meet/${tgt}?t=${p.registration_token}` : `${SITE}/meet/${tgt}`
       const due = first ? first.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'the first session'
-      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title}: ${sessionLine(room)} (Eastern).\n\nYour link to join each day: ${link}\n\nHOMEWORK, done before ${due}:\n1) Learn slides 1–5 and the points on each (tap a slide to read it): ${SITE}/homework/slides?from=1&to=5\n2) The full sales script: ${RETRAIN_SCRIPT}\n3) Do your practice test: present slides 1–5 to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones: ${SITE}/practice/${ptok}`
+      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title} (${sessionLine(room)}, Eastern). Tap here for your schedule, your join link and your homework (due before ${due}): ${SITE}/prep/${ptok}`
       const r = { name, sms: false, email: false }
       if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: fn, lastName: p.last_name || '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
       if (email) { try { const x = await sendEmail(email, `You're signed up: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
