@@ -20,6 +20,9 @@ export default function RetrainPrep() {
   if (!d) return wrap(<p className="text-center text-slate-500">Loading…</p>)
   if (!d.ok) return wrap(<p className="rounded-xl bg-white p-6 text-center text-slate-700 shadow">{d.error}</p>)
   const first = d.sessions[0]
+  const rng = d.from === 1 && d.to >= 23 ? 'the whole presentation' : `slides ${d.from}–${d.to}`
+  const Rng = rng[0].toUpperCase() + rng.slice(1)
+  const last = d.day >= d.days
   const due = first ? `${fmtDay(first.start)} at ${fmtTime(first.start)}` : 'the first session'
   const Step = ({ n, title, sub, href, done, cta }) => (
     <a href={href} target="_blank" rel="noreferrer" className={`flex items-center gap-4 rounded-xl border-2 bg-white p-4 no-underline shadow-sm ${done ? 'border-emerald-400' : 'border-slate-200 hover:border-brand-navy'}`}>
@@ -36,7 +39,7 @@ export default function RetrainPrep() {
       <div className="text-center">
         <div className="inline-block rounded-xl bg-white px-4 py-2 shadow-sm"><img src="/uss-logo.png" alt="U.S. Shingle & Metal" className="h-14" /></div>
         <h1 className="mt-4 text-2xl font-extrabold text-brand-navy">{d.first ? `${d.first}, here's` : "Here's"} what you need to do</h1>
-        <p className="mt-1 text-slate-600">You're signed up for <b>{d.title}</b>{d.topic ? ` (${d.topic})` : ''}.</p>
+        <p className="mt-1 text-slate-600"><b>{d.title}</b>{d.topic ? ` (${d.topic})` : ''}{d.days > 1 ? ` · day ${d.day} of ${d.days}` : ''}</p>
       </div>
 
       <h2 className="mt-6 text-sm font-bold uppercase tracking-wider text-slate-500">📅 When</h2>
@@ -47,16 +50,16 @@ export default function RetrainPrep() {
           </div>
         ))}
         <a href={d.join} target="_blank" rel="noreferrer" className="mt-3 block rounded-lg bg-emerald-600 px-4 py-3 text-center text-base font-extrabold text-white no-underline">▶ Join the training</a>
-        <p className="mt-2 text-center text-xs text-slate-500">Use this same button each day. It opens 15 minutes early. Camera on, quiet room, not driving.</p>
+        <p className="mt-2 text-center text-xs text-slate-500">It opens 15 minutes early. Camera on, quiet room, not driving.</p>
       </div>
 
       <h2 className="mt-6 text-sm font-bold uppercase tracking-wider text-slate-500">📝 Homework: done before {due}</h2>
       <div className="mt-2 space-y-3">
-        <Step n="1" title="Learn slides 1–5" sub="Tap each slide to read the script and the points to bring out. Say it out loud." href={d.slides} cta="Open" />
+        <Step n="1" title={`Learn ${rng}`} sub="Tap each slide to read the script and the points to bring out. Say it out loud." href={d.slides} cta="Open" />
         <Step n="2" title="The full sales script" sub="The whole presentation, word for word." href={d.script} cta="Read" />
-        <Step n="3" title="Practice test: slides 1–5" sub={d.practice_done ? 'Done. Nice work.' : 'Present slides 1–5 out loud to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones.'} href={d.practice} done={d.practice_done} cta={d.practice_done ? 'See it' : 'Start'} />
+        <Step n="3" title={`Practice test: ${rng}`} sub={d.practice_done ? 'Done. Nice work.' : `Present ${rng} out loud to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones.`} href={d.practice} done={d.practice_done} cta={d.practice_done ? 'See it' : 'Start'} />
       </div>
-      <p className="mt-6 text-center text-xs text-slate-400">Keep this page: it's your link for the whole retraining.</p>
+      <p className="mt-6 text-center text-xs text-slate-400">{last ? 'This is the last session.' : "After this session you'll get the next day's link and homework by text the night before."}</p>
     </>
   )
 }

@@ -144,6 +144,10 @@
 
 # Meeting recordings: delete files older than each room's "keep recordings" setting.
 # Daily 8:30 UTC (4:30 AM EDT). Mirrors export config.schedule in the function file.
+# Retraining: 7 PM ET nightly, the next day's session link + homework to each picked rep.
+[functions."cron-retrain-homework"]
+  schedule = "0 23 * * *"
+
 # Meeting reminders: every 5 minutes, texts + emails invitees 5 min before rooms with remind_5 on.
 [functions."cron-meet-reminders"]
   schedule = "*/5 * * * *"

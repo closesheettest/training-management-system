@@ -108,6 +108,52 @@ const nextMeeting = (r, now = Date.now()) => {
 // text message with the link"). Rooms with remind_5 on and an invite list (custom / one-time): each
 // invited person gets a text AND an email with their own link. Run by cron-meet-reminders every
 // 5 minutes; each meeting is reminded once (app_settings meet_remind_<room>_<start>).
+// RETRAINING DAY BY DAY (Neal, 2026-10-05): each evening a picked rep gets just the NEXT session
+// and that night's homework. Day 1 = slides 1–5, day 2 = the rest (6–23), day 3+ = the whole
+// presentation. room.plan can override: [{ from, to, section }].
+const RETRAIN_PLAN = [{ from: 1, to: 5, section: 'slides_1_5' }, { from: 6, to: 23, section: 'slides_6_23' }, { from: 1, to: 23, section: 'full' }]
+const planFor = (room, k) => (Array.isArray(room.plan) && room.plan[k]) || RETRAIN_PLAN[Math.min(k, RETRAIN_PLAN.length - 1)]
+const retrainSessions = (room) => (room.once || []).filter(Boolean).map((o) => { const st = etWall(o.slice(0, 10), o.slice(11, 16)); return { start: st, end: new Date(st.getTime() + Math.max(10, Number(room.minutes) || 60) * 60000) } }).sort((a, c) => a.start - c.start)
+const fmtSession = (x) => {
+  const f = (d, o) => d.toLocaleString('en-US', { timeZone: 'America/New_York', ...o })
+  return `${f(x.start, { weekday: 'long', month: 'short', day: 'numeric' })}, ${f(x.start, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}–${f(x.end, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}`
+}
+// Make one rep's homework for session k (a practice-test row; its token is their page link) and
+// text + email them the page. Shared by the manager's pick and the nightly job.
+async function sendRetrainDay(sb, room, p, k, byName) {
+  const ses = retrainSessions(room)[k]
+  if (!ses) return { name: `${p.first_name || ''} ${p.last_name || ''}`.trim(), sms: false, email: false }
+  const plan = planFor(room, k)
+  const name = `${p.first_name || ''} ${p.last_name || ''}`.trim(), fn = p.first_name || 'there', email = p.company_email || p.email || ''
+  const ptok = crypto.randomBytes(18).toString('base64url')
+  await sb.from('sales_practice_sessions').insert({ trainee_id: p.id, trainee_name: name, trainer_name: byName || null, persona_key: 'ready', section: plan.section, grade_status: 'invited', transcript: [],
+    report: { retrain: room.slug, day: k, invite: { token: ptok, expires_at: ses.start.toISOString(), phone: p.phone || null, email: email || null, sent_by: byName || null } } })
+  const lead = k === 0 && byName ? `${String(byName).split(' ')[0]} signed you up for ${room.title}. ` : ''
+  const msg = `Hi ${fn}, ${lead}Your next ${room.title} session: ${fmtSession(ses)} (Eastern). Tap here for your link and tonight's homework: ${SITE}/prep/${ptok}`
+  const r = { name, sms: false, email: false }
+  if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: fn, lastName: p.last_name || '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
+  if (email) { try { const x = await sendEmail(email, `${room.title}: ${fmtSession(ses)}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
+  return r
+}
+// Nightly (7 PM ET): everyone picked for a retraining whose NEXT session is tomorrow gets that
+// day's page — unless they already have it (e.g. picked today).
+export async function runRetrainHomework() {
+  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  const { data } = await sb.from('app_settings').select('value').eq('key', 'meet_rooms').maybeSingle()
+  let rooms = []; try { rooms = JSON.parse(data?.value || '[]') } catch { rooms = [] }
+  const tomorrow = etDay(Date.now() + 864e5), out = []
+  for (const room of rooms.filter((r) => r.kind === 'retraining')) {
+    const k = retrainSessions(room).findIndex((x) => etDay(x.start.getTime()) === tomorrow)
+    const ids = (room.invitees || []).filter((x) => x.id).map((x) => x.id)
+    if (k < 0 || !ids.length) continue
+    const { data: have } = await sb.from('sales_practice_sessions').select('trainee_id, report').in('trainee_id', ids)
+    const done = new Set((have || []).filter((x) => x.report?.retrain === room.slug && Number(x.report?.day ?? 0) === k).map((x) => x.trainee_id))
+    const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email').in('id', ids.filter((id) => !done.has(id)))
+    for (const p of ppl || []) out.push(await sendRetrainDay(sb, room, p, k, null))
+  }
+  return out
+}
+
 // A room's people with their own links, as "Send links" sees them (used by the reminder job).
 export async function audienceFor(slug) {
   INTERNAL = true
@@ -298,11 +344,12 @@ export const handler = async (event) => {
     if (!room) return json(404, { ok: false, error: 'This retraining is no longer on the schedule.' })
     const { data: t } = await sb.from('trainees').select('first_name, registration_token').eq('id', row.trainee_id).maybeSingle()
     if (!row.report.opened_at) { const rep = { ...row.report, opened_at: new Date().toISOString() }; await sb.from('sales_practice_sessions').update({ report: rep }).eq('id', row.id) }
-    const ses = (room.once || []).filter(Boolean).map((o) => { const st = etWall(o.slice(0, 10), o.slice(11, 16)); return { start: st.toISOString(), end: new Date(st.getTime() + Math.max(10, Number(room.minutes) || 60) * 60000).toISOString() } }).sort((x, y) => x.start.localeCompare(y.start))
-    const tgt = room.joins_room || room.slug
-    return json(200, { ok: true, first: t?.first_name || '', title: room.title, topic: room.topic || '', sessions: ses,
+    const k = Number(row.report.day ?? 0), all = retrainSessions(room), ses = all[k] ? [all[k]] : all.slice(0, 1)
+    const plan = planFor(room, k), tgt = room.joins_room || room.slug
+    return json(200, { ok: true, first: t?.first_name || '', title: room.title, topic: room.topic || '', day: k + 1, days: all.length,
+      sessions: ses.map((x) => ({ start: x.start.toISOString(), end: x.end.toISOString() })), from: plan.from, to: plan.to,
       join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}`,
-      slides: `${SITE}/homework/slides?from=1&to=5`, script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
+      slides: `${SITE}/homework/slides?from=${plan.from}&to=${plan.to}`, script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
       practice_done: row.grade_status !== 'invited', practice_expires: row.report.invite?.expires_at || null })
   }
 
@@ -469,25 +516,10 @@ export const handler = async (event) => {
     room.invitees = [...(room.invitees || []), ...fresh.map((id) => ({ id, by: mName, at }))]
     await putSetting('meet_rooms', rooms0)
     const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').in('id', fresh)
-    const first = sessionsOf(room)[0]?.start
-    const expires = new Date(Math.max(first ? first.getTime() : 0, Date.now() + 24 * 3600000)).toISOString()
+    // Their NEXT session (normally day 1) and its homework, right away.
+    const k = Math.max(0, retrainSessions(room).findIndex((x) => x.start.getTime() > Date.now()))
     const results = []
-    for (const p of ppl || []) {
-      const fn = p.first_name || 'there', name = fullName(p)
-      const email = p.company_email || p.email || ''
-      // Their practice test: slides 1–5 with the easy homeowner, on their own device.
-      const ptok = crypto.randomBytes(18).toString('base64url')
-      await sb.from('sales_practice_sessions').insert({ trainee_id: p.id, trainee_name: name, trainer_name: mName, persona_key: 'ready', section: 'slides_1_5', grade_status: 'invited', transcript: [],
-        report: { retrain: room.slug, invite: { token: ptok, expires_at: expires, phone: p.phone || null, email: email || null, sent_by: mName } } })
-      const tgt = room.joins_room || room.slug
-      const link = p.registration_token ? `${SITE}/meet/${tgt}?t=${p.registration_token}` : `${SITE}/meet/${tgt}`
-      const due = first ? first.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'the first session'
-      const msg = `Hi ${fn}, ${who.m.first_name} signed you up for ${room.title} (${sessionLine(room)}, Eastern). Tap here for your schedule, your join link and your homework (due before ${due}): ${SITE}/prep/${ptok}`
-      const r = { name, sms: false, email: false }
-      if (p.phone) { try { const x = await sendSmsViaGhl(p.phone, msg, { firstName: fn, lastName: p.last_name || '' }); r.sms = !!(x && x.ok !== false) } catch { /* shown */ } }
-      if (email) { try { const x = await sendEmail(email, `You're signed up: ${room.title}`, msg); r.email = !!(x && x.ok !== false) } catch { /* shown */ } }
-      results.push(r)
-    }
+    for (const p of ppl || []) results.push(await sendRetrainDay(sb, room, p, k, mName))
     return json(200, { ok: true, added: results.length, sent: results })
   }
 
