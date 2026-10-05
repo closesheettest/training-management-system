@@ -53,6 +53,26 @@ const TRIAL = { slug: 'trial', title: 'Trial meeting', kind: 'custom', hosts: []
 const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' }, body: JSON.stringify(obj) })
 const REP_PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/rep-pin'
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+// The "when" line people see on the link, written from the room's own schedule (Neal, 2026-10-05:
+// Nikki typed "Tues 10am" AND set the schedule — "why have it twice"). Weekly: "Tue 10 AM" or
+// "Mon–Thu 9:30 AM"; dated: "Tue Oct 6, 10 AM". Nothing scheduled → '' (keeps any old typed line).
+const DAYN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const hm12 = (t) => { const [h, m] = String(t).split(':').map(Number); return `${h % 12 || 12}${m ? `:${String(m).padStart(2, '0')}` : ''} ${h < 12 ? 'AM' : 'PM'}` }
+const scheduleText = (r) => {
+  const slots = (Array.isArray(r.slots) ? r.slots : []).filter((x) => x && /^\d{2}:\d{2}$/.test(x.time || ''))
+  if (slots.length) {
+    const byTime = {}
+    for (const x of slots) (byTime[x.time] = byTime[x.time] || []).push(Number(x.day))
+    return Object.entries(byTime).sort().map(([t, ds]) => {
+      ds = [...new Set(ds)].sort((a, c) => a - c)
+      const run = ds.length > 2 && ds.every((d, i) => i === 0 || d === ds[i - 1] + 1)
+      return `${run ? `${DAYN[ds[0]]}–${DAYN[ds[ds.length - 1]]}` : ds.map((d) => DAYN[d]).join(', ')} ${hm12(t)}`
+    }).join(' · ')
+  }
+  const once = (Array.isArray(r.once) ? r.once : []).filter((o) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(o)).sort()
+  if (once.length) return once.slice(0, 4).map((o) => `${new Date(`${o.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })}, ${hm12(o.slice(11, 16))}`).join(' · ') + (once.length > 4 ? ' …' : '')
+  return ''
+}
 const etDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
 const verifyPin = async (pin) => {
@@ -914,7 +934,7 @@ export const handler = async (event) => {
       const kind = ['zone', 'managers', 'company', 'training', 'prayer', 'everyone', 'custom', 'oneoff', 'retraining'].includes(r.kind) ? r.kind : 'custom'
       const clean = {
         slug, title: String(r.title).trim().slice(0, 80), kind, zone: kind === 'zone' && TEAMS[r.zone] ? r.zone : null,
-        schedule: String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
+        schedule: scheduleText(r) || String(r.schedule || '').slice(0, 120), topic: String(r.topic || '').slice(0, 200), cameras_required: !!r.cameras_required,
         look: ['team', 'company', 'devotional'].includes(r.look) ? r.look : (kind === 'company' ? 'company' : 'team'),
         banner_url: /^https:\/\/\S+$/.test(String(r.banner_url || '').trim()) ? String(r.banner_url).trim().slice(0, 300) : '',
         welcome: String(r.welcome || '').slice(0, 400), back_label: String(r.back_label || '').slice(0, 60),
