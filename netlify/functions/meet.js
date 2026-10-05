@@ -494,7 +494,8 @@ export const handler = async (event) => {
     const who = await mgrByToken(b.token)
     if (!who) return json(401, { ok: false })
     // visible_from: managers don't see it before then (Neal, 2026-10-05: reveal it on the 8:30 call).
-    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now()))
+    // early_zones: those zones' managers see it before visible_from (Neal previewing as SitSold, 2026-10-05).
+    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now() || (r.early_zones || []).includes(who.m.managed_region)))
     const out = []
     for (const r of list) {
       const mine = (r.invitees || []).filter((x) => x.id && who.team.some((t) => t.id === x.id))
@@ -565,6 +566,7 @@ export const handler = async (event) => {
         remind_5: !!r.remind_5,
         mic_lock: !!r.mic_lock,
         joins_room: kind === 'retraining' ? String(r.joins_room || '').slice(0, 60) : '',
+        early_zones: (rooms.find((x) => x.slug === r.original_slug) || {}).early_zones || [],
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
         also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
