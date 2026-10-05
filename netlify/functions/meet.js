@@ -410,12 +410,22 @@ export const handler = async (event) => {
   // 📱 WAITING ON YOU (Neal, 2026-10-05): things we texted a rep that they haven't done — unsigned
   // pay documents, a retraining page not opened — for an alert on their dashboard, with a button to
   // re-send them all by text once they've texted START to our number (texts were blocked).
-  if (b.action === 'rep_pending' || b.action === 'rep_resend') {
+  if (b.action === 'rep_pending' || b.action === 'rep_resend' || b.action === 'rep_update_contact') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) }).then((r) => r.json()).catch(() => ({}))
     if (!who.ok || !who.jnid || who.viewer) return json(200, { ok: true, items: [] })
-    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, registration_token, is_active_sales_rep').eq('jobnimbus_id', who.jnid)
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token, is_active_sales_rep').eq('jobnimbus_id', who.jnid)
     const t = (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0]
     if (!t) return json(200, { ok: true, items: [] })
+    // CHECK THE CONTACT FIRST (Neal, 2026-10-05: his own record had an old number — that's why texts
+    // never came). The rep confirms or fixes their cell + email; a fix saves to every record of theirs.
+    if (b.action === 'rep_update_contact') {
+      const ph = String(b.phone || '').replace(/\D/g, '').slice(-10), em = String(b.email || '').trim().toLowerCase()
+      if (ph.length !== 10) return json(400, { ok: false, error: 'Enter a 10-digit cell number.' })
+      if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return json(400, { ok: false, error: 'That email doesn\'t look right.' })
+      const nice = `${ph.slice(0, 3)}-${ph.slice(3, 6)}-${ph.slice(6)}`
+      await sb.from('trainees').update({ phone: nice, ...(em ? { email: em } : {}) }).eq('jobnimbus_id', who.jnid)
+      return json(200, { ok: true, phone: nice, email: em || t.email })
+    }
     const ids = (ts || []).map((x) => x.id), items = []
     const { data: ob } = await sb.from('trainee_onboarding').select('comp_signed_at').in('trainee_id', ids)
     if (t.registration_token && !(ob || []).some((x) => x.comp_signed_at)) items.push({ key: 'pay', label: 'Sign your pay documents (Draw Program + Inspection Compensation Plan)', link: `${SITE}/comp-agreement/${t.registration_token}` })
@@ -426,7 +436,7 @@ export const handler = async (event) => {
       items.push({ key: `prep-${inv.token.slice(0, 6)}`, label: 'Your retraining: tomorrow\'s link and homework', link: `${SITE}/prep/${inv.token}` })
     }
     const last4 = String(t.phone || '').replace(/\D/g, '').slice(-4)
-    if (b.action === 'rep_pending') return json(200, { ok: true, items, last4 })
+    if (b.action === 'rep_pending') return json(200, { ok: true, items, last4, phone: t.phone || '', email: t.company_email || t.email || '' })
     if (!items.length) return json(200, { ok: true, sent: false, error: 'Nothing waiting.' })
     if (!t.phone) return json(200, { ok: false, error: "We don't have a cell number for you. Tell your manager." })
     const gate = `meet_resend_${t.id}`, prev = await getSetting(gate, null)
