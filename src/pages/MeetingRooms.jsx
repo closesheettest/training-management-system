@@ -314,15 +314,8 @@ export default function MeetingRooms() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
             <label className="text-sm font-semibold">Type<select className={field} value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, public: e.target.value === 'prayer' ? true : form.public })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-            {form.kind === 'oneoff' && (
-              <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="font-semibold">When <input type="datetime-local" value={(form.once || [''])[0] || ''} onChange={(e) => setForm({ ...form, once: [e.target.value] })} className="ml-1 rounded border border-slate-300 px-2 py-1" /></label>
-                  <label className="font-semibold">for <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-20 rounded border border-slate-300 px-2 py-1" /> min</label>
-                  <span className="text-xs text-slate-500">Eastern time</span>
-                </div>
-              </div>
-            )}
+            {/* A one-time meeting's date + time live in the ONE "When" section below (Neal, 2026-10-05:
+                Nikki — "the time is in three locations to enter"). */}
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
               <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
                 <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
@@ -414,8 +407,11 @@ export default function MeetingRooms() {
             <label className="text-sm font-semibold">Host code (for a host who isn't in TMS)<input className={field} value={form.host_code} onChange={(e) => setForm({ ...form, host_code: e.target.value })} placeholder="optional" /></label>
             {/* SCHEDULE: when the room is open. Outside it, people who tap Join are told when the
                 next meeting is (Neal, 2026-10-04). Leave it all empty for an always-open room. */}
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
-              <div className="text-sm font-bold">When it meets <span className="font-normal text-slate-500">(Eastern time; leave empty for always open)</span></div>
+            <div className="overflow-hidden rounded-lg border-2 border-blue-300 bg-white sm:col-span-2">
+              <div className="bg-blue-600 px-3 py-2 text-base font-extrabold text-white">🕒 When <span className="text-sm font-normal text-blue-100">(Eastern time)</span></div>
+              <div className="p-3">
+              {form.kind !== 'oneoff' && (<>
+              <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">🔁 Recurring meetings only <span className="font-normal text-slate-500">(repeats every week; leave all off if it doesn't)</span></div>
               {/* One row per day, each with its own time and length — repeats every week. */}
               <div className="mt-2 space-y-1 text-sm">
                 {DOW.map((d, i) => {
@@ -439,8 +435,9 @@ export default function MeetingRooms() {
                   )
                 })}
               </div>
-              <div className="mt-3 text-sm">
-                <span className="font-semibold">One-time meetings</span> <span className="text-slate-500">(e.g. a company meeting)</span>
+              </>)}
+              <div className={`${form.kind !== 'oneoff' ? 'mt-4' : ''} text-sm`}>
+                <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">📅 {form.kind === 'oneoff' ? 'Date and time' : 'One-time meetings only'} <span className="font-normal text-slate-500">{form.kind === 'oneoff' ? '' : '(a specific date, e.g. a company meeting)'}</span></div>
                 {(form.once || []).length > 0 && <span className="ml-2 text-slate-500">each lasts <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-16 rounded border border-slate-300 px-1 py-0.5" /> min</span>}
                 {(form.once || []).map((o, i) => (
                   <div key={i} className="mt-1 flex items-center gap-2">
@@ -448,7 +445,9 @@ export default function MeetingRooms() {
                     <button onClick={() => setForm({ ...form, once: form.once.filter((_, j) => j !== i) })} className="text-xs text-red-600">remove</button>
                   </div>
                 ))}
-                <button onClick={() => setForm({ ...form, once: [...(form.once || []), ''] })} className="mt-1 block text-sm font-semibold text-blue-700">+ Add a date</button>
+                <button onClick={() => setForm({ ...form, once: [...(form.once || []), ''] })} className="mt-1 block text-sm font-semibold text-blue-700">+ Add {form.kind === 'oneoff' && (form.once || []).filter(Boolean).length ? 'another ' : 'a '}date</button>
+                {form.kind !== 'oneoff' && !slotsOfForm(form).length && !(form.once || []).filter(Boolean).length && <div className="mt-2 text-xs text-amber-700">Nothing set: the room is open any time.</div>}
+              </div>
               </div>
             </div>
             {/* LOOK: how the room's pages look (Neal, 2026-10-04 — the devotional should feel like
