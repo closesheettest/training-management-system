@@ -93,9 +93,10 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
   const [msg, setMsg] = useState('')
   const setStage = async (next, label) => {
     setMsg('')
-    const j = await call({ action: 'set_stage', room: room.slug, stage: next, ...auth }).catch(() => ({}))
+    const j = await call({ action: 'set_stage', room: room.slug, stage: next, ...(room.auto_stage ? { auto_off: true } : {}), ...auth }).catch(() => ({}))
     setMsg(j.ok ? label : (j.error || 'Did not work'))
   }
+  const autoOff = useMemo(() => { try { return !!JSON.parse(info.metadata || '{}').auto_off } catch { return false } }, [info.metadata])
   // UNMUTE (Neal, 2026-10-04): the host's page tells that person's device to turn its own mic
   // back on (a server can't switch someone's mic on). Receivers only obey a host.
   const unmute = async (identities, label) => {
@@ -121,6 +122,7 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
         <button onClick={() => unmute(null, 'Everyone unmuted')} style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: 'none', background: '#15803d', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>🎙 Unmute everyone</button>
       </div>
       <div style={{ fontSize: 12.5, color: '#94a3b8', margin: '2px 0 6px' }}>🎙 <b style={{ color: '#e5e7eb' }}>Podcast mode</b>: tap ⭐ to put up to 4 people on stage. Everyone sees only them; everyone else is muted.</div>
+      {room.auto_stage && autoOff && <button onClick={async () => { await call({ action: 'set_stage', room: room.slug, stage: [], auto_off: false, ...auth }).catch(() => {}); setMsg('Automatic podcast view is back on') }} style={{ width: '100%', padding: '7px 10px', marginBottom: 8, borderRadius: 8, border: '1px solid #60a5fa', background: '#0b1f3a', color: '#bfdbfe', fontWeight: 800, cursor: 'pointer' }}>🎙 Back to automatic podcast view (hosts side by side)</button>}
       {stage.length > 0 && <button onClick={() => setStage([], 'Back to the normal view')} style={{ width: '100%', padding: '7px 10px', marginBottom: 8, borderRadius: 8, border: '1px solid #f59e0b', background: '#422006', color: '#fcd34d', fontWeight: 800, cursor: 'pointer' }}>⏹ Leave podcast mode ({stage.length} on stage)</button>}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13.5 }}>
         <input type="checkbox" checked={circle} onChange={(e) => setCircle(e.target.checked)} /> Show my camera as a circle on my shared screen
@@ -228,6 +230,17 @@ function Stage({ room, auth, isHost }) {
   // 🎙 Podcast mode: only the people on stage, side by side. Being put on stage unmutes you.
   const stageIds = Array.isArray(rmeta.stage) ? rmeta.stage : []
   const amOnStage = !!localParticipant && stageIds.includes(localParticipant.identity)
+  // 🎙 AUTOMATIC PODCAST VIEW (Neal, 2026-10-04: "two hosts so it focuses on those, almost like a
+  // podcast"). Rooms with auto_stage: once 2+ hosts are in, they go side by side on stage for
+  // everyone; nobody is muted. One host's page (the first by name order) keeps it in step as hosts
+  // come and go. A host changing the stage by hand switches it off until they turn it back on.
+  const hostIdsNow = [...new Set(cams.map((t) => t.participant).filter((p) => { try { return JSON.parse(p.metadata || '{}').host } catch { return false } }).map((p) => p.identity))].sort().slice(0, 4)
+  useEffect(() => {
+    if (!room.auto_stage || !isHost || rmeta.auto_off || hostIdsNow[0] !== localParticipant?.identity) return
+    const want = hostIdsNow.length >= 2 ? hostIdsNow : []
+    if (want.join('|') === stageIds.join('|')) return
+    call({ action: 'set_stage', room: room.slug, stage: want, no_mute: true, ...auth }).catch(() => {})
+  }, [hostIdsNow.join('|'), stageIds.join('|'), rmeta.auto_off, isHost]) // eslint-disable-line react-hooks/exhaustive-deps
   const wasOnStage = useRef(false)
   useEffect(() => { if (amOnStage && !wasOnStage.current) localParticipant.setMicrophoneEnabled(true).catch(() => {}); wasOnStage.current = amOnStage }, [amOnStage]) // eslint-disable-line react-hooks/exhaustive-deps
   const speakingIds = new Set(speakers.map((x) => x.identity))

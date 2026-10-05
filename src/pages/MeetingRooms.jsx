@@ -165,6 +165,7 @@ export default function MeetingRooms() {
                 ))}
                 <span className="text-xs text-slate-500">They get the links and reminders, see it on Your meetings, and host it.</span>
               </div>
+              <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.auto_stage} onChange={(e) => setForm({ ...form, auto_stage: e.target.checked })} /> 🎙 Podcast view: when 2+ hosts are in, show them side by side for everyone (nobody is muted)</label>
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone 5 minutes before each meeting (text + email with their own link)</label>
             </div>
             <label className="text-sm font-semibold">Extra hosts (names, comma-separated)<input className={field} value={form.hosts} onChange={(e) => setForm({ ...form, hosts: e.target.value })} placeholder="A team room's manager is host automatically" /></label>

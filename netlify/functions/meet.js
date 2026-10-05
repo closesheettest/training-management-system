@@ -68,6 +68,7 @@ const publicRoom = (r) => ({
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : null, color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
+  auto_stage: !!r.auto_stage,
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
   next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null,
@@ -385,6 +386,7 @@ export const handler = async (event) => {
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         effort_gate: !!r.effort_gate,
         remind_5: !!r.remind_5,
+        auto_stage: !!r.auto_stage,
         also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
@@ -827,11 +829,13 @@ export const handler = async (event) => {
     // stage is muted when the stage is set; the page unmutes the people on it.
     if (b.action === 'set_stage') {
       const stage = (Array.isArray(b.stage) ? b.stage : []).map(String).slice(0, 4)
-      if (stage.length) {
+      // no_mute: the automatic podcast view (hosts side by side) features the hosts without
+      // muting anyone else (Neal, 2026-10-04 — managers can still speak up).
+      if (stage.length && !b.no_mute) {
         const list = await svc().listParticipants(room.slug)
         for (const p of list) if (!stage.includes(p.identity) && !/^(egress|homeowner)/.test(p.identity)) { try { for (const tr of p.tracks || []) if (tr.type === TrackType.AUDIO && !tr.muted) await svc().mutePublishedTrack(room.slug, p.identity, tr.sid, true) } catch { /* left */ } }
       }
-      await setMeta({ stage })
+      await setMeta({ stage, ...(b.auto_off !== undefined ? { auto_off: !!b.auto_off } : {}) })
       return json(200, { ok: true, stage })
     }
     if (b.action === 'set_topic') {
