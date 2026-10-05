@@ -371,8 +371,15 @@ export default function MeetingRooms() {
             <div className="rounded-md border-2 border-blue-300 bg-blue-50 p-3 text-sm sm:col-span-2">
               <div className="font-bold">👤 Host</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {hostPeople.map((x) => { const on = (form.host_ids || []).includes(x.id); return (
-                  <button key={x.id} type="button" onClick={() => setForm({ ...form, host_ids: on ? form.host_ids.filter((y) => y !== x.id) : [...(form.host_ids || []), x.id] })}
+                {hostPeople.map((x) => {
+                  // Office hosts not in TMS (Hank) live in the names list; everyone else by TMS id.
+                  const names = String(form.hosts || '').split(',').map((h) => h.trim()).filter(Boolean)
+                  const on = x.name_only ? names.some((h) => h.toLowerCase() === x.name.toLowerCase()) : (form.host_ids || []).includes(x.id)
+                  const toggle = () => x.name_only
+                    ? setForm({ ...form, hosts: (on ? names.filter((h) => h.toLowerCase() !== x.name.toLowerCase()) : [...names, x.name]).join(', ') })
+                    : setForm({ ...form, host_ids: on ? form.host_ids.filter((y) => y !== x.id) : [...(form.host_ids || []), x.id] })
+                  return (
+                  <button key={x.id || x.name} type="button" onClick={toggle}
                     className={`rounded-full border px-3 py-1 font-semibold ${on ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-700'}`}>{on ? '✓ ' : ''}{x.name}{x.tag ? <span className={`ml-1 text-xs font-normal ${on ? 'text-blue-100' : 'text-slate-400'}`}>{x.tag}</span> : null}</button>
                 ) })}
               </div>

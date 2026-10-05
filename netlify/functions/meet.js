@@ -703,8 +703,20 @@ export const handler = async (event) => {
   // A private room is made for right now, they get "join now" by text + email, and the caller goes
   // straight in as host. Call rooms are kind 'oneoff' with call:true; ones over 2 days old are cleared.
   if (b.action === 'call_people' || b.action === 'call_start') {
-    const caller = await verifyPin(b.pin)
-    if (!caller) return json(401, { ok: false, error: 'PIN not recognised.' })
+    // Who's calling: an admin PIN, or (Neal, 2026-10-05: "put call someone on everybody that has a
+    // My Tools dashboard") the person's own My Tools name + passcode, checked with CCG. Never sets a
+    // passcode: a name without one is refused.
+    let caller = await verifyPin(b.pin)
+    if (!caller && b.mt && String(b.mt.name || '').trim() && String(b.mt.pin || '').trim()) {
+      const MT = 'https://free-roof-inspections.netlify.app/.netlify/functions/manager-dashboard'
+      const nm = String(b.mt.name).trim().slice(0, 60)
+      const has = await fetch(`${MT}?manager=${encodeURIComponent(nm)}`).then((r) => r.json()).catch(() => ({}))
+      if (has.pin_set) {
+        const ok = await fetch(MT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auth', manager: nm, pin: String(b.mt.pin) }) }).then((r) => r.json()).catch(() => ({}))
+        if (ok.ok) caller = nm
+      }
+    }
+    if (!caller) return json(401, { ok: false, error: 'Sign-in not recognised. Open Call again from your My Tools page.' })
     const digits = (x) => String(x || '').replace(/\D/g, '').slice(-10)
     if (b.action === 'call_people') {
       const { data } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, is_active_sales_rep, registration_token').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
@@ -754,7 +766,21 @@ export const handler = async (event) => {
       const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `📞 ${callerFirst} is calling you now` }) })).body)
       const r0 = (sent.sent || [])[0] || {}
       const cell = to.cell && to.cell.length === 10 ? `${to.cell.slice(0, 3)}-${to.cell.slice(3, 6)}-${to.cell.slice(6)}` : ''
-      return json(200, { ok: true, slug: saved.room.slug, name, cell, sms: !!r0.sms, email: !!r0.email })
+      // A caller signed in through My Tools (not an admin PIN) gets their own seat AFTER the invite
+      // went out (so they aren't texted their own call): their TMS link if they're in TMS by name,
+      // else a guest key. Hosts by name, so a TMS caller is the host.
+      let join = null
+      if (!(await verifyPin(b.pin))) {
+        const parts = String(caller).trim().split(/\s+/)
+        const { data: me } = parts.length > 1 ? await sb.from('trainees').select('id, registration_token').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1]).not('registration_token', 'is', null).limit(1) : { data: [] }
+        const all = await loadRooms(), rm = all.find((x) => x.slug === saved.room.slug)
+        if (rm) {
+          if (me && me[0]) { rm.invitees.push({ id: me[0].id }); join = `/meet/${rm.slug}?t=${me[0].registration_token}` }
+          else { const k = crypto.randomBytes(6).toString('base64url'); rm.invitees.push({ key: k, name: String(caller), phone: '', email: '' }); join = `/meet/${rm.slug}?g=${k}` }
+          await putSetting('meet_rooms', all)
+        }
+      }
+      return json(200, { ok: true, slug: saved.room.slug, join, name, cell, sms: !!r0.sms, email: !!r0.email })
     } finally { INTERNAL = false }
   }
 
@@ -860,7 +886,15 @@ export const handler = async (event) => {
       if (filled) await putSetting('meet_rooms', rooms)
       // People to pick as Host: Neal, DeWayne and the regional managers.
       const { data: hp } = await sb.from('trainees').select('id, first_name, last_name, managed_region').or(`managed_region.not.is.null,id.in.(${LEADERS.map((l) => l.id).join(',')})`)
-      const host_people = (hp || []).map((x) => ({ id: x.id, name: fullName(x), tag: x.managed_region ? `${TEAMS[x.managed_region] || x.managed_region} manager` : '' })).sort((a, c) => a.name.localeCompare(c.name))
+      // Plus office hosts (Neal, 2026-10-05: "Nikki, Hank Smith be as a host as well"): app_settings
+      // meet_host_extra { ids:[TMS ids], names:[people not in TMS — they host with their own PIN] }.
+      const extra = (await getSetting('meet_host_extra', null)) || { ids: ['968b3d34-0774-4490-ba46-4482a9864563'], names: ['Hank Smith'] }
+      const { data: hx } = (extra.ids || []).length ? await sb.from('trainees').select('id, first_name, last_name').in('id', extra.ids) : { data: [] }
+      const host_people = [
+        ...(hp || []).map((x) => ({ id: x.id, name: fullName(x), tag: x.managed_region ? `${TEAMS[x.managed_region] || x.managed_region} manager` : '' })),
+        ...(hx || []).filter((x) => !(hp || []).some((y) => y.id === x.id)).map((x) => ({ id: x.id, name: fullName(x), tag: 'Office' })),
+        ...(extra.names || []).map((n) => ({ name: n, tag: 'Office', name_only: true })),
+      ].sort((a, c) => a.name.localeCompare(c.name))
       return json(200, { ok: true, host_people, rooms: rooms.map((r) => ({ ...r, ...publicRoom(r), ...(r.kind === 'oneoff' ? { rsvp: { ...(tally[r.slug] || { yes: 0, no: 0 }), invited: (r.invitees || []).length } } : {}) })), site: SITE })
     }
     if (b.action === 'save_room') {

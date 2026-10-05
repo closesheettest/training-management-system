@@ -7,10 +7,20 @@ import { useEffect, useState } from 'react'
 import PinGate from '../components/PinGate.jsx'
 
 const KEY = 'meet_admin_ok' // same sign-in as Meeting Room Setup / Your meetings
+// Opened from My Tools: #mt=<name+passcode> (kept in this tab only, then wiped from the address bar).
+const MT_KEY = 'call_mt'
+const readMt = () => {
+  try {
+    const m = window.location.hash.match(/mt=([^&]+)/)
+    if (m) { sessionStorage.setItem(MT_KEY, decodeURIComponent(atob(m[1]))); window.history.replaceState(null, '', window.location.pathname) }
+    return JSON.parse(sessionStorage.getItem(MT_KEY) || 'null')
+  } catch { return null }
+}
 const call = (body) => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json())
 
-function Dialer() {
+function Dialer({ mt }) {
   const pin = (() => { try { return sessionStorage.getItem(`${KEY}_pin`) || '' } catch { return '' } })()
+  const auth = mt ? { mt } : { pin }
   const [people, setPeople] = useState(null)
   const [q, setQ] = useState('')
   const [pick, setPick] = useState(null)
@@ -19,19 +29,19 @@ function Dialer() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(null) // what went out, shown before you go into the room
-  useEffect(() => { call({ action: 'call_people', pin }).then((j) => (j.ok ? setPeople(j.people) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { call({ action: 'call_people', ...auth }).then((j) => (j.ok ? setPeople(j.people) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const list = (people || []).filter((p) => !q.trim() || `${p.name} ${p.tag}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
   const go = async () => {
     const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone }
     setBusy(true); setErr('')
-    const j = await call({ action: 'call_start', pin, to, note }).catch(() => ({ error: 'Network error. Try again.' }))
+    const j = await call({ action: 'call_start', ...auth, to, note }).catch(() => ({ error: 'Network error. Try again.' }))
     setBusy(false)
     if (!j.ok) { setErr(j.error || 'Could not start the call.'); return }
     // Say what went out (Neal, 2026-10-05: he couldn't tell whether Nikki had a number). Nothing
     // went out → stop here with a warning instead of sitting in an empty room.
-    try { sessionStorage.setItem('meet_host_pin', pin) } catch { /* it will ask for the PIN */ }
+    try { if (pin) sessionStorage.setItem('meet_host_pin', pin) } catch { /* it will ask for the PIN */ }
     setDone(j)
-    if (j.sms || j.email) setTimeout(() => { window.location.href = `/meet/${j.slug}` }, 2500)
+    if (j.sms || j.email) setTimeout(() => { window.location.href = j.join || `/meet/${j.slug}` }, 2500)
   }
   const ready = pick || (other.name.trim() && other.phone.replace(/\D/g, '').length >= 10)
   if (done) return (
@@ -40,7 +50,7 @@ function Dialer() {
       <div className="mt-2 text-base">{done.sms ? '✅' : '❌'} Text {done.cell ? `to ${done.cell}` : '(no cell on file)'}</div>
       <div className="text-base">{done.email ? '✅' : '❌'} Email</div>
       {done.sms || done.email
-        ? <p className="mt-3 text-sm text-slate-600">Taking you into the room… <a href={`/meet/${done.slug}`} className="font-bold text-emerald-700 underline">go now</a></p>
+        ? <p className="mt-3 text-sm text-slate-600">Taking you into the room… <a href={done.join || `/meet/${done.slug}`} className="font-bold text-emerald-700 underline">go now</a></p>
         : <p className="mt-3 text-sm font-semibold text-red-700">They have no way to get the link. Add their cell in TMS, or call again with their name + cell under "Someone else".</p>}
       {!(done.sms || done.email) && <button onClick={() => setDone(null)} className="mt-3 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Back</button>}
     </div>
@@ -84,11 +94,12 @@ function Dialer() {
 
 export default function Call() {
   useEffect(() => { document.title = '📞 Call · Meetings' }, [])
+  const [mt] = useState(readMt)
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6">
       <div className="mx-auto max-w-lg">
         <h1 className="text-2xl font-bold text-brand-navy">📞 Call someone</h1>
-        <div className="mt-3"><PinGate title="Call" storageKey={KEY} keepPin><Dialer /></PinGate></div>
+        <div className="mt-3">{mt ? <><p className="mb-3 text-sm text-slate-500">Calling as <b>{mt.name}</b></p><Dialer mt={mt} /></> : <PinGate title="Call" storageKey={KEY} keepPin><Dialer /></PinGate>}</div>
       </div>
     </div>
   )
