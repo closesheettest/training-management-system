@@ -329,6 +329,33 @@ export const handler = async (event) => {
     return { live, open }
   }
 
+  // RESEND TRAINING INVITE (Neal, 2026-10-05: Peter Klimek never confirmed Monday — "all I have is
+  // the resend registration link"). From the class page: this one trainee gets their own training
+  // link again by text + email. It asks them to confirm they'll be there (?confirm=1), then the same
+  // link gets them into class. Week A or B is worked out from where they are now. Fixed message,
+  // only to that trainee, at most once every 5 minutes.
+  if (b.action === 'resend_class_invite') {
+    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(b.trainee_id || '')).maybeSingle()
+    if (!t || !t.registration_token) return json(404, { ok: false, error: 'No such trainee (or no link yet: send the registration link first).' })
+    const rooms0 = (await loadRooms()).filter((r) => r.kind === 'training')
+    let room = null
+    for (const w of ['A', 'B']) if (!room && (await trainingIds(w)).has(t.id)) room = rooms0.find((r) => r.training_week === w) || rooms0.find((r) => r.training_week === 'both')
+    if (!room) return json(400, { ok: false, error: `${t.first_name} isn't in a training week that's on now.` })
+    const gate = `meet_reinvite_${t.id}`, prev = await getSetting(gate, null)
+    if (prev && Date.now() - Date.parse(prev) < 5 * 60000) return json(200, { ok: false, error: 'Just sent. Give it a few minutes.' })
+    const link = `${SITE}/meet/${room.slug}?t=${t.registration_token}&confirm=1`
+    const nm = nextMeeting(room)
+    const when = nm ? nm.start.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
+    const msg = `Hi ${t.first_name}, this is U.S. Shingle & Metal. ${when ? `Your training is ${when} (Eastern), on video.` : 'Your training is on video.'} Tap to confirm you'll be there. The same link gets you into class, so keep it: ${link}`
+    const out = { sms: false, email: false }
+    if (t.phone) { const r = await sendSmsViaGhl(t.phone, msg, { firstName: t.first_name, lastName: t.last_name }).catch(() => null); out.sms = !!(r && r.ok); if (r && !r.ok) out.sms_error = r.error }
+    const em = t.email || t.company_email
+    if (em) { const r = await sendEmail(em, `Confirm your training: ${room.title}`, msg).catch(() => null); out.email = !!(r && r.ok !== false) }
+    await putSetting(gate, new Date().toISOString())
+    if (!out.sms && !out.email) return json(200, { ok: false, error: `Nothing went out${out.sms_error ? ` (text: ${out.sms_error})` : ''}.` })
+    return json(200, { ok: true, ...out, room: room.title })
+  }
+
   // RECORDINGS PAGE (/recordings/<room>?k=…): the room's recordings with download links, for the
   // people the link is shared with (Neal, 2026-10-04: "devotional will have devotional
   // recordings"). The key is the room's own rec_key, or an admin PIN.

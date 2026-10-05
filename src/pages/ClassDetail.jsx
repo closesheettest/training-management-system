@@ -1991,6 +1991,26 @@ export default function ClassDetail() {
   )
 }
 
+// 📨 RESEND TRAINING INVITE (Neal, 2026-10-05: Peter Klimek hadn't confirmed Monday and the row only
+// had "Resend registration link"). Texts + emails this trainee their own training link again: it
+// asks them to confirm, then gets them into class. meet.js resend_class_invite.
+function ReinviteButton({ t }) {
+  const [st, setSt] = useState(null)
+  const go = async () => {
+    if (!confirm(`Re-send ${t.first_name || 'this trainee'} their training invite (confirm + join link) by text and email?`)) return
+    setSt({ busy: true })
+    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'resend_class_invite', trainee_id: t.id }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+    setSt(j.ok ? { ok: `Sent: ${[j.sms && 'text', j.email && 'email'].filter(Boolean).join(' + ')}` } : { err: j.error || 'Could not send' })
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button onClick={go} disabled={st?.busy} title="Texts + emails their own training link: they tap to confirm they'll be there, and the same link gets them into class." className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">{st?.busy ? 'Sending…' : '📨 Resend training invite'}</button>
+      {st?.ok && <span className="text-xs font-semibold text-emerald-700">{st.ok}</span>}
+      {st?.err && <span className="text-xs font-semibold text-red-700">{st.err}</span>}
+    </span>
+  )
+}
+
 function TraineeGroup({
   virtualClass = false,
   startDayLabel,
@@ -2236,6 +2256,7 @@ function TraineeGroup({
                         {sending === t.id ? 'Sending…' : showResend ? 'Resend registration link' : 'Send registration link'}
                       </button>
                       )}
+                      {!hideSend && t.registration_token && t.confirmation_status !== 'confirmed' && <ReinviteButton t={t} />}
                     </div>
                   </div>
                 )}
