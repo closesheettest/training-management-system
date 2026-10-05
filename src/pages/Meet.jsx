@@ -182,6 +182,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   }, [localParticipant, micLocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const bg = useBackground(localParticipant)
   const [bgPanel, setBgPanel] = useState(false)
+  const [sharePanel, setSharePanel] = useState(false)
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
   // ⏺ RECORD: when the host starts recording, EVERYONE switches to speaker view on that host
@@ -338,6 +339,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
+          {(room.public || isHost) && <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>}
           <button title="Keyboard shortcuts (for Stream Deck)" onClick={() => setKbHelp((x) => !x)} style={btn(kbHelp)}>⌨</button>
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
@@ -412,6 +414,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               </div>
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
+            {sharePanel && <SharePanel room={room} onClose={() => setSharePanel(false)} />}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
@@ -899,6 +902,28 @@ function LayoutPick({ layout, onLayout }) {
           <button key={k} onClick={() => onLayout(k)} style={{ padding: '6px 8px', borderRadius: 7, border: 'none', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', background: layout === k ? '#2563eb' : '#334155', color: '#fff' }}>{l}</button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// 🔗 SHARE MEETING (Neal, 2026-10-05: "just like Zoom has"): the room's link to copy and paste,
+// or send by text / email. A public room (the devotional) — anyone with it can join. A private room
+// — it's the door; team members still sign in with their own link or name.
+function SharePanel({ room, onClose }) {
+  const link = `https://trainingmanagementsys.netlify.app/meet/${room.slug}`
+  const [copied, setCopied] = useState(false)
+  const copy = async () => { try { await navigator.clipboard.writeText(link) } catch { const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove() } setCopied(true); setTimeout(() => setCopied(false), 2000) }
+  const text = `Join ${room.title}: ${link}`
+  return (
+    <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 360, background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 14, color: '#e5e7eb', fontSize: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}><b style={{ flex: 1 }}>🔗 Share {room.title}</b><button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>
+      <div style={{ padding: '8px 10px', borderRadius: 8, background: '#0b1220', border: '1px solid #374151', fontFamily: 'ui-monospace, monospace', fontSize: 13, wordBreak: 'break-all' }}>{link}</div>
+      <button onClick={copy} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: copied ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copied ? '✓ Copied. Paste it anywhere' : '📋 Copy link'}</button>
+      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <a href={`sms:?&body=${encodeURIComponent(text)}`} style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#334155', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>💬 Text it</a>
+        <a href={`mailto:?subject=${encodeURIComponent(room.title)}&body=${encodeURIComponent(text)}`} style={{ flex: 1, textAlign: 'center', padding: '8px', borderRadius: 8, background: '#334155', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>✉️ Email it</a>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{room.public ? 'Anyone with this link can join (they put in their name and email).' : 'People from the company sign in with their own link; this link is the way in.'}</div>
     </div>
   )
 }
