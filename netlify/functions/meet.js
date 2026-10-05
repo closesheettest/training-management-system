@@ -1410,7 +1410,9 @@ export const handler = async (event) => {
           // LATE = LOCKED OUT (Neal, 2026-10-04): once the trainer is in, the doors stay open 2 more
           // minutes, then close for anyone not already in today (someone who was in and dropped can
           // always get back). Week A Day 1 → "call Brent to reschedule"; any other day → being on time.
-          const lock = await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null)
+          // Same one-day switch lifts the late lock too (Neal, 2026-10-05: "let them in" — a link bug
+          // kept the class out until after start).
+          const lock = (await getSetting(`onboarding_gate_off_${etDay()}`, false)) ? null : await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null)
           // The clock starts at whichever is LATER — the trainer arriving or the scheduled start — so
           // a trainer who logs on early doesn't shut people out before class even begins.
           const sched = hasSchedule(room) ? nextMeeting(room) : null
