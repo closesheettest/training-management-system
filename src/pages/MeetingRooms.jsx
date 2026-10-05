@@ -104,6 +104,152 @@ export default function MeetingRooms() {
   const copy = (s) => { navigator.clipboard?.writeText(s); setMsg('Link copied') }
 
   const field = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm'
+  const [closedGroups, setClosedGroups] = useState(() => { try { return JSON.parse(localStorage.getItem('meet_rooms_groups') || '{"past":true}') } catch { return { past: true } } })
+  const toggleGroup = (k) => setClosedGroups((g) => { const n = { ...g, [k]: !g[k] }; try { localStorage.setItem('meet_rooms_groups', JSON.stringify(n)) } catch { /* private */ } return n })
+  // One room's card (used in every group below).
+  const roomCard = (r) => (
+          <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
+            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
+            <div className="flex flex-wrap items-center gap-3">
+              <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
+              {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
+              <div className="min-w-0 flex-1">
+                <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
+                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
+              </div>
+              <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
+              <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? '📋 Copy invite link' : 'Copy host link'}</button>
+              <button onClick={() => setForm({ ...blank, ...r, hosts: (r.hosts || []).join(', '), original_slug: r.slug })} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Edit</button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-sm">
+              {/* A public room (the devotional) is for people OUTSIDE the company: its people are the
+                  ones who signed in with name + email, not the TMS roster (Neal, 2026-10-04). */}
+              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
+              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' || r.kind === 'custom' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
+              <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
+              {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
+              {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
+              {r.recording_enabled && r.rec_key && <button onClick={() => copy(`${site}/recordings/${r.slug}?k=${r.rec_key}`)} className="rounded border border-slate-300 px-3 py-1 font-semibold">🔗 Copy recordings page link</button>}
+              {r.public && <button onClick={() => (mail?.slug === r.slug ? setMail(null) : openMail(r))} className="rounded border border-blue-400 bg-blue-50 px-3 py-1 font-semibold text-blue-800">✉️ Email the list</button>}
+              <span className="flex-1" />
+              <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
+            </div>
+
+            {compose?.slug === r.slug && (
+              <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
+                <div className="font-bold">📨 Send everyone their link (text + email)</div>
+                <p className="mt-1 text-xs text-slate-600">Write it the way you'd say it. <b>{'{first}'}</b> becomes their first name and <b>{'{link}'}</b> their own link.</p>
+                <input className={field} value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} placeholder="Email subject" />
+                <textarea className={field} rows={8} value={compose.message} onChange={(e) => setCompose({ ...compose, message: e.target.value })} />
+                <div className="mt-1 rounded bg-white p-2 text-xs text-slate-600"><b>Preview:</b> {compose.message.replace(/\{when\}/g, 'Thursday, October 8, 6:00 PM').replace(/\{first\}/g, 'Sam').replace(/\{link\}/g, `${site}/meet/${r.slug}?t=…`)}</div>
+                <div className="mt-2 flex gap-2"><button onClick={sendNow} className="rounded-md bg-emerald-600 px-4 py-2 font-bold text-white">Send to everyone</button><button onClick={() => setCompose(null)} className="rounded-md border border-slate-300 px-4 py-2 font-semibold">Cancel</button></div>
+              </div>
+            )}
+            {mail?.slug === r.slug && (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
+                <div className="font-bold">✉️ Email everyone on the list who asked for emails</div>
+                <p className="mt-1 text-xs text-slate-600">It comes from "{r.title}", starts with "Hi (their first name)," and ends with an unsubscribe link. People who didn't tick "email me" or who unsubscribed are skipped.</p>
+                <input className={field} value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} placeholder="Subject, e.g. This week: walking through Psalm 23" />
+                <textarea className={field} rows={7} value={mail.message} onChange={(e) => setMail({ ...mail, message: e.target.value })} placeholder={`Message. Include the link so they can join:\n${site}/meet/${r.slug}`} />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={mail.test_to} onChange={(e) => setMail({ ...mail, test_to: e.target.value })} placeholder="your email for a test" />
+                  <button onClick={() => sendMail(true)} className="rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold">Send me a test</button>
+                  <span className="flex-1" />
+                  <button onClick={() => sendMail(false)} className="rounded-md bg-blue-700 px-4 py-2 font-bold text-white">Send to the list</button>
+                </div>
+                {mail.note && <div className="mt-2 font-semibold text-blue-900">{mail.note}</div>}
+                {mail.log && mail.log.length > 0 && (
+                  <div className="mt-3 border-t border-blue-200 pt-2 text-xs text-slate-600">
+                    <div className="mb-1 font-bold">Sent before <button onClick={() => openMail(r)} className="ml-2 font-normal text-blue-700 underline">refresh</button></div>
+                    {mail.log.map((l, i) => <div key={i}>{new Date(l.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · "{l.subject}" · {l.sent} of {l.to} sent{l.failed?.length ? ` · ${l.failed.length} failed` : ''}{l.by ? ` · by ${l.by}` : ''}</div>)}
+                  </div>
+                )}
+              </div>
+            )}
+            {open?.slug === r.slug && (
+              <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
+                {open.tab === 'people' && open.data?.people?.some((q) => q.probation) && (() => {
+                  const P = open.data.people.filter((q) => q.probation).map((q) => q.probation)
+                  return <div className="mb-2 rounded bg-white p-2 text-sm font-semibold">Second chance: {P.length} turned away · {P.filter((x) => x.seen_at).length} opened · <span className="text-orange-700">{P.filter((x) => x.committed_at).length} 🔥 committed</span> · <span className="text-emerald-700">{P.filter((x) => x.committed_at && (x.so_far ?? 0) >= 30).length} on track</span>{P.some((x) => x.result) ? ` · ${P.filter((x) => x.result === 'enrolled').length} enrolled` : ''}</div>
+                })()}
+                {!open.data ? 'Loading…' : open.data.error ? <span className="text-red-700">{open.data.error}</span> : open.tab === 'people' ? (
+                  <table className="w-full">
+                    <thead><tr className="text-left text-slate-500"><th>Name</th><th>Their link</th></tr></thead>
+                    <tbody>{open.data.people.map((p) => (
+                      <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}
+                          {open.data.people.some((q) => 'rsvp' in q) && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.rsvp?.status === 'yes' ? 'bg-emerald-100 text-emerald-800' : p.rsvp?.status === 'no' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-600'}`}>{p.rsvp?.status === 'yes' ? '✅ Confirmed' : p.rsvp?.status === 'no' ? "❌ Can't make it" : 'No answer yet'}</span>}
+                          {p.effort && <span className={`ml-2 rounded px-1.5 text-xs ${p.effort.override ? 'bg-slate-100 text-slate-600' : (p.effort.average === null || p.effort.average >= (open.data.effort_needed || 30)) ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`} title={Object.entries(p.effort.perDay).map(([d, n]) => `${d}: ${n}`).join(' · ')}>{p.effort.override ? 'override (let in)' : p.effort.average === null ? 'all days with William' : `${p.effort.average} doors/day`}{p.effort.rideDays?.length ? ` · ${p.effort.rideDays.length} day${p.effort.rideDays.length > 1 ? 's' : ''} with William not counted` : ''}{!p.effort.linked ? ' · no map access found' : ''}</span>}
+                          {p.probation && !p.probation.result && <span className="ml-2 text-xs text-slate-500">{p.probation.seen_at ? `👀 opened ${new Date(p.probation.seen_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '👀 not opened yet'}</span>}
+                          {p.probation?.committed_at && !p.probation.result && p.probation.so_far != null && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.probation.so_far >= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} title={Object.entries(p.probation.so_far_perDay || {}).map(([d, n]) => `${d}: ${n}`).join(' · ')}>this week: {p.probation.so_far}/day {p.probation.so_far >= 30 ? '· on track ✓' : '· needs 30'}</span>}
+                          {p.probation && <span className={`ml-2 rounded px-1.5 text-xs ${p.probation.result === 'enrolled' ? 'bg-emerald-100 text-emerald-800' : p.probation.committed_at ? 'bg-orange-100 text-orange-800' : 'bg-slate-200 text-slate-700'}`}>{p.probation.result === 'enrolled' ? '✅ proved it, enrolled' : p.probation.result === 'did_not_qualify' ? `didn't make 30 (${p.probation.week_avg})` : p.probation.result === 'did_not_commit' ? "didn't commit: gone" : p.probation.committed_at ? `🔥 Committed ${new Date(p.probation.committed_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : "Didn't commit"}</span>}
+                          {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>
+                        <td className="whitespace-nowrap"><button onClick={() => copy(p.link)} className="text-blue-700 underline">Copy link</button>
+                          {r.kind === 'training' && !p.early_a && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week A early?\n\nThey go into the field for the rest of Week A and stay in the class for Week B (their link keeps working).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'A' }); setMsg(j.ok ? `${j.name}: graduated Week A early ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-3 rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">🎓 Week A early</button>}
+                          {r.kind === 'training' && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week B early?\n\nThey become a JUNIOR REP on their team now (active sales rep).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'B' }); setMsg(j.ok ? `${j.name}: graduated Week B early, now a junior rep ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">🎓 Week B early</button>}
+                        </td></tr>
+                    ))}</tbody>
+                  </table>
+                ) : open.tab === 'attendance' ? (
+                  <>
+                    <div className="mb-2 flex items-center gap-2">Day <input type="date" value={day} onChange={(e) => { setDay(e.target.value); show(r.slug, 'attendance', e.target.value) }} className="rounded border border-slate-300 px-2 py-1" /></div>
+                    {!open.data.people.length ? <span className="text-slate-500">Nobody joined that day.</span> : (
+                      <table className="w-full">
+                        <thead><tr className="text-left text-slate-500"><th>Name</th><th>Joined</th><th>Left</th><th>Minutes</th><th>Camera off</th></tr></thead>
+                        <tbody>{(() => {
+                          // One row per PERSON (rejoining or a second device made extra rows), and a camera
+                          // that went off as they LEFT doesn't count as "camera off" (Neal, 2026-10-04).
+                          const by = new Map()
+                          for (const p of open.data.people) {
+                            const k = String(p.name || p.identity).trim().toLowerCase()
+                            const outs = (p.joins || []).map((j) => (j.out ? Date.parse(j.out) : null)).filter(Boolean)
+                            const offs = (p.camera || []).filter((c) => !c.on && !outs.some((o) => Math.abs(o - Date.parse(c.at)) < 15000)).length
+                            const mins = (p.joins || []).reduce((t, j) => t + ((j.out ? Date.parse(j.out) : Date.now()) - Date.parse(j.in)), 0) / 60000
+                            const first = (p.joins || [])[0]?.in, lastJ = (p.joins || [])[p.joins.length - 1]
+                            const cur = by.get(k) || { name: p.name, first: null, last: null, still: false, mins: 0, offs: 0 }
+                            if (first && (!cur.first || first < cur.first)) cur.first = first
+                            if (lastJ?.out && (!cur.last || lastJ.out > cur.last)) cur.last = lastJ.out
+                            if ((p.joins || []).some((j) => !j.out)) cur.still = true
+                            cur.mins += mins; cur.offs += offs
+                            by.set(k, cur)
+                          }
+                          return [...by.values()].sort((a, c) => String(a.first).localeCompare(String(c.first))).map((p) => (
+                            <tr key={p.name} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}</td><td>{t(p.first)}</td>
+                              <td>{p.still ? <span className="text-emerald-700">still in</span> : t(p.last)}</td><td>{Math.round(p.mins)}</td><td>{p.offs ? `${p.offs}×` : ''}</td></tr>
+                          ))
+                        })()}</tbody>
+                      </table>
+                    )}
+                  </>
+                ) : open.tab === 'recordings' ? (
+                  !open.data.recordings.length ? <span className="text-slate-500">No recordings yet. The host presses ⏺ Record in the meeting.</span> : (
+                    <table className="w-full">
+                      <thead><tr className="text-left text-slate-500"><th>When</th><th>What</th><th>Length</th><th></th></tr></thead>
+                      <tbody>{open.data.recordings.map((x) => (
+                        <tr key={x.egress_id} className="border-t border-slate-200">
+                          <td className="py-1">{new Date(x.started).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+                          <td>{x.kind === 'raw' ? "Host's camera" : 'Meeting as seen'}</td>
+                          <td>{[x.seconds != null ? (x.seconds < 60 ? `${x.seconds} sec` : `${Math.round(x.seconds / 60)} min`) : x.minutes ? `${x.minutes} min` : '', x.mb ? `${x.mb} MB` : ''].filter(Boolean).join(' · ')}</td>
+                          <td>{x.deleted ? <span className="text-slate-400">deleted (past keep date)</span> : x.link ? <a href={x.link} className="font-semibold text-blue-700 underline">⬇ Download</a> : x.error ? <span className="text-red-700">failed</span> : <span className="text-amber-700">processing…</span>}{x.notified ? <span className="ml-2 text-xs text-emerald-700">emailed ✓</span> : null}
+                            <button onClick={async () => { if (!window.confirm('Delete this recording for good? The video file is removed too.')) return; const j = await call({ action: 'delete_recording', slug: r.slug, egress_id: x.egress_id }); if (j.ok) show(r.slug, 'recordings'); else setMsg(j.error || 'Could not delete') }} className="ml-3 text-xs text-red-600" title="Delete">🗑 Delete</button></td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  )
+                ) : (
+                  <>
+                    <div className="mb-2 flex items-center gap-2"><b>{open.data.guests.length}</b> people · <b>{open.data.guests.filter((g) => g.opt_in).length}</b> asked for emails
+                      <button onClick={() => csv(open.data.guests)} className="ml-auto rounded border border-slate-300 px-2 py-1 font-semibold">⬇ Download CSV</button></div>
+                    <table className="w-full">
+                      <thead><tr className="text-left text-slate-500"><th>Name</th><th>Email</th><th>Wants emails</th><th>Visits</th></tr></thead>
+                      <tbody>{open.data.guests.map((g) => <tr key={g.email} className="border-t border-slate-200"><td className="py-1">{g.name}</td><td>{g.email}</td><td>{g.opt_in ? '✓' : ''}</td><td>{g.visits}</td></tr>)}</tbody>
+                    </table>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+  )
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -288,148 +434,27 @@ export default function MeetingRooms() {
 
       <div className="mt-5 space-y-3">
         {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>🎥 Create a meeting room</b>.</p>}
-        {rooms.map((r) => (
-          <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
-            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); dropOn(r.slug) }}
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
-            <div className="flex flex-wrap items-center gap-3">
-              <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
-              {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
-              <div className="min-w-0 flex-1">
-                <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
-                <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
-              </div>
-              <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
-              <button onClick={() => copy(`${site}/meet/${r.slug}`)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">{r.public ? '📋 Copy invite link' : 'Copy host link'}</button>
-              <button onClick={() => setForm({ ...blank, ...r, hosts: (r.hosts || []).join(', '), original_slug: r.slug })} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold">Edit</button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-sm">
-              {/* A public room (the devotional) is for people OUTSIDE the company: its people are the
-                  ones who signed in with name + email, not the TMS roster (Neal, 2026-10-04). */}
-              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => show(r.slug, 'people')} className="rounded border border-slate-300 px-3 py-1 font-semibold">{r.kind === 'oneoff' ? '✅ Who\'s coming' : '👥 People & links'}</button>}
-              {(r.kind !== 'custom' || (r.invitees || []).length > 0) && !r.public && <button onClick={() => sendLinks(r)} className="rounded border border-emerald-400 bg-emerald-50 px-3 py-1 font-semibold text-emerald-800">{r.kind === 'oneoff' || r.kind === 'custom' ? '📨 Send invites' : '📨 Send everyone their link'}</button>}
-              <button onClick={() => show(r.slug, 'attendance')} className="rounded border border-slate-300 px-3 py-1 font-semibold">✅ Attendance</button>
-              {r.public && <button onClick={() => show(r.slug, 'guests')} className="rounded border border-slate-300 px-3 py-1 font-semibold">👥 People who signed in (email list)</button>}
-              {r.recording_enabled && <button onClick={() => show(r.slug, 'recordings')} className="rounded border border-slate-300 px-3 py-1 font-semibold">🎞 Recordings</button>}
-              {r.recording_enabled && r.rec_key && <button onClick={() => copy(`${site}/recordings/${r.slug}?k=${r.rec_key}`)} className="rounded border border-slate-300 px-3 py-1 font-semibold">🔗 Copy recordings page link</button>}
-              {r.public && <button onClick={() => (mail?.slug === r.slug ? setMail(null) : openMail(r))} className="rounded border border-blue-400 bg-blue-50 px-3 py-1 font-semibold text-blue-800">✉️ Email the list</button>}
+        {/* Grouped (Neal, 2026-10-05): standing rooms, then one-time meetings still to come, then
+            past ones. Each heading opens/closes; Past starts closed. Remembered on this device. */}
+        {[
+          ['recurring', '🔁 Recurring meetings', rooms.filter((r) => r.kind !== 'oneoff')],
+          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => r.kind === 'oneoff' && (r.next_at || !(r.once || []).filter(Boolean).length))],
+          ['past', '🗂️ Past meetings', rooms.filter((r) => r.kind === 'oneoff' && !r.next_at && (r.once || []).filter(Boolean).length)],
+        ].map(([key, label, list]) => (
+          <section key={key}>
+            <button onClick={() => toggleGroup(key)} className="flex w-full items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-left text-white">
+              <span className="text-lg font-bold">{label}</span>
+              <span className="rounded-full bg-white/20 px-2 text-sm font-bold">{list.length}</span>
               <span className="flex-1" />
-              <button onClick={async () => { if (window.confirm(`Delete "${r.title}"? Links to it stop working.`)) { await call({ action: 'delete_room', slug: r.slug }); load() } }} className="text-xs text-red-600">Delete</button>
-            </div>
-
-            {compose?.slug === r.slug && (
-              <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm">
-                <div className="font-bold">📨 Send everyone their link (text + email)</div>
-                <p className="mt-1 text-xs text-slate-600">Write it the way you'd say it. <b>{'{first}'}</b> becomes their first name and <b>{'{link}'}</b> their own link.</p>
-                <input className={field} value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} placeholder="Email subject" />
-                <textarea className={field} rows={8} value={compose.message} onChange={(e) => setCompose({ ...compose, message: e.target.value })} />
-                <div className="mt-1 rounded bg-white p-2 text-xs text-slate-600"><b>Preview:</b> {compose.message.replace(/\{when\}/g, 'Thursday, October 8, 6:00 PM').replace(/\{first\}/g, 'Sam').replace(/\{link\}/g, `${site}/meet/${r.slug}?t=…`)}</div>
-                <div className="mt-2 flex gap-2"><button onClick={sendNow} className="rounded-md bg-emerald-600 px-4 py-2 font-bold text-white">Send to everyone</button><button onClick={() => setCompose(null)} className="rounded-md border border-slate-300 px-4 py-2 font-semibold">Cancel</button></div>
+              <span className="text-sm font-semibold">{closedGroups[key] ? '▸ Show' : '▾ Hide'}</span>
+            </button>
+            {!closedGroups[key] && (
+              <div className="mt-3 space-y-3">
+                {!list.length && <p className="px-1 text-sm text-slate-500">{key === 'upcoming' ? 'No one-time meetings coming up. Press 📅 Create a one-time meeting.' : key === 'past' ? 'None yet.' : 'No rooms yet.'}</p>}
+                {list.map((r) => roomCard(r))}
               </div>
             )}
-            {mail?.slug === r.slug && (
-              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
-                <div className="font-bold">✉️ Email everyone on the list who asked for emails</div>
-                <p className="mt-1 text-xs text-slate-600">It comes from "{r.title}", starts with "Hi (their first name)," and ends with an unsubscribe link. People who didn't tick "email me" or who unsubscribed are skipped.</p>
-                <input className={field} value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} placeholder="Subject, e.g. This week: walking through Psalm 23" />
-                <textarea className={field} rows={7} value={mail.message} onChange={(e) => setMail({ ...mail, message: e.target.value })} placeholder={`Message. Include the link so they can join:\n${site}/meet/${r.slug}`} />
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input className="rounded-md border border-slate-300 px-3 py-2 text-sm" value={mail.test_to} onChange={(e) => setMail({ ...mail, test_to: e.target.value })} placeholder="your email for a test" />
-                  <button onClick={() => sendMail(true)} className="rounded-md border border-slate-300 bg-white px-3 py-2 font-semibold">Send me a test</button>
-                  <span className="flex-1" />
-                  <button onClick={() => sendMail(false)} className="rounded-md bg-blue-700 px-4 py-2 font-bold text-white">Send to the list</button>
-                </div>
-                {mail.note && <div className="mt-2 font-semibold text-blue-900">{mail.note}</div>}
-                {mail.log && mail.log.length > 0 && (
-                  <div className="mt-3 border-t border-blue-200 pt-2 text-xs text-slate-600">
-                    <div className="mb-1 font-bold">Sent before <button onClick={() => openMail(r)} className="ml-2 font-normal text-blue-700 underline">refresh</button></div>
-                    {mail.log.map((l, i) => <div key={i}>{new Date(l.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · "{l.subject}" · {l.sent} of {l.to} sent{l.failed?.length ? ` · ${l.failed.length} failed` : ''}{l.by ? ` · by ${l.by}` : ''}</div>)}
-                  </div>
-                )}
-              </div>
-            )}
-            {open?.slug === r.slug && (
-              <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm">
-                {open.tab === 'people' && open.data?.people?.some((q) => q.probation) && (() => {
-                  const P = open.data.people.filter((q) => q.probation).map((q) => q.probation)
-                  return <div className="mb-2 rounded bg-white p-2 text-sm font-semibold">Second chance: {P.length} turned away · {P.filter((x) => x.seen_at).length} opened · <span className="text-orange-700">{P.filter((x) => x.committed_at).length} 🔥 committed</span> · <span className="text-emerald-700">{P.filter((x) => x.committed_at && (x.so_far ?? 0) >= 30).length} on track</span>{P.some((x) => x.result) ? ` · ${P.filter((x) => x.result === 'enrolled').length} enrolled` : ''}</div>
-                })()}
-                {!open.data ? 'Loading…' : open.data.error ? <span className="text-red-700">{open.data.error}</span> : open.tab === 'people' ? (
-                  <table className="w-full">
-                    <thead><tr className="text-left text-slate-500"><th>Name</th><th>Their link</th></tr></thead>
-                    <tbody>{open.data.people.map((p) => (
-                      <tr key={p.id} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}{p.host ? ' · host' : ''}
-                          {open.data.people.some((q) => 'rsvp' in q) && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.rsvp?.status === 'yes' ? 'bg-emerald-100 text-emerald-800' : p.rsvp?.status === 'no' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-600'}`}>{p.rsvp?.status === 'yes' ? '✅ Confirmed' : p.rsvp?.status === 'no' ? "❌ Can't make it" : 'No answer yet'}</span>}
-                          {p.effort && <span className={`ml-2 rounded px-1.5 text-xs ${p.effort.override ? 'bg-slate-100 text-slate-600' : (p.effort.average === null || p.effort.average >= (open.data.effort_needed || 30)) ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`} title={Object.entries(p.effort.perDay).map(([d, n]) => `${d}: ${n}`).join(' · ')}>{p.effort.override ? 'override (let in)' : p.effort.average === null ? 'all days with William' : `${p.effort.average} doors/day`}{p.effort.rideDays?.length ? ` · ${p.effort.rideDays.length} day${p.effort.rideDays.length > 1 ? 's' : ''} with William not counted` : ''}{!p.effort.linked ? ' · no map access found' : ''}</span>}
-                          {p.probation && !p.probation.result && <span className="ml-2 text-xs text-slate-500">{p.probation.seen_at ? `👀 opened ${new Date(p.probation.seen_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : '👀 not opened yet'}</span>}
-                          {p.probation?.committed_at && !p.probation.result && p.probation.so_far != null && <span className={`ml-2 rounded px-1.5 text-xs font-bold ${p.probation.so_far >= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} title={Object.entries(p.probation.so_far_perDay || {}).map(([d, n]) => `${d}: ${n}`).join(' · ')}>this week: {p.probation.so_far}/day {p.probation.so_far >= 30 ? '· on track ✓' : '· needs 30'}</span>}
-                          {p.probation && <span className={`ml-2 rounded px-1.5 text-xs ${p.probation.result === 'enrolled' ? 'bg-emerald-100 text-emerald-800' : p.probation.committed_at ? 'bg-orange-100 text-orange-800' : 'bg-slate-200 text-slate-700'}`}>{p.probation.result === 'enrolled' ? '✅ proved it, enrolled' : p.probation.result === 'did_not_qualify' ? `didn't make 30 (${p.probation.week_avg})` : p.probation.result === 'did_not_commit' ? "didn't commit: gone" : p.probation.committed_at ? `🔥 Committed ${new Date(p.probation.committed_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : "Didn't commit"}</span>}
-                          {p.early_b ? <span className="ml-2 rounded bg-emerald-100 px-1.5 text-xs text-emerald-800">🎓 Graduated Week B early: junior rep</span> : p.early_a ? <span className="ml-2 rounded bg-sky-100 px-1.5 text-xs text-sky-800">🎓 Graduated Week A early: in the field</span> : null}</td>
-                        <td className="whitespace-nowrap"><button onClick={() => copy(p.link)} className="text-blue-700 underline">Copy link</button>
-                          {r.kind === 'training' && !p.early_a && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week A early?\n\nThey go into the field for the rest of Week A and stay in the class for Week B (their link keeps working).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'A' }); setMsg(j.ok ? `${j.name}: graduated Week A early ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-3 rounded border border-sky-300 bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800">🎓 Week A early</button>}
-                          {r.kind === 'training' && !p.early_b && <button onClick={async () => { if (!window.confirm(`${p.name}: graduated Week B early?\n\nThey become a JUNIOR REP on their team now (active sales rep).`)) return; const j = await call({ action: 'early_grad', trainee_id: p.id, week: 'B' }); setMsg(j.ok ? `${j.name}: graduated Week B early, now a junior rep ✓` : (j.error || 'Did not work')); show(r.slug, 'people') }} className="ml-2 rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">🎓 Week B early</button>}
-                        </td></tr>
-                    ))}</tbody>
-                  </table>
-                ) : open.tab === 'attendance' ? (
-                  <>
-                    <div className="mb-2 flex items-center gap-2">Day <input type="date" value={day} onChange={(e) => { setDay(e.target.value); show(r.slug, 'attendance', e.target.value) }} className="rounded border border-slate-300 px-2 py-1" /></div>
-                    {!open.data.people.length ? <span className="text-slate-500">Nobody joined that day.</span> : (
-                      <table className="w-full">
-                        <thead><tr className="text-left text-slate-500"><th>Name</th><th>Joined</th><th>Left</th><th>Minutes</th><th>Camera off</th></tr></thead>
-                        <tbody>{(() => {
-                          // One row per PERSON (rejoining or a second device made extra rows), and a camera
-                          // that went off as they LEFT doesn't count as "camera off" (Neal, 2026-10-04).
-                          const by = new Map()
-                          for (const p of open.data.people) {
-                            const k = String(p.name || p.identity).trim().toLowerCase()
-                            const outs = (p.joins || []).map((j) => (j.out ? Date.parse(j.out) : null)).filter(Boolean)
-                            const offs = (p.camera || []).filter((c) => !c.on && !outs.some((o) => Math.abs(o - Date.parse(c.at)) < 15000)).length
-                            const mins = (p.joins || []).reduce((t, j) => t + ((j.out ? Date.parse(j.out) : Date.now()) - Date.parse(j.in)), 0) / 60000
-                            const first = (p.joins || [])[0]?.in, lastJ = (p.joins || [])[p.joins.length - 1]
-                            const cur = by.get(k) || { name: p.name, first: null, last: null, still: false, mins: 0, offs: 0 }
-                            if (first && (!cur.first || first < cur.first)) cur.first = first
-                            if (lastJ?.out && (!cur.last || lastJ.out > cur.last)) cur.last = lastJ.out
-                            if ((p.joins || []).some((j) => !j.out)) cur.still = true
-                            cur.mins += mins; cur.offs += offs
-                            by.set(k, cur)
-                          }
-                          return [...by.values()].sort((a, c) => String(a.first).localeCompare(String(c.first))).map((p) => (
-                            <tr key={p.name} className="border-t border-slate-200"><td className="py-1 font-semibold">{p.name}</td><td>{t(p.first)}</td>
-                              <td>{p.still ? <span className="text-emerald-700">still in</span> : t(p.last)}</td><td>{Math.round(p.mins)}</td><td>{p.offs ? `${p.offs}×` : ''}</td></tr>
-                          ))
-                        })()}</tbody>
-                      </table>
-                    )}
-                  </>
-                ) : open.tab === 'recordings' ? (
-                  !open.data.recordings.length ? <span className="text-slate-500">No recordings yet. The host presses ⏺ Record in the meeting.</span> : (
-                    <table className="w-full">
-                      <thead><tr className="text-left text-slate-500"><th>When</th><th>What</th><th>Length</th><th></th></tr></thead>
-                      <tbody>{open.data.recordings.map((x) => (
-                        <tr key={x.egress_id} className="border-t border-slate-200">
-                          <td className="py-1">{new Date(x.started).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
-                          <td>{x.kind === 'raw' ? "Host's camera" : 'Meeting as seen'}</td>
-                          <td>{[x.seconds != null ? (x.seconds < 60 ? `${x.seconds} sec` : `${Math.round(x.seconds / 60)} min`) : x.minutes ? `${x.minutes} min` : '', x.mb ? `${x.mb} MB` : ''].filter(Boolean).join(' · ')}</td>
-                          <td>{x.deleted ? <span className="text-slate-400">deleted (past keep date)</span> : x.link ? <a href={x.link} className="font-semibold text-blue-700 underline">⬇ Download</a> : x.error ? <span className="text-red-700">failed</span> : <span className="text-amber-700">processing…</span>}{x.notified ? <span className="ml-2 text-xs text-emerald-700">emailed ✓</span> : null}
-                            <button onClick={async () => { if (!window.confirm('Delete this recording for good? The video file is removed too.')) return; const j = await call({ action: 'delete_recording', slug: r.slug, egress_id: x.egress_id }); if (j.ok) show(r.slug, 'recordings'); else setMsg(j.error || 'Could not delete') }} className="ml-3 text-xs text-red-600" title="Delete">🗑 Delete</button></td>
-                        </tr>
-                      ))}</tbody>
-                    </table>
-                  )
-                ) : (
-                  <>
-                    <div className="mb-2 flex items-center gap-2"><b>{open.data.guests.length}</b> people · <b>{open.data.guests.filter((g) => g.opt_in).length}</b> asked for emails
-                      <button onClick={() => csv(open.data.guests)} className="ml-auto rounded border border-slate-300 px-2 py-1 font-semibold">⬇ Download CSV</button></div>
-                    <table className="w-full">
-                      <thead><tr className="text-left text-slate-500"><th>Name</th><th>Email</th><th>Wants emails</th><th>Visits</th></tr></thead>
-                      <tbody>{open.data.guests.map((g) => <tr key={g.email} className="border-t border-slate-200"><td className="py-1">{g.name}</td><td>{g.email}</td><td>{g.opt_in ? '✓' : ''}</td><td>{g.visits}</td></tr>)}</tbody>
-                    </table>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          </section>
         ))}
       </div>
     </div>
