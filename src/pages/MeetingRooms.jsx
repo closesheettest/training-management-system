@@ -133,7 +133,6 @@ export default function MeetingRooms() {
             )}
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
               <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
-                <label className="mb-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone invited 5 minutes before each meeting (text + email with their link)</label>
                 <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
                 <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
@@ -158,6 +157,16 @@ export default function MeetingRooms() {
             {form.kind === 'zone' && <label className="text-sm font-semibold">Team<select className={field} value={form.zone || 'Zone 1'} onChange={(e) => setForm({ ...form, zone: e.target.value })}>{Object.entries(ZONES).map(([z, n]) => <option key={z} value={z}>{n} ({z})</option>)}</select></label>}
             <label className="text-sm font-semibold">When (shown on the link)<input className={field} value={form.schedule} onChange={(e) => setForm({ ...form, schedule: e.target.value })} placeholder="e.g. Mon–Thu 9:30 AM" /></label>
             <label className="text-sm font-semibold sm:col-span-2">Today's topic (shown at the top; the host can change it in the meeting)<input className={field} value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} placeholder="e.g. Today: Psalm 23" /></label>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm sm:col-span-2">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="font-semibold">Also include:</span>
+                {[['neal', 'Neal'], ['dewayne', 'DeWayne']].map(([k, l]) => (
+                  <label key={k} className="flex items-center gap-1.5 font-semibold"><input type="checkbox" checked={(form.also || []).includes(k)} onChange={(e) => setForm({ ...form, also: e.target.checked ? [...(form.also || []).filter((x) => x !== k), k] : (form.also || []).filter((x) => x !== k) })} /> {l}</label>
+                ))}
+                <span className="text-xs text-slate-500">They get the links and reminders, see it on Your meetings, and host it.</span>
+              </div>
+              <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone 5 minutes before each meeting (text + email with their own link)</label>
+            </div>
             <label className="text-sm font-semibold">Extra hosts (names, comma-separated)<input className={field} value={form.hosts} onChange={(e) => setForm({ ...form, hosts: e.target.value })} placeholder="A team room's manager is host automatically" /></label>
             <label className="text-sm font-semibold">Host code (for a host who isn't in TMS)<input className={field} value={form.host_code} onChange={(e) => setForm({ ...form, host_code: e.target.value })} placeholder="optional" /></label>
             {/* SCHEDULE: when the room is open. Outside it, people who tap Join are told when the

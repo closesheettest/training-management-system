@@ -104,12 +104,18 @@ const nextMeeting = (r, now = Date.now()) => {
 // text message with the link"). Rooms with remind_5 on and an invite list (custom / one-time): each
 // invited person gets a text AND an email with their own link. Run by cron-meet-reminders every
 // 5 minutes; each meeting is reminded once (app_settings meet_remind_<room>_<start>).
+// A room's people with their own links, as "Send links" sees them (used by the reminder job).
+export async function audienceFor(slug) {
+  INTERNAL = true
+  try { const res = await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'audience', slug }) }); return JSON.parse(res.body).people || [] } finally { INTERNAL = false }
+}
+
 export async function runMeetReminders() {
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
   const get = async (k) => { const { data } = await sb.from('app_settings').select('value').eq('key', k).maybeSingle(); try { return data ? JSON.parse(data.value) : null } catch { return null } }
   const rooms = (await get('meet_rooms')) || [], sent = []
   for (const room of rooms) {
-    if (!room.remind_5 || !(room.invitees || []).length) continue
+    if (!room.remind_5) continue
     const nm = nextMeeting(room)
     if (!nm) continue
     const mins = (nm.start.getTime() - Date.now()) / 60000
@@ -117,20 +123,33 @@ export async function runMeetReminders() {
     const key = `meet_remind_${room.slug}_${nm.start.toISOString()}`
     if (await get(key)) continue
     await sb.from('app_settings').upsert({ key, value: JSON.stringify({ at: new Date().toISOString() }), updated_at: new Date().toISOString() }, { onConflict: 'key' })
-    const ids = room.invitees.filter((x) => x.id).map((x) => x.id)
-    const { data: ppl } = ids.length ? await sb.from('trainees').select('first_name, last_name, phone, email, registration_token').in('id', ids) : { data: [] }
-    const rows = (ppl || []).filter((p) => p.registration_token).map((p) => ({ first: p.first_name || 'there', last: p.last_name || '', phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}` }))
-    for (const x of room.invitees.filter((y) => y.key)) rows.push({ first: (x.name || 'there').split(' ')[0], last: '', phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}` })
+    // Everyone the room is for, with their own link — the same list "Send links" uses.
+    const rows = await audienceFor(room.slug)
     const at = nm.start.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+    const seen = new Set()
     for (const r of rows) {
-      const msg = `⏰ ${r.first}, ${room.title} starts in 5 minutes (${at} Eastern). Join here: ${r.link}`
-      if (r.phone) await sendSmsViaGhl(r.phone, msg, { firstName: r.first, lastName: r.last }).catch(() => {})
+      const ph = String(r.phone || '').replace(/\D/g, '').slice(-10)
+      if (ph && seen.has(ph)) continue
+      if (ph) seen.add(ph)
+      const first = String(r.name || 'there').split(' ')[0]
+      const msg = `⏰ ${first}, ${room.title} starts in 5 minutes (${at} Eastern). Join here: ${r.link}`
+      if (r.phone) await sendSmsViaGhl(r.phone, msg, { firstName: first, lastName: String(r.name || '').split(' ').slice(1).join(' ') }).catch(() => {})
       if (r.email) await sendEmail(r.email, `Starting in 5 minutes: ${room.title}`, msg).catch(() => {})
-      sent.push(`${room.slug}:${r.first}`)
+      sent.push(`${room.slug}:${first}`)
     }
   }
   return sent
 }
+
+// "ALSO INCLUDE" (Neal, 2026-10-04): Neal and DeWayne can be ticked onto ANY room — they then get
+// its invites/links and reminders, see it on Your meetings, and host it. Their TMS records:
+const LEADERS = [
+  { key: 'neal', name: 'Neal', id: '78c97338-b102-4d7c-92d2-5829cb241536' },
+  { key: 'dewayne', name: 'DeWayne', id: 'd1770dd6-bea9-419e-a6a1-98bbe5bfae03' },
+]
+const alsoIds = (room) => LEADERS.filter((l) => (room.also || []).includes(l.key)).map((l) => l.id)
+// The reminder job asks this same file for a room's people (no PIN in a scheduled job).
+let INTERNAL = false
 
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
@@ -195,7 +214,7 @@ export const handler = async (event) => {
     return ids
   })()
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
-  const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
+  const isRoomHost = (room, t) => !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
   // Is a host in the room right now, and may non-hosts come in?
   const openState = async (r) => {
@@ -308,6 +327,7 @@ export const handler = async (event) => {
     const nm0 = String(name).trim().toLowerCase()
     const named = (r) => (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
     const mine = (await loadRooms()).filter((r) => {
+      if (alsoIds(r).some((id) => ids.has(id))) return true
       if (r.kind === 'oneoff' || r.kind === 'custom') return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
       if (!t) return false
@@ -327,7 +347,7 @@ export const handler = async (event) => {
 
   // ---- ADMIN: rooms ----
   if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
-    const admin = await verifyPin(b.pin)
+    const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
     if (b.action === 'rooms') {
@@ -365,6 +385,7 @@ export const handler = async (event) => {
         training_week: ['A', 'B', 'both'].includes(r.training_week) ? r.training_week : 'A',
         effort_gate: !!r.effort_gate,
         remind_5: !!r.remind_5,
+        also: (Array.isArray(r.also) ? r.also : []).filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by
         // name + phone + email (they get their own key). Each must confirm they'll be there.
         invitees: kind === 'oneoff' || kind === 'custom' ? (Array.isArray(r.invitees) ? r.invitees : []).slice(0, 200).map((x) => (x && x.id
@@ -440,6 +461,9 @@ export const handler = async (event) => {
       const { data } = await q
       let people = (data || []).filter((p) => p.registration_token && (invited || p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
+      // Neal / DeWayne ticked "Also include" on this room.
+      const extra = alsoIds(room).filter((id) => !people.some((p) => p.id === id))
+      if (extra.length) { const { data: lx } = await sb.from('trainees').select('id, first_name, last_name, phone, email, region, managed_region, registration_token, rep_level, is_active_sales_rep').in('id', extra); people = people.concat((lx || []).filter((p) => p.registration_token)) }
       const eg = room.kind === 'training' ? ((await getSetting('early_grads', {})) || {}) : {}
       const rows = people.map((p) => ({ id: p.id, name: fullName(p), phone: p.phone, email: p.email, link: `${SITE}/meet/${room.slug}?t=${p.registration_token}`, host: isRoomHost(room, p), early_a: eg[p.id]?.week_a_at || null, early_b: eg[p.id]?.week_b_at || null, active_rep: !!p.is_active_sales_rep }))
         .sort((a, c) => a.name.localeCompare(c.name))
