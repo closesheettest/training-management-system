@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 
 // Before class (Neal, 2026-10-04) — shown as its own slide, every few slides.
-export const READY = ['Your camera is on', "You're fully dressed", "You're in a quiet room", "You're not driving", "You're ready to learn"]
+export const READY = ['Your camera is on', "You're fully dressed (ha ha)", "You're in a quiet room", "You're not driving", "You're ready to learn"]
 export const SLIDES = [
   { kicker: 'Welcome to the team', big: 'U.S. Shingle & Metal', sub: "You're joining one of Florida's fastest-growing roofing companies.", logo: true },
   { kicker: 'Experience', big: 'Over 15 Years', sub: 'Protecting Florida homes and businesses for over 15 years.' },
