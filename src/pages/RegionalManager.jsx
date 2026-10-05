@@ -190,8 +190,11 @@ export default function RegionalManager() {
         counts={todo}
         storageKey={`rm_open_${manager.region || ''}`}
         tiles={[
-          { key: 'today', emoji: '⭐', title: "Today's work", sub: 'Assign appointments, deals to fix, reviews, new trainees', color: 'from-amber-500 to-amber-700',
+          { key: 'today', emoji: '⭐', title: "Today's work", sub: "Today's meetings, assign appointments, deals to fix, reviews, new trainees", color: 'from-amber-500 to-amber-700',
             parts: [
+              // Today's Managers Meeting / company / invite meeting (or anything live), flashing,
+              // first thing in Today's work (Neal, 2026-10-05). Nothing shows on a no-meeting day.
+              ['', <YourMeetings token={token} banner />],
               ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts'],
               ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} onCount={counter('deals')} />, 'deals'],
               ['🛠️ Deals to fix', <DealsToFix zone={manager.region} onCount={counter('fix')} />, 'fix'],
