@@ -751,12 +751,14 @@ export default function Meet() {
       </div>
     )
     const hostJoin = async () => {
-      const c = codeInput.trim(); if (!c) return
+      const c = codeInput.trim(); if (!c) { setErr(door?.host_code ? 'Type your host code or admin PIN first.' : 'Type your admin PIN first.'); return }
       // Try it as an admin PIN first, then as this room's own host code.
       setBusy(true); setErr('')
       const asPin = await call({ action: 'join', room: slug, pin: c, ...(asAttendee ? { attendee: true } : {}) }).catch(() => ({}))
       setBusy(false)
       if (asPin.ok) { setS(PIN_KEY, c); setAuth({ pin: c }); setJoin(asPin); return }
+      // Right PIN, but an attendee can't come in before the meeting opens: say when, not "not recognised".
+      if (asPin.not_open) { setS(PIN_KEY, c); setAuth({ pin: c }); setLastBody({ pin: c }); setNotOpen({ next_at: asPin.room?.next_at || null }); return }
       if (door?.host_code) { setAuth({ host_code: c }); doJoin({ host_code: c, name: hostName.trim() }) } else setErr('PIN not recognised.')
     }
     return shell(
