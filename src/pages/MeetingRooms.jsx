@@ -48,6 +48,7 @@ export default function MeetingRooms() {
   const [pq, setPq] = useState('')
   const [staff, setStaff] = useState(null)
   const [sq, setSq] = useState('')
+  const [openDepts, setOpenDepts] = useState({})
   const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []); setStaff(j.ok ? j.staff || [] : []) }
   // The invite list loads as soon as the Who's invited box shows (editing a room never loaded it).
   useEffect(() => { if (form && (form.kind === 'oneoff' || form.kind === 'custom')) loadPeople() }, [form?.kind, form?.original_slug]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -328,23 +329,40 @@ export default function MeetingRooms() {
                 {/* EVERYONE ELSE IN THE COMPANY (Neal, 2026-10-05: Nikki, Hank want department meetings).
                     Office staff from GoHighLevel; picked ones get their own link by text + email. */}
                 <div className="mt-4 font-semibold text-slate-800">🏢 Everyone else in the company <span className="font-normal text-slate-500">(active in JobNimbus, by department; search "Foreman", "Admin", "PA"…)</span></div>
-                <input value={sq} onChange={(e) => setSq(e.target.value)} onFocus={loadPeople} placeholder="Search name or department…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
-                <div className="mt-1 max-h-56 overflow-auto rounded border border-slate-200 bg-white">
-                  {!staff ? <div className="p-2 text-slate-500">Loading…</div> : staff.filter((x) => !sq || `${x.name} ${x.dept}`.toLowerCase().includes(sq.toLowerCase())).map((x) => {
+                <input value={sq} onChange={(e) => setSq(e.target.value)} onFocus={loadPeople} placeholder="Search a name (or tick a whole department below)…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+                {/* BY JOB FUNCTION (Neal, 2026-10-05: "sort it by title … Nikki wants a meeting with all the
+                    foremen … click on all job site foremen and it selects everybody"). One header per
+                    department: its box picks / clears everyone in it; tap the name to see the people. */}
+                <div className="mt-1 max-h-80 overflow-auto rounded border border-slate-200 bg-white">
+                  {!staff ? <div className="p-2 text-slate-500">Loading…</div> : (() => {
                     const dg = (v) => String(v || '').replace(/\D/g, '').slice(-10)
-                    const same = (y) => !y.id && (x.cell ? dg(y.phone) === x.cell : String(y.name || '').toLowerCase() === x.name.toLowerCase())
-                    const on = (form.invitees || []).some(same)
-                    return (
-                      <div key={x.email || x.name} className="flex items-center gap-2 border-b border-slate-100 px-2 py-1">
-                        <input type="checkbox" checked={on} onChange={(e) => setForm({ ...form, invitees: e.target.checked ? [...(form.invitees || []), { name: x.name, phone: x.phone, email: x.email }] : (form.invitees || []).filter((y) => !same(y)) })} />
-                        <span className="flex-1">{x.name} <span className="text-xs text-slate-400">{x.dept}</span></span>
-                        {x.cell ? <span className="text-xs text-slate-500">📱 …{x.cell.slice(-4)}</span>
-                          : <button type="button" onClick={async () => { const ph = window.prompt(`${x.name} has no cell on file (JobNimbus doesn't keep phones). Type their cell to save it for every meeting and Call:`); if (!ph) return; const j = await call({ action: 'set_staff_cell', email: x.email, name: x.name, phone: ph }).catch(() => ({})); if (j.ok) setStaff(staff.map((z) => (z === x ? { ...z, phone: j.phone, cell: j.phone.replace(/\D/g, '') } : z))); else alert(j.error || 'Could not save.') }} className="text-xs font-semibold text-red-600 underline">⚠️ no cell: add</button>}
-                      </div>
-                    )
-                  })}
+                    const same = (x) => (y) => !y.id && (x.cell ? dg(y.phone) === x.cell : String(y.name || '').toLowerCase() === x.name.toLowerCase())
+                    const isOn = (x) => (form.invitees || []).some(same(x))
+                    const shown = staff.filter((x) => !sq || `${x.name} ${x.dept}`.toLowerCase().includes(sq.toLowerCase()))
+                    const depts = [...new Set(shown.map((x) => x.dept))].sort((a, c) => a.localeCompare(c))
+                    const setMany = (list, on) => setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !list.some((x) => same(x)(y))), ...(on ? list.map((x) => ({ name: x.name, phone: x.phone, email: x.email })) : [])] })
+                    return depts.map((d) => {
+                      const ppl = shown.filter((x) => x.dept === d), n = ppl.filter(isOn).length
+                      const open = !!sq || openDepts[d]
+                      return (
+                        <div key={d} className="border-b border-slate-200">
+                          <div className="flex items-center gap-2 bg-slate-50 px-2 py-1.5">
+                            <input type="checkbox" checked={n === ppl.length} ref={(el) => { if (el) el.indeterminate = n > 0 && n < ppl.length }} onChange={(e) => setMany(ppl, e.target.checked)} title={`Select all ${d}`} />
+                            <button type="button" onClick={() => setOpenDepts({ ...openDepts, [d]: !openDepts[d] })} className="flex-1 text-left font-bold text-slate-800">{open ? '▾' : '▸'} {d} <span className="font-normal text-slate-500">({ppl.length}{n ? `, ${n} picked` : ''})</span></button>
+                          </div>
+                          {open && ppl.map((x) => (
+                            <div key={x.email || x.name} className="flex items-center gap-2 py-1 pl-7 pr-2">
+                              <input type="checkbox" checked={isOn(x)} onChange={(e) => setMany([x], e.target.checked)} />
+                              <span className="flex-1">{x.name}</span>
+                              {x.cell ? <span className="text-xs text-slate-500">📱 …{x.cell.slice(-4)}</span>
+                                : <button type="button" onClick={async () => { const ph = window.prompt(`${x.name} has no cell on file (JobNimbus doesn't keep phones). Type their cell to save it for every meeting and Call:`); if (!ph) return; const j = await call({ action: 'set_staff_cell', email: x.email, name: x.name, phone: ph }).catch(() => ({})); if (j.ok) setStaff(staff.map((z) => (z === x ? { ...z, phone: j.phone, cell: j.phone.replace(/\D/g, '') } : z))); else alert(j.error || 'Could not save.') }} className="text-xs font-semibold text-red-600 underline">⚠️ no cell: add</button>}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
-                {staff && sq && <button onClick={() => { const add = staff.filter((x) => `${x.name} ${x.dept}`.toLowerCase().includes(sq.toLowerCase())).map((x) => ({ name: x.name, phone: x.phone, email: x.email })); const dg = (v) => String(v || '').replace(/\D/g, '').slice(-10); setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => y.id || !add.some((a) => (a.phone && dg(a.phone) === dg(y.phone)) || a.name.toLowerCase() === String(y.name || '').toLowerCase())), ...add] }) }} className="mt-1 text-xs font-semibold text-blue-700">+ Invite everyone matching "{sq}"</button>}
                 <div className="mt-3 font-bold">Someone not in TMS?</div>
                 {(form.invitees || []).filter((y) => !y.id).map((y, i) => (
                   <div key={y.key || i} className="mt-1 flex flex-wrap gap-2">
