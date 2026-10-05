@@ -95,6 +95,7 @@ const publicRoom = (r) => ({
   // 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is… the 9:15 devotional,
   // DeWayne is always the host"). Shown on every card, dashboard and the join screen.
   host_names: Array.isArray(r.host_names) ? r.host_names : [],
+  call: !!r.call, // 📞 Call rooms get the phone 'Click me' link preview
   look: r.look || (r.kind === 'company' ? 'company' : 'team'), banner_url: r.banner_url || null, welcome: r.welcome || '',
   back_label: r.back_label || '', back_url: r.back_url || '',
   next_at: hasSchedule(r) ? nextMeeting(r)?.start?.toISOString() || null : null,

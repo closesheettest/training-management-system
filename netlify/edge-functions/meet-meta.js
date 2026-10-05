@@ -16,14 +16,15 @@ export default async (request, context) => {
     }).then((r) => r.json()).catch(() => null)
     const r = info?.ok ? info.room : null
     if (!r) return res
-    const title = r.team ? `${r.team} · ${r.title}` : r.title
-    const desc = [r.schedule, r.welcome || (r.topic ? `Today: ${r.topic}` : '')].filter(Boolean).join(' · ') || 'Tap to join the meeting.'
-    const img = r.banner_url || (r.badge ? `${url.origin}${r.badge}` : '')
+    // 📞 A Call link (Neal, 2026-10-05): no names, no logo — a phone that says "Click me".
+    const title = r.call ? '📞 Click me to join the call' : r.team ? `${r.team} · ${r.title}` : r.title
+    const desc = r.call ? 'Video call. Tap to join.' : [r.schedule, r.welcome || (r.topic ? `Today: ${r.topic}` : '')].filter(Boolean).join(' · ') || 'Tap to join the meeting.'
+    const img = r.call ? `${url.origin}/call-preview.png` : r.banner_url || (r.badge ? `${url.origin}${r.badge}` : '')
     const tags = [
       `<title>${esc(title)}</title>`,
       `<meta name="description" content="${esc(desc)}" />`,
       `<meta property="og:type" content="website" />`,
-      `<meta property="og:site_name" content="${esc(r.look === 'devotional' ? '9:15 Devotional' : 'U.S. Shingle')}" />`,
+      `<meta property="og:site_name" content="${esc(r.call ? 'Video call' : r.look === 'devotional' ? '9:15 Devotional' : 'U.S. Shingle')}" />`,
       `<meta property="og:title" content="${esc(title)}" />`,
       `<meta property="og:description" content="${esc(desc)}" />`,
       `<meta property="og:url" content="${esc(url.origin + url.pathname)}" />`,
