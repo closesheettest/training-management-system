@@ -1428,7 +1428,11 @@ export const handler = async (event) => {
               return json(200, { ok: false, locked: true, title: 'Training has already started', message: 'Being on time is part of being a professional. Training started without you today, and the doors are now closed. We wish you the best in your future endeavors.' })
             }
           }
-          const { data: ob } = await sb.from('trainee_onboarding').select('signed_at, banking_completed_at, comp_signed_at').eq('trainee_id', t.id).maybeSingle()
+          // TODAY'S SWITCH (Neal, 2026-10-05, 1:50 PM: nobody had done their paperwork 10 minutes before
+          // class): app_settings onboarding_gate_off_<YYYY-MM-DD> = true lets trainees in without it
+          // for that day only. They still owe the paperwork; it's back on tomorrow by itself.
+          const gateOff = !!(await getSetting(`onboarding_gate_off_${etDay()}`, false))
+          const { data: ob } = gateOff ? { data: { signed_at: new Date().toISOString(), banking_completed_at: 'skip', comp_signed_at: 'skip' } } : await sb.from('trainee_onboarding').select('signed_at, banking_completed_at, comp_signed_at').eq('trainee_id', t.id).maybeSingle()
           // BANKING (Neal, 2026-10-04): okay to skip on the day they sign; from the NEXT day on,
           // no training until their direct deposit details are in.
           if (ob?.signed_at && !ob.banking_completed_at && etDay(Date.parse(ob.signed_at)) < etDay()) {
