@@ -9,6 +9,8 @@ const PLATFORMS = [
   // done. The columns stay in the database so past classes still read correctly
   // (Neal, 2026-08-25).
   { key: 'jobnimbus', label: 'JobNimbus', field: 'jobnimbus_setup_at' },
+  // Day-2 set-up is company email (IT), JobNimbus and GoHighLevel — that's it (Neal, 2026-10-05).
+  { key: 'ghl', label: 'GoHighLevel', field: 'ghl_setup_at' },
 ]
 
 export default function Setup() {
@@ -24,7 +26,8 @@ export default function Setup() {
     const { data, error: err } = await supabase
       .from('classes')
       .select(
-        'id, region, week_start_date, week_end_date, locations(name), trainees!class_id(id, first_name, last_name, company_email, enrolled, left_company_at, repcard_setup_at, jobnimbus_setup_at, sales_academy_setup_at)',
+        // trainees(*) so the GoHighLevel column is picked up once it exists (sql/ghl_setup.sql).
+        'id, region, week_start_date, week_end_date, locations(name), trainees!class_id(*)',
       )
       .eq('id', class_id)
       .maybeSingle()
@@ -98,7 +101,7 @@ export default function Setup() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight text-brand-navy">
-          Set up trainees on RepCard, JobNimbus &amp; Sales Academy
+          Set up trainees on JobNimbus &amp; GoHighLevel
         </h1>
         <p className="mt-1 text-slate-600">
           {cls.region} · {cls.locations?.name || 'TBD'} · Week of{' '}

@@ -73,11 +73,11 @@ export const handler = async (event) => {
   // VA-facing message
   const vaSms =
     `[Training] ${provisionedCount} new trainee${provisionedCount === 1 ? ' needs' : 's need'} to be set up in ` +
-    `JobNimbus for ${cls.region} (week of ${weekLabel}). Check them off as you go: ${setupLink}`
+    `JobNimbus and GoHighLevel for ${cls.region} (week of ${weekLabel}). Check them off as you go: ${setupLink}`
   const vaEmailSubject = `Set up ${provisionedCount} trainee${provisionedCount === 1 ? '' : 's'} — ${cls.region}`
   const vaEmailBody =
     `${provisionedCount} new trainee${provisionedCount === 1 ? ' needs' : 's need'} accounts created in ` +
-    `JobNimbus for ${cls.region} (week of ${weekLabel}).\n\n` +
+    `JobNimbus and GoHighLevel for ${cls.region} (week of ${weekLabel}).\n\n` +
     `Open the checklist (tracks per-trainee progress):\n${setupLink}\n\n` +
     `— Training System`
 

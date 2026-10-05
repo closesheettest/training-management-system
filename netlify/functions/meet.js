@@ -1043,6 +1043,10 @@ export const handler = async (event) => {
       const ws = tr?.classes?.week_start_date
       const dayIdx = ws ? Math.floor((Date.parse(`${etDay()}T12:00:00Z`) - Date.parse(`${ws}T12:00:00Z`)) / 864e5) : -1
       if (dayIdx >= 1 && dayIdx <= 6 && tr.is_field_trainee !== true && tr.is_active_sales_rep !== true) await sb.from('trainees').update({ is_field_trainee: true }).eq('id', identity.slice(2))
+      // DAY 2 = SET-UP DAY (Neal, 2026-10-05): the first sign-in on day 2 tells IT to create the company
+      // emails right away (then HR / the VA do JobNimbus + GoHighLevel). The notifier fires once per
+      // class, so every day-2 join can safely knock.
+      if (dayIdx === 1 && process.env.CRON_SECRET) await fetch(`${SITE}/.netlify/functions/notify-day-2-provision?secret=${encodeURIComponent(process.env.CRON_SECRET)}`).catch(() => {})
     }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
     // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
