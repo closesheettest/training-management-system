@@ -113,7 +113,7 @@ export default function MeetingRooms() {
             className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" style={{ borderLeft: `6px solid ${r.color || '#334155'}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
             <div className="flex flex-wrap items-center gap-3">
               <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
-              {r.badge && <img src={r.badge} alt="" className="h-10 w-10 object-contain" />}
+              {r.badge ? <img src={r.badge} alt="" className="h-10 w-10 object-contain" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>

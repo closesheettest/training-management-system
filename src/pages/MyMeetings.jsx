@@ -23,7 +23,7 @@ function List() {
       <div className="mt-4 space-y-3">
         {d.rooms.map((r) => (
           <div key={r.slug} className={`flex flex-wrap items-center gap-3 rounded-lg border bg-white p-4 shadow-sm ${r.live ? 'border-emerald-400' : 'border-slate-200'}`}>
-            {r.badge && <img src={r.badge} alt="" className="h-10 w-10" />}
+            {r.badge ? <img src={r.badge} alt="" className="h-10 w-10" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
             <div className="min-w-0 flex-1">
               <div className="font-bold text-slate-900">{r.team && <span className="mr-1" style={{ color: r.color || undefined }}>{r.team}</span>}{r.title}</div>
               <div className="text-sm text-slate-600">

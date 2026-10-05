@@ -2589,7 +2589,7 @@ function YourMeetings({ token, banner = false }) {
     <div className="space-y-2">
       {rooms.map((r) => (
         <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" className={`flex items-center gap-3 rounded-lg border p-3 no-underline hover:bg-white/5 ${r.live ? 'border-emerald-400' : r.today ? 'border-amber-400' : 'border-white/15'}`}>
-          {r.badge ? <img src={r.badge} alt="" className="h-9 w-9" /> : <span className="text-2xl">🎥</span>}
+          {r.badge ? <img src={r.badge} alt="" className="h-9 w-9" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-9 w-14 rounded object-cover" /> : <span className="text-2xl">🎥</span>}
           <span className="min-w-0 flex-1">
             <span className="block font-semibold text-white">{r.title}</span>
             <span className="block text-xs text-slate-300">{r.live ? <b className="text-emerald-300">● LIVE now</b> : r.next_at ? <>{r.today ? <b className="text-amber-300">TODAY </b> : ''}{day(r.next_at)}</> : (r.schedule || 'Open any time')}{r.schedule && r.next_at ? ` · ${r.schedule}` : ''}</span>
