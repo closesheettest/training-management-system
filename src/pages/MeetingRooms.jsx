@@ -110,8 +110,6 @@ export default function MeetingRooms() {
   // Each card tinted in its own colour so the page has some separation (Neal, 2026-10-05): a team
   // room in its team colour, the rest by type.
   // Training cards (Week A / Week B / retraining) in U.S. Shingle navy + red, with the logo.
-  // …and the Company Meeting carries the logo in U.S. Shingle red, to set it apart.
-  const isUSS = (r) => ['training', 'retraining', 'company'].includes(r.kind)
   const cardColor = (r) => r.color || ({ prayer: '#B8893D', company: '#E04A3A', training: '#1F2A5C', managers: '#7C3AED', custom: '#475569', oneoff: '#2563EB', retraining: '#1F2A5C', everyone: '#EA580C' }[r.kind] || '#334155')
   const roomCard = (r) => (
           <div key={r.slug} draggable onDragStart={() => setDragging(r.slug)} onDragEnd={() => setDragging(null)}
@@ -119,7 +117,7 @@ export default function MeetingRooms() {
             className="rounded-lg p-4 shadow-sm" style={{ background: `linear-gradient(90deg, ${cardColor(r)}26, ${cardColor(r)}0d)`, border: `1px solid ${cardColor(r)}66`, borderLeft: `6px solid ${cardColor(r)}`, opacity: dragging === r.slug ? 0.4 : 1, outline: dragging && dragging !== r.slug ? '2px dashed #cbd5e1' : 'none' }}>
             <div className="flex flex-wrap items-center gap-3">
               <span title="Drag to reorder" className="cursor-grab select-none text-xl text-slate-400">⠿</span>
-              {r.badge ? <img src={r.badge} alt="" className={isUSS(r) ? 'h-10 w-16 rounded bg-white object-contain p-0.5' : 'h-10 w-10 object-contain'} /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
+              {r.badge ? <img src={r.badge} alt="" className={r.badge === '/uss-logo.png' ? 'h-10 w-16 rounded bg-white object-contain p-0.5' : 'h-10 w-10 object-contain'} /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === r.kind)?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>

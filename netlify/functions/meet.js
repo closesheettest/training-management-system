@@ -65,8 +65,9 @@ const verifyPin = async (pin) => {
 // What the page shows at the top: team badge + name for a zone room, the title, the topic.
 const publicRoom = (r) => ({
   slug: r.slug, title: r.title, kind: r.kind, zone: r.zone || null, team: r.zone ? TEAMS[r.zone] || null : null,
-  // Training and company rooms carry the U.S. Shingle & Metal logo (Neal, 2026-10-05); team rooms their badge.
-  badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : ['training', 'retraining', 'company'].includes(r.kind) ? '/uss-logo.png' : null, color: r.zone ? COLORS[r.zone] || null : null,
+  // Every company room carries the U.S. Shingle & Metal logo (Neal, 2026-10-05); a team room its
+  // team badge; the devotional (public, outside guests) its own banner.
+  badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : (r.kind === 'prayer' || r.public) ? null : '/uss-logo.png', color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
   mic_lock: !!r.mic_lock,
