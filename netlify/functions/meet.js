@@ -227,6 +227,16 @@ const alsoIds = (room) => LEADERS.filter((l) => (room.also || []).includes(l.key
 // The reminder job asks this same file for a room's people (no PIN in a scheduled job).
 let INTERNAL = false
 
+// FINISHED EARLY = DONE (Neal, 2026-10-05: "once the 8:30 managers' meeting is over, it should
+// disappear"). A meeting that started more than 15 minutes ago and has no host in it any more is
+// over for today: what's "next" is the following one.
+const nextAfterDone = (r, live, now = Date.now()) => {
+  const nm = nextMeeting(r, now)
+  if (!nm || live) return nm
+  if (now > nm.start.getTime() + 15 * 60000) return nextMeeting(r, nm.end.getTime() + 1000)
+  return nm
+}
+
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
 export const handler = async (event) => {
@@ -475,7 +485,7 @@ export const handler = async (event) => {
     // meetings that day are greyed out ("Company Meeting today instead") and the company one
     // stands out. Only meetings still to come today count.
     const today = etDay()
-    const dayOf = (r) => { const nm = hasSchedule(r) ? nextMeeting(r) : null; return nm ? etDay(nm.start.getTime()) : null }
+    const dayOf = (r) => { const nm = hasSchedule(r) ? nextAfterDone(r, openOf[r.slug]?.live) : null; return nm ? etDay(nm.start.getTime()) : null }
     // Special meetings flash on their day (Neal, 2026-10-05: "none of them are flashing"): the
     // Managers Meeting, a company meeting, a one-off or invite meeting. Daily rooms don't.
     for (const r of mine) if (['managers', 'company', 'oneoff', 'custom', 'retraining'].includes(r.kind) && dayOf(r) === today) openOf[r.slug] = { ...openOf[r.slug], today: true }
@@ -491,7 +501,8 @@ export const handler = async (event) => {
       rooms: mine.map((r) => {
         const pr = publicRoom(r)
         // Viewing as a rep (Neal's view-as) shows the rooms but never their personal link.
-        return { ...pr, ...openOf[r.slug], badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.joins_room || r.slug}?t=${t.registration_token}` }
+        const nmx = hasSchedule(r) ? nextAfterDone(r, openOf[r.slug]?.live) : null
+        return { ...pr, ...openOf[r.slug], ...(hasSchedule(r) ? { next_at: nmx ? nmx.start.toISOString() : null } : {}), badge: pr.badge ? `${SITE}${pr.badge}` : null, host: isRoomHost(r, t), link: who.viewer ? null : `${SITE}/meet/${r.joins_room || r.slug}?t=${t.registration_token}` }
       }).sort((a, c) => ((c.live ? 1 : 0) - (a.live ? 1 : 0)) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15))),
     })
   }
@@ -519,7 +530,7 @@ export const handler = async (event) => {
     }).filter((r) => (r.kind !== 'oneoff' && r.kind !== 'retraining') || nextMeeting(r))
     const today = etDay()
     const rows = await Promise.all(mine.map(async (r) => {
-      const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextMeeting(r) : null
+      const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextAfterDone(r, st.live) : null
       return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, today: !!nm && etDay(nm.start.getTime()) === today, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: linkFor({ ...r, slug: r.joins_room || r.slug }, t) }
     }))
     rows.sort((a, c) => (c.live - a.live) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15)))
