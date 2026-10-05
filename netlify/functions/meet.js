@@ -707,14 +707,15 @@ export const handler = async (event) => {
     if (!caller) return json(401, { ok: false, error: 'PIN not recognised.' })
     const digits = (x) => String(x || '').replace(/\D/g, '').slice(-10)
     if (b.action === 'call_people') {
-      const { data } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, is_active_sales_rep, registration_token').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
-      const people = (data || []).filter((p) => p.registration_token && p.phone).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : TEAMS[p.region] || 'Rep', ph: digits(p.phone) }))
+      const { data } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, is_active_sales_rep, registration_token').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
+      // Everyone is listed with the cell we have (last 4), so you can see before you call; no cell = flagged.
+      const people = (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : TEAMS[p.region] || 'Rep', ph: digits(p.phone), cell: digits(p.phone).length === 10 ? digits(p.phone) : '', has_email: !!(p.company_email || p.email) }))
       let staff = []
       try {
         const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
-        staff = (u.users || []).filter((x) => x.phone && !x.deleted).map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', tag: 'Office / staff', ph: digits(x.phone) }))
+        staff = (u.users || []).filter((x) => x.phone && !x.deleted).map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', tag: 'Office / staff', ph: digits(x.phone), cell: digits(x.phone), has_email: !!x.email }))
       } catch { /* TMS people still listed */ }
-      const seen = new Set(people.map((p) => p.ph))
+      const seen = new Set(people.map((p) => p.ph).filter(Boolean))
       const all = [...people, ...staff.filter((x) => x.name && !seen.has(x.ph) && seen.add(x.ph))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
       return json(200, { ok: true, people: all })
     }
@@ -722,13 +723,16 @@ export const handler = async (event) => {
     const to = b.to || {}
     let invitee = null, name = ''
     if (to.id) {
-      const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, registration_token').eq('id', String(to.id)).maybeSingle()
+      const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(to.id)).maybeSingle()
       if (!t || !t.registration_token) return json(400, { ok: false, error: "Can't call that person (no TMS link)." })
+      if (digits(t.phone).length !== 10 && !(t.company_email || t.email)) return json(400, { ok: false, error: `${fullName(t)} has no cell or email in TMS, so there's nothing to send the link to. Add their cell in TMS, or type their name + cell under "Someone else".` })
+      to.cell = digits(t.phone)
       invitee = { id: t.id }; name = fullName(t)
     } else {
       name = String(to.name || '').trim().slice(0, 60)
       if (!name || digits(to.phone).length !== 10) return json(400, { ok: false, error: 'Pick someone, or type a name and a 10-digit cell.' })
       invitee = { key: crypto.randomBytes(6).toString('base64url'), name, phone: String(to.phone).trim().slice(0, 20), email: String(to.email || '').trim().toLowerCase().slice(0, 120) }
+      to.cell = digits(to.phone)
     }
     const start = new Date(Date.now() - 60000)
     const p2 = (n) => String(n).padStart(2, '0')
@@ -749,7 +753,8 @@ export const handler = async (event) => {
       const msg = note ? `${note}\n\n📞 ${callerFirst} is calling you on video now. Tap to join: {link}` : `📞 Hi {first}, ${callerFirst} is calling you on video RIGHT NOW. Tap to join: {link}`
       const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `📞 ${callerFirst} is calling you now` }) })).body)
       const r0 = (sent.sent || [])[0] || {}
-      return json(200, { ok: true, slug: saved.room.slug, name, sms: !!r0.sms, email: !!r0.email })
+      const cell = to.cell && to.cell.length === 10 ? `${to.cell.slice(0, 3)}-${to.cell.slice(3, 6)}-${to.cell.slice(6)}` : ''
+      return json(200, { ok: true, slug: saved.room.slug, name, cell, sms: !!r0.sms, email: !!r0.email })
     } finally { INTERNAL = false }
   }
 

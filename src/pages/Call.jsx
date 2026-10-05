@@ -18,25 +18,40 @@ function Dialer() {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [done, setDone] = useState(null) // what went out, shown before you go into the room
   useEffect(() => { call({ action: 'call_people', pin }).then((j) => (j.ok ? setPeople(j.people) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const list = (people || []).filter((p) => !q.trim() || `${p.name} ${p.tag}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
   const go = async () => {
     const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone }
     setBusy(true); setErr('')
     const j = await call({ action: 'call_start', pin, to, note }).catch(() => ({ error: 'Network error. Try again.' }))
-    if (!j.ok) { setBusy(false); setErr(j.error || 'Could not start the call.'); return }
-    // Straight into the room as host (the meeting page reads this PIN).
+    setBusy(false)
+    if (!j.ok) { setErr(j.error || 'Could not start the call.'); return }
+    // Say what went out (Neal, 2026-10-05: he couldn't tell whether Nikki had a number). Nothing
+    // went out → stop here with a warning instead of sitting in an empty room.
     try { sessionStorage.setItem('meet_host_pin', pin) } catch { /* it will ask for the PIN */ }
-    window.location.href = `/meet/${j.slug}`
+    setDone(j)
+    if (j.sms || j.email) setTimeout(() => { window.location.href = `/meet/${j.slug}` }, 2500)
   }
   const ready = pick || (other.name.trim() && other.phone.replace(/\D/g, '').length >= 10)
+  if (done) return (
+    <div className={`rounded-xl border-2 p-5 ${done.sms || done.email ? 'border-emerald-500 bg-emerald-50' : 'border-red-500 bg-red-50'}`}>
+      <div className="text-lg font-extrabold">{done.sms || done.email ? `📞 Calling ${done.name}` : `⚠️ Nothing went out to ${done.name}`}</div>
+      <div className="mt-2 text-base">{done.sms ? '✅' : '❌'} Text {done.cell ? `to ${done.cell}` : '(no cell on file)'}</div>
+      <div className="text-base">{done.email ? '✅' : '❌'} Email</div>
+      {done.sms || done.email
+        ? <p className="mt-3 text-sm text-slate-600">Taking you into the room… <a href={`/meet/${done.slug}`} className="font-bold text-emerald-700 underline">go now</a></p>
+        : <p className="mt-3 text-sm font-semibold text-red-700">They have no way to get the link. Add their cell in TMS, or call again with their name + cell under "Someone else".</p>}
+      {!(done.sms || done.email) && <button onClick={() => setDone(null)} className="mt-3 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Back</button>}
+    </div>
+  )
   if (busy) return <p className="py-10 text-center text-lg font-bold text-brand-navy">📞 Calling {pick?.name || other.name}… opening your room</p>
   return (
     <div>
       {err && <p className="mb-3 rounded bg-red-50 p-2 text-sm font-semibold text-red-700">{err}</p>}
       {pick ? (
         <div className="flex items-center gap-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4">
-          <div className="flex-1"><div className="text-lg font-bold">{pick.name}</div><div className="text-sm text-slate-600">{pick.tag}</div></div>
+          <div className="flex-1"><div className="text-lg font-bold">{pick.name}</div><div className="text-sm text-slate-600">{pick.tag} · {pick.cell ? `📱 ${pick.cell.slice(0, 3)}-${pick.cell.slice(3, 6)}-${pick.cell.slice(6)}` : <b className="text-red-600">⚠️ no cell in TMS{pick.has_email ? ': email only' : ', nothing to send to'}</b>}</div></div>
           <button onClick={() => setPick(null)} className="text-sm font-semibold text-slate-500 underline">change</button>
         </div>
       ) : (
@@ -45,7 +60,9 @@ function Dialer() {
           <div className="mt-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white">
             {!people ? <p className="p-3 text-sm text-slate-500">Loading people…</p> : list.length ? list.map((p) => (
               <button key={p.id || p.phone} onClick={() => setPick(p)} className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50">
-                <span className="flex-1 font-semibold text-slate-900">{p.name}</span><span className="text-xs text-slate-500">{p.tag}</span>
+                <span className="flex-1 font-semibold text-slate-900">{p.name}</span>
+                <span className={`text-xs ${p.cell ? 'text-slate-500' : 'font-bold text-red-600'}`}>{p.cell ? `📱 …${p.cell.slice(-4)}` : '⚠️ no cell'}</span>
+                <span className="text-xs text-slate-500">{p.tag}</span>
               </button>
             )) : <p className="p-3 text-sm text-slate-500">No one by that name. Type them in below.</p>}
           </div>
