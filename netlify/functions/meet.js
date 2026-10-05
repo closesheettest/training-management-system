@@ -1137,7 +1137,7 @@ export const handler = async (event) => {
       }
       if (b.action === 'audience' && room.kind === 'training' && room.training_week === 'B') {
         // Each trainee's Week A field-day average, so the office can see who qualifies.
-        const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes(week_start_date)').in('id', rows.map((r) => r.id))
+        const { data: info } = await sb.from('trainees').select('id, first_name, last_name, phone, week_b_force, classes!class_id(week_start_date)').in('id', rows.map((r) => r.id))
         const byId = new Map((info || []).map((x) => [x.id, x]))
         const prob = (await getSetting('week_b_probation', {})) || {}
         for (const r of rows) if (prob[r.id]) r.probation = { committed_at: prob[r.id].committed_at || null, result: prob[r.id].result || null, week_avg: prob[r.id].week_avg ?? null, seen_at: prob[r.id].seen_at || null, week_monday: prob[r.id].week_monday }
@@ -1469,7 +1469,7 @@ export const handler = async (event) => {
     if (!host) { const st = await openState(room); if (!st.open) { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } }
     // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
     if (room.kind === 'training' && !host && !isRetrainee && identity.startsWith('t:')) {
-      const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
+      const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes!class_id(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
       if (tr?.class_id) await sb.from('attendance').upsert({ trainee_id: identity.slice(2), class_id: tr.class_id, attendance_date: etDay(), confirmed: true, confirmed_at: new Date().toISOString() }, { onConflict: 'trainee_id,attendance_date' })
       // Same as the kiosk: signing in from the class's 2nd day on makes them a field trainee, so
       // their regional manager sees them (Kiosk.jsx signIn). Only ever turns it ON.
