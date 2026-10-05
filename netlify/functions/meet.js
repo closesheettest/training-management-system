@@ -528,6 +528,16 @@ export const handler = async (event) => {
   }
   // …and by a manager's dashboard token (TMS /regional-manager/<token>), with their OWN join link
   // so they come in as themselves (Neal, 2026-10-05: "show up on their personal dashboards").
+  // My Tools (CCG ?mode=mytools) shows the signed-in person's meetings TODAY (Neal, 2026-10-05). By
+  // name only, so it returns just today's / live rooms and plain room links (they host with their PIN).
+  if (b.action === 'mine_today_by_name') {
+    const name = String(b.name || '').trim()
+    const parts = name.split(/\s+/)
+    if (parts.length < 2) return json(200, { ok: true, rooms: [] })
+    const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`)
+    const rows = await roomsForPerson(ts, name, (r) => `${SITE}/meet/${r.slug}`)
+    return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today).map(({ slug, title, live, open, today, next_at, topic, badge, kind }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, link: `${SITE}/meet/${slug}` })) })
+  }
   if (b.action === 'mine_by_mgr_token') {
     const tok = String(b.token || '').trim()
     if (!tok) return json(401, { ok: false })

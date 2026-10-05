@@ -14,6 +14,8 @@ import { VideoTrack } from '@livekit/components-react'
 export const DECKS = [
   { key: 'a1', week: 'A', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
   { key: 'vf', label: 'Walkthrough: new virtual training flow', type: 'reveal', url: '/virtual-flow/' },
+  // Signing a free roof inspection, start to finish — Week A (and every non-training room) (Neal, 2026-10-05).
+  { key: 'fri', week: 'A', label: 'Week A · Signing a Free Roof Inspection', type: 'images', base: '/free-inspection/s-', count: 13, start: 1 },
   // Week B Monday (Neal, 2026-10-04): the warm-up, then Find their button (FIGS), then
   // Question-based selling. Homework: learn slides 1–7, practice 1–7 that night.
   { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
