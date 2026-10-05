@@ -303,6 +303,9 @@ export const handler = async (event) => {
     return ids
   })()
   const fullName = (t) => `${t.first_name || ''} ${t.last_name || ''}`.trim()
+  // GoHighLevel users kept OFF our people lists (test logins etc.). app_settings staff_hide = [names].
+  // Neal, 2026-10-05: "get rid of the Neal S, that was for testing".
+  const staffHidden = async () => new Set(((await getSetting('staff_hide', null)) || ['Neal S']).map((n) => String(n).trim().toLowerCase()))
   // Who the room shows as its host: the people picked as Host (plus any names typed in); with
   // none picked, the team's manager (team room) and Neal / DeWayne when they're Also included.
   const hostNamesFor = async (r) => {
@@ -728,7 +731,8 @@ export const handler = async (event) => {
         staff = (u.users || []).filter((x) => x.phone && !x.deleted).map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', tag: 'Office / staff', ph: digits(x.phone), cell: digits(x.phone), has_email: !!x.email }))
       } catch { /* TMS people still listed */ }
       const seen = new Set(people.map((p) => p.ph).filter(Boolean))
-      const all = [...people, ...staff.filter((x) => x.name && !seen.has(x.ph) && seen.add(x.ph))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
+      const hide = await staffHidden()
+      const all = [...people, ...staff.filter((x) => x.name && !hide.has(x.name.toLowerCase()) && !seen.has(x.ph) && seen.add(x.ph))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
       return json(200, { ok: true, people: all })
     }
     // call_start
@@ -1029,11 +1033,12 @@ export const handler = async (event) => {
       const { data: allT } = await sb.from('trainees').select('phone').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const tms = new Set((allT || []).map((x) => dg(x.phone)).filter(Boolean))
       let staff = []
+      const hide = await staffHidden()
       try {
         const u = await fetch(`https://services.leadconnectorhq.com/users/?locationId=${process.env.GHL_LOCATION_ID}`, { headers: ghlHeaders() }).then((r) => r.json())
         const seen = new Set()
         staff = (u.users || []).filter((x) => !x.deleted && x.phone && dg(x.phone).length === 10 && !tms.has(dg(x.phone)) && !seen.has(dg(x.phone)) && seen.add(dg(x.phone)))
-          .map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', cell: dg(x.phone) })).filter((x) => x.name).sort((a, c) => a.name.localeCompare(c.name))
+          .map((x) => ({ name: `${x.firstName || ''} ${x.lastName || ''}`.trim(), phone: x.phone, email: x.email || '', cell: dg(x.phone) })).filter((x) => x.name && !hide.has(x.name.toLowerCase())).sort((a, c) => a.name.localeCompare(c.name))
       } catch { /* reps still listed */ }
       return json(200, { ok: true, staff, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
     }
