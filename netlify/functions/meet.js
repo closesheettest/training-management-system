@@ -999,9 +999,9 @@ export const handler = async (event) => {
       return json(200, { ok: true, stage })
     }
     // How the presenter's camera sits beside slides / scripture (Neal, 2026-10-05): circle (small, in
-    // the corner) | split (half and half) | side (slides big, camera beside) | stack (camera on top).
+    // the corner) | split (half and half) | stack_top (you on top) | stack_bottom (you underneath).
     if (b.action === 'set_layout') {
-      const layout = ['circle', 'split', 'side', 'stack'].includes(b.layout) ? b.layout : 'circle'
+      const layout = ['circle', 'split', 'stack_top', 'stack_bottom'].includes(b.layout) ? b.layout : 'circle'
       await setMeta({ layout })
       return json(200, { ok: true, layout })
     }

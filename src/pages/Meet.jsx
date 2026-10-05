@@ -243,7 +243,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const stageIds = Array.isArray(rmeta.stage) ? rmeta.stage : []
   const amOnStage = !!localParticipant && stageIds.includes(localParticipant.identity)
   // Presenter-camera layout for slides / scripture, picked by a host, the same on every screen.
-  const layout = ['circle', 'split', 'side', 'stack'].includes(rmeta.layout) ? rmeta.layout : 'circle'
+  const layout = { side: 'split', stack: 'stack_top' }[rmeta.layout] || (['circle', 'split', 'stack_top', 'stack_bottom'].includes(rmeta.layout) ? rmeta.layout : 'circle')
   const pickLayout = (l) => call({ action: 'set_layout', room: room.slug, layout: l, ...auth }).catch(() => {})
   // 🎙 AUTOMATIC PODCAST VIEW (Neal, 2026-10-04: "two hosts so it focuses on those, almost like a
   // podcast"). Rooms with auto_stage: once 2+ hosts are in, they go side by side on stage for
@@ -822,10 +822,10 @@ function ShortcutHelp({ isHost, onClose }) {
 // 🖼 PRESENTER LAYOUTS (Neal, 2026-10-05: "he can be a small circle, or split screen, or one on top
 // of the other, or side by side" — for every room). Wraps the slides / scripture; in 'circle' the
 // content draws its own corner circle. Hosts get a small picker in the top-right corner.
-const LAYOUTS = [['circle', '◉ Circle'], ['split', '◧ Split'], ['side', '▭▯ Side by side'], ['stack', '⬒ Stacked']]
+const LAYOUTS = [['circle', '◉ Circle'], ['split', '◧ Split'], ['stack_top', '⬒ Stacked: you on top'], ['stack_bottom', '⬓ Stacked: you underneath']]
 function PresenterFrame({ layout, cam, isHost, onLayout, children }) {
   const camBox = cam && layout !== 'circle' ? (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, background: '#000', minWidth: 0, minHeight: 0, ...(layout === 'split' ? { flex: '1 1 50%' } : layout === 'side' ? { flex: '0 0 30%' } : { flex: '0 0 34%' }) }}>
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, background: '#000', minWidth: 0, minHeight: 0, ...(layout === 'split' ? { flex: '1 1 50%' } : { flex: '0 0 34%' }) }}>
       <VideoTrack trackRef={cam} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
     </div>
   ) : null
@@ -833,8 +833,8 @@ function PresenterFrame({ layout, cam, isHost, onLayout, children }) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
       {camBox ? (
-        <div style={{ display: 'flex', flexDirection: layout === 'stack' ? 'column' : 'row', gap: 8, padding: 8, width: '100%', height: '100%' }}>
-          {layout === 'stack' ? <>{camBox}{body}</> : <>{body}{camBox}</>}
+        <div style={{ display: 'flex', flexDirection: layout === 'split' ? 'row' : 'column', gap: 8, padding: 8, width: '100%', height: '100%' }}>
+          {layout === 'stack_top' ? <>{camBox}{body}</> : <>{body}{camBox}</>}
         </div>
       ) : body}
       {isHost && (
