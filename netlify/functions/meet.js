@@ -814,11 +814,14 @@ export const handler = async (event) => {
       let join = null
       if (!(await verifyPin(b.pin))) {
         const parts = String(caller).trim().split(/\s+/)
-        const { data: me } = parts.length > 1 ? await sb.from('trainees').select('id, registration_token').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1]).not('registration_token', 'is', null).limit(1) : { data: [] }
+        // "Neal S" on My Tools = Neal Scoppe in TMS: last name matched as a prefix, used only if it's one person.
+        const { data: me0 } = parts.length > 1 ? await sb.from('trainees').select('id, registration_token, managed_region, is_active_sales_rep').ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`).not('registration_token', 'is', null).limit(5) : { data: [] }
+        const me = (me0 || []).length === 1 ? me0 : (me0 || []).filter((x) => x.managed_region || x.is_active_sales_rep).slice(0, 1).length === 1 && (me0 || []).filter((x) => x.managed_region || x.is_active_sales_rep).length === 1 ? (me0 || []).filter((x) => x.managed_region || x.is_active_sales_rep) : []
         const all = await loadRooms(), rm = all.find((x) => x.slug === saved.room.slug)
         if (rm) {
-          if (me && me[0]) { rm.invitees.push({ id: me[0].id }); join = `/meet/${rm.slug}?t=${me[0].registration_token}` }
-          else { const k = crypto.randomBytes(6).toString('base64url'); rm.invitees.push({ key: k, name: String(caller), phone: '', email: '' }); join = `/meet/${rm.slug}?g=${k}` }
+          // The caller is always HOST of their own call (Neal, 2026-10-05: no Share button when calling Jen).
+          if (me && me[0]) { rm.invitees.push({ id: me[0].id }); rm.host_ids = [...new Set([...(rm.host_ids || []), me[0].id])]; join = `/meet/${rm.slug}?t=${me[0].registration_token}` }
+          else { const k = crypto.randomBytes(6).toString('base64url'); rm.invitees.push({ key: k, name: String(caller), phone: '', email: '', host: true }); join = `/meet/${rm.slug}?g=${k}` }
           await putSetting('meet_rooms', all)
         }
       }
@@ -1340,7 +1343,7 @@ export const handler = async (event) => {
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
     } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
-      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`
+      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host // a My Tools caller's own seat
     } else {
       const t = await traineeByToken(b.t)
       if (t) {
