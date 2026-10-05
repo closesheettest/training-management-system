@@ -744,6 +744,31 @@ export const handler = async (event) => {
     return json(200, { ok: true, committed_at: prob[t.id].committed_at })
   }
 
+  // 📱 "TEXT ME MY LINK" (Neal, 2026-10-05: some people only ever get the email — usually they once
+  // replied STOP, or their carrier blocks us). The join screen tells them to text START to our
+  // number, then tap this: we text their own link to the phone on file and say what happened.
+  if (b.action === 'text_me') {
+    let person = null, link = null
+    if (String(b.t || '').trim()) {
+      const t = await traineeByToken(b.t)
+      if (t) { person = { first: t.first_name || 'there', last: t.last_name || '', phone: t.phone }; link = `${SITE}/meet/${room.slug}?t=${String(b.t).trim()}` }
+    } else if (b.g && (room.invitees || []).some((x) => x.key === String(b.g))) {
+      const x = room.invitees.find((y) => y.key === String(b.g)); person = { first: (x.name || 'there').split(' ')[0], last: '', phone: x.phone }; link = `${SITE}/meet/${room.slug}?g=${x.key}`
+    }
+    if (!person) return json(401, { ok: false, error: 'Open this from your own link.' })
+    const digits = String(person.phone || '').replace(/\D/g, '')
+    if (digits.length < 10) return json(200, { ok: false, error: "We don't have a cell number for you. Tell your manager the right one." })
+    const last4 = digits.slice(-4)
+    const gate = `meet_textme_${digits.slice(-10)}`
+    const prev = await getSetting(gate, null)
+    if (prev && Date.now() - Date.parse(prev) < 60000) return json(200, { ok: false, last4, error: 'Just sent one. Give it a minute, then try again.' })
+    await putSetting(gate, new Date().toISOString())
+    const r = await sendSmsViaGhl(person.phone, `✅ ${person.first}, texts from U.S. Shingle & Metal are working again. Your link for ${room.title}: ${link}`, { firstName: person.first, lastName: person.last }).catch((e) => ({ ok: false, error: e.message }))
+    if (r?.ok) return json(200, { ok: true, last4 })
+    const blocked = /dnd|do not disturb|unsubscrib|opt/i.test(String(r?.error || ''))
+    return json(200, { ok: false, last4, error: blocked ? 'Texts are still blocked. From your phone, text START to (727) 349-3584, wait a moment, then tap again.' : `The text didn't go out (${String(r?.error || 'unknown').slice(0, 80)}). Tell your manager.` })
+  }
+
   // CLASS CONFIRMATION from the trainee's own link (?confirm=1) — the same confirmation the class
   // page shows (trainees.confirmation_status), and it marks the invite as opened if it was tracked.
   if (b.action === 'class_confirm' && room.kind === 'training') {

@@ -774,6 +774,7 @@ export default function Meet() {
             {READY.map((x) => <div key={x} style={{ fontSize: 15.5, fontWeight: 700, margin: '3px 0' }}><span style={{ color: '#16a34a', marginRight: 8 }}>✔</span>{x}</div>)}
           </div>
         )}
+        {!join.host && (lastBody?.t || lastBody?.g) && <TextMeBox slug={slug} who={lastBody} L={L} />}
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: !join.mic_locked }} persistUserChoices={false}
           onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
       </div>
@@ -842,6 +843,25 @@ function PresenterFrame({ layout, cam, isHost, onLayout, children }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// 📱 Only got the email, never the text? (Neal, 2026-10-05) Text START to our number, then tap to
+// get your own link by text — proves texts reach you again.
+function TextMeBox({ slug, who, L }) {
+  const [st, setSt] = useState(null)
+  const go = async () => {
+    setSt({ busy: true })
+    const j = await call({ action: 'text_me', room: slug, ...(who.t ? { t: who.t } : { g: who.g }) }).catch(() => ({ error: 'Network error' }))
+    setSt(j)
+  }
+  return (
+    <div style={{ margin: '0 auto 12px', maxWidth: 480, padding: '10px 14px', borderRadius: 12, background: L.card, border: '1px solid #475569', fontSize: 14, lineHeight: 1.45 }}>
+      <div style={{ fontWeight: 800, color: L.head }}>📱 Only got the email, not our text?</div>
+      <div style={{ marginTop: 4, color: L.text }}>1) From your phone, text <b>START</b> to <a href="sms:+17273493584&body=START" style={{ color: '#60a5fa', fontWeight: 800 }}>(727) 349-3584</a>.<br />2) Then tap:</div>
+      <button onClick={go} disabled={st?.busy} style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{st?.busy ? 'Sending…' : '📲 Text me my link'}</button>
+      {st && !st.busy && <div style={{ marginTop: 6, fontWeight: 700, color: st.ok ? '#4ade80' : '#fbbf24' }}>{st.ok ? `✅ Sent to your phone ending ${st.last4}. If it doesn't arrive in a minute, tell your manager.` : `${st.error}${st.last4 ? ` (Phone on file ends ${st.last4}.)` : ''}`}</div>}
     </div>
   )
 }
