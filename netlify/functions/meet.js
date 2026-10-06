@@ -859,7 +859,7 @@ export const handler = async (event) => {
     try {
       const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room }) })).body)
       if (!saved.ok) return json(400, saved)
-      const msg = `Hi {first}, ${m.first_name} set up a meeting: ${title}${room.topic ? ` (${room.topic})` : ''} on {when} (Eastern). Please confirm you'll be there: {link}`
+      const msg = `Hi {first}, ${m.first_name} set up a meeting: ${title}${room.topic ? ` (${room.topic})` : ''} on {when} (Eastern). 👉 Please CONFIRM: tap your link and press ✅ I'll be there (or ❌ Can't make it): {link}`
       const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `Meeting: ${title}` }) })).body)
       return json(200, { ok: true, slug: saved.room.slug, invited: picked.length, sent: (sent.sent || []).filter((x) => x.sms || x.email).length })
     } finally { INTERNAL = false }
@@ -1242,7 +1242,7 @@ export const handler = async (event) => {
         const first = p.name.split(' ')[0] || 'there'
         // A custom message from the Send box ({first} and {link} filled in per person), or the default.
         const when = room.kind === 'oneoff' && (room.once || [])[0] ? new Date(etWall(room.once[0].slice(0, 10), room.once[0].slice(11, 16))).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
-        if (room.kind === 'oneoff' && !String(b.message || '').trim()) b.message = `Hi {first}, you're invited to ${room.title} on ${when} (Eastern). Please confirm you'll be there: {link}`
+        if (room.kind === 'oneoff' && !String(b.message || '').trim()) b.message = `Hi {first}, you're invited to ${room.title} on ${when} (Eastern). 👉 Please CONFIRM: tap your link and press ✅ I'll be there (or ❌ Can't make it): {link}`
         const msg = String(b.message || '').trim()
           ? String(b.message).slice(0, 1200).replace(/\{when\}/g, when).replace(/\{first\}/g, first).replace(/\{link\}/g, p.link) + (String(b.message).includes('{link}') ? '' : `\n\n${p.link}`)
           : `Hi ${first}, here is your link for ${room.title}${room.schedule ? ` (${room.schedule})` : ''}. It's yours only, so keep it and use it every time: ${p.link}${b.note ? `\n\n${String(b.note).slice(0, 300)}` : ''}`

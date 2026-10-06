@@ -142,7 +142,7 @@ export default function MeetingRooms() {
   const sendLinks = (r) => setCompose(r.kind === 'custom'
     ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title}${r.schedule ? `, ${r.schedule}` : ''} (Eastern).\n\nThis is your own link. Use it every time: {link}\n\n${BOOKMARK}` }
     : r.kind === 'oneoff'
-    ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title} on {when} (Eastern). Please confirm you'll be there: {link}` }
+    ? { slug: r.slug, title: r.title, subject: `You're invited: ${r.title}`, message: `Hi {first}, you're invited to ${r.title} on {when} (Eastern). 👉 Please CONFIRM: tap your link and press ✅ I'll be there (or ❌ Can't make it): {link}` }
     : { slug: r.slug, title: r.title, subject: `Your link: ${r.title}`, message: `Hi {first}, here is your link for ${r.title}. It's yours only, so use it every time: {link}` })
   const sendNow = async () => {
     const r = compose
