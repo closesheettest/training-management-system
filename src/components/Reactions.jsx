@@ -19,7 +19,7 @@ export function ReactionsOverlay() {
   useEffect(() => {
     fire = (emoji, who) => {
       const id = ++n.current
-      const item = { id, emoji, who, left: 4 + Math.random() * 12, drift: (Math.random() - 0.5) * 60, dur: 3.6 + Math.random() * 1.2 }
+      const item = { id, emoji, who, left: 4 + Math.random() * 12, sway: 18 + Math.random() * 22, swayDur: 0.9 + Math.random() * 0.5, dur: 4 + Math.random() * 1.2 }
       setItems((xs) => [...xs.slice(-40), item])
       setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), item.dur * 1000 + 200)
     }
@@ -33,13 +33,16 @@ export function ReactionsOverlay() {
   }, [room])
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 60, overflow: 'hidden' }}>
-      <style>{'@keyframes rxUp{0%{transform:translate(0,0) scale(.6);opacity:0}10%{opacity:1;transform:translate(0,-6vh) scale(1.1)}80%{opacity:1}100%{transform:translate(var(--dx),-78vh) scale(1);opacity:0}}'}</style>
+      {/* WAVY BALLOON (Neal, 2026-10-06): the outer box rises, the inner one sways side to side. */}
+      <style>{'@keyframes rxUp{0%{transform:translateY(0) scale(.6);opacity:0}10%{opacity:1;transform:translateY(-6vh) scale(1.1)}80%{opacity:1}100%{transform:translateY(-78vh) scale(1);opacity:0}}@keyframes rxSway{0%{transform:translateX(calc(var(--sw) * -1))}100%{transform:translateX(var(--sw))}}'}</style>
       {items.map((x) => (
-        <div key={x.id} style={{ position: 'absolute', bottom: 70, right: `${x.left}%`, '--dx': `${x.drift}px`, animation: `rxUp ${x.dur}s ease-out forwards`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div key={x.id} style={{ position: 'absolute', bottom: 70, right: `${x.left}%`, animation: `rxUp ${x.dur}s ease-out forwards` }}>
+          <div style={{ '--sw': `${x.sway}px`, animation: `rxSway ${x.swayDur}s ease-in-out infinite alternate`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {x.emoji === 'AMEN'
             ? <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', background: 'linear-gradient(135deg,#7c3aed,#c026d3)', padding: '4px 14px', borderRadius: 999, boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>AMEN</span>
             : <span style={{ fontSize: 46, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.45))' }}>{x.emoji}</span>}
           {x.who && <span style={{ marginTop: 2, fontSize: 12, fontWeight: 800, color: '#fff', background: 'rgba(15,23,42,.7)', padding: '1px 8px', borderRadius: 999 }}>{x.who}</span>}
+          </div>
         </div>
       ))}
     </div>
