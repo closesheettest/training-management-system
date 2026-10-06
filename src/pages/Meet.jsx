@@ -98,7 +98,7 @@ function MeetControls({ mic, screenShare, reactions }) {
   const label = (title, dev) => (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
       <span>{title}</span>
-      {dev && <span title={dev} style={{ fontSize: 11, fontWeight: 500, opacity: 0.75, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dev}</span>}
+      {dev && <span className="meet-devname" title={dev} style={{ fontSize: 11, fontWeight: 500, opacity: 0.75, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dev}</span>}
     </span>
   )
   return (
@@ -117,7 +117,7 @@ function MeetControls({ mic, screenShare, reactions }) {
           instead of a button that silently does nothing. */}
       {screenShare && (navigator.mediaDevices?.getDisplayMedia
         ? <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>
-        : <button className="lk-button" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
+        : <button className="lk-button meet-noshare" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
       {reactions && <ReactButton choices={reactions} />}
       <ChatToggle><ChatIcon />Chat</ChatToggle>
       <DisconnectButton><LeaveIcon />Leave</DisconnectButton>
@@ -629,7 +629,11 @@ function Stage({ room, auth, isHost, micLocked = false }) {
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TitleBar room={room} auth={auth} isHost={isHost} />
-        <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
+        {/* 📱 PHONES (Neal, 2026-10-06: "on my phone it is cutting off tools on top and bottom"): both bars
+            wrap onto a second line instead of running off the screen; device names + the "computer only"
+            share button are hidden there to save room. */}
+        <style>{'@media (max-width: 760px){.meet-topbar{flex-wrap:wrap;row-gap:6px;padding:6px 8px!important}.meet-topbar button{padding:5px 9px!important;font-size:12px!important}.lk-control-bar{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px!important;height:auto!important}.lk-control-bar .lk-button{padding:7px 10px;font-size:13px}.meet-devname,.meet-noshare{display:none!important}}'}</style>
+        <div className="meet-topbar" style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
