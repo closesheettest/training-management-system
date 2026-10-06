@@ -1613,9 +1613,31 @@ export const handler = async (event) => {
       await setMeta({ practice: pr })
       return json(200, { ok: true })
     }
+    // 📲 🆕 NEW FLOW (Week A, Oct 6): "a button I can press that says send all trainees that are on this
+    // meeting access to Door Dispatcher" (Neal, 2026-10-06). Everyone in the room right now on their own
+    // trainee link (identity t:<id>), minus hosts, deduped by phone → CCG harvest-trainees grant with the
+    // new-flow tag (their certification is then the one video + the test). CCG texts AND emails the link.
+    if (b.action === 'dd_access_live') {
+      const live = [...new Set((await svc().listParticipants(room.slug).catch(() => [])).map((p) => String(p.identity || '')).filter((i) => i.startsWith('t:')).map((i) => i.slice(2)))]
+      if (!live.length) return json(200, { ok: true, results: [], note: 'No trainees are in the meeting right now.' })
+      const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, managed_region').in('id', live)
+      const seen = new Set(), results = []
+      for (const p of ppl || []) {
+        if (isRoomHost(room, p)) continue
+        const name = fullName(p), ph = String(p.phone || '').replace(/\D/g, '').slice(-10)
+        if (ph.length !== 10) { results.push({ name, ok: false, error: 'no phone number on file' }); continue }
+        if (seen.has(ph)) continue
+        seen.add(ph)
+        const r = await fetch('https://free-roof-inspections.netlify.app/.netlify/functions/harvest-trainees', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'grant', name, phone: p.phone, email: p.email || p.company_email || '', flow: 'weekA-new-2026-10-06', key: process.env.DIRECTORY_KEY }) })
+          .then((x) => x.json()).catch((e) => ({ ok: false, error: e.message }))
+        results.push({ name, ok: !!r.ok, sms: !!r.sent, email: !!r.emailed, error: r.ok ? '' : (r.error || 'failed') })
+      }
+      return json(200, { ok: true, results })
+    }
     // 📊 PRESENT: { key, pos:{h,v,f}|{n}, showing, by } or null — the trainer's deck and where it is.
     if (b.action === 'set_deck') {
-      const dk = b.deck && typeof b.deck.key === 'string' ? { key: b.deck.key.slice(0, 20), pos: b.deck.pos && typeof b.deck.pos === 'object' ? { h: Number(b.deck.pos.h) || 0, v: Number(b.deck.pos.v) || 0, f: Number.isFinite(Number(b.deck.pos.f)) ? Number(b.deck.pos.f) : -1, n: Number(b.deck.pos.n) || 0 } : null, showing: !!b.deck.showing, by: String(b.identity || '').slice(0, 80) } : null
+      const dk = b.deck && typeof b.deck.key === 'string' ? { key: b.deck.key.slice(0, 20), pos: b.deck.pos && typeof b.deck.pos === 'object' ? { h: Number(b.deck.pos.h) || 0, v: Number(b.deck.pos.v) || 0, f: Number.isFinite(Number(b.deck.pos.f)) ? Number(b.deck.pos.f) : -1, n: Number(b.deck.pos.n) || 0, t: Math.max(0, Number(b.deck.pos.t) || 0), play: !!b.deck.pos.play } : null, showing: !!b.deck.showing, by: String(b.identity || '').slice(0, 80) } : null
       await setMeta({ deck: dk })
       return json(200, { ok: true })
     }

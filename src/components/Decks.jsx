@@ -21,12 +21,18 @@ export const DECKS = [
   { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
   { key: 'b1f', week: 'B', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
   { key: 'b1q', week: 'B', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
+  // 🆕 NEW FLOW — Week A DoorDispatcher intro (Neal, 2026-10-06). Play the FIRST DoorDispatcher video
+  // (the trainee "Why we use it" one) to the whole room, present the how-to deck, then press
+  // 📲 Send DoorDispatcher access. Kept apart from the older flows so the old ones can be deleted later.
+  { key: 'ddv', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · DoorDispatcher video: Why we use it', type: 'video', url: 'https://ddtajhfsnlzgsejtvoaz.supabase.co/storage/v1/object/public/harvest-training/why_jr.mp4' },
+  { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/' },
 ]
 // A training room only offers its own week's decks (Neal, 2026-10-04: First Week Training shows
 // Week A only). Other rooms (and a 'both' training room) get every deck.
 export const decksFor = (room) => {
   const w = room?.kind === 'training' ? room.training_week : null
-  return w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS
+  const list = w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS
+  return [...list.filter((d) => d.flow === 'new'), ...list.filter((d) => d.flow !== 'new')] // 🆕 new flow on top
 }
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
 const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
@@ -62,7 +68,7 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
   }
   // The trainer's ◀ ▶ buttons and arrow keys drive the deck through this.
   useEffect(() => {
-    if (!apiRef) return
+    if (!apiRef || d?.type === 'video') return
     apiRef.current = {
       next: () => { if (d?.type === 'reveal') reveal()?.next(); else { const x = Math.min(d.count, n + 1); setMyN(x); onMove?.({ n: x }) } },
       prev: () => { if (d?.type === 'reveal') reveal()?.prev(); else { const x = Math.max(1, n - 1); setMyN(x); onMove?.({ n: x }) } },
@@ -72,12 +78,14 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
   if (!d) return null
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
-      {d.type === 'reveal'
+      {d.type === 'video'
+        ? <SyncVideo d={d} pos={pos} host={host} onMove={onMove} apiRef={apiRef} />
+        : d.type === 'reveal'
         ? <iframe ref={frame} title={d.label} src={d.url} onLoad={onLoad} style={{ width: '100%', height: '100%', border: 0, pointerEvents: host ? 'auto' : 'none' }} />
         : <img src={img(d, n)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
       {/* Always-on slide controls for the presenter (Neal, 2026-10-04: "I need a way that I can go
           back"). Bottom-left, clear of the camera circle; only the presenter sees them. */}
-      {host && apiRef && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
+      {host && apiRef && d.type !== 'video' && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
       {camTrack && (
         <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(20%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', background: '#000', pointerEvents: 'none' }}>
           <VideoTrack trackRef={camTrack} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -98,6 +106,62 @@ function DeckControls({ d, pos, api, reveal }) {
       <button onClick={() => api.current?.prev()} style={b('#334155')}>◀ Back</button>
       {total ? <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14, minWidth: 54, textAlign: 'center' }}>{at} / {total}</span> : null}
       <button onClick={() => api.current?.next()} style={b('#2563eb')}>Next ▶</button>
+    </div>
+  )
+}
+
+// 🎬 A VIDEO PLAYED TO THE WHOLE ROOM (Neal, 2026-10-06: "I want it to play in presentation mode in
+// the meeting"). Each device plays the file itself (full quality, its own sound — not a screen share).
+// The presenter has the normal play / pause / scrub controls; every change, plus a heartbeat every 8
+// seconds while playing, goes out as pos { t: seconds, play: true|false }. Everyone else follows:
+// target = t + time since the update ARRIVED (their own clock, so clock differences don't matter),
+// and they only jump when they're more than 1.5 s off.
+function SyncVideo({ d, pos, host, onMove, apiRef }) {
+  const v = useRef(null)
+  const got = useRef(Date.now())
+  const [needTap, setNeedTap] = useState(false)
+  useEffect(() => { got.current = Date.now() }, [pos?.t, pos?.play])
+  const report = () => { const x = v.current; if (x) onMove?.({ t: Math.round(x.currentTime * 10) / 10, play: !x.paused }) }
+  useEffect(() => {
+    if (!host) return
+    const id = setInterval(() => { if (v.current && !v.current.paused) report() }, 8000)
+    return () => clearInterval(id)
+  }, [host]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Presenter: space / arrows from the meeting keyboard handler.
+  useEffect(() => {
+    if (!host || !apiRef) return
+    apiRef.current = {
+      next: () => { const x = v.current; if (!x) return; if (x.paused) x.play(); else x.pause() },
+      prev: () => { const x = v.current; if (x) x.currentTime = Math.max(0, x.currentTime - 10) },
+      first: () => { const x = v.current; if (x) { x.currentTime = 0 } },
+    }
+  })
+  // Everyone else: follow.
+  const follow = () => {
+    const x = v.current; if (!x || host || !pos) return
+    const target = (Number(pos.t) || 0) + (pos.play ? (Date.now() - got.current) / 1000 : 0)
+    if (Math.abs(x.currentTime - target) > 1.5) { try { x.currentTime = target } catch { /* not loaded yet */ } }
+    if (pos.play && x.paused) x.play().then(() => setNeedTap(false)).catch(() => setNeedTap(true))
+    if (!pos.play && !x.paused) x.pause()
+  }
+  useEffect(follow, [pos?.t, pos?.play, host]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (host) return
+    const id = setInterval(follow, 4000)
+    return () => clearInterval(id)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <video ref={v} src={d.url} playsInline preload="auto" controls={host}
+        onLoadedMetadata={() => { if (host) { if (pos?.t) v.current.currentTime = pos.t } else follow() }}
+        onPlay={host ? report : undefined} onPause={host ? report : undefined} onSeeked={host ? report : undefined}
+        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#000', pointerEvents: host ? 'auto' : 'none' }} />
+      {!host && needTap && (
+        <button type="button" onClick={() => { const x = v.current; if (x) x.play().then(() => setNeedTap(false)).catch(() => {}); follow() }}
+          style={{ position: 'absolute', inset: 0, margin: 'auto', width: 300, height: 90, borderRadius: 16, border: 'none', background: '#c8102e', color: '#fff', fontSize: 22, fontWeight: 900, cursor: 'pointer', boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+          ▶ Tap to watch with sound
+        </button>
+      )}
     </div>
   )
 }

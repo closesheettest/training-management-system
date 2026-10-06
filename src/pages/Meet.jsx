@@ -426,14 +426,28 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                   <>
                     <div style={{ fontWeight: 800, marginBottom: 6 }}>{deckOf(dk.key)?.label}</div>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                      <button onClick={() => deckApi.current?.prev()} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#1f2937', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>◀ Back</button>
-                      <button onClick={() => deckApi.current?.next()} style={{ flex: 2, padding: '8px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Next ▶</button>
+                      <button onClick={() => deckApi.current?.prev()} style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: '#1f2937', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{deckOf(dk.key)?.type === 'video' ? '⏪ 10 s' : '◀ Back'}</button>
+                      <button onClick={() => deckApi.current?.next()} style={{ flex: 2, padding: '8px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{deckOf(dk.key)?.type === 'video' ? '⏯ Play / Pause' : 'Next ▶'}</button>
                     </div>
                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>Arrow keys work too. Everyone's screen follows you.</div>
                     <button onClick={() => setDeck({ ...dk, showing: false })} style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer', marginBottom: 10 }}>⏹ Stop presenting</button>
                   </>
                 )}
                 <LayoutPick layout={layout} onLayout={pickLayout} />
+                {room.kind === 'training' && room.training_week !== 'B' && (
+                  // 🆕 NEW FLOW (Oct 6): after the DoorDispatcher video + deck, one press gives every trainee
+                  // in the meeting their DoorDispatcher link (text + email). See meet.js dd_access_live.
+                  <button onClick={async () => {
+                    if (!window.confirm('Send DoorDispatcher access to every trainee in this meeting right now?\n\nEach one gets a text and an email with their link. They watch the one video, then take the test.')) return
+                    const j = await call({ action: 'dd_access_live', room: room.slug, ...auth }).catch(() => ({ ok: false, error: 'Network error' }))
+                    if (!j.ok) { window.alert(j.error || 'Did not work.'); return }
+                    if (!j.results?.length) { window.alert(j.note || 'No trainees were found in the meeting.'); return }
+                    const good = j.results.filter((r) => r.ok), bad = j.results.filter((r) => !r.ok)
+                    window.alert(`✅ DoorDispatcher access sent to ${good.length}:\n${good.map((r) => `• ${r.name}${r.sms ? ' 📱' : ''}${r.email ? ' ✉️' : ''}${!r.sms && !r.email ? ' (text + email both failed — resend from Rep Links)' : ''}`).join('\n')}${bad.length ? `\n\n⚠️ Not sent:\n${bad.map((r) => `• ${r.name}: ${r.error}`).join('\n')}` : ''}`)
+                  }} style={{ display: 'block', width: '100%', padding: '10px', marginBottom: 10, borderRadius: 8, border: '2px solid #22c55e', background: '#14532d', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>
+                    📲 Send DoorDispatcher access to trainees in this meeting <span style={{ fontWeight: 600, fontSize: 11, opacity: 0.8 }}>(🆕 new flow)</span>
+                  </button>
+                )}
                 <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
                 {decksFor(room).map((d) => (
                   <button key={d.key} onClick={() => {
@@ -441,7 +455,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                     // keeps the last position after Stop; this device remembers it too.
                     let last = rmeta.deck && rmeta.deck.key === d.key && rmeta.deck.pos ? rmeta.deck.pos : null
                     if (!last) { try { last = JSON.parse(localStorage.getItem(`deck_pos_${room.slug}_${d.key}`) || 'null') } catch { /* none */ } }
-                    setDeck({ key: d.key, pos: last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
+                    setDeck({ key: d.key, pos: d.type === 'video' ? { t: Number(last?.t) || 0, play: false } : last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
                   }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
                 ))}
               </div>
