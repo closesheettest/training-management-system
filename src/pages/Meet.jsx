@@ -283,7 +283,14 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
     if (room.mic_lock) await call({ action: 'allow_mic', room: room.slug, ...(identities ? { identities } : { all: true }), ...auth }).catch(() => {})
     try {
       await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', ...(identities ? { destinationIdentities: identities } : {}) })
-      setMsg(`${label} ✓`)
+      setMsg(`${label}: asked their device to turn the mic on…`)
+      // CHECK IT TOOK (Neal, 2026-10-06: Nikki pressed unmute on Ginger and nothing happened, but it
+      // showed ✓). A browser can refuse to switch someone's mic on; then they get a big "tap to
+      // unmute" button on their screen, and the host is told.
+      setTimeout(() => {
+        const still = [...ctx.remoteParticipants.values()].filter((p) => (!identities || identities.includes(p.identity)) && !metaOf(p).host && !p.isMicrophoneEnabled && !/^egress|^homeowner/i.test(p.identity))
+        setMsg(still.length ? `⚠️ Still muted: ${still.map((p) => p.name || p.identity).join(', ')}. Their browser didn't let us turn the mic on — they now see a "Tap to unmute" button; ask them to tap it.` : `${label} ✓`)
+      }, 4000)
     } catch { setMsg('Did not work') }
   }
   const act = async (action, identity, label) => {
@@ -375,13 +382,15 @@ function Stage({ room, auth, isHost, micLocked = false }) {
     if (!rmeta.recording && prevRec.current && viewBeforeRec.current) { setView(viewBeforeRec.current.view); setGalleryDuringShare(viewBeforeRec.current.gds); viewBeforeRec.current = null }
     prevRec.current = !!rmeta.recording
   }, [rmeta.recording, rmeta.spotlight])
-  // A host asked us to unmute → turn our own mic on (only a host's request counts).
+  // A host asked us to unmute → turn our own mic on (only a host's request counts). If the browser won't
+  // do it on its own, show a big "Tap to unmute" button — a tap always works.
   const roomCtx = useRoomContext()
+  const [unmuteAsk, setUnmuteAsk] = useState(false)
   useEffect(() => {
     const onData = (payload, from, _k, topic) => {
       if (topic !== 'host' || !from || !metaOf(from).host) return
       let m = {}; try { m = JSON.parse(new TextDecoder().decode(payload)) } catch { return }
-      if (m.type === 'unmute') roomCtx.localParticipant.setMicrophoneEnabled(true).catch(() => {})
+      if (m.type === 'unmute') roomCtx.localParticipant.setMicrophoneEnabled(true).then(() => { if (!roomCtx.localParticipant.isMicrophoneEnabled) setUnmuteAsk(true) }).catch(() => setUnmuteAsk(true))
     }
     roomCtx.on(RoomEvent.DataReceived, onData)
     return () => { roomCtx.off(RoomEvent.DataReceived, onData) }
@@ -665,6 +674,16 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
             {sharePanel && <SharePanel room={room} onClose={() => setSharePanel(false)} />}
             {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
+            {unmuteAsk && (
+              <div style={{ position: 'absolute', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(2,6,23,.55)' }}>
+                <button onClick={() => { roomCtx.localParticipant.setMicrophoneEnabled(true).catch(() => {}); setUnmuteAsk(false) }}
+                  style={{ padding: '22px 34px', borderRadius: 18, border: '3px solid #fff', background: '#16a34a', color: '#fff', fontSize: 24, fontWeight: 900, cursor: 'pointer', boxShadow: '0 12px 40px rgba(0,0,0,.5)' }}>
+                  🎙 The host asked you to unmute — tap here
+                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6 }}>If your browser asks, choose Allow for the microphone.</div>
+                </button>
+                <button onClick={() => setUnmuteAsk(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 26, cursor: 'pointer' }}>×</button>
+              </div>
+            )}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
