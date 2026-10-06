@@ -102,7 +102,7 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndA
           {busyEnd ? 'Sending…' : d.endAction}
         </button>
       )}
-      {host && apiRef && d.type !== 'video' && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
+      {host && apiRef && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
       {camTrack && (
         <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(20%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', background: '#000', pointerEvents: 'none' }}>
           <VideoTrack trackRef={camTrack} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -119,10 +119,10 @@ function DeckControls({ d, pos, api, reveal }) {
   const b = (bg) => ({ padding: '8px 14px', borderRadius: 10, border: 'none', background: bg, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' })
   return (
     <div style={{ position: 'absolute', left: 12, bottom: 12, zIndex: 20, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,.82)', padding: 6, borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,.4)' }}>
-      <button title="Back to the first slide" onClick={() => api.current?.first()} style={b('#334155')}>⏮</button>
-      <button onClick={() => api.current?.prev()} style={b('#334155')}>◀ Back</button>
+      <button title="Back to the beginning" onClick={() => api.current?.first()} style={b('#334155')}>{d.type === 'video' ? '⏮ Start over' : '⏮'}</button>
+      <button onClick={() => api.current?.prev()} style={b('#334155')}>{d.type === 'video' ? '◀ 10 sec' : '◀ Back'}</button>
       {total ? <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14, minWidth: 54, textAlign: 'center' }}>{at} / {total}</span> : null}
-      <button onClick={() => api.current?.next()} style={b('#2563eb')}>Next ▶</button>
+      <button onClick={() => api.current?.next()} style={b('#2563eb')}>{d.type === 'video' ? '▶ Play / ⏸ Pause' : 'Next ▶'}</button>
     </div>
   )
 }
@@ -148,9 +148,10 @@ function SyncVideo({ d, pos, host, onMove, apiRef }) {
   useEffect(() => {
     if (!host || !apiRef) return
     apiRef.current = {
-      next: () => { const x = v.current; if (!x) return; if (x.paused) x.play(); else x.pause() },
-      prev: () => { const x = v.current; if (x) x.currentTime = Math.max(0, x.currentTime - 10) },
-      first: () => { const x = v.current; if (x) { x.currentTime = 0 } },
+      next: () => { const x = v.current; if (!x) return; if (x.paused) x.play().catch(() => {}); else x.pause(); setTimeout(report, 300) },
+      prev: () => { const x = v.current; if (x) { x.currentTime = Math.max(0, x.currentTime - 10); report() } },
+      // Start over — also un-sticks a video that froze mid-way (reloads the file).
+      first: () => { const x = v.current; if (x) { x.pause(); x.load(); x.currentTime = 0; onMove?.({ t: 0, play: false }) } },
     }
   })
   // Everyone else: follow.

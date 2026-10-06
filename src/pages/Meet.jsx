@@ -745,10 +745,11 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 {decksFor(room).map((d) => (
                   <button key={d.key} onClick={() => {
                     // RESUME (Neal, 2026-10-05: stop presenting on slide 37, start again → back on 37). The room
-                    // keeps the last position after Stop; this device remembers it too.
+                    // keeps the last position after Stop; this device remembers it too. VIDEOS always start from the
+                    // beginning (Neal, 2026-10-06: the DoorDispatcher video stuck mid-way and came back mid-way).
                     let last = rmeta.deck && rmeta.deck.key === d.key && rmeta.deck.pos ? rmeta.deck.pos : null
                     if (!last) { try { last = JSON.parse(localStorage.getItem(`deck_pos_${room.slug}_${d.key}`) || 'null') } catch { /* none */ } }
-                    setDeck({ key: d.key, pos: d.type === 'video' ? { t: Number(last?.t) || 0, play: false } : last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
+                    setDeck({ key: d.key, pos: d.type === 'video' ? { t: 0, play: false } : last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
                   }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
                 ))}
               </div>
