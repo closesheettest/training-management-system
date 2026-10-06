@@ -518,6 +518,14 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && (decksFor(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
+          {/* ONE-CLICK ON / OFF (Neal, 2026-10-06: "scripture on, scripture off … right now I have two clicks").
+              Off hides the passage and you're straight back in your view (split / circle / stacked — that
+              choice isn't touched). On brings back the last passage you shared, right where you left it. */}
+          {isHost && scriptureRoom && (sc
+            ? <button title="Hide the scripture (Ctrl+Alt+S)" onClick={() => { setScripture({ ...sc, showing: false }); setScripturePanel(false) }} style={{ ...btn(false), background: '#b91c1c', border: 'none', marginRight: 6 }}>⏹ Scripture off</button>
+            : rmeta.scripture && (rmeta.scripture.verses || []).length > 0
+              ? <button title={`Show ${rmeta.scripture.ref || 'the last passage'} again`} onClick={() => setScripture({ ...rmeta.scripture, showing: true })} style={{ ...btn(false), background: '#15803d', border: 'none', marginRight: 6 }}>▶ Scripture on</button>
+              : null)}
           {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
           {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {isHost && auth.pin && !scriptureRoom && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
