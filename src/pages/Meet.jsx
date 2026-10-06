@@ -287,6 +287,14 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const dk = rmeta.deck && rmeta.deck.showing && deckOf(rmeta.deck.key) ? rmeta.deck : null
   const iPresent = !!dk && isHost && dk.by === localParticipant?.identity
   const dkCam = dk ? cams.find((t) => t.participant.identity === dk.by && isTrackReference(t) && !t.publication?.isMuted) : null
+  // 👀 EVERYONE DOWN THE LEFT WHILE PRESENTING (Neal, 2026-10-06: "in all of them … when you go to
+  // presentation, you can see everybody in the room down the left") — slides, scripture and practice.
+  // The host gets the strip; everyone else keeps the presentation full size. (Screen share and podcast
+  // already show the room in a side strip for everyone.)
+  const hostFaces = (el) => {
+    const faces = cams.filter((t) => t.participant.identity !== localParticipant?.identity && !/^homeowner/.test(t.participant.identity))
+    return isHost && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{el}</div></FocusLayoutContainer> : el
+  }
   // 📲 🆕 New flow: DoorDispatcher access for every trainee in the meeting (panel button + the deck's last slide).
   const sendDdAccess = async () => {
                     if (!window.confirm('Send DoorDispatcher access to every trainee in this meeting right now?\n\nEach one gets a text and an email with their link. They watch the one video, then take the test.')) return
@@ -374,9 +382,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 style={{ position: 'absolute', top: 8, right: 8, zIndex: 30, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.8)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>⛶ Full screen</button>
             )}
             {pr ? (
-              <PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />
+              hostFaces(<PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />)
             ) : sc ? (
-              <PresenterFrame layout={layout} cam={scCam} isHost={isHost} onLayout={pickLayout}><ScriptureSlide sc={sc} look={lookOf(room)} camTrack={layout === 'circle' ? scCam : null} /></PresenterFrame>
+              hostFaces(<PresenterFrame layout={layout} cam={scCam} isHost={isHost} onLayout={pickLayout}><ScriptureSlide sc={sc} look={lookOf(room)} camTrack={layout === 'circle' ? scCam : null} /></PresenterFrame>)
             ) : dk ? (
               (() => {
                 // 👀 FACES WHILE PRESENTING (Neal, 2026-10-05: "on the left-hand side the gallery … I want to
@@ -385,8 +393,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 const deckEl = (
               <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} onEndAction={sendDdAccess} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
                 )
-                const faces = cams.filter((t) => t.participant.identity !== localParticipant?.identity)
-                return isHost && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{deckEl}</div></FocusLayoutContainer> : deckEl
+                return hostFaces(deckEl)
               })()
             ) : podcast ? (
               (() => {
