@@ -12,6 +12,11 @@ async function opfsDir() {
   try { const root = await navigator.storage.getDirectory(); return await root.getDirectoryHandle(DIR, { create: true }) } catch { return null }
 }
 
+// The one recording running on this page. Kept OUTSIDE the meeting screen so it survives the screen
+// re-drawing itself (a reconnect) — before, the screen forgot it and lost its Stop button (Neal, 2026-10-06).
+let ACTIVE = null
+export const activeRecorder = () => ACTIVE
+
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
@@ -48,6 +53,7 @@ export class LocalRecorder {
     display.getVideoTracks()[0].addEventListener('ended', () => { if (this.rec?.state === 'recording') this.stop() })
     this.rec.start(2000)
     this.startedAt = Date.now()
+    ACTIVE = this
   }
 
   async stop() {
@@ -73,6 +79,7 @@ export class LocalRecorder {
       else download(blob, this.fileName)
       // Downloaded → remove the private copy a minute later (the download has its own file by then).
       if (this.handle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.handle.name) } catch { /* fine */ } }, 60000)
+      if (ACTIVE === this) ACTIVE = null
       this.onStopped?.()
     })()
     return this.stopping
