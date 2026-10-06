@@ -6,6 +6,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Track } from 'livekit-client'
 import { SmartBackground, smartBackgroundSupported } from '../lib/smartBackground.js'
+import { SmartBackgroundHD, smartBackgroundHDSupported } from '../lib/smartBackgroundHD.js'
+
+// HD BACKGROUND (Neal, 2026-10-06). On trial: a device uses it once it's switched on at /bg-test
+// (localStorage meet_bg_engine = 'hd'). Once Neal approves it against Zoom, flip HD_DEFAULT to true.
+const HD_DEFAULT = false
+export const hdOn = () => { try { const v = localStorage.getItem('meet_bg_engine'); return v ? v === 'hd' : HD_DEFAULT } catch { return HD_DEFAULT } }
 
 export const BACKGROUNDS = [
   { key: 'none', label: 'None' },
@@ -52,7 +58,7 @@ export function useBackground(localParticipant) {
       try {
         if (opts.mode === 'disabled') { if (camTrack.getProcessor()) await camTrack.stopProcessor(); proc.current = null; return }
         if (proc.current && camTrack.getProcessor() === proc.current) { await proc.current.setOptions(opts); return }
-        proc.current = new SmartBackground(opts)
+        proc.current = hdOn() && smartBackgroundHDSupported() ? new SmartBackgroundHD(opts) : new SmartBackground(opts)
         await camTrack.setProcessor(proc.current)
       } catch (e) { console.warn('background', e) }
     })()
