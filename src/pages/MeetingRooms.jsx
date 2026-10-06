@@ -175,7 +175,7 @@ export default function MeetingRooms() {
               {r.badge ? <img src={r.badge} alt="" className={r.badge === '/uss-logo.png' ? 'h-10 w-16 rounded bg-white object-contain p-0.5' : 'h-10 w-10 object-contain'} /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-10 w-16 rounded object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-bold">{r.team && <span style={{ color: r.color }} className="mr-2">{r.team}</span>}{r.title}</div>
-                {(r.host_names || []).length > 0 && <div className="text-sm font-semibold text-slate-700">👤 Host: {r.host_names.join(' & ')}</div>}
+                {r.no_host ? <div className="text-sm font-semibold text-slate-700">👥 No host: everyone has the controls</div> : (r.host_names || []).length > 0 && <div className="text-sm font-semibold text-slate-700">👤 Host: {r.host_names.join(' & ')}</div>}
                 <div className="text-xs text-slate-500">{KINDS.find(([k]) => k === (r.kind === 'custom' && r.look === 'company' ? 'company_pick' : r.kind))?.[1]}{r.schedule ? ` · ${r.schedule}` : ''}{r.scheduled ? (r.next_at ? ` · next: ${nextLabel(r.next_at)}` : ' · nothing scheduled') : ' · always open'}{r.public ? ' · open to the public' : ''}{r.topic ? ` · "${r.topic}"` : ''}{r.rsvp ? <span className="ml-1 font-semibold"> · {r.rsvp.invited} invited · <span className="text-emerald-700">{r.rsvp.yes} confirmed</span> · <span className="text-red-700">{r.rsvp.no} can't</span> · {Math.max(0, r.rsvp.invited - r.rsvp.yes - r.rsvp.no)} no answer</span> : null}</div>
               </div>
               <a href={`/meet/${r.slug}`} target="_blank" rel="noreferrer" className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-bold text-white">Join as host</a>
@@ -443,6 +443,7 @@ export default function MeetingRooms() {
                 ))}
                 <span className="text-xs text-slate-500">They get the links and reminders, see it on Your meetings, and host it.</span>
               </div>
+              {form.kind !== 'training' && <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.no_host} onChange={(e) => setForm({ ...form, no_host: e.target.checked })} /> 👥 No host: everyone who joins has the host controls, and nobody waits for anyone (e.g. a 2-person meeting)</label>}
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.mic_lock} onChange={(e) => setForm({ ...form, mic_lock: e.target.checked })} /> 🔇 Lock mics: everyone comes in muted and only a host can unmute them</label>
               {form.kind === 'retraining' && (
                 <label className="mt-2 flex flex-wrap items-center gap-2 font-semibold">🔁 Picked reps join this room:

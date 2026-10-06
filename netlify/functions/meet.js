@@ -91,6 +91,7 @@ const publicRoom = (r) => ({
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
   mic_lock: !!r.mic_lock,
+  no_host: !!r.no_host,
   auto_stage: !!r.auto_stage,
   // 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is… the 9:15 devotional,
   // DeWayne is always the host"). Shown on every card, dashboard and the join screen.
@@ -366,7 +367,10 @@ export const handler = async (event) => {
   const isRoomHost = (room, t) => (room.host_ids || []).includes(t.id) || !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
   // Is a host in the room right now, and may non-hosts come in?
+  // 👥 NO-HOST ROOM (Neal, 2026-10-06: "the 8 a.m. meeting, it's always just DeWayne and I … no host"):
+  // everyone who comes in has the host controls, and nobody waits for anyone — the room is always open.
   const openState = async (r) => {
+    if (r.no_host) return { live: true, open: true }
     let live = false
     try { live = (await svc().listParticipants(r.slug)).some((p) => { try { return JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room not open */ }
     if (!hasSchedule(r)) return { live, open: r.kind === 'company' ? live : true }
@@ -1024,6 +1028,7 @@ export const handler = async (event) => {
         effort_gate: !!r.effort_gate,
         remind_5: !!r.remind_5,
         mic_lock: !!r.mic_lock,
+        no_host: !!r.no_host && kind !== 'training',
         joins_room: kind === 'retraining' ? String(r.joins_room || '').slice(0, 60) : '',
         early_zones: (rooms.find((x) => x.slug === r.original_slug) || {}).early_zones || [],
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
@@ -1436,11 +1441,11 @@ export const handler = async (event) => {
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
     } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
-      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host // a My Tools caller's own seat
+      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host || !!room.no_host // a My Tools caller's own seat
     } else {
       const t = await traineeByToken(b.t)
       if (t) {
-        name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t)
+        name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t) || (!!room.no_host && room.kind !== 'training') // 👥 no-host room: everyone has the controls
         // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
         // until their onboarding paperwork is signed — it's sent to them right here (text + email).
         // RETRAINING (Neal, 2026-10-05): reps a manager picked for a retraining that "joins" this
