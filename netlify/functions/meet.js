@@ -468,9 +468,27 @@ export const handler = async (event) => {
     for (const x of log.slice(0, 120)) {
       let link = null
       if (x.ready && !x.deleted) { const { data } = await sb.storage.from('meeting-recordings').createSignedUrl(x.file, 3600, { download: `${r.title} ${String(x.started).slice(0, 10)}${x.kind === 'raw' ? ' host camera' : ''}.mp4` }); link = data?.signedUrl || null }
-      out.push({ started: x.started, kind: x.kind, minutes: x.minutes || null, seconds: x.seconds ?? null, mb: x.mb || null, ready: !!x.ready, deleted: !!x.deleted, error: x.error || null, link })
+      out.push({ id: x.egress_id, started: x.started, kind: x.kind, minutes: x.minutes || null, seconds: x.seconds ?? null, mb: x.mb || null, ready: !!x.ready, deleted: !!x.deleted, error: x.error || null, link })
     }
     return json(200, { ok: true, room: publicRoom(r), keep_days: r.rec_keep_days ?? 90, recordings: out })
+  }
+
+  // 🗑 DELETE FROM THE RECORDINGS PAGE (Neal, 2026-10-06: "have a delete on all these recordings").
+  // The page link is shared with attendees, so deleting needs an admin PIN or the room's host code.
+  // { room, k, pin | host_code, id }  or  { …, all: true }
+  if (b.action === 'rec_delete') {
+    const r = (await loadRooms()).find((x) => x.slug === String(b.room || ''))
+    if (!r) return json(404, { ok: false, error: 'No recordings here.' })
+    const ok = !!(await verifyPin(b.pin)) || !!(r.host_code && sameCode(b.host_code, r.host_code))
+    if (!ok) return json(401, { ok: false, error: 'That PIN / host code is not right.' })
+    const key = `meet_recordings_${r.slug}`
+    const log = (await getSetting(key, [])) || []
+    const gone = b.all ? log : log.filter((x) => x.egress_id === String(b.id || ''))
+    if (!gone.length) return json(404, { ok: false, error: 'Already gone.' })
+    const files = gone.map((x) => x.file).filter(Boolean)
+    for (let i = 0; i < files.length; i += 50) await sb.storage.from('meeting-recordings').remove(files.slice(i, i + 50))
+    await putSetting(key, log.filter((x) => !gone.includes(x)))
+    return json(200, { ok: true, deleted: gone.length })
   }
 
   // CLASS PAGE → WEEK B STATUS (Neal, 2026-10-04: "when I click on Week B … that's where I need it,

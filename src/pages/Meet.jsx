@@ -368,8 +368,11 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const info = useRoomInfo()
   const rmeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
   const prevRec = useRef(false)
+  // …and when it STOPS, everyone goes back to the view they had before (Neal, 2026-10-06: "it didn't take me back").
+  const viewBeforeRec = useRef(null)
   useEffect(() => {
-    if (rmeta.recording && !prevRec.current) { setView('speaker'); setGalleryDuringShare(false); if (rmeta.spotlight) setLastSpeaker(rmeta.spotlight) }
+    if (rmeta.recording && !prevRec.current) { viewBeforeRec.current = { view, gds: galleryDuringShare }; setView('speaker'); setGalleryDuringShare(false); if (rmeta.spotlight) setLastSpeaker(rmeta.spotlight) }
+    if (!rmeta.recording && prevRec.current && viewBeforeRec.current) { setView(viewBeforeRec.current.view); setGalleryDuringShare(viewBeforeRec.current.gds); viewBeforeRec.current = null }
     prevRec.current = !!rmeta.recording
   }, [rmeta.recording, rmeta.spotlight])
   // A host asked us to unmute → turn our own mic on (only a host's request counts).
