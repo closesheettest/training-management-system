@@ -555,6 +555,12 @@ export default function MeetingRooms() {
               <p className="mt-1 text-xs text-slate-500">Gives the host a ⏺ Record button. Pressing it mutes everyone except the host (they can unmute themselves), switches everyone to speaker view on the host, and records. Recordings go to this room's recordings page.</p>
               {form.recording_enabled && (
                 <div className="mt-2 space-y-3 text-sm">
+                  {/* 💻 Where it's saved (Neal, 2026-10-06 — like Zoom's local recording). */}
+                  <div className="rounded border border-blue-200 bg-white p-2">
+                    <div className="font-semibold">Save recordings to</div>
+                    <label className="mt-1 flex items-start gap-2"><input type="radio" className="mt-1" checked={(form.rec_where || 'cloud') === 'cloud'} onChange={() => setForm({ ...form, rec_where: 'cloud' })} /><span><b>☁️ The cloud</b> — saved for you and shown on the recordings page below.</span></label>
+                    <label className="mt-1 flex items-start gap-2"><input type="radio" className="mt-1" checked={form.rec_where === 'host'} onChange={() => setForm({ ...form, rec_where: 'host' })} /><span><b>💻 The host's computer</b> — whoever presses ⏺ Record gets the file in their Downloads (.webm). Chrome asks once which tab to record: pick this one and press Share. Needs Chrome or Edge on a computer; keep the meeting tab open.</span></label>
+                  </div>
                   {/* The room's recordings page — share it or open it from here (Neal, 2026-10-04). */}
                   <div className="rounded border border-blue-200 bg-white p-2">
                     <div className="font-semibold">🎞 Recordings page</div>

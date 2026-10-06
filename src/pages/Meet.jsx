@@ -27,6 +27,7 @@ import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby, { READY } from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
 import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
+import { LocalRecorder, localRecordSupported, leftoverRecordings, saveLeftover, dropLeftover } from '../lib/localRecorder.js'
 import { useBackground, BackgroundPanel } from '../components/BackgroundPicker.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
@@ -397,12 +398,35 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   }, [roomCtx])
   const [recBusy, setRecBusy] = useState(false)
   const [recNote, setRecNote] = useState('')
+  // 💻 Rooms set to "Save recordings to: the host's computer" record in THIS browser (lib/localRecorder.js).
+  const localRec = useRef(null)
   const toggleRec = async () => {
     setRecBusy(true); setRecNote('')
-    const j = await call({ action: rmeta.recording ? 'record_stop' : 'record_start', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => ({}))
+    const starting = !rmeta.recording
+    if (room.rec_where === 'host') {
+      if (starting) {
+        if (!localRecordSupported()) { setRecBusy(false); setRecNote('Recording to your computer needs Chrome or Edge on a computer.'); return }
+        const stamp = new Date().toLocaleString('en-CA', { timeZone: 'America/New_York', hour12: false }).replace(/[,:]/g, '').replace(/\s+/g, ' ').slice(0, 15)
+        const r = new LocalRecorder({ fileName: `${room.title} ${stamp}.webm`.replace(/[\\/:*?"<>|]/g, ''), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack })
+        try { await r.start() } catch (e) { setRecBusy(false); setRecNote(/Permission|NotAllowed|denied/i.test(String(e?.name || e)) ? 'Recording cancelled — in the box Chrome shows, pick this tab and press Share.' : `Couldn't start recording: ${e?.message || e}`); return }
+        localRec.current = r
+        r.onStopped = () => { localRec.current = null; setRecNote('✅ Recording saved to your Downloads folder.'); call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
+      } else if (localRec.current) {
+        const r = localRec.current
+        await r.stop() // onStopped tells the room it stopped
+        setRecBusy(false); return
+      }
+    }
+    const j = await call({ action: starting ? 'record_start' : 'record_stop', room: room.slug, identity: localParticipant?.identity, ...(room.rec_where === 'host' ? { local: true } : {}), ...auth }).catch(() => ({}))
     setRecBusy(false)
-    if (!j.ok) setRecNote(j.error || 'Did not work'); else if (j.note) setRecNote(j.note)
+    if (!j.ok) { setRecNote(j.error || 'Did not work'); if (starting && localRec.current) { localRec.current.onStopped = null; localRec.current.stop(); localRec.current = null } }
+    else if (j.note) setRecNote(j.note)
   }
+  // Another host stopped the recording → finish and save ours too.
+  useEffect(() => { if (!rmeta.recording && localRec.current) localRec.current.stop() }, [rmeta.recording])
+  // A recording left behind by a crash / closed tab → offer to save it (hosts only).
+  const [leftovers, setLeftovers] = useState([])
+  useEffect(() => { if (isHost && room.rec_where === 'host') leftoverRecordings().then(setLeftovers).catch(() => {}) }, [isHost, room.rec_where])
   useEffect(() => { const s = speakers.find((p) => !p.isLocal) || speakers[0]; if (s) setLastSpeaker(s.identity) }, [speakers])
   // A screen share TAKES OVER for everyone, people in a strip beside it, like Zoom (Neal,
   // 2026-10-04). Someone who presses Gallery during a share gets faces back until it ends.
@@ -674,6 +698,13 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
             {sharePanel && <SharePanel room={room} auth={isHost ? auth : null} onClose={() => setSharePanel(false)} />}
             {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
+            {leftovers.length > 0 && (
+              <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 75, background: '#7c2d12', color: '#fff', padding: '10px 14px', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.5)', fontSize: 14, fontWeight: 700 }}>
+                💾 A recording from earlier wasn't saved ({Math.round(leftovers[0].size / 1048576)} MB).
+                <button onClick={async () => { await saveLeftover(leftovers[0].name); setLeftovers(leftovers.slice(1)) }} style={{ marginLeft: 8, padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>⬇ Save it</button>
+                <button onClick={async () => { if (!window.confirm('Delete that unsaved recording?')) return; await dropLeftover(leftovers[0].name); setLeftovers(leftovers.slice(1)) }} style={{ marginLeft: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5', background: 'transparent', color: '#fecaca', fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+              </div>
+            )}
             {unmuteAsk && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(2,6,23,.55)' }}>
                 <button onClick={() => { roomCtx.localParticipant.setMicrophoneEnabled(true).catch(() => {}); setUnmuteAsk(false) }}

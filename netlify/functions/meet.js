@@ -90,6 +90,7 @@ const publicRoom = (r) => ({
   badge: r.zone ? `/team-badges/zone${String(r.zone).replace(/\D/g, '')}.png` : (r.kind === 'prayer' || r.public) ? null : '/uss-logo.png', color: r.zone ? COLORS[r.zone] || null : null,
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
+  rec_where: r.rec_where === 'host' ? 'host' : 'cloud',
   mic_lock: !!r.mic_lock,
   no_host: !!r.no_host,
   // Which week a training room is for — the 📊 Present list only offers that week's decks (Neal,
@@ -1086,6 +1087,9 @@ export const handler = async (event) => {
         // Who gets "the recording is ready" (name + email each), what to record, how long to keep.
         rec_to: (Array.isArray(r.rec_to) ? r.rec_to : []).map((x) => ({ name: String(x?.name || '').trim().slice(0, 60), email: String(x?.email || '').trim().toLowerCase().slice(0, 120) })).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.email)).slice(0, 10),
         rec_kind: ['combined', 'raw', 'both'].includes(r.rec_kind) ? r.rec_kind : 'combined',
+        // 💻 Where the recording is saved (Neal, 2026-10-06, like Zoom's local recording): 'cloud' = our
+        // recording service + recordings page; 'host' = the host's own computer records and downloads it.
+        rec_where: r.rec_where === 'host' ? 'host' : 'cloud',
         rec_keep_days: [30, 60, 90, 0].includes(Number(r.rec_keep_days)) ? Number(r.rec_keep_days) : 90,
         // The recordings page's private key (its link is shared with the editor, e.g. DeWayne's cousin).
         rec_key: (rooms.find((x) => x.slug === r.original_slug) || {}).rec_key || crypto.randomBytes(9).toString('base64url'),
@@ -1786,6 +1790,13 @@ export const handler = async (event) => {
       const list = await svc().listParticipants(room.slug)
       const meta = (p) => { try { return JSON.parse(p.metadata || '{}') } catch { return {} } }
       let mutedN = 0
+      // 💻 HOST-COMPUTER recording: same mute + speaker view for everyone, but the host's browser records
+      // and saves the file — nothing is sent to the recording service.
+      if (room.rec_where === 'host' || b.local) {
+        for (const p of list) if (!meta(p).host && !/^(egress|homeowner)/.test(p.identity)) { try { await muteMic(p); mutedN++ } catch { /* left */ } }
+        await setMeta({ recording: true, recording_local: true, spotlight: String(b.identity || '') })
+        return json(200, { ok: true, recording: true, local: true, note: `⏺ Recording to your computer. ${mutedN ? `Muted ${mutedN} ${mutedN === 1 ? 'person' : 'people'}.` : ''}`.trim() })
+      }
       for (const p of list) if (!meta(p).host && !/^(egress|homeowner)/.test(p.identity)) { try { await muteMic(p); mutedN++ } catch { /* left */ } }
       let saved = false, note = ''
       const { REC_S3_ACCESS_KEY: ak, REC_S3_SECRET: sk, REC_S3_REGION: region } = process.env
