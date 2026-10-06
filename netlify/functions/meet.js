@@ -1234,6 +1234,28 @@ export const handler = async (event) => {
       const { data } = await q
       let people = (data || []).filter((p) => p.registration_token && (invited || p.rep_level !== 'non_field' || nowIds.has(p.id)))
       if (room.kind === 'zone') people = people.filter((p) => p.region === room.zone || p.managed_region === room.zone)
+      // MISSED A DAY = OFF THE LIST (Neal, 2026-10-06: Maliah and Peter missed day 1 but still showed in
+      // First Week Training's list). Same rule the sign-in uses: if the class met on its last day before
+      // today and this trainee wasn't marked present, they're out — unless the admin override (week_b_force)
+      // is on, or they're here today. Hosts / managers always stay.
+      if (room.kind === 'training' && people.length) {
+        const { data: tr } = await sb.from('trainees').select('id, class_id, week_b_force').in('id', people.map((p) => p.id))
+        const info = new Map((tr || []).map((x) => [x.id, x]))
+        const classIds = [...new Set((tr || []).map((x) => x.class_id).filter(Boolean))]
+        const lastDayOf = {}
+        for (const cid of classIds) {
+          const { data: last } = await sb.from('attendance').select('attendance_date').eq('class_id', cid).lt('attendance_date', etDay()).order('attendance_date', { ascending: false }).limit(1)
+          lastDayOf[cid] = last?.[0]?.attendance_date || null
+        }
+        const days = [...new Set(Object.values(lastDayOf).filter(Boolean)), etDay()]
+        const { data: att } = await sb.from('attendance').select('trainee_id, attendance_date').in('trainee_id', people.map((p) => p.id)).in('attendance_date', days)
+        const was = new Set((att || []).map((a) => `${a.trainee_id}|${a.attendance_date}`))
+        people = people.filter((p) => {
+          const x = info.get(p.id); if (!x || isRoomHost(room, p) || x.week_b_force) return true
+          const ld = lastDayOf[x.class_id]
+          return !ld || was.has(`${p.id}|${ld}`) || was.has(`${p.id}|${etDay()}`)
+        })
+      }
       // Neal / DeWayne ticked "Also include" on this room.
       const extra = alsoIds(room).filter((id) => !people.some((p) => p.id === id))
       if (extra.length) { const { data: lx } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, region, managed_region, registration_token, rep_level, is_active_sales_rep').in('id', extra); people = people.concat((lx || []).filter((p) => p.registration_token)) }
