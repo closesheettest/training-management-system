@@ -31,6 +31,13 @@
   .steps li { counter-increment: s; padding-left: 64px; position: relative; }
   .steps li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 46px; height: 46px; border-radius: 50%; background: #c8102e; color: #fff; font-family: 'Oswald'; font-size: 1.1em; display: flex; align-items: center; justify-content: center; }
   em { color: #fde68a; font-style: normal; font-weight: 800; }
+  .two { display: grid; grid-template-columns: 340px 1fr; gap: 44px; align-items: center; text-align: left; max-width: 1160px; margin: 0 auto; }
+  .two img.shot { height: 600px; width: auto; border-radius: 26px; border: 6px solid #1f2937; box-shadow: 0 18px 50px rgba(0,0,0,.55); margin: 0; display: block; }
+  .two h2 { text-align: left; margin-bottom: .35em; }
+  .two .when { margin-bottom: .6em; }
+  .two p, .two li { font-size: .92em; line-height: 1.4; }
+  .two ul { padding-left: 1.1em; margin: 0; }
+
 </style>
 </head>
 <body>
@@ -54,71 +61,134 @@
 </section>
 
 <section>
-  <div class="big">🗺️</div>
-  <h2>Reading your map &amp; pins</h2>
-  <div class="when">Every time you open the map</div>
-  <div class="card">Each dot is a door; its <em>color is the type</em>. The legend on the right lists every type with a count. <em>Gold stars</em> are roofs we already installed — reference only. <em>Tap a pin</em> to see the homeowner, what's happened there, and which lead type it is.</div>
-</section>
-
-<section>
-  <h2>🚪 Your leads</h2>
-  <div class="grid">
-    <div class="card">🖊️ <b>Inspection Lead</b><br>A door that needs a free roof inspection. Knock and get the homeowner signed up for one.</div>
-    <div class="card">↩️ <b>IQ – Not Interested</b><br>Homeowners who got an Instant Quote online but said no. Go win them back in person.</div>
-  </div>
-  <p style="font-size:.8em;opacity:.85;margin-top:1em">Your map is set to these two. Each pin's card tells you exactly which one it is.</p>
-</section>
-
-<section>
-  <h2>Getting your route</h2>
-  <div class="grid">
-    <div class="card">▶ <b>Start my day</b><br>Builds one tight loop. Any come-backs due today become <em>required stops</em>, and fresh doors fill in around them.</div>
-    <div class="card">▢ <b>Route an area</b><br>Drag a box around the doors you want to work right now — it routes exactly those, in order.</div>
-    <div class="card">📅 <b>Plan your day</b><br>Have an appointment? Enter your start time — it drops the appointment in at its time and fills the gaps with doors so you're never late.</div>
-    <div class="card">🧭 <b>Manager planned it</b><br>See the purple banner? Your manager carved out your section. Just tap Start my day.</div>
+  <div class="two">
+    <img class="shot" src="img/map.jpg" alt="">
+    <div>
+      <h2>🗺️ Reading your map &amp; pins</h2>
+      <div class="when">Every time you open the map</div>
+      <p>Each dot is a door; its <em>color is the type</em>. The legend across the top lists every type with a count. <em>Gold stars</em> are roofs we already installed — reference only.</p><p><em>Tap a pin</em> to see the homeowner, what has happened there, and which lead type it is.</p>
+    </div>
   </div>
 </section>
-
 <section>
-  <div class="big">🧭</div>
-  <h2>Your route card</h2>
-  <div class="card">Pops up at every stop: <em>DOOR X of Y</em>, ✏️ Edit route, 📍 Re-route from where I am, the homeowner name + address, and 🧭 <em>Directions</em> (Google or Apple Maps). Then you status the door.</div>
-</section>
-
-<section>
-  <h2>✅ How'd it go? — status every door</h2>
-  <div class="grid">
-    <div class="card">🖊️ <b>Sign Inspection</b> — yes to a free roof inspection.</div>
-    <div class="card">❌ <b>Not Interested</b> — logs it, the door is done.</div>
-    <div class="card">⏳ <b>Pending</b> — come back another time; set the day and time.</div>
-    <div class="card">🏠 <b>BTR appt</b> — they'd rather go retail; book it right there.</div>
-    <div class="card">🏠 <b>Not home</b> — logs the knock; the door stays workable.</div>
-    <div class="card">🆕 <b>New Roof</b> — already has a new roof.</div>
-  </div>
-  <p style="font-size:.75em;opacity:.8;margin-top:.8em">You status a door once you're actually there — the GPS confirms it.</p>
-</section>
-
-<section>
-  <div class="big">🖊️</div>
-  <h2>Sign an inspection</h2>
-  <div class="when">The homeowner says yes</div>
-  <div class="card">Tap <em>Sign Inspection</em>. The form opens <em>pre-filled with their address</em> — confirm the details and submit. The door turns Sold, it's in the system credited to you. <em>No paperwork tonight.</em></div>
-</section>
-
-<section>
-  <h2>More ways to win</h2>
-  <div class="grid">
-    <div class="card">🍀 <b>Clover Leaf</b><br>Green pins around a roof our crew is installing. The easiest doors on the map — pitch the neighbor by name.</div>
-    <div class="card">⭐ <b>Referral</b><br>A homeowner sends you to a friend? Enter them — a gold pin drops and they land in your calls to make.</div>
-    <div class="card">📍 <b>Drop your own pin</b><br>Spot a damaged roof not on the map? Add the house — you get the credit as self-generated.</div>
-    <div class="card">🔁 <b>Rounds — 3 a day</b><br>Finish a route and it rebuilds your not-homes and come-backs into a new, shorter one. Top earners run all three.</div>
+  <div class="two">
+    <img class="shot" src="img/leads.jpg" alt="">
+    <div>
+      <h2>🚪 Your leads</h2>
+      <div class="when">Your map shows two kinds of doors</div>
+      <ul><li>🖊️ <em>Inspection Lead</em> — a door that needs a free roof inspection. Knock and get them signed up.</li><li>↩️ <em>IQ – Not Interested</em> — got an Instant Quote online but said no. Go win them back in person.</li></ul>
+    </div>
   </div>
 </section>
-
 <section>
-  <div class="big">⏳</div>
-  <h2>Go-backs &amp; come-backs</h2>
-  <div class="card">After you sign someone up, ask their <em>typical availability</em> (e.g. Tues &amp; Wed at 5). That's a tentative come-back to go over their inspection results. The map routes you to be in that area around then — <em>it never forgets</em>.</div>
+  <div class="two">
+    <img class="shot" src="img/start.jpg" alt="">
+    <div>
+      <h2>▶ Start my day</h2>
+      <div class="when">Come-backs due? They become required stops</div>
+      <p>Tap <em>▶ Start my day</em>. It builds one tight loop with your required stops (oldest first) and fills fresh doors around them.</p><p>Manager planned your day? You'll see a purple banner — same button, it routes your assigned doors.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/area.jpg" alt="">
+    <div>
+      <h2>▢ Route an area</h2>
+      <div class="when">Work one neighborhood right now</div>
+      <p>Tap <em>▢ Route an area</em>, then drag a box around the doors you want.</p><p>It routes exactly those, in the tightest order — even zoomed way out.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/plan.jpg" alt="">
+    <div>
+      <h2>📅 Plan your day</h2>
+      <div class="when">You have an appointment today</div>
+      <p>Enter your start time. It drops the appointment in at its time and <em>fills the gaps with doors</em>, keeping you close so you're never late.</p><p>After the appointment, tell it how it went.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/routecard.jpg" alt="">
+    <div>
+      <h2>🧭 Your route card</h2>
+      <div class="when">Pops up at every stop</div>
+      <ul><li><em>DOOR X of Y</em> — where you are in the route</li><li>✏️ Edit route · 📍 Re-route from where I am</li><li>🧭 <em>Directions</em> — Google or Apple Maps</li><li>Then status the door: <em>How'd it go?</em></li></ul>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/status.jpg" alt="">
+    <div>
+      <h2>✅ How'd it go?</h2>
+      <div class="when">At every door — the GPS confirms you're there</div>
+      <ul><li>🖊️ <em>Sign Inspection</em> — yes to a free inspection</li><li>❌ <em>Not Interested</em> — logs it, done</li><li>⏳ <em>Pending</em> — come back; set the day and time</li><li>🏠 <em>Back to Retail</em> — book a retail appointment</li><li>🏠 <em>Not home</em> — logs the knock, door stays workable</li><li>🆕 <em>New Roof</em> — already has one</li></ul>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/intake.jpg" alt="">
+    <div>
+      <h2>🖊️ Sign an inspection</h2>
+      <div class="when">The homeowner says yes</div>
+      <p>Tap <em>Sign Inspection</em>. The form opens <em>pre-filled with their address</em> — confirm the details and submit.</p><p>The door turns Sold and it's credited to you. <em>No paperwork tonight.</em></p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/clover.jpg" alt="">
+    <div>
+      <h2>🍀 Clover Leaf</h2>
+      <div class="when">The easiest doors on the map</div>
+      <p>Green clover pins drop on the neighbors around a roof our crew is installing (the orange marker).</p><p>Tap one — the homeowner we're roofing is on your card, so <em>pitch it by name</em>.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/goback.jpg" alt="">
+    <div>
+      <h2>⏳ Go-backs &amp; come-backs</h2>
+      <div class="when">After an inspection</div>
+      <p>When you sign someone up, ask their <em>typical availability</em> (e.g. Tues &amp; Wed at 5). That's when you come back to go over their results.</p><p>The map routes you to be in that area around then — <em>it never forgets</em>.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/referral.jpg" alt="">
+    <div>
+      <h2>⭐ Referral</h2>
+      <div class="when">A homeowner sends you to a friend</div>
+      <p>Tap <em>⭐ Referral</em>, enter name, phone and address. A gold pin drops — the warmest lead on the map — and they land in your calls to make.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/selfgen.jpg" alt="">
+    <div>
+      <h2>📍 Drop your own pin</h2>
+      <div class="when">You spot a damaged roof that isn't on the map</div>
+      <p>Tap the 🏠 button, then <em>tap the roof of the house</em>. The map checks county records for owner-occupied, then lets you sign, set retail, or mark pending.</p><p>You get the credit.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="two">
+    <img class="shot" src="img/rounds.jpg" alt="">
+    <div>
+      <h2>🔁 Rounds — 3 routes a day</h2>
+      <div class="when">After you finish a route</div>
+      <p>It rebuilds your not-homes and come-backs into a <em>new, shorter route</em> automatically. Work that, and it builds a third.</p><p>Top earners run all three.</p>
+    </div>
+  </div>
 </section>
 
 <section>
