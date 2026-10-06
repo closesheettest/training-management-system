@@ -450,10 +450,12 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const [recNote, setRecNote] = useState('')
   // 💻 Rooms set to "Save recordings to: the host's computer" record in THIS browser (lib/localRecorder.js).
   const localRec = useRef(null)
-  const toggleRec = async () => {
+  // forceLocal: the 💻 Record-to-my-computer button every host has in every room (Neal, 2026-10-06).
+  const toggleRec = async (forceLocal = false) => {
     setRecBusy(true); setRecNote('')
     const starting = !rmeta.recording
-    if (room.rec_where === 'host') {
+    const isLocal = forceLocal === true || room.rec_where === 'host'
+    if (isLocal) {
       if (starting) {
         if (!localRecordSupported()) { setRecBusy(false); setRecNote('Recording to your computer needs Chrome or Edge on a computer.'); return }
         // Default file name = the room's name + the date (Neal, 2026-10-06); the Save box lets them change it.
@@ -468,7 +470,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         setRecBusy(false); return
       }
     }
-    const j = await call({ action: starting ? 'record_start' : 'record_stop', room: room.slug, identity: localParticipant?.identity, ...(room.rec_where === 'host' ? { local: true } : {}), ...auth }).catch(() => ({}))
+    const j = await call({ action: starting ? 'record_start' : 'record_stop', room: room.slug, identity: localParticipant?.identity, ...(isLocal ? { local: true } : {}), ...auth }).catch(() => ({}))
     setRecBusy(false)
     if (!j.ok) { setRecNote(j.error || 'Did not work'); if (starting && localRec.current) { localRec.current.onStopped = null; localRec.current.stop(); localRec.current = null } }
     else if (j.note) setRecNote(j.note)
@@ -645,7 +647,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               ? <button title={`Show ${rmeta.scripture.ref || 'the last passage'} again`} onClick={() => setScripture({ ...rmeta.scripture, showing: true })} style={{ ...btn(false), background: '#15803d', border: 'none', marginRight: 6 }}>▶ Scripture on</button>
               : null)}
           {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
-          {isHost && room.recording_enabled && <button disabled={recBusy} onClick={toggleRec} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
+          {isHost && room.recording_enabled && !(rmeta.recording && localRec.current) && <button disabled={recBusy} onClick={() => toggleRec(false)} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
+          {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
+          {isHost && room.rec_where !== 'host' && (!rmeta.recording || localRec.current) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
           {isHost && auth.pin && !scriptureRoom && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>

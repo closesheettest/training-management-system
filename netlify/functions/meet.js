@@ -1779,7 +1779,9 @@ export const handler = async (event) => {
     // bucket meeting-recordings). Storage needs REC_S3_ACCESS_KEY / REC_S3_SECRET (Supabase →
     // Storage → S3 access keys) + REC_S3_REGION; without them it still mutes and switches views.
     if (b.action === 'record_start' || b.action === 'record_stop') {
-      if (!room.recording_enabled) return json(400, { ok: false, error: 'Recording is not turned on for this room.' })
+      // Recording to the host's own computer works in every room (Neal, 2026-10-06); the cloud recorder
+      // still needs the room's recording turned on.
+      if (!room.recording_enabled && !b.local && b.action === 'record_start') return json(400, { ok: false, error: 'Recording is not turned on for this room.' })
       const egress = new EgressClient(url.replace(/^wss:/, 'https:'), key, secret)
       const activeKey = `meet_rec_active_${room.slug}`
       if (b.action === 'record_stop') {
