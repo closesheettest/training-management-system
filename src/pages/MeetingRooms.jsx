@@ -9,9 +9,13 @@ import { useEffect, useState } from 'react'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
-const KINDS = [['oneoff', 'One-time meeting (invite people)'], ['company', 'Company meeting: sales staff, trainees & managers'], ['company_pick', 'Company meeting: others (you pick who)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
+const KINDS = [['oneoff', 'Invite people (you pick who)'], ['company', 'Company meeting: sales staff, trainees & managers'], ['company_pick', 'Company meeting: others (you pick who)'], ['training', 'Training class (Week A / Week B)'], ['zone', 'Team room (one zone)'], ['managers', 'Managers'], ['prayer', 'Prayer call'], ['everyone', 'Everyone (all reps)'], ['custom', 'Custom (private: invite who you want)'], ['retraining', 'Retraining (managers pick their reps)']]
 const blank = { title: '', kind: 'zone', zone: 'Zone 1', schedule: '', topic: '', cameras_required: true, hosts: '', host_ids: [], public: false, host_code: '', days: [], time: '', minutes: 60, once: [], recording_enabled: false, rec_to: [], rec_kind: 'combined', rec_keep_days: 90 }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// ONE "Create a meeting" (Neal, 2026-10-06: "these two buttons are redundant … we have one time and
+// recurring down there on When"). How often is a choice inside the form; a meeting is ONE-TIME when it
+// has dates but no weekly days (or is an invite / retraining meeting), otherwise RECURRING.
+const isOneTime = (r) => r.kind === 'oneoff' || r.kind === 'retraining' || (!(r.slots || []).length && !(r.days || []).length && (r.once || []).filter(Boolean).length > 0)
 // Weekly slots (each day its own time); old rooms stored days + one time — read those as slots.
 const slotsOfForm = (f) => (Array.isArray(f.slots) && f.slots.length ? f.slots : (f.days || []).filter(() => f.time).map((d) => ({ day: d, time: f.time, minutes: f.minutes || 60 })))
 const endLabel = (t, m) => { const [h, mi] = t.split(':').map(Number); const e = h * 60 + mi + (Number(m) || 0); const hh = Math.floor(e / 60) % 24, mm = e % 60; return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh >= 12 ? 'PM' : 'AM'}` }
@@ -340,7 +344,7 @@ export default function MeetingRooms() {
   // down … hit edit … it's not opening … it's all the way up top").
   const formPanel = form && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-bold">{form.original_slug ? (form.kind === 'oneoff' ? 'Edit one-time meeting' : 'Edit room') : (form.kind === 'oneoff' ? 'Create a one-time meeting' : 'Create a meeting room')}</h2>
+          <h2 className="text-lg font-bold">{form.original_slug ? 'Edit meeting' : 'Create a meeting'}</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold">Room name<input className={field} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Morning Sales Training" /></label>
             <label className="text-sm font-semibold">Type<select className={field} value={form.kind === 'custom' && form.look === 'company' ? 'company_pick' : form.kind} onChange={(e) => { const v = e.target.value
@@ -462,8 +466,21 @@ export default function MeetingRooms() {
             <div className="overflow-hidden rounded-lg border-2 border-blue-300 bg-white sm:col-span-2">
               <div className="bg-blue-600 px-3 py-2 text-base font-extrabold text-white">🕒 When <span className="text-sm font-normal text-blue-100">(Eastern time)</span></div>
               <div className="p-3">
-              {form.kind !== 'oneoff' && (<>
-              <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">🔁 Recurring meetings only <span className="font-normal text-slate-500">(repeats every week; leave all off if it doesn't)</span></div>
+              {(() => {
+                const freq = form.freq || (slotsOfForm(form).length ? 'weekly' : (form.kind === 'oneoff' || (form.once || []).filter(Boolean).length ? 'once' : 'weekly'))
+                const pickBtn = (on) => `flex-1 rounded-md px-3 py-2 text-sm font-extrabold ${on ? 'bg-blue-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`
+                return (
+                  <div className="mb-3">
+                    <div className="mb-1 text-sm font-bold text-slate-800">How often?</div>
+                    <div className="flex gap-2">
+                      <button type="button" className={pickBtn(freq === 'once')} onClick={() => setForm({ ...form, freq: 'once', slots: [], days: [], once: (form.once || []).length ? form.once : [''] })}>📅 One time</button>
+                      <button type="button" className={pickBtn(freq === 'weekly')} onClick={() => setForm({ ...form, freq: 'weekly', once: [], kind: form.kind === 'oneoff' ? 'custom' : form.kind })}>🔁 Recurring (every week)</button>
+                    </div>
+                  </div>
+                )
+              })()}
+              {(form.freq || (slotsOfForm(form).length ? 'weekly' : (form.kind === 'oneoff' || (form.once || []).filter(Boolean).length ? 'once' : 'weekly'))) === 'weekly' && (<>
+              <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">🔁 Which days <span className="font-normal text-slate-500">(repeats every week; leave all off for a room that's open any time)</span></div>
               {/* One row per day, each with its own time and length — repeats every week. */}
               <div className="mt-2 space-y-1 text-sm">
                 {DOW.map((d, i) => {
@@ -488,8 +505,9 @@ export default function MeetingRooms() {
                 })}
               </div>
               </>)}
-              <div className={`${form.kind !== 'oneoff' ? 'mt-4' : ''} text-sm`}>
-                <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">📅 {form.kind === 'oneoff' ? 'Date and time' : 'One-time meetings only'} <span className="font-normal text-slate-500">{form.kind === 'oneoff' ? '' : '(a specific date, e.g. a company meeting)'}</span></div>
+              {(form.freq || (slotsOfForm(form).length ? 'weekly' : (form.kind === 'oneoff' || (form.once || []).filter(Boolean).length ? 'once' : 'weekly'))) === 'once' && (
+              <div className="text-sm">
+                <div className="rounded bg-slate-100 px-2 py-1 text-sm font-extrabold text-slate-800">📅 Date and time </div>
                 {(form.once || []).length > 0 && <span className="ml-2 text-slate-500">each lasts <input type="number" min="10" max="600" value={form.minutes || 60} onChange={(e) => setForm({ ...form, minutes: e.target.value })} className="w-16 rounded border border-slate-300 px-1 py-0.5" /> min</span>}
                 {(form.once || []).map((o, i) => (
                   <div key={i} className="mt-1 flex items-center gap-2">
@@ -498,8 +516,8 @@ export default function MeetingRooms() {
                   </div>
                 ))}
                 <button onClick={() => setForm({ ...form, once: [...(form.once || []), ''] })} className="mt-1 block text-sm font-semibold text-blue-700">+ Add {form.kind === 'oneoff' && (form.once || []).filter(Boolean).length ? 'another ' : 'a '}date</button>
-                {form.kind !== 'oneoff' && !slotsOfForm(form).length && !(form.once || []).filter(Boolean).length && <div className="mt-2 text-xs text-amber-700">Nothing set: the room is open any time.</div>}
               </div>
+              )}
               </div>
             </div>
             {/* LOOK: how the room's pages look (Neal, 2026-10-04 — the devotional should feel like
@@ -583,8 +601,7 @@ export default function MeetingRooms() {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-brand-navy">🛠️ Meeting Room Setup</h1>
         <span className="flex-1" />
-        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [] }); loadPeople() }} className="rounded-md border-2 border-brand-navy px-4 py-2 text-sm font-bold text-brand-navy">📅 Create a one-time meeting</button>
-        <button onClick={() => setForm({ ...blank })} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">🎥 Create a meeting room</button>
+        <button onClick={() => { setForm({ ...blank, kind: 'oneoff', look: 'company', cameras_required: true, once: [''], minutes: 60, invitees: [], freq: 'once' }); loadPeople() }} className="rounded-md bg-brand-navy px-4 py-2 text-sm font-bold text-white">➕ Create a meeting</button>
       </div>
       <p className="mt-1 text-sm text-slate-600">Our own meetings, in place of Zoom. Everyone joins from their own link: no app, no meeting ID, and attendance takes itself.</p>
       {err && <div className="mt-3 text-sm font-semibold text-red-700">{err}</div>}
@@ -594,13 +611,13 @@ export default function MeetingRooms() {
       {form && !form.original_slug && formPanel}
 
       <div className="mt-5 space-y-3">
-        {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>🎥 Create a meeting room</b>.</p>}
+        {!rooms.length && !err && <p className="text-sm text-slate-500">No rooms yet. Press <b>➕ Create a meeting</b>.</p>}
         {/* Grouped (Neal, 2026-10-05): standing rooms, then one-time meetings still to come, then
             past ones. Each heading opens/closes; Past starts closed. Remembered on this device. */}
         {[
-          ['recurring', '🔁 Recurring meetings', rooms.filter((r) => r.kind !== 'oneoff' && r.kind !== 'retraining')],
-          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => (r.kind === 'oneoff' || r.kind === 'retraining') && (r.next_at || !(r.once || []).filter(Boolean).length))],
-          ['past', '🗂️ Past meetings', rooms.filter((r) => (r.kind === 'oneoff' || r.kind === 'retraining') && !r.next_at && (r.once || []).filter(Boolean).length)],
+          ['recurring', '🔁 Recurring meetings', rooms.filter((r) => !isOneTime(r))],
+          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => isOneTime(r) && (r.next_at || !(r.once || []).filter(Boolean).length))],
+          ['past', '🗂️ Past meetings', rooms.filter((r) => isOneTime(r) && !r.next_at && (r.once || []).filter(Boolean).length)],
         ].map(([key, label, list]) => (
           <section key={key}>
             <button onClick={() => toggleGroup(key)} className="flex w-full items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-left text-white">
@@ -611,7 +628,7 @@ export default function MeetingRooms() {
             </button>
             {!closedGroups[key] && (
               <div className="mt-3 space-y-3">
-                {!list.length && <p className="px-1 text-sm text-slate-500">{key === 'upcoming' ? 'No one-time meetings coming up. Press 📅 Create a one-time meeting.' : key === 'past' ? 'None yet.' : 'No rooms yet.'}</p>}
+                {!list.length && <p className="px-1 text-sm text-slate-500">{key === 'upcoming' ? 'No one-time meetings coming up. Press ➕ Create a meeting.' : key === 'past' ? 'None yet.' : 'No rooms yet.'}</p>}
                 {list.map((r) => roomCard(r))}
               </div>
             )}
