@@ -1649,10 +1649,18 @@ export const handler = async (event) => {
     // 📊 PRESENT: { key, pos:{h,v,f}|{n}, showing, by } or null — the trainer's deck and where it is.
     // 📝 HOST NOTES / TELEPROMPTER (DeWayne via Neal, 2026-10-06): the host's own notes for this room —
     // only ever sent to a host (this whole block is host-only), never to attendees. One per room.
-    if (b.action === 'get_notes') return json(200, { ok: true, notes: await getSetting(`meet_notes_${room.slug}`, { text: '' }) })
+    // NOTES BY DATE (Neal, 2026-10-06: "these notes are for Tuesday, October 6th … plan ahead a bunch of
+    // days"). day = 'YYYY-MM-DD' → that meeting's notes; no day → the room's "every meeting" notes.
+    // Also returns which days already have notes, so the panel can list them.
+    const notesKey = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? `meet_notes_${room.slug}_${d}` : `meet_notes_${room.slug}`
+    if (b.action === 'get_notes') {
+      const { data: ks } = await sb.from('app_settings').select('key').like('key', `meet_notes_${room.slug}_%`)
+      const days = (ks || []).map((x) => x.key.slice(`meet_notes_${room.slug}_`.length)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= etDay()).sort()
+      return json(200, { ok: true, notes: await getSetting(notesKey(b.day), { text: '' }), days })
+    }
     if (b.action === 'set_notes') {
       const notes = { text: String(b.text || '').slice(0, 30000), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
-      await putSetting(`meet_notes_${room.slug}`, notes)
+      await putSetting(notesKey(b.day), notes)
       return json(200, { ok: true, notes })
     }
     if (b.action === 'set_deck') {

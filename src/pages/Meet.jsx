@@ -128,6 +128,11 @@ function MeetControls({ mic, screenShare }) {
 function NotesPrompter({ room, auth, me, onClose }) {
   const pref = (() => { try { return JSON.parse(localStorage.getItem('meet_prompter') || '{}') } catch { return {} } })()
   const [text, setText] = useState(null)
+  // Which meeting these notes are for: a date (YYYY-MM-DD, Eastern) or '' = every meeting.
+  const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const [day, setDay] = useState(todayEt)
+  const [days, setDays] = useState([])
+  const fmtDay = (d) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Every meeting'
   const [edit, setEdit] = useState(false)
   const [saved, setSaved] = useState('')
   const [size, setSize] = useState(pref.size || 26)
@@ -137,7 +142,22 @@ function NotesPrompter({ room, auth, me, onClose }) {
   // RESIZE (Neal, 2026-10-06: "adjust the window size, length, width"): drag the bottom-right corner.
   const [dim, setDim] = useState(pref.dim || null)
   const box = useRef(null), scroller = useRef(null), timer = useRef(null)
-  useEffect(() => { call({ action: 'get_notes', room: room.slug, ...auth }).then((j) => { const t = j?.notes?.text || ''; setText(t); if (!t) setEdit(true) }).catch(() => setText('')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Load the chosen day's notes. Opening on today with nothing written for today falls back to the
+  // "every meeting" notes if there are any.
+  const first = useRef(true)
+  useEffect(() => {
+    setText(null); setRolling(false)
+    call({ action: 'get_notes', room: room.slug, day, ...auth }).then(async (j) => {
+      setDays(j?.days || [])
+      let t = j?.notes?.text || ''
+      if (!t && first.current && day) {
+        const g = await call({ action: 'get_notes', room: room.slug, day: '', ...auth }).catch(() => null)
+        if (g?.notes?.text) { first.current = false; setDay(''); return }
+      }
+      first.current = false
+      setText(t); setEdit(!t)
+    }).catch(() => setText(''))
+  }, [day]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { try { localStorage.setItem('meet_prompter', JSON.stringify({ size, speed, pos, dim })) } catch { /* private mode */ } }, [size, speed, pos, dim])
   useEffect(() => {
     const el = box.current; if (!el || typeof ResizeObserver !== 'function') return
@@ -146,7 +166,7 @@ function NotesPrompter({ room, auth, me, onClose }) {
     ro.observe(el)
     return () => { ro.disconnect(); clearTimeout(t) }
   }, [])
-  const save = (t) => { clearTimeout(timer.current); setSaved('Saving…'); timer.current = setTimeout(() => call({ action: 'set_notes', room: room.slug, text: t, by: me, ...auth }).then((j) => setSaved(j?.ok ? 'Saved' : 'Not saved — try again')).catch(() => setSaved('Not saved — try again')), 900) }
+  const save = (t) => { clearTimeout(timer.current); setSaved('Saving…'); timer.current = setTimeout(() => call({ action: 'set_notes', room: room.slug, day, text: t, by: me, ...auth }).then((j) => setSaved(j?.ok ? 'Saved' : 'Not saved — try again')).catch(() => setSaved('Not saved — try again')), 900) }
   // Auto-scroll: px per frame from speed (1–10).
   useEffect(() => {
     if (!rolling || edit) return
@@ -173,9 +193,18 @@ function NotesPrompter({ room, auth, me, onClose }) {
         <button onMouseDown={(e) => e.stopPropagation()} onClick={() => { setEdit((x) => !x); setRolling(false) }} style={{ ...b, background: edit ? '#2563eb' : '#334155' }}>{edit ? '✓ Done' : '✏️ Edit'}</button>
         <button onMouseDown={(e) => e.stopPropagation()} onClick={onClose} style={{ ...b, background: 'transparent', fontSize: 16 }}>×</button>
       </div>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderBottom: '1px solid #334155', fontSize: 12.5, flexWrap: 'wrap' }}>
+        <span style={{ color: '#fcd34d', fontWeight: 800 }}>Notes for:</span>
+        <select value={day} onChange={(e) => { if (e.target.value === 'pick') return; setDay(e.target.value) }} style={{ background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: 6, padding: '2px 6px', fontWeight: 700 }}>
+          <option value="">Every meeting</option>
+          {[...new Set([todayEt, ...days, ...(day ? [day] : [])])].sort().map((d) => <option key={d} value={d}>{d === todayEt ? `Today · ${fmtDay(d)}` : fmtDay(d)}{days.includes(d) ? ' ✓' : ''}</option>)}
+        </select>
+        <input type="date" title="Write notes for another day" value="" min={todayEt} onChange={(e) => { if (e.target.value) { setDay(e.target.value); setEdit(true) } }} style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #475569', borderRadius: 6, padding: '1px 4px', colorScheme: 'dark' }} />
+        <span style={{ color: '#94a3b8' }}>← pick a day to plan ahead</span>
+      </div>
       {text === null ? <div style={{ padding: 16, color: '#94a3b8' }}>Loading your notes…</div> : edit ? (
         <>
-          <textarea autoFocus value={text} onChange={(e) => { setText(e.target.value); save(e.target.value) }} placeholder="Type or paste what you want to say. Only you (and other hosts of this room) can see it."
+          <textarea autoFocus value={text} onChange={(e) => { setText(e.target.value); save(e.target.value) }} placeholder={`Notes for ${fmtDay(day)}. Type or paste what you want to say. Only you (and other hosts of this room) can see it.`}
             style={{ flex: 1, margin: 8, padding: 10, borderRadius: 10, border: '1px solid #334155', background: 'rgba(15,23,42,.5)', color: '#fff', fontSize: 15, lineHeight: 1.45, resize: 'none' }} />
           <div style={{ fontSize: 11.5, color: '#94a3b8', padding: '0 10px 6px' }}>{saved || 'Saves as you type.'}</div>
         </>
