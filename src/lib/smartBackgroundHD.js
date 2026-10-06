@@ -79,7 +79,7 @@ export class SmartBackgroundHD {
       if (m.type === 'ready') { this.ready = true; return }
       if (m.type === 'mask') this.uploadMask(m.alpha, m.w, m.h)
       this.busy = false
-      const r = this.waiting; this.waiting = null; if (r) r()
+      const r = this.waiting; this.waiting = null; if (r) r(m.type === 'mask')
     }
     this.worker.postMessage({ type: 'init', model: this.model, fresh: true })
   }
@@ -141,10 +141,11 @@ export class SmartBackgroundHD {
   segmentNow(frame) {
     if (!this.ready || !this.worker) return Promise.resolve()
     const [mw, mh] = MODEL_SIZE[this.model]
+    const st = (this.stats ||= { frames: 0, matched: 0, ms: 0 }), t0 = performance.now()
     return new Promise((resolve) => {
       let done = false
-      const finish = () => { if (!done) { done = true; resolve() } }
-      setTimeout(() => { if (this.waiting === finish) this.waiting = null; finish() }, 80)
+      const finish = (ok) => { if (!done) { done = true; st.frames++; if (ok === true) { st.matched++; st.ms += performance.now() - t0 } resolve() } }
+      setTimeout(() => { if (this.waiting === finish) this.waiting = null; finish(false) }, 80)
       createImageBitmap(frame, { resizeWidth: mw, resizeHeight: mh, resizeQuality: 'medium' })
         .then((bitmap) => { if (!this.worker) { bitmap.close(); return finish() } this.busy = true; this.waiting = finish; this.worker.postMessage({ type: 'frame', bitmap, ts: performance.now() }, [bitmap]) })
         .catch(finish)

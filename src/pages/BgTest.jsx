@@ -13,6 +13,11 @@ function Pane({ title, make, track, bgKey }) {
   const vref = useRef(null)
   const proc = useRef(null)
   const [fps, setFps] = useState(0)
+  const [st, setSt] = useState('')
+  useEffect(() => {
+    const id = setInterval(() => { const x = proc.current?.stats; if (x?.frames) { setSt(`outline matched to its frame: ${Math.round((100 * x.matched) / x.frames)}% · ${Math.round(x.ms / Math.max(1, x.matched))} ms each`); x.frames = 0; x.matched = 0; x.ms = 0 } }, 2000)
+    return () => clearInterval(id)
+  }, [])
   useEffect(() => {
     if (!track) return
     let dead = false
@@ -40,6 +45,7 @@ function Pane({ title, make, track, bgKey }) {
     <div className="flex-1 min-w-[280px]">
       <div className="mb-1 flex items-center justify-between text-sm font-bold text-white"><span>{title}</span><span className="text-xs font-semibold text-slate-400">{fps} fps</span></div>
       <video ref={vref} muted playsInline className="w-full rounded-xl bg-black" style={{ aspectRatio: '16 / 9', objectFit: 'contain' }} />
+      {st && <div className="mt-1 text-xs font-semibold text-emerald-300">{st}</div>}
     </div>
   )
 }
