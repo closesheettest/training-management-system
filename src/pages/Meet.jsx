@@ -15,7 +15,7 @@ import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   LiveKitRoom, PreJoin, GridLayout, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
-  ControlBar, Chat, RoomAudioRenderer, LayoutContextProvider, ConnectionStateToast, VideoTrack,
+  ControlBar, Chat, RoomAudioRenderer, TrackToggle, MediaDeviceMenu, ChatToggle, DisconnectButton, StartMediaButton, ChatIcon, LeaveIcon, LayoutContextProvider, ConnectionStateToast, VideoTrack,
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
 import { Track, RoomEvent, ParticipantEvent, VideoPresets } from 'livekit-client'
@@ -65,6 +65,58 @@ function KeepDevices({ choices }) {
     return () => { room.off(RoomEvent.LocalTrackPublished, apply); room.off(RoomEvent.ActiveDeviceChanged, onChange) }
   }, [room]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
+}
+
+// 🎛 THE BOTTOM BAR (Neal, 2026-10-06: "the microphone and camera should list which one you're using by
+// looking at it, not having to click it"). LiveKit's ControlBar, rebuilt from its own parts so each button
+// shows the device in use under its name ("Camera · FaceTime HD Camera"); the ⌄ menu still switches it.
+const cleanDevice = (l) => String(l || '').replace(/^Default\s*-\s*/i, '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim()
+function MeetControls({ mic, screenShare }) {
+  const room = useRoomContext()
+  const [names, setNames] = useState({})
+  useEffect(() => {
+    if (!room) return
+    let dead = false
+    const load = async () => {
+      const devs = await navigator.mediaDevices?.enumerateDevices?.().catch(() => []) || []
+      const nameOf = (kind, source) => {
+        const live = room.localParticipant?.getTrackPublication(source)?.track?.mediaStreamTrack
+        const id = live?.getSettings?.().deviceId || room.getActiveDevice(kind) || 'default'
+        const d = devs.find((x) => x.kind === kind && x.deviceId === id) || devs.find((x) => x.kind === kind && x.deviceId === 'default')
+        return cleanDevice(d?.label || live?.label || '')
+      }
+      if (!dead) setNames({ mic: nameOf('audioinput', Track.Source.Microphone), cam: nameOf('videoinput', Track.Source.Camera) })
+    }
+    load()
+    const evs = [RoomEvent.ActiveDeviceChanged, RoomEvent.MediaDevicesChanged, RoomEvent.LocalTrackPublished, RoomEvent.LocalTrackUnpublished]
+    for (const e of evs) room.on(e, load)
+    navigator.mediaDevices?.addEventListener?.('devicechange', load)
+    return () => { dead = true; for (const e of evs) room.off(e, load); navigator.mediaDevices?.removeEventListener?.('devicechange', load) }
+  }, [room])
+  const label = (title, dev) => (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.15 }}>
+      <span>{title}</span>
+      {dev && <span title={dev} style={{ fontSize: 11, fontWeight: 500, opacity: 0.75, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dev}</span>}
+    </span>
+  )
+  return (
+    <div className="lk-control-bar">
+      {mic && (
+        <div className="lk-button-group">
+          <TrackToggle source={Track.Source.Microphone} showIcon>{label('Microphone', names.mic)}</TrackToggle>
+          <div className="lk-button-group-menu"><MediaDeviceMenu kind="audioinput" /></div>
+        </div>
+      )}
+      <div className="lk-button-group">
+        <TrackToggle source={Track.Source.Camera} showIcon>{label('Camera', names.cam)}</TrackToggle>
+        <div className="lk-button-group-menu"><MediaDeviceMenu kind="videoinput" /></div>
+      </div>
+      {screenShare && <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>}
+      <ChatToggle><ChatIcon />Chat</ChatToggle>
+      <DisconnectButton><LeaveIcon />Leave</DisconnectButton>
+      <StartMediaButton />
+    </div>
+  )
 }
 
 function TitleBar({ room, auth, isHost }) {
@@ -383,7 +435,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const btn = (on) => ({ padding: '6px 12px', borderRadius: 8, border: '1px solid #475569', background: on ? '#2563eb' : '#1f2937', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' })
   return (
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TitleBar room={room} auth={auth} isHost={isHost} />
         <div style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
@@ -400,8 +452,10 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           {isHost && auth.pin && !scriptureRoom && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
-        <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
+            "the bottom should freeze so if you have to scroll that doesn't move"). */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
             {/* SCREEN SHARE, WHOLE SCREEN (Neal, 2026-10-05: a trainee "couldn't see the full screen"): the
                 shared screen is fitted inside the window, never cropped, and anyone can go full screen. */}
             <style>{'.lk-participant-tile[data-lk-source="screen_share"] video, .lk-focus-layout video[data-lk-source="screen_share"] { object-fit: contain !important; background: #000; }'}</style>
@@ -508,7 +562,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
-        <ControlBar controls={{ chat: true, screenShare: !micLocked || isHost, camera: true, microphone: micAllowed, leave: true }} />
+        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} />
       </div>
       <RoomAudioRenderer />
       <ConnectionStateToast />
@@ -912,7 +966,7 @@ export default function Meet() {
   }
 
   return (
-    <div data-lk-theme="default" style={{ height: '100vh', background: L.bg, fontFamily: L.fontBody }}>
+    <div data-lk-theme="default" style={{ height: '100dvh', overflow: 'hidden', background: L.bg, fontFamily: L.fontBody }}>
       <FontsFor look={L} />
       <LiveKitRoom serverUrl={join.url} token={join.token} connect
         // SMOOTH VIDEO (Neal, 2026-10-05: "when I move … it seems choppy"). 720p at 30 fps from the camera;
