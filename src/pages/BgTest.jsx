@@ -55,8 +55,15 @@ export default function BgTest() {
     let tr
     // ?fake=1 — a moving test picture instead of the camera (for checking the pipeline without a webcam).
     if (new URLSearchParams(window.location.search).get('fake') === '1') {
+      // ?img=<url> — a real photo (e.g. Google's MediaPipe test portrait) drifting slowly, instead of the cartoon.
       const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const g = c.getContext('2d'); let t = 0
-      const id = setInterval(() => { t++; g.fillStyle = '#6b7280'; g.fillRect(0, 0, 1280, 720); g.fillStyle = '#e0b090'; g.beginPath(); g.ellipse(640 + Math.sin(t / 20) * 150, 300, 110, 140, 0, 0, 7); g.fill(); g.fillStyle = '#1e3a8a'; g.fillRect(470 + Math.sin(t / 20) * 150, 430, 340, 290) }, 33)
+      const src = new URLSearchParams(window.location.search).get('img'); let pic = null
+      if (src) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { pic = im }; im.src = src }
+      const id = setInterval(() => {
+        t++
+        if (pic) { g.fillStyle = '#000'; g.fillRect(0, 0, 1280, 720); const s = Math.max(1280 / pic.width, 720 / pic.height) * 1.05, w = pic.width * s, h = pic.height * s; g.drawImage(pic, (1280 - w) / 2 + Math.sin(t / 30) * 25, (720 - h) / 2, w, h); return }
+        g.fillStyle = '#6b7280'; g.fillRect(0, 0, 1280, 720); g.fillStyle = '#e0b090'; g.beginPath(); g.ellipse(640 + Math.sin(t / 20) * 150, 300, 110, 140, 0, 0, 7); g.fill(); g.fillStyle = '#1e3a8a'; g.fillRect(470 + Math.sin(t / 20) * 150, 430, 340, 290)
+      }, 33)
       tr = c.captureStream(30).getVideoTracks()[0]; setTrack(tr)
       return () => { clearInterval(id); try { tr.stop() } catch { /* fine */ } }
     }
