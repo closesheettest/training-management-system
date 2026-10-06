@@ -5,11 +5,31 @@ import { useEffect, useState } from 'react'
 
 const when = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
+// SMART REFRESH (Neal, 2026-10-06: "only five minutes before the meeting … no reason for it to be doing
+// it all day"). Every minute while a meeting is live or starts within 5 minutes; otherwise wait until
+// 5 minutes before the next one (at most 30 minutes); and right away when you come back to the tab.
+function nextMeetingCheck(rooms) {
+  const now = Date.now();
+  if ((rooms || []).some((r) => r.live)) return 60000;
+  const nexts = (rooms || []).map((r) => Date.parse(r.next_at || "")).filter((t) => t > now);
+  if (!nexts.length) return 30 * 60000;
+  const ms = Math.min(...nexts) - now - 5 * 60000;
+  return ms <= 0 ? 60000 : Math.min(ms, 30 * 60000);
+}
+function pollMeetings(load) {
+  let t = null, dead = false;
+  const run = async () => { clearTimeout(t); const rooms = await load().catch(() => null); if (!dead) t = setTimeout(run, nextMeetingCheck(rooms)); };
+  const onVis = () => { if (document.visibilityState === "visible") run(); };
+  document.addEventListener("visibilitychange", onVis);
+  run();
+  return () => { dead = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
+}
+
 export default function MeetingLauncher() {
   const [rooms, setRooms] = useState(null)
   const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'room_list' }) })
-    .then((r) => r.json()).then((j) => setRooms(j.ok ? j.rooms : [])).catch(() => setRooms([]))
-  useEffect(() => { document.title = 'All Meeting Rooms · TMS'; load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [])
+    .then((r) => r.json()).then((j) => { const rs = j.ok ? j.rooms : []; setRooms(rs); return rs }).catch(() => { setRooms([]); return [] })
+  useEffect(() => { document.title = 'All Meeting Rooms · TMS'; return pollMeetings(load) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', padding: '24px 16px', fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>

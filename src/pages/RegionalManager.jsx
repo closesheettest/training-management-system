@@ -2599,12 +2599,32 @@ function MorningMeetingReport({ token }) {
   )
 }
 
+// SMART REFRESH (Neal, 2026-10-06: "only five minutes before the meeting … no reason for it to be doing
+// it all day"). Every minute while a meeting is live or starts within 5 minutes; otherwise wait until
+// 5 minutes before the next one (at most 30 minutes); and right away when you come back to the tab.
+function nextMeetingCheck(rooms) {
+  const now = Date.now();
+  if ((rooms || []).some((r) => r.live)) return 60000;
+  const nexts = (rooms || []).map((r) => Date.parse(r.next_at || "")).filter((t) => t > now);
+  if (!nexts.length) return 30 * 60000;
+  const ms = Math.min(...nexts) - now - 5 * 60000;
+  return ms <= 0 ? 60000 : Math.min(ms, 30 * 60000);
+}
+function pollMeetings(load) {
+  let t = null, dead = false;
+  const run = async () => { clearTimeout(t); const rooms = await load().catch(() => null); if (!dead) t = setTimeout(run, nextMeetingCheck(rooms)); };
+  const onVis = () => { if (document.visibilityState === "visible") run(); };
+  document.addEventListener("visibilitychange", onVis);
+  run();
+  return () => { dead = true; clearTimeout(t); document.removeEventListener("visibilitychange", onVis); };
+}
+
 function YourMeetings({ token, banner = false }) {
   const [rooms, setRooms] = useState(null)
   useEffect(() => {
     const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mine_by_mgr_token', token }) })
-      .then((r) => r.json()).then((j) => setRooms(j.ok ? j.rooms : [])).catch(() => setRooms([]))
-    load(); const iv = setInterval(load, 60000); return () => clearInterval(iv)
+      .then((r) => r.json()).then((j) => { const rs = j.ok ? j.rooms : []; setRooms(rs); return rs }).catch(() => { setRooms([]); return [] })
+    return pollMeetings(load)
   }, [token])
   const at = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
   const day = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
