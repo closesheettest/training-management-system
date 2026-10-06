@@ -8,9 +8,10 @@ import { Track } from 'livekit-client'
 import { SmartBackground, smartBackgroundSupported } from '../lib/smartBackground.js'
 import { SmartBackgroundHD, smartBackgroundHDSupported } from '../lib/smartBackgroundHD.js'
 
-// HD BACKGROUND (Neal, 2026-10-06). On trial: a device uses it once it's switched on at /bg-test
-// (localStorage meet_bg_engine = 'hd'). Once Neal approves it against Zoom, flip HD_DEFAULT to true.
-const HD_DEFAULT = false
+// HD BACKGROUND (Neal, 2026-10-06: "this is night and day… just set it that it does HD all the time").
+// ON for everyone. Browsers that can't run it (no WebGL2) fall back to the old one automatically; a device
+// can still go back to the old one at /bg-test (localStorage meet_bg_engine = 'old').
+const HD_DEFAULT = true
 export const hdOn = () => { try { const v = localStorage.getItem('meet_bg_engine'); return v ? v === 'hd' : HD_DEFAULT } catch { return HD_DEFAULT } }
 
 export const BACKGROUNDS = [

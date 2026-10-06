@@ -49,7 +49,7 @@ export default function BgTest() {
   const [err, setErr] = useState('')
   const [bgKey, setBgKey] = useState('blur')
   const [model, setModel] = useState('landscape')
-  const [hd, setHd] = useState(() => { try { return localStorage.getItem('meet_bg_engine') === 'hd' } catch { return false } })
+  const [hd, setHd] = useState(() => { try { return localStorage.getItem('meet_bg_engine') !== 'old' } catch { return true } })
   useEffect(() => { document.title = 'Background test — HD vs today' }, [])
   useEffect(() => {
     let tr
@@ -91,7 +91,7 @@ export default function BgTest() {
       </div>
       <div className="mt-5 rounded-xl border border-slate-700 bg-slate-800 p-4">
         <div className="font-bold">Use the HD background in my meetings (this computer)</div>
-        <div className="mt-1 text-sm text-slate-300">Right now: <b>{hd ? '🆕 HD' : "today's"}</b>. This only changes this device — once you're happy, we switch everyone over.</div>
+        <div className="mt-1 text-sm text-slate-300">Right now: <b>{hd ? '🆕 HD' : "today's"}</b>. HD is on for everyone now; this only changes this device.</div>
         <button onClick={() => setEngine(!hd)} className={`mt-2 rounded-lg px-4 py-2 font-extrabold ${hd ? 'bg-slate-600' : 'bg-emerald-600'}`}>{hd ? "Go back to today's" : '🆕 Use HD in my meetings'}</button>
       </div>
     </div>
