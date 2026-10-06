@@ -153,6 +153,7 @@ export default function RegionalManagers() {
       <div className="mb-4"><InspectionLookup /></div>
 
       <PayReports />
+      <InspSigningsAverage />
       <PresentationActivity />
       <RepAttendance />
 
@@ -2242,6 +2243,29 @@ function CopyButton({ value, label = 'Copy' }) {
     >
       {copied ? 'Copied!' : label}
     </button>
+  )
+}
+
+// 📈 INSPECTION SIGNINGS AVERAGE (Neal, 2026-10-06): inspection-pin hours, conversations, signings per
+// hour / per 40-hr week by shift, best + lowest converting reps — any date range. The report lives in CCG
+// (?mode=inspconversion, where the map data is); shown here in a frame. Closed by default, remembered.
+function InspSigningsAverage() {
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('insp_avg_open') === '1' } catch { return false } })
+  const toggle = () => setOpen((o) => { try { localStorage.setItem('insp_avg_open', o ? '0' : '1') } catch { /* private */ } return !o })
+  const url = 'https://free-roof-inspections.netlify.app/?mode=inspconversion&embed=1'
+  return (
+    <section className="mb-4 rounded-xl border-2 border-indigo-700 bg-white">
+      <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-indigo-700 px-4 py-3 text-left text-white">
+        <span className="text-lg font-bold">📈 Inspection Signings Average</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ per hour · per 40-hr week · by shift · best & lowest'}</span>
+      </button>
+      {open && (
+        <div className="p-2">
+          <div className="mb-1 text-right"><a href={url.replace('&embed=1', '')} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-700 underline">Open full page ↗</a></div>
+          <iframe title="Inspection Signings Average" src={url} className="w-full rounded-lg border border-slate-200" style={{ height: 1100 }} />
+        </div>
+      )}
+    </section>
   )
 }
 
