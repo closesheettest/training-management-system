@@ -92,6 +92,9 @@ const publicRoom = (r) => ({
   recording_enabled: !!r.recording_enabled,
   mic_lock: !!r.mic_lock,
   no_host: !!r.no_host,
+  // Which week a training room is for — the 📊 Present list only offers that week's decks (Neal,
+  // 2026-10-06: "week B is a different meeting room… shouldn't be having week B presentations in week A").
+  training_week: r.kind === 'training' ? (r.training_week || 'A') : null,
   auto_stage: !!r.auto_stage,
   // 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is… the 9:15 devotional,
   // DeWayne is always the host"). Shown on every card, dashboard and the join screen.
