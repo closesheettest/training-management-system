@@ -672,7 +672,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               </div>
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
-            {sharePanel && <SharePanel room={room} onClose={() => setSharePanel(false)} />}
+            {sharePanel && <SharePanel room={room} auth={isHost ? auth : null} onClose={() => setSharePanel(false)} />}
             {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
             {unmuteAsk && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(2,6,23,.55)' }}>
@@ -1208,9 +1208,30 @@ function LayoutPick({ layout, onLayout }) {
 // 🔗 SHARE MEETING (Neal, 2026-10-05: "just like Zoom has"): the room's link to copy and paste,
 // or send by text / email. A public room (the devotional) — anyone with it can join. A private room
 // — it's the door; team members still sign in with their own link or name.
-function SharePanel({ room, onClose }) {
+function SharePanel({ room, onClose, auth }) {
   const link = `https://trainingmanagementsys.netlify.app/meet/${room.slug}`
   const [copied, setCopied] = useState(false)
+  // Invite / call rooms: each invited person's OWN link (no sign-in, no PIN) — the plain room link only
+  // works for company people signing in with theirs.
+  const [people, setPeople] = useState(null)
+  const [copiedWho, setCopiedWho] = useState('')
+  useEffect(() => { if (!room.public && auth) call({ action: 'share_links', room: room.slug, ...auth }).then((j) => setPeople(j?.ok ? j.people || [] : [])).catch(() => setPeople([])) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const copyText = async (t) => { try { await navigator.clipboard.writeText(t) } catch { const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove() } }
+  if (people && people.length) {
+    return (
+      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 380, background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 14, color: '#e5e7eb', fontSize: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}><b style={{ flex: 1 }}>🔗 Share {room.title}</b><button onClick={onClose} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>
+        <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 8 }}>Each person's own link. It opens straight in, no PIN or sign-in. Send each person theirs.</div>
+        {people.map((p) => (
+          <div key={p.link} style={{ marginBottom: 8, padding: 8, borderRadius: 8, background: '#0b1220', border: '1px solid #374151' }}>
+            <div style={{ fontWeight: 800 }}>{p.name}</div>
+            <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, wordBreak: 'break-all', color: '#cbd5e1', margin: '4px 0 6px' }}>{p.link}</div>
+            <button onClick={async () => { await copyText(p.link); setCopiedWho(p.link) }} style={{ width: '100%', padding: '7px', borderRadius: 8, border: 'none', background: copiedWho === p.link ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copiedWho === p.link ? '✓ Copied' : `Copy ${p.name.split(' ')[0]}'s link`}</button>
+          </div>
+        ))}
+      </div>
+    )
+  }
   const copy = async () => { try { await navigator.clipboard.writeText(link) } catch { const t = document.createElement('textarea'); t.value = link; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove() } setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 360, background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 14, color: '#e5e7eb', fontSize: 14 }}>

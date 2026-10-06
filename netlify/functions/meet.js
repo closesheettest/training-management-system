@@ -1664,6 +1664,8 @@ export const handler = async (event) => {
   // Host actions: an admin PIN, or the link of a room host (the zone's manager, a named host).
   let hostOk = !!(await verifyPin(b.pin)) || !!(room.host_code && sameCode(b.host_code, room.host_code))
   if (!hostOk) { const t = await traineeByToken(b.t); hostOk = !!(t && isRoomHost(room, t)) }
+  // A My Tools caller's own seat in a call room (invitee key with host:true) is a host too.
+  if (!hostOk && b.g) { const x = (room.invitees || []).find((y) => y.key && y.key === String(b.g)); hostOk = !!(x && x.host) }
   if (!hostOk) return json(401, { ok: false, error: 'Only the host can do that.' })
   try {
     // 📖 Scripture on screen: { ref, version, verses:[{n,text}], idx, mode, showing, by } or null.
@@ -1717,6 +1719,9 @@ export const handler = async (event) => {
     // days"). day = 'YYYY-MM-DD' → that meeting's notes; no day → the room's "every meeting" notes.
     // Also returns which days already have notes, so the panel can list them.
     const notesKey = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? `meet_notes_${room.slug}_${d}` : `meet_notes_${room.slug}`
+    // 🔗 SHARE for invite / call rooms (Neal, 2026-10-06: shared the room's plain link with Nick from a call
+    // and it asked him for a PIN). Hosts get each invited outsider's OWN link (…?g=<key>), which never does.
+    if (b.action === 'share_links') return json(200, { ok: true, people: (room.invitees || []).filter((x) => x.key && !x.host).map((x) => ({ name: x.name || 'Guest', link: `${SITE}/meet/${room.slug}?g=${x.key}` })) })
     if (b.action === 'get_notes') {
       const { data: ks } = await sb.from('app_settings').select('key').like('key', `meet_notes_${room.slug}_%`)
       const days = (ks || []).map((x) => x.key.slice(`meet_notes_${room.slug}_`.length)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= etDay()).sort()
