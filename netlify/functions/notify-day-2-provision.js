@@ -79,7 +79,10 @@ export const handler = async (event) => {
     // all; only a real sign-in fires it.
     const fallbackHour = alertHourET(cls.week_start_date, today, startHours)
     const pastFallback = fallbackHour != null && currentHour >= fallbackHour
-    const shouldFire = hasSignIn || pastFallback
+    // WAIT FOR CLASS TO START (Neal, 2026-10-06: Clayton joined the lobby at 1:30 and IT got "create
+    // emails" for 1 of 6, an hour early). It fires at the cohort's start + 30 min and names everyone who
+    // signed in by then — no longer on the first sign-in. cron-day-2-provision knocks every 15 minutes.
+    const shouldFire = pastFallback
     if (!shouldFire) {
       results.push({
         class_id: cls.id,
@@ -102,8 +105,12 @@ export const handler = async (event) => {
     // trainee once they have a zone (rep-zones places pre-grads by their region).
     // Day 2 is the moment to settle it, so the provisioning notice carries the
     // state of play and nags only when someone is still unassigned.
+    // Missed day 1 = out (same rule as the meeting sign-in) — they don't get emails or a zone nag.
+    const day1 = cls.week_start_date
+    const classMetDay1 = (cls.attendance || []).some((a) => a.attendance_date === day1 && a.confirmed)
     const roster = (cls.trainees || []).filter(
-      (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && !t.left_company_at,
+      (t) => t.enrolled !== false && !t.declined_at && !t.dropped_out_at && !t.left_company_at
+        && (!classMetDay1 || (t.attendance || []).some((a) => (a.attendance_date === day1 || a.attendance_date === today) && a.confirmed)),
     )
     const noZone = roster.filter((t) => !t.region)
     // WHO to provision. Two cohorts are in the building in any given week —
