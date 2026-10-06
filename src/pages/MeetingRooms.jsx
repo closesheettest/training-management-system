@@ -453,7 +453,7 @@ export default function MeetingRooms() {
                   </select>
                 </label>
               )}
-              <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.auto_stage} onChange={(e) => setForm({ ...form, auto_stage: e.target.checked })} /> 🎙 Podcast view: when 2+ hosts are in, show them side by side for everyone (nobody is muted)</label>
+              <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.auto_stage} onChange={(e) => setForm({ ...form, auto_stage: e.target.checked })} /> 🎙 Podcast view: when 2+ hosts are in, show them side by side for everyone (nobody is muted, gallery is visible down the left)</label>
               <label className="mt-2 flex items-center gap-2 font-semibold"><input type="checkbox" checked={!!form.remind_5} onChange={(e) => setForm({ ...form, remind_5: e.target.checked })} /> ⏰ Remind everyone 5 minutes before each meeting (text + email with their own link)</label>
             </div>
             <label className="text-sm font-semibold">Host code (for a host who isn't in TMS)<input className={field} value={form.host_code} onChange={(e) => setForm({ ...form, host_code: e.target.value })} placeholder="optional" /></label>
