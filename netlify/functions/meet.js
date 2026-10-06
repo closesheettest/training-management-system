@@ -901,7 +901,10 @@ export const handler = async (event) => {
     if (!who) return json(401, { ok: false })
     // visible_from: managers don't see it before then (Neal, 2026-10-05: reveal it on the 8:30 call).
     // early_zones: those zones' managers see it before visible_from (Neal previewing as SitSold, 2026-10-05).
-    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now() || (r.early_zones || []).includes(who.m.managed_region)))
+    // SIGN-UP CLOSES when the retraining starts (Neal, 2026-10-06: "the sign up was yesterday" — the card
+    // kept showing all week). Open until the day of the first session; gone from that day on.
+    const signupOpen = (r) => { const f = sessionsOf(r)[0]; return !f || etDay(f.start.getTime()) > etDay() }
+    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && signupOpen(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now() || (r.early_zones || []).includes(who.m.managed_region)))
     const out = []
     for (const r of list) {
       const mine = (r.invitees || []).filter((x) => x.id && who.team.some((t) => t.id === x.id))
@@ -917,6 +920,7 @@ export const handler = async (event) => {
     const rooms0 = await loadRooms()
     const room = rooms0.find((r) => r.slug === b.slug && r.kind === 'retraining')
     if (!room || !nextMeeting(room)) return json(404, { ok: false, error: 'That retraining is not open.' })
+    { const f = sessionsOf(room)[0]; if (f && etDay(f.start.getTime()) <= etDay()) return json(400, { ok: false, error: 'Sign-up for this retraining has closed (it already started).' }) }
     const fresh = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((id) => who.team.some((t) => t.id === id) && !(room.invitees || []).some((x) => x.id === id))
     if (!fresh.length) return json(400, { ok: false, error: 'Pick at least one rep who isn\'t signed up yet.' })
     const mName = fullName(who.m), at = new Date().toISOString()
