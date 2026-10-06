@@ -298,12 +298,10 @@ let INTERNAL = false
 // FINISHED EARLY = DONE (Neal, 2026-10-05: "once the 8:30 managers' meeting is over, it should
 // disappear"). A meeting that started more than 15 minutes ago and has no host in it any more is
 // over for today: what's "next" is the following one.
-const nextAfterDone = (r, live, now = Date.now()) => {
-  const nm = nextMeeting(r, now)
-  if (!nm || live) return nm
-  if (now > nm.start.getTime() + 15 * 60000) return nextMeeting(r, nm.end.getTime() + 1000)
-  return nm
-}
+// A meeting stays on the dashboards until its SCHEDULED END, even if the room empties (Neal, 2026-10-06:
+// Sam's 9:30 dropped at 9:45, the room was empty 16 min in, and the old "15 min past start + empty = done"
+// rule took his link away mid-meeting). nextMeeting already moves on once the end time has passed.
+const nextAfterDone = (r, live, now = Date.now()) => nextMeeting(r, now)
 
 const sameCode = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length > 0 && x.length === y.length && crypto.timingSafeEqual(x, y) }
 
