@@ -75,7 +75,9 @@ export const handler = async (event) => {
       transcript, close_silence: s.close_silence || null,
       grade_status: spoke ? 'pending' : 'failed',
       grade_error: spoke ? null : 'Nothing the presenter said was picked up, so there is nothing to grade.',
-      report: { invite: { ...inv, used_at: new Date().toISOString() }, ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}), ...(['fear', 'indifference', 'greed', 'urgency'].includes(s.impulse?.actual) ? { impulse: { actual: s.impulse.actual, guess: String(s.impulse.guess || 'unsure').slice(0, 20) } } : {}) },
+      // Keep the retraining tags (retrain / day / opened_at) — dropping them hid finished homework from
+      // the retraining reports (Neal, 2026-10-06: Cheri, Chris, Rebecca, Robert showed as not done).
+      report: { ...(row.report?.retrain ? { retrain: row.report.retrain, day: row.report.day, opened_at: row.report.opened_at || null } : {}), invite: { ...inv, used_at: new Date().toISOString() }, ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}), ...(['fear', 'indifference', 'greed', 'urgency'].includes(s.impulse?.actual) ? { impulse: { actual: s.impulse.actual, guess: String(s.impulse.guess || 'unsure').slice(0, 20) } } : {}) },
     }).eq('id', row.id)
     if (error) return json(500, { ok: false, error: error.message })
     if (spoke) {

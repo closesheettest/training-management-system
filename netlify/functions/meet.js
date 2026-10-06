@@ -146,6 +146,31 @@ const fmtSession = (x) => {
   const f = (d, o) => d.toLocaleString('en-US', { timeZone: 'America/New_York', ...o })
   return `${f(x.start, { weekday: 'long', month: 'short', day: 'numeric' })}, ${f(x.start, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}–${f(x.end, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}`
 }
+// RETRAINING HOMEWORK STATUS per rep (Neal, 2026-10-06: "report whether they opened their links and have
+// done stuff like the self training"). A rep's homework = their practice-test rows made since they were
+// signed up. Matched by person + time, NOT by the row's retrain tag: finishing/grading a test used to
+// overwrite that tag, so finished homework vanished from the reports (fixed in practice-invite /
+// practice-grade-background the same day; this also reads the rows done before the fix correctly).
+// → { [traineeId]: { links, opened_at, done, score, last_at } }
+async function retrainHomework(sb, room, ids) {
+  const at = new Map((room.invitees || []).filter((x) => x.id && ids.includes(x.id)).map((x) => [x.id, Date.parse(x.at || 0) - 60000]))
+  if (!at.size) return {}
+  const since = new Date(Math.min(...at.values())).toISOString()
+  const { data } = await sb.from('sales_practice_sessions').select('trainee_id, grade_status, score, report, created_at').in('trainee_id', [...at.keys()]).gte('created_at', since)
+  const out = {}
+  for (const p of data || []) {
+    if (Date.parse(p.created_at) < at.get(p.trainee_id)) continue
+    if (!(p.report?.retrain === room.slug || p.report?.invite)) continue
+    const o = (out[p.trainee_id] ||= { links: 0, opened_at: null, done: false, score: null, last_at: null })
+    o.links++
+    const opened = p.report?.opened_at || p.report?.invite?.used_at || null
+    if (opened && (!o.opened_at || opened < o.opened_at)) o.opened_at = opened
+    if (p.grade_status !== 'invited') { o.done = true; if (p.score != null && (o.score == null || p.score > o.score)) o.score = p.score; if (!o.opened_at) o.opened_at = p.created_at }
+    if (!o.last_at || p.created_at > o.last_at) o.last_at = p.created_at
+  }
+  return out
+}
+
 // Make one rep's homework for session k (a practice-test row; its token is their page link) and
 // text + email them the page. Shared by the manager's pick and the nightly job.
 async function sendRetrainDay(sb, room, p, k, byName) {
@@ -931,6 +956,8 @@ export const handler = async (event) => {
   }
   const practiceDone = async (ids, slug) => {
     if (!ids.length) return {}
+    const room = (await loadRooms()).find((r) => r.slug === slug)
+    if (room) { const hw = await retrainHomework(sb, room, ids).catch(() => null); if (hw) return Object.fromEntries(Object.entries(hw).map(([id, o]) => [id, o.done ? 'done' : 'sent'])) }
     const { data } = await sb.from('sales_practice_sessions').select('trainee_id, grade_status, report').in('trainee_id', ids).eq('section', 'slides_1_5')
     const out = {}
     for (const x of data || []) if (x.report?.retrain === slug) out[x.trainee_id] = x.grade_status === 'invited' ? 'sent' : 'done'
@@ -1197,6 +1224,11 @@ export const handler = async (event) => {
         .sort((a, c) => a.name.localeCompare(c.name))
       // People outside TMS on the invite list, each with their own key.
       if (invited) for (const x of (room.invitees || []).filter((y) => y.key)) rows.push({ id: `x:${x.key}`, name: x.name, phone: x.phone, email: x.email, link: `${SITE}/meet/${room.slug}?g=${x.key}`, host: false })
+      // Retraining: did they open their homework link, and did they do the practice test?
+      if (room.kind === 'retraining') {
+        const hw = await retrainHomework(sb, room, rows.map((r) => r.id)).catch(() => ({}))
+        for (const r of rows) if (!r.host) r.prep = hw[r.id] || { links: 0, opened_at: null, done: false, score: null }
+      }
       // WHERE EVERYONE IS RIGHT NOW (Neal, 2026-10-05): in the room (LiveKit says so), else their last
       // step today — doing paperwork (which one), or waiting in the lobby — else not here yet.
       if (b.action === 'audience') {
