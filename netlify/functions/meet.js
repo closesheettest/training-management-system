@@ -139,7 +139,9 @@ const nextMeeting = (r, now = Date.now()) => {
 // RETRAINING DAY BY DAY (Neal, 2026-10-05): each evening a picked rep gets just the NEXT session
 // and that night's homework. Day 1 = slides 1–5, day 2 = the rest (6–23), day 3+ = the whole
 // presentation. room.plan can override: [{ from, to, section }].
-const RETRAIN_PLAN = [{ from: 1, to: 5, section: 'slides_1_5' }, { from: 6, to: 23, section: 'slides_6_23' }, { from: 1, to: 23, section: 'full' }]
+// Day 2 = slides 6–21: the rest of the presentation WITHOUT the close (22–23 = payment options / the
+// investment close sheet), plus the whole deck 1–21 again to run through (Neal, 2026-10-06).
+const RETRAIN_PLAN = [{ from: 1, to: 5, section: 'slides_1_5' }, { from: 6, to: 21, section: 'slides_6_21', deck: [1, 21] }, { from: 1, to: 23, section: 'full' }]
 const planFor = (room, k) => (Array.isArray(room.plan) && room.plan[k]) || RETRAIN_PLAN[Math.min(k, RETRAIN_PLAN.length - 1)]
 const retrainSessions = (room) => (room.once || []).filter(Boolean).map((o) => { const st = etWall(o.slice(0, 10), o.slice(11, 16)); return { start: st, end: new Date(st.getTime() + Math.max(10, Number(room.minutes) || 60) * 60000) } }).sort((a, c) => a.start - c.start)
 const fmtSession = (x) => {
@@ -223,9 +225,20 @@ export async function runRetrainHomework() {
     const k = retrainSessions(room).findIndex((x) => etDay(x.start.getTime()) === tomorrow)
     const ids = (room.invitees || []).filter((x) => x.id).map((x) => x.id)
     if (k < 0 || !ids.length) continue
+    // ONLY THE ONES WHO SHOWED UP (Neal, 2026-10-06: "send to the ones in retraining that showed up today,
+    // in the attendance"). If a session was held today, tonight's homework goes only to the reps who
+    // joined it (meeting attendance in the room they join).
+    let sendIds = ids
+    if (k > 0 && etDay(retrainSessions(room)[k - 1].start.getTime()) === etDay()) {
+      const tgt = room.joins_room || room.slug
+      const { data: att } = await sb.from('app_settings').select('key').like('key', `meet_att_${etDay()}_${tgt}_t:%`)
+      const came = new Set((att || []).map((x) => x.key.split('_t:')[1]))
+      sendIds = ids.filter((id) => came.has(id))
+    }
+    if (!sendIds.length) continue
     const { data: have } = await sb.from('sales_practice_sessions').select('trainee_id, report').in('trainee_id', ids)
     const done = new Set((have || []).filter((x) => x.report?.retrain === room.slug && Number(x.report?.day ?? 0) === k).map((x) => x.trainee_id))
-    const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email').in('id', ids.filter((id) => !done.has(id)))
+    const { data: ppl } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email').in('id', sendIds.filter((id) => !done.has(id)))
     for (const p of ppl || []) out.push(await sendRetrainDay(sb, room, p, k, null))
   }
   return out
@@ -570,7 +583,7 @@ export const handler = async (event) => {
     return json(200, { ok: true, first: t?.first_name || '', title: room.title, topic: room.topic || '', day: k + 1, days: all.length,
       sessions: ses.map((x) => ({ start: x.start.toISOString(), end: x.end.toISOString() })), from: plan.from, to: plan.to,
       join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}`,
-      slides: `${SITE}/homework/slides?from=${plan.from}&to=${plan.to}`, script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
+      slides: `${SITE}/homework/slides?from=${plan.from}&to=${plan.to}`, ...(plan.deck ? { deck: `${SITE}/homework/slides?from=${plan.deck[0]}&to=${plan.deck[1]}`, deck_from: plan.deck[0], deck_to: plan.deck[1] } : {}), script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
       practice_done: row.grade_status !== 'invited', practice_expires: row.report.invite?.expires_at || null })
   }
 

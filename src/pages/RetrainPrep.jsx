@@ -55,9 +55,10 @@ export default function RetrainPrep() {
 
       <h2 className="mt-6 text-sm font-bold uppercase tracking-wider text-slate-500">📝 Homework: done before {due}</h2>
       <div className="mt-2 space-y-3">
-        <Step n="1" title={`Learn ${rng}`} sub="Tap each slide to read the script and the points to bring out. Say it out loud." href={d.slides} cta="Open" />
-        <Step n="2" title="The full sales script" sub="The whole presentation, word for word." href={d.script} cta="Read" />
-        <Step n="3" title={`Practice test: ${rng}`} sub={d.practice_done ? 'Done. Nice work.' : `Present ${rng} out loud to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones.`} href={d.practice} done={d.practice_done} cta={d.practice_done ? 'See it' : 'Start'} />
+        {d.deck && <Step n="1" title={`The presentation again: slides ${d.deck_from}–${d.deck_to}`} sub="Run through the whole presentation from the start (not the close)." href={d.deck} cta="Open" />}
+        <Step n={d.deck ? '2' : '1'} title={`Learn ${rng}: the points`} sub="Tap each slide to read the script and the points to bring out. Say it out loud." href={d.slides} cta="Open" />
+        <Step n={d.deck ? '3' : '2'} title="The full sales script" sub="The whole presentation, word for word." href={d.script} cta="Read" />
+        <Step n={d.deck ? '4' : '3'} title={`Practice test: ${rng}`} sub={d.practice_done ? 'Done. Nice work.' : `Present ${rng} out loud to an AI homeowner. Use a laptop or tablet in Chrome, ideally with headphones.`} href={d.practice} done={d.practice_done} cta={d.practice_done ? 'See it' : 'Start'} />
       </div>
       <p className="mt-6 text-center text-xs text-slate-400">{last ? 'This is the last session.' : "After this session you'll get the next day's link and homework by text the night before."}</p>
     </>

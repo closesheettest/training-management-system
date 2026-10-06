@@ -277,6 +277,8 @@ export const SECTIONS = [
   { key: 'slides_1_5', label: 'Slides 1–5: the company', desc: 'Company, license, insurance, “you already need a roof”, experience. ~10–15 min.', range: [1, 5] },
   // The rest of the presentation in one go — retraining / Week B day 2 homework (Neal, 2026-10-05).
   { key: 'slides_6_23', label: 'Slides 6–23: the rest of the presentation', desc: 'Why today, products, install, warranty, energy saver and the close. ~30–45 min.', range: [6, 23] },
+  // Retraining day 2 (Neal, 2026-10-06): the rest of the presentation WITHOUT the close.
+  { key: 'slides_6_21', label: 'Slides 6–21: the presentation, no close', desc: 'Why today, products, install, warranty and the Energy Saver package. Stops before payment options. ~25–40 min.', range: [6, 21] },
   { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', range: [6, 7] },
   { key: 'slides_8_16', label: 'Slides 8–16: products, install & warranty', desc: 'What we offer, the installation process, colors, our work, jobsite prep, warranty. ~15 min.', range: [8, 16] },
   { key: 'energy', label: 'Slides 17–21: the Energy Saver package', desc: 'Attic heat, R-38, duct sealing, radiant barrier, the savings. ~10 min.', range: [17, 21] },
@@ -552,7 +554,7 @@ export function playbookFor(impulseKey, sectionKey) {
 }
 // Which practice parts give the homeowner a hidden impulse: the warm-up and every slide
 // section, not just the full presentation (Neal, 2026-10-01). Not the door or the drills.
-export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'slides_6_23', 'why_today', 'slides_8_16', 'energy', 'close']
+export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'slides_6_23', 'slides_6_21', 'why_today', 'slides_8_16', 'energy', 'close']
 // The questions for a given section/slide range (for the grader's "try asking" and the lesson).
 export function impulseQuestionsFor(sectionKey) {
   const sec = sectionByKey(sectionKey)

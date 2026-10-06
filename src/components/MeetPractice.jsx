@@ -23,8 +23,9 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   // Put the practice on everyone's screen (and mute everyone but the presenter when it starts).
   const stage = (patch, mute) => post('meet', { action: 'set_practice', room: roomSlug, pin, mute: !!mute, practice: patch })
   // Anyone in the meeting can present — trainees, reps, managers, outside guests (Neal, 2026-10-04:
-  // Chad joined from a one-time invite and wasn't in the list). Not you, not the homeowner itself.
-  const trainees = people.filter((p) => !p.isLocal && !/^(homeowner|egress)/.test(p.identity))
+  // Chad joined from a one-time invite and wasn't in the list) — and YOU, to demo it for the class
+  // (Neal, 2026-10-06: "I did the practice with the trainer to show them slides 1–5, no way to pick me").
+  const trainees = [...people.filter((p) => p.isLocal), ...people.filter((p) => !p.isLocal && !/^(homeowner|egress)/.test(p.identity))]
   const [who, setWho] = useState('')
   const [personaKey, setPersonaKey] = useState('welcome')
   const [sectionKey, setSectionKey] = useState('full')
@@ -89,7 +90,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
       // ON STAGE: everyone muted but the presenter, everyone sees the slide, the presenter gets
       // "say hi to start", and their mic is switched on (Neal, 2026-10-04).
       await stage({ showing: true, presenter: presenter.identity, presenterName: presenter.name || '', homeowner: persona.name, section: section.label, door: section.key === 'door', page: section.firstSlide || 0 }, true)
-      try { await ctx.localParticipant.setMicrophoneEnabled(false) } catch { /* fine */ }
+      if (!presenter.isLocal) { try { await ctx.localParticipant.setMicrophoneEnabled(false) } catch { /* fine */ } }
       try { await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', destinationIdentities: [presenter.identity] }) } catch { /* they can unmute */ }
     } catch (e) {
       setErr(e.message || String(e)); setStatus('setup'); try { live.current?.stop() } catch { /* gone */ } live.current = null; cleanup()
@@ -143,7 +144,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
         <>
           <label>Who's presenting<select value={who} onChange={(e) => setWho(e.target.value)} style={sel}>
             <option value="">{trainees.length ? '— pick who is presenting —' : '— nobody else in the meeting yet —'}</option>
-            {trainees.map((p) => <option key={p.identity} value={p.identity}>{p.name}{p.isMicrophoneEnabled ? '' : ' (muted)'}</option>)}
+            {trainees.map((p) => <option key={p.identity} value={p.identity}>{p.isLocal ? `Me (${p.name || 'you'}) — demo it` : p.name}{p.isMicrophoneEnabled ? '' : ' (muted)'}</option>)}
           </select></label>
           <label>Homeowner<select value={personaKey} onChange={(e) => setPersonaKey(e.target.value)} style={sel}>
             {[...PERSONAS].sort((a, b) => ORDER[a.difficulty] - ORDER[b.difficulty]).map((p) => <option key={p.key} value={p.key}>{p.difficulty}: {p.name}</option>)}
