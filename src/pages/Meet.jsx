@@ -163,7 +163,7 @@ function NotesPrompter({ room, auth, me, onClose }) {
   }
   const b = { padding: '5px 10px', borderRadius: 8, border: 'none', background: '#334155', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }
   return (
-    <div ref={box} style={{ position: 'fixed', zIndex: 90, top: pos.y, left: pos.x ?? '50%', transform: pos.x == null ? 'translateX(-50%)' : 'none', width: dim?.w ? Math.min(dim.w, window.innerWidth) : 'min(680px, 92vw)', height: dim?.h ? Math.min(dim.h, window.innerHeight) : '42vh', minWidth: 280, minHeight: 140, resize: 'both', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'rgba(2,6,23,.92)', border: '2px solid #f59e0b', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,.6)', color: '#fff' }}>
+    <div ref={box} style={{ position: 'fixed', zIndex: 90, top: pos.y, left: pos.x ?? '50%', transform: pos.x == null ? 'translateX(-50%)' : 'none', width: dim?.w ? Math.min(dim.w, window.innerWidth) : 'min(680px, 92vw)', height: dim?.h ? Math.min(dim.h, window.innerHeight) : '42vh', minWidth: 280, minHeight: 140, resize: 'both', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'rgba(2,6,23,.5)', border: '2px solid #f59e0b', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,.6)', color: '#fff' }}>
       <div onMouseDown={drag} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', cursor: 'move', borderBottom: '1px solid #334155', flexWrap: 'wrap' }}>
         <b style={{ flex: 1, fontSize: 13.5 }}>📝 My notes <span style={{ fontWeight: 600, color: '#94a3b8', fontSize: 11.5 }}>· only you see this</span></b>
         {!edit && <button onMouseDown={(e) => e.stopPropagation()} onClick={() => setRolling((x) => !x)} style={{ ...b, background: rolling ? '#b45309' : '#16a34a' }}>{rolling ? '⏸ Pause' : '▶ Scroll'}</button>}
@@ -176,11 +176,11 @@ function NotesPrompter({ room, auth, me, onClose }) {
       {text === null ? <div style={{ padding: 16, color: '#94a3b8' }}>Loading your notes…</div> : edit ? (
         <>
           <textarea autoFocus value={text} onChange={(e) => { setText(e.target.value); save(e.target.value) }} placeholder="Type or paste what you want to say. Only you (and other hosts of this room) can see it."
-            style={{ flex: 1, margin: 8, padding: 10, borderRadius: 10, border: '1px solid #334155', background: '#0f172a', color: '#fff', fontSize: 15, lineHeight: 1.45, resize: 'none' }} />
+            style={{ flex: 1, margin: 8, padding: 10, borderRadius: 10, border: '1px solid #334155', background: 'rgba(15,23,42,.5)', color: '#fff', fontSize: 15, lineHeight: 1.45, resize: 'none' }} />
           <div style={{ fontSize: 11.5, color: '#94a3b8', padding: '0 10px 6px' }}>{saved || 'Saves as you type.'}</div>
         </>
       ) : (
-        <div ref={scroller} onClick={() => setRolling((x) => !x)} style={{ flex: 1, overflowY: 'auto', padding: '12px 22px 40vh', fontSize: size, lineHeight: 1.4, fontWeight: 600, whiteSpace: 'pre-wrap', cursor: 'pointer' }}>
+        <div ref={scroller} onClick={() => setRolling((x) => !x)} style={{ flex: 1, overflowY: 'auto', padding: '12px 22px 40vh', fontSize: size, lineHeight: 1.4, fontWeight: 600, whiteSpace: 'pre-wrap', cursor: 'pointer', textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 2px #000' /* readable over a see-through panel */ }}>
           {text || <span style={{ color: '#94a3b8' }}>No notes yet. Press ✏️ Edit.</span>}
         </div>
       )}
