@@ -627,8 +627,10 @@ export default function MeetingRooms() {
             past ones. Each heading opens/closes; Past starts closed. Remembered on this device. */}
         {[
           ['recurring', '🔁 Recurring meetings', rooms.filter((r) => !isOneTime(r))],
-          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => isOneTime(r) && (r.next_at || !(r.once || []).filter(Boolean).length))],
-          ['past', '🗂️ Past meetings', rooms.filter((r) => isOneTime(r) && !r.next_at && (r.once || []).filter(Boolean).length)],
+          // 📞 "Call someone" rooms (call: true) are person-to-person calls, not meetings — they never list
+          // here (Neal, 2026-10-06: "only real scheduled meetings should show up there").
+          ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => !r.call && isOneTime(r) && (r.next_at || !(r.once || []).filter(Boolean).length))],
+          ['past', '🗂️ Past meetings', rooms.filter((r) => !r.call && isOneTime(r) && !r.next_at && (r.once || []).filter(Boolean).length)],
         ].map(([key, label, list]) => (
           <section key={key}>
             <button onClick={() => toggleGroup(key)} className="flex w-full items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-left text-white">
