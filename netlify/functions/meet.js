@@ -710,6 +710,20 @@ export const handler = async (event) => {
     return json(200, { ok: true })
   }
 
+  // 🎥 WHO'S IN A MEETING (Neal, 2026-10-06: "so many times I get phone calls … if I'm in a meeting, or
+  // Dwayne … let everybody know so they don't try to call"). meet-webhook keeps meet_busy_<first name>
+  // = { name, seats:{ identity: since } } for hosts / managers / Neal / DeWayne. Names only — no rooms.
+  // A seat older than 6 hours is ignored (a missed "left" event can't leave someone busy forever).
+  if (b.action === 'busy_now') {
+    const { data } = await sb.from('app_settings').select('value').like('key', 'meet_busy_%')
+    const cut = Date.now() - 6 * 3600e3, names = []
+    for (const row of data || []) {
+      let v = null; try { v = typeof row.value === 'string' ? JSON.parse(row.value) : row.value } catch { v = null }
+      if (v?.name && Object.values(v.seats || {}).some((at) => Date.parse(at) > cut)) names.push(v.name)
+    }
+    return json(200, { ok: true, busy: names.sort() })
+  }
+
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
@@ -1517,18 +1531,18 @@ export const handler = async (event) => {
     // paperwork, paperwork's complete, they're in the lobby"). Each trainee's latest step on this room
     // today, for the People panel: meet_seen_<room>_<trainee id> = { state, step, at }.
     const mark = (state, step = '') => (String(identity || '').startsWith('t:') ? Promise.resolve(putSetting(`meet_seen_${room.slug}_${identity.slice(2)}`, { state, step, at: new Date().toISOString(), day: etDay() })).catch(() => {}) : Promise.resolve())
-    let name = null, identity = null, host = false, isRetrainee = false
+    let name = null, identity = null, host = false, isRetrainee = false, busyAs = null
     const admin = await verifyPin(b.pin)
     // Each device gets its own seat — the same identity twice would kick the first device out.
     const seat = () => Math.random().toString(36).slice(2, 7)
     // ?as=attendee (Neal, 2026-10-05: "as admin, we should have the ability to join the meeting. But
     // not as a host"): an admin PIN joins as a plain attendee, with no host controls.
     const asAttendee = !!admin && !!b.attendee
-    if (admin) { name = admin; identity = asAttendee ? `a:${slugify(admin)}:${seat()}` : `host:${admin}:${seat()}`; host = !asAttendee }
+    if (admin) { name = admin; identity = asAttendee ? `a:${slugify(admin)}:${seat()}` : `host:${admin}:${seat()}`; host = !asAttendee; if (!asAttendee) busyAs = admin }
     // The trainer's first arrival today starts the 2-minute door (training rooms).
     if (admin && !asAttendee && room.kind === 'training' && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
     else if (room.host_code && sameCode(b.host_code, room.host_code)) {
-      name = String(b.name || '').trim().slice(0, 60) || 'Host'; identity = `host:${slugify(name)}:${seat()}`; host = true
+      name = String(b.name || '').trim().slice(0, 60) || 'Host'; identity = `host:${slugify(name)}:${seat()}`; host = true; busyAs = name
     } else if (room.public && b.guest) {
       // Outside guest: name + email, kept as the room's email list.
       const gName = String(b.guest.name || '').trim().slice(0, 60), email = String(b.guest.email || '').trim().toLowerCase().slice(0, 120)
@@ -1540,11 +1554,13 @@ export const handler = async (event) => {
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
     } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
-      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host // a My Tools caller's own seat — outside people never get host (so never the host notes), even in a no-host room
+      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host; if (x.host) busyAs = name // a My Tools caller's own seat — outside people never get host (so never the host notes), even in a no-host room
     } else {
       const t = await traineeByToken(b.t)
       if (t) {
         name = fullName(t) || 'Guest'; identity = `t:${t.id}`; host = isRoomHost(room, t) || (!!room.no_host && room.kind !== 'training') // 👥 no-host room: everyone has the controls
+        // 🎥 IN A MEETING banner (see busy_now): real hosts, managers, Neal and DeWayne — not reps.
+        if (isRoomHost(room, t) || t.managed_region || LEADERS.some((l) => l.id === t.id)) busyAs = name
         // TRAINING ROOMS: joining = signing in for the day (the virtual kiosk), and nobody gets in
         // until their onboarding paperwork is signed — it's sent to them right here (text + email).
         // RETRAINING (Neal, 2026-10-05): reps a manager picked for a retraining that "joins" this
@@ -1659,7 +1675,7 @@ export const handler = async (event) => {
       // class, so every day-2 join can safely knock.
       if (dayIdx === 1 && process.env.CRON_SECRET) await fetch(`${SITE}/.netlify/functions/notify-day-2-provision?secret=${encodeURIComponent(process.env.CRON_SECRET)}`).catch(() => {})
     }
-    const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host }) })
+    const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host, ...(busyAs ? { busy: busyAs } : {}) }) })
     // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
     // muted and they cannot unmute. I am the only one that can unmute"). Non-hosts may publish
     // their camera only; the host's Unmute grants the mic (allow_mic) and Mute takes it back.

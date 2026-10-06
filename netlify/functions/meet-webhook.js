@@ -62,6 +62,20 @@ export const handler = async (event) => {
   if (/^(agent|egress|homeowner)/i.test(ev.participant.identity || '')) return { statusCode: 200, body: 'ok' }
 
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  // 🎥 IN A MEETING (see meet.js busy_now): hosts / managers / Neal / DeWayne carry metadata.busy.
+  if (ev.event === 'participant_joined' || ev.event === 'participant_left') {
+    let busy = null; try { busy = JSON.parse(ev.participant.metadata || '{}').busy || null } catch { busy = null }
+    if (busy) {
+      const first = String(busy).trim().split(/\s+/)[0]
+      const bkey = `meet_busy_${first.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+      const { data: bd } = await sb.from('app_settings').select('value').eq('key', bkey).maybeSingle()
+      let bv = null; try { bv = bd ? (typeof bd.value === 'string' ? JSON.parse(bd.value) : bd.value) : null } catch { bv = null }
+      bv = { name: first, seats: { ...((bv && bv.seats) || {}) } }
+      const seat = `${ev.room.name}|${ev.participant.identity}`
+      if (ev.event === 'participant_joined') bv.seats[seat] = new Date().toISOString(); else delete bv.seats[seat]
+      await sb.from('app_settings').upsert({ key: bkey, value: JSON.stringify(bv), updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    }
+  }
   const at = Number(ev.createdAt) ? Number(ev.createdAt) * 1000 : Date.now()
   const key = `meet_att_${etDay(at)}_${safe(ev.room.name)}_${safe(ev.participant.identity)}`
   const { data } = await sb.from('app_settings').select('value').eq('key', key).maybeSingle()
