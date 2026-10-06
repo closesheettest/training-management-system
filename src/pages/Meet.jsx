@@ -39,6 +39,34 @@ const setS = (k, v, s) => { try { (s || sessionStorage).setItem(k, v) } catch { 
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
 
 // The bar across the top: badge, team, title, and the topic line (host can edit it live).
+// 🎥 REMEMBER MY CAMERA + MIC (Neal, 2026-10-06: "once you pick your camera in the meeting, it remembers
+// it… I pick the camera, then when I hit Join meeting I had to pick the camera again"). The pre-join pick
+// is now the one the meeting actually opens (forced as exact once connected — the browser treated it as a
+// suggestion and fell back to the default camera), and any switch made inside the meeting is saved too.
+// Stored on this device only (localStorage meet_devices); the name is never stored.
+const DEV_KEY = 'meet_devices'
+const savedDevices = () => { try { const d = JSON.parse(localStorage.getItem(DEV_KEY) || '{}'); return { ...(d.videoDeviceId ? { videoDeviceId: d.videoDeviceId } : {}), ...(d.audioDeviceId ? { audioDeviceId: d.audioDeviceId } : {}) } } catch { return {} } }
+const saveDevices = (c) => { try { const d = JSON.parse(localStorage.getItem(DEV_KEY) || '{}'); if (c.videoDeviceId) d.videoDeviceId = c.videoDeviceId; if (c.audioDeviceId) d.audioDeviceId = c.audioDeviceId; localStorage.setItem(DEV_KEY, JSON.stringify(d)) } catch { /* private mode */ } }
+function KeepDevices({ choices }) {
+  const room = useRoomContext()
+  useEffect(() => {
+    if (!room) return
+    const done = new Set()
+    const apply = async (pub) => {
+      const kind = pub?.source === Track.Source.Camera ? 'videoinput' : pub?.source === Track.Source.Microphone ? 'audioinput' : null
+      if (!kind || done.has(kind)) return
+      done.add(kind)
+      const id = kind === 'videoinput' ? choices?.videoDeviceId : choices?.audioDeviceId
+      if (id && id !== 'default' && room.getActiveDevice(kind) !== id) await room.switchActiveDevice(kind, id, true).catch(() => {})
+    }
+    const onChange = (kind, id) => { if (kind === 'videoinput') saveDevices({ videoDeviceId: id }); if (kind === 'audioinput') saveDevices({ audioDeviceId: id }) }
+    room.on(RoomEvent.LocalTrackPublished, apply)
+    room.on(RoomEvent.ActiveDeviceChanged, onChange)
+    return () => { room.off(RoomEvent.LocalTrackPublished, apply); room.off(RoomEvent.ActiveDeviceChanged, onChange) }
+  }, [room]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
+
 function TitleBar({ room, auth, isHost }) {
   const info = useRoomInfo()
   const roomMeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
@@ -877,8 +905,8 @@ export default function Meet() {
           </div>
         )}
         {!join.host && (lastBody?.t || lastBody?.g) && <TextMeBox slug={slug} who={lastBody} L={L} />}
-        <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: !join.mic_locked }} persistUserChoices={false}
-          onValidate={() => true} onSubmit={(c) => setChoices(c || {})} joinLabel="Join meeting" userLabel="Your name" />
+        <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: !join.mic_locked, ...savedDevices() }} persistUserChoices={false}
+          onValidate={() => true} onSubmit={(c) => { saveDevices(c || {}); setChoices(c || {}) }} joinLabel="Join meeting" userLabel="Your name" />
       </div>
     )
   }
@@ -898,6 +926,7 @@ export default function Meet() {
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
         audio={choices.audioEnabled && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
         onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
+        <KeepDevices choices={choices} />
         <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} /></MeetErrorBoundary>
       </LiveKitRoom>
     </div>
