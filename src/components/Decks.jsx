@@ -25,7 +25,7 @@ export const DECKS = [
   // (the trainee "Why we use it" one) to the whole room, present the how-to deck, then press
   // 📲 Send DoorDispatcher access. Kept apart from the older flows so the old ones can be deleted later.
   { key: 'ddv', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · DoorDispatcher video: Why we use it', type: 'video', url: 'https://ddtajhfsnlzgsejtvoaz.supabase.co/storage/v1/object/public/harvest-training/why_jr.mp4' },
-  { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/' },
+  { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/', endAction: '📲 Send DoorDispatcher access to everyone in this meeting' },
 ]
 // Decks belong to the training rooms only (Neal, 2026-10-06: on the 8 AM meeting "none of these need
 // to show up"). Week A's room shows Week A decks, Week B's shows Week B's, a 'both' training room both.
@@ -43,8 +43,13 @@ const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
 
 // The slide area. host=true: the trainer can click/arrow inside it and every move is reported
 // (onMove); everyone else just follows `pos`.
-export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
+export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndAction }) {
   const d = deckOf(dk)
+  // A deck with an endAction shows that button to the PRESENTER on its last slide (Neal, 2026-10-06:
+  // "at the end of that presentation, let's have a button that says send them dispatcher access").
+  const [atEnd, setAtEnd] = useState(false)
+  const [busyEnd, setBusyEnd] = useState(false)
+  useEffect(() => { setAtEnd(false) }, [dk])
   const frame = useRef(null)
   const reveal = () => { try { return frame.current?.contentWindow?.Reveal || null } catch { return null } }
   // The presenter's own screen never follows the room's copy of the position: that copy arrives a
@@ -64,7 +69,8 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
     const go = () => {
       if (pos) R.slide(pos.h || 0, pos.v || 0, pos.f ?? undefined)
       if (host) {
-        const send = () => { const c = R.getIndices(); onMove?.({ h: c.h, v: c.v || 0, f: c.f ?? -1 }) }
+        const send = () => { const c = R.getIndices(); setAtEnd(!!R.isLastSlide?.()); onMove?.({ h: c.h, v: c.v || 0, f: c.f ?? -1 }) }
+        setAtEnd(!!R.isLastSlide?.())
         R.on('slidechanged', send); R.on('fragmentshown', send); R.on('fragmenthidden', send)
       } else R.configure({ keyboard: false, controls: false, touch: false })
     }
@@ -89,6 +95,12 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef }) {
         : <img src={img(d, n)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
       {/* Always-on slide controls for the presenter (Neal, 2026-10-04: "I need a way that I can go
           back"). Bottom-left, clear of the camera circle; only the presenter sees them. */}
+      {host && d.endAction && atEnd && onEndAction && (
+        <button type="button" disabled={busyEnd} onClick={async () => { setBusyEnd(true); try { await onEndAction() } finally { setBusyEnd(false) } }}
+          style={{ position: 'absolute', left: '50%', bottom: '14%', transform: 'translateX(-50%)', zIndex: 25, padding: '18px 30px', borderRadius: 16, border: '3px solid #fff', background: '#16a34a', color: '#fff', fontSize: 22, fontWeight: 900, cursor: 'pointer', boxShadow: '0 12px 36px rgba(0,0,0,.55)' }}>
+          {busyEnd ? 'Sending…' : d.endAction}
+        </button>
+      )}
       {host && apiRef && d.type !== 'video' && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
       {camTrack && (
         <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(20%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', background: '#000', pointerEvents: 'none' }}>

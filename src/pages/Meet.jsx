@@ -287,6 +287,15 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const dk = rmeta.deck && rmeta.deck.showing && deckOf(rmeta.deck.key) ? rmeta.deck : null
   const iPresent = !!dk && isHost && dk.by === localParticipant?.identity
   const dkCam = dk ? cams.find((t) => t.participant.identity === dk.by && isTrackReference(t) && !t.publication?.isMuted) : null
+  // 📲 🆕 New flow: DoorDispatcher access for every trainee in the meeting (panel button + the deck's last slide).
+  const sendDdAccess = async () => {
+                    if (!window.confirm('Send DoorDispatcher access to every trainee in this meeting right now?\n\nEach one gets a text and an email with their link. They watch the one video, then take the test.')) return
+                    const j = await call({ action: 'dd_access_live', room: room.slug, ...auth }).catch(() => ({ ok: false, error: 'Network error' }))
+                    if (!j.ok) { window.alert(j.error || 'Did not work.'); return }
+                    if (!j.results?.length) { window.alert(j.note || 'No trainees were found in the meeting.'); return }
+                    const good = j.results.filter((r) => r.ok), bad = j.results.filter((r) => !r.ok)
+                    window.alert(`✅ DoorDispatcher access sent to ${good.length}:\n${good.map((r) => `• ${r.name}${r.sms ? ' 📱' : ''}${r.email ? ' ✉️' : ''}${!r.sms && !r.email ? ' (text + email both failed — resend from Rep Links)' : ''}`).join('\n')}${bad.length ? `\n\n⚠️ Not sent:\n${bad.map((r) => `• ${r.name}: ${r.error}`).join('\n')}` : ''}`)
+                  }
   const setDeck = (next) => call({ action: 'set_deck', room: room.slug, deck: next, identity: localParticipant?.identity, ...auth }).catch(() => {})
   useEffect(() => {
     if (!iPresent) return
@@ -374,7 +383,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 // see their faces as I'm training them"). The host sees everyone in a strip beside the
                 // slides; everyone else still gets the slides full size.
                 const deckEl = (
-              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
+              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} onEndAction={sendDdAccess} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
                 )
                 const faces = cams.filter((t) => t.participant.identity !== localParticipant?.identity)
                 return isHost && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{deckEl}</div></FocusLayoutContainer> : deckEl
@@ -437,14 +446,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 {room.kind === 'training' && room.training_week !== 'B' && (
                   // 🆕 NEW FLOW (Oct 6): after the DoorDispatcher video + deck, one press gives every trainee
                   // in the meeting their DoorDispatcher link (text + email). See meet.js dd_access_live.
-                  <button onClick={async () => {
-                    if (!window.confirm('Send DoorDispatcher access to every trainee in this meeting right now?\n\nEach one gets a text and an email with their link. They watch the one video, then take the test.')) return
-                    const j = await call({ action: 'dd_access_live', room: room.slug, ...auth }).catch(() => ({ ok: false, error: 'Network error' }))
-                    if (!j.ok) { window.alert(j.error || 'Did not work.'); return }
-                    if (!j.results?.length) { window.alert(j.note || 'No trainees were found in the meeting.'); return }
-                    const good = j.results.filter((r) => r.ok), bad = j.results.filter((r) => !r.ok)
-                    window.alert(`✅ DoorDispatcher access sent to ${good.length}:\n${good.map((r) => `• ${r.name}${r.sms ? ' 📱' : ''}${r.email ? ' ✉️' : ''}${!r.sms && !r.email ? ' (text + email both failed — resend from Rep Links)' : ''}`).join('\n')}${bad.length ? `\n\n⚠️ Not sent:\n${bad.map((r) => `• ${r.name}: ${r.error}`).join('\n')}` : ''}`)
-                  }} style={{ display: 'block', width: '100%', padding: '10px', marginBottom: 10, borderRadius: 8, border: '2px solid #22c55e', background: '#14532d', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>
+                  <button onClick={sendDdAccess} style={{ display: 'block', width: '100%', padding: '10px', marginBottom: 10, borderRadius: 8, border: '2px solid #22c55e', background: '#14532d', color: '#fff', fontWeight: 900, cursor: 'pointer' }}>
                     📲 Send DoorDispatcher access to trainees in this meeting <span style={{ fontWeight: 600, fontSize: 11, opacity: 0.8 }}>(🆕 new flow)</span>
                   </button>
                 )}
