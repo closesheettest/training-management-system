@@ -474,13 +474,14 @@ export const handler = async (event) => {
   }
 
   // 🗑 DELETE FROM THE RECORDINGS PAGE (Neal, 2026-10-06: "have a delete on all these recordings").
-  // The page link is shared with attendees, so deleting needs an admin PIN or the room's host code.
-  // { room, k, pin | host_code, id }  or  { …, all: true }
+  // Neal, same day: "only two people have access to this page, they should be able to delete" — the
+  // page's own key (the private recordings link) is enough; an admin PIN still works too.
+  // { room, k, id }  or  { room, k, all: true }
   if (b.action === 'rec_delete') {
     const r = (await loadRooms()).find((x) => x.slug === String(b.room || ''))
     if (!r) return json(404, { ok: false, error: 'No recordings here.' })
-    const ok = !!(await verifyPin(b.pin)) || !!(r.host_code && sameCode(b.host_code, r.host_code))
-    if (!ok) return json(401, { ok: false, error: 'That PIN / host code is not right.' })
+    const ok = (r.rec_key && String(b.k || '') === r.rec_key) || !!(await verifyPin(b.pin))
+    if (!ok) return json(401, { ok: false, error: 'This recordings link is not valid.' })
     const key = `meet_recordings_${r.slug}`
     const log = (await getSetting(key, [])) || []
     const gone = b.all ? log : log.filter((x) => x.egress_id === String(b.id || ''))

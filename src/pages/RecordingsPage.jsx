@@ -2,7 +2,7 @@
 // (Neal, 2026-10-04: "devotional will have devotional recordings"). The link (with its key) is
 // shared with whoever downloads them — DeWayne's cousin edits the 9:15 Devotional. Dressed in
 // the room's own look. Links are fresh for an hour each time the page loads.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { lookOf, FontsFor } from '../lib/meetLooks.jsx'
 
@@ -16,13 +16,11 @@ export default function RecordingsPage() {
   const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rec_list', room, k: sp.get('k') || '' }) })
     .then((r) => r.json()).then((j) => { if (j.ok) setD(j); else setErr(j.error || 'Could not load') }).catch(() => setErr('Network error'))
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // 🗑 Delete (Neal, 2026-10-06). Asks once for the admin PIN / room host code, remembered for this visit.
-  const code = useRef('')
+  // 🗑 Delete (Neal, 2026-10-06) — anyone with this page's private link can delete; just confirm.
   const del = async (id, all) => {
     if (!window.confirm(all ? `Delete ALL ${d.recordings.length} recordings for ${d.room.title}? This can't be undone.` : "Delete this recording? This can't be undone.")) return
-    if (!code.current) { const c = window.prompt('Admin PIN or the room\'s host code:'); if (!c) return; code.current = c.trim() }
-    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rec_delete', room, k: sp.get('k') || '', pin: code.current, host_code: code.current, ...(all ? { all: true } : { id }) }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
-    if (!j.ok) { if (/PIN|code/i.test(j.error || '')) code.current = ''; window.alert(j.error || 'Could not delete.'); return }
+    const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'rec_delete', room, k: sp.get('k') || '', ...(all ? { all: true } : { id }) }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+    if (!j.ok) { window.alert(j.error || 'Could not delete.'); return }
     load()
   }
   useEffect(() => { document.title = d ? `${d.room.title} · Recordings` : 'Recordings' }, [d])
