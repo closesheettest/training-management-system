@@ -222,6 +222,52 @@ function NotesPrompter({ room, auth, me, onClose }) {
   )
 }
 
+// ❓ HELP: CAMERA, MIC & SCREEN SHARING (Neal, 2026-10-06, after Sam's meeting on his iPhone). One guide per
+// device, the device you're on first. On the sign-in page and in the meeting's top bar.
+const DEVICE_HELP = [
+  { key: 'mac', title: '💻 Mac or iMac (use Chrome)', lines: [
+    'Allow the camera and microphone when Chrome asks the first time.',
+    'To share your screen, the Mac has to allow it once: System Settings → Privacy & Security → Screen & System Audio Recording → turn on Google Chrome → quit Chrome completely and reopen it.',
+    'Then in the meeting tap Share screen and pick your window or tab.'] },
+  { key: 'win', title: '🖥️ Windows PC (use Chrome or Edge)', lines: [
+    'Allow the camera and microphone when it asks the first time.',
+    'Screen sharing works right away: tap Share screen and pick your window or tab.'] },
+  { key: 'ios', title: '📱 iPhone or iPad', lines: [
+    'Allow the camera and microphone when it asks.',
+    "You can join, talk and be on camera, but you can't share your screen — Apple doesn't let websites do that. Use a computer when you need to share.",
+    'Keep the meeting on screen: if the phone locks, or you switch apps or take a call, it pauses the meeting and you drop out.'] },
+  { key: 'android', title: '📱 Android phone or tablet (use Chrome)', lines: [
+    'Allow the camera and microphone when Chrome asks.',
+    'Keep the meeting on screen — switching apps can drop you out. For screen sharing, use a computer.'] },
+  { key: 'drop', title: '🔌 If you get disconnected (any device)', lines: [
+    'Wait a few seconds — it usually reconnects on its own.',
+    'If not, tap your meeting link again (or reload the page). A host comes right back in as host, and everyone else stays in the room.'] },
+]
+const myDevice = () => {
+  const ua = navigator.userAgent || ''
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ios'
+  if (/Android/.test(ua)) return 'android'
+  if (/Macintosh|Mac OS X/.test(ua)) return 'mac'
+  return 'win'
+}
+function DeviceHelp({ onClose }) {
+  const mine = myDevice()
+  const list = [...DEVICE_HELP.filter((x) => x.key === mine), ...DEVICE_HELP.filter((x) => x.key !== mine)]
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(2,6,23,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(560px, 100%)', maxHeight: '85vh', overflowY: 'auto', background: '#fff', color: '#0f172a', borderRadius: 16, padding: '18px 20px', boxShadow: '0 20px 60px rgba(0,0,0,.5)', textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}><b style={{ flex: 1, fontSize: 18 }}>❓ Camera, mic & screen sharing</b><button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer' }}>×</button></div>
+        {list.map((x, i) => (
+          <div key={x.key} style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: i === 0 && x.key !== 'drop' ? '#ecfdf5' : '#f8fafc', border: `1px solid ${i === 0 && x.key !== 'drop' ? '#86efac' : '#e2e8f0'}` }}>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>{x.title}{i === 0 && x.key !== 'drop' ? <span style={{ marginLeft: 6, fontSize: 11.5, fontWeight: 800, color: '#166534' }}>← your device</span> : null}</div>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.45 }}>{x.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function TitleBar({ room, auth, isHost }) {
   const info = useRoomInfo()
   const roomMeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
@@ -535,6 +581,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const [kbNote, setKbNote] = useState('')
   const [kbHelp, setKbHelp] = useState(false)
   const [notesOpen, setNotesOpen] = useState(false)
+  const [devHelp, setDevHelp] = useState(false)
   const kbRef = useRef({})
   kbRef.current = { dk, sc, iPresent, isHost, room, auth, bg, setDeck, setScripture, toggleRec, pickView, localParticipant, roomCtx, stageIds, recording: rmeta.recording }
   useEffect(() => {
@@ -584,6 +631,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
           {(room.public || isHost) && <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>}
           <button title="Keyboard shortcuts (for Stream Deck)" onClick={() => setKbHelp((x) => !x)} style={btn(kbHelp)}>⌨</button>
+          <button title="Help: camera, mic & screen sharing" onClick={() => setDevHelp(true)} style={btn(false)}>❓</button>
           {isHost && <button title="Your private notes / teleprompter — only you see it" onClick={() => setNotesOpen((x) => !x)} style={{ ...btn(notesOpen), ...(notesOpen ? {} : { borderColor: '#f59e0b' }) }}>📝 My notes</button>}
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && (decksFor(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
@@ -720,6 +768,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 <button onClick={() => setUnmuteAsk(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 26, cursor: 'pointer' }}>×</button>
               </div>
             )}
+            {devHelp && <DeviceHelp onClose={() => setDevHelp(false)} />}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
@@ -789,6 +838,7 @@ export default function Meet() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [choices, setChoices] = useState(null)
+  const [preHelp, setPreHelp] = useState(false)
   const [notOpen, setNotOpen] = useState(null) // { next_at } — no meeting on right now
   const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
   // ?preview=onboarding shows the onboarding screen exactly as a trainee sees it (nothing sent,
@@ -1126,6 +1176,10 @@ export default function Meet() {
           </div>
         )}
         {!join.host && (lastBody?.t || lastBody?.g) && <TextMeBox slug={slug} who={lastBody} L={L} />}
+        <div style={{ textAlign: 'center', margin: '0 0 8px' }}>
+          <button onClick={() => setPreHelp(true)} style={{ padding: '6px 14px', borderRadius: 999, border: `1px solid ${L.button}`, background: 'transparent', color: L.head, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>❓ Help: camera, mic & screen sharing</button>
+        </div>
+        {preHelp && <DeviceHelp onClose={() => setPreHelp(false)} />}
         <PreJoin defaults={{ username: join.name, videoEnabled: true, audioEnabled: !join.mic_locked, ...savedDevices() }} persistUserChoices={false}
           onValidate={() => true} onSubmit={(c) => { saveDevices(c || {}); setChoices(c || {}) }} joinLabel="Join meeting" userLabel="Your name" />
       </div>
