@@ -371,9 +371,11 @@ export const handler = async (event) => {
   // everyone from the COMPANY who comes in (their own link) has the host controls, and nobody waits —
   // the room is always open. Outside guests / guest speakers are never hosts, so never see host notes.
   const openState = async (r) => {
-    if (r.no_host) return { live: true, open: true }
     let live = false
-    try { live = (await svc().listParticipants(r.slug)).some((p) => { try { return JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room not open */ }
+    // A no-host room is LIVE when anyone is in it (Neal, 2026-10-06: it showed "LIVE NOW" all day once
+    // it was no-host — it said live without looking) and always open to come in.
+    try { live = (await svc().listParticipants(r.slug)).some((p) => { if (r.no_host) return !/^egress/i.test(String(p.identity || '')); try { return JSON.parse(p.metadata || '{}').host } catch { return false } }) } catch { /* room not open */ }
+    if (r.no_host) return { live, open: true }
     if (!hasSchedule(r)) return { live, open: r.kind === 'company' ? live : true }
     const nm = nextMeeting(r)
     const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
