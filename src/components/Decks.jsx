@@ -21,11 +21,12 @@ export const DECKS = [
   { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
   { key: 'b1f', week: 'B', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
   { key: 'b1q', week: 'B', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
-  // 🆕 NEW FLOW — Week A DoorDispatcher intro (Neal, 2026-10-06): Neal goes through the how-to deck with
-  // the trainees; its last slide has the presenter's 📲 Send DoorDispatcher access button; on their link
-  // they watch the "Why we use it" video, then take the test. (Video decks — type 'video', synced — still
-  // work if one is added later.) Kept apart from the older flows so the old ones can be deleted later.
-  { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/', endAction: '📲 Send DoorDispatcher access to everyone in this meeting' },
+  // 🆕 NEW FLOW — Week A DoorDispatcher intro (Neal, 2026-10-06, final): 1) play the "Why we use it" video
+  // to the room (synced), 2) present the how-to slides, whose last slide has the presenter's 📲 Send
+  // DoorDispatcher access button, 3) on their link they watch the HOW-TO video, then take the test.
+  // Kept apart from the older flows so the old ones can be deleted later.
+  { key: 'ddv', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · 1. Video: Why we use DoorDispatcher', type: 'video', url: 'https://ddtajhfsnlzgsejtvoaz.supabase.co/storage/v1/object/public/harvest-training/why_jr.mp4' },
+  { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · 2. Slides: How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/', endAction: '📲 Send DoorDispatcher access to everyone in this meeting' },
 ]
 // Decks belong to the training rooms only (Neal, 2026-10-06: on the 8 AM meeting "none of these need
 // to show up"). Week A's room shows Week A decks, Week B's shows Week B's, a 'both' training room both.
