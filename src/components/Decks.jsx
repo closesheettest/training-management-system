@@ -27,11 +27,15 @@ export const DECKS = [
   { key: 'ddv', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · DoorDispatcher video: Why we use it', type: 'video', url: 'https://ddtajhfsnlzgsejtvoaz.supabase.co/storage/v1/object/public/harvest-training/why_jr.mp4' },
   { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/' },
 ]
-// A training room only offers its own week's decks (Neal, 2026-10-04: First Week Training shows
-// Week A only). Other rooms (and a 'both' training room) get every deck.
+// Decks belong to the training rooms only (Neal, 2026-10-06: on the 8 AM meeting "none of these need
+// to show up"). Week A's room shows Week A decks, Week B's shows Week B's, a 'both' training room both.
+// The walkthrough ('vf', no week) only shows in the managers meeting. Every other room: nothing, and
+// the 📊 Present button is hidden there.
 export const decksFor = (room) => {
-  const w = room?.kind === 'training' ? room.training_week : null
-  const list = w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS
+  if (room?.kind === 'managers') return DECKS.filter((d) => !d.week)
+  if (room?.kind !== 'training') return []
+  const w = room.training_week
+  const list = w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS.filter((d) => d.week)
   return [...list.filter((d) => d.flow === 'new'), ...list.filter((d) => d.flow !== 'new')] // 🆕 new flow on top
 }
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
