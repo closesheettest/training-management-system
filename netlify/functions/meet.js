@@ -1636,6 +1636,14 @@ export const handler = async (event) => {
       return json(200, { ok: true, results })
     }
     // 📊 PRESENT: { key, pos:{h,v,f}|{n}, showing, by } or null — the trainer's deck and where it is.
+    // 📝 HOST NOTES / TELEPROMPTER (DeWayne via Neal, 2026-10-06): the host's own notes for this room —
+    // only ever sent to a host (this whole block is host-only), never to attendees. One per room.
+    if (b.action === 'get_notes') return json(200, { ok: true, notes: await getSetting(`meet_notes_${room.slug}`, { text: '' }) })
+    if (b.action === 'set_notes') {
+      const notes = { text: String(b.text || '').slice(0, 30000), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
+      await putSetting(`meet_notes_${room.slug}`, notes)
+      return json(200, { ok: true, notes })
+    }
     if (b.action === 'set_deck') {
       const dk = b.deck && typeof b.deck.key === 'string' ? { key: b.deck.key.slice(0, 20), pos: b.deck.pos && typeof b.deck.pos === 'object' ? { h: Number(b.deck.pos.h) || 0, v: Number(b.deck.pos.v) || 0, f: Number.isFinite(Number(b.deck.pos.f)) ? Number(b.deck.pos.f) : -1, n: Number(b.deck.pos.n) || 0, t: Math.max(0, Number(b.deck.pos.t) || 0), play: !!b.deck.pos.play } : null, showing: !!b.deck.showing, by: String(b.identity || '').slice(0, 80) } : null
       await setMeta({ deck: dk })

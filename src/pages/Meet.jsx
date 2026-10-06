@@ -119,6 +119,66 @@ function MeetControls({ mic, screenShare }) {
   )
 }
 
+// 📝 HOST NOTES — A PRIVATE TELEPROMPTER (DeWayne via Neal, 2026-10-06: "a notes section … showing on his
+// but doesn't show on anybody else's, so it's almost like his own teleprompter"). Host-only button; the
+// notes live on the server per room (meet.js get_notes / set_notes, host-only), so they can be written
+// ahead of time on any device. Works while presenting or not; it's a floating panel on the host's screen
+// only — never part of the room, the slides or the recording. Drag it by its top bar (put it right under
+// your camera so your eyes stay up). Auto-scroll with speed, bigger/smaller text; remembered per device.
+function NotesPrompter({ room, auth, me, onClose }) {
+  const pref = (() => { try { return JSON.parse(localStorage.getItem('meet_prompter') || '{}') } catch { return {} } })()
+  const [text, setText] = useState(null)
+  const [edit, setEdit] = useState(false)
+  const [saved, setSaved] = useState('')
+  const [size, setSize] = useState(pref.size || 26)
+  const [speed, setSpeed] = useState(pref.speed || 2)
+  const [rolling, setRolling] = useState(false)
+  const [pos, setPos] = useState(pref.pos || { x: null, y: 70 })
+  const box = useRef(null), scroller = useRef(null), timer = useRef(null)
+  useEffect(() => { call({ action: 'get_notes', room: room.slug, ...auth }).then((j) => { const t = j?.notes?.text || ''; setText(t); if (!t) setEdit(true) }).catch(() => setText('')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { try { localStorage.setItem('meet_prompter', JSON.stringify({ size, speed, pos })) } catch { /* private mode */ } }, [size, speed, pos])
+  const save = (t) => { clearTimeout(timer.current); setSaved('Saving…'); timer.current = setTimeout(() => call({ action: 'set_notes', room: room.slug, text: t, by: me, ...auth }).then((j) => setSaved(j?.ok ? 'Saved' : 'Not saved — try again')).catch(() => setSaved('Not saved — try again')), 900) }
+  // Auto-scroll: px per frame from speed (1–10).
+  useEffect(() => {
+    if (!rolling || edit) return
+    let id, last = performance.now()
+    const step = (t) => { const el = scroller.current; if (el) { el.scrollTop += (speed * 12 * (t - last)) / 1000; if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) setRolling(false) } last = t; id = requestAnimationFrame(step) }
+    id = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(id)
+  }, [rolling, edit, speed])
+  const drag = (e) => {
+    const r = box.current.getBoundingClientRect(), ox = e.clientX - r.left, oy = e.clientY - r.top
+    const move = (ev) => setPos({ x: Math.max(0, Math.min(window.innerWidth - r.width, ev.clientX - ox)), y: Math.max(0, Math.min(window.innerHeight - 80, ev.clientY - oy)) })
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up)
+  }
+  const b = { padding: '5px 10px', borderRadius: 8, border: 'none', background: '#334155', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }
+  return (
+    <div ref={box} style={{ position: 'fixed', zIndex: 90, top: pos.y, left: pos.x ?? '50%', transform: pos.x == null ? 'translateX(-50%)' : 'none', width: 'min(680px, 92vw)', height: '42vh', display: 'flex', flexDirection: 'column', background: 'rgba(2,6,23,.92)', border: '2px solid #f59e0b', borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,.6)', color: '#fff' }}>
+      <div onMouseDown={drag} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', cursor: 'move', borderBottom: '1px solid #334155', flexWrap: 'wrap' }}>
+        <b style={{ flex: 1, fontSize: 13.5 }}>📝 My notes <span style={{ fontWeight: 600, color: '#94a3b8', fontSize: 11.5 }}>· only you see this</span></b>
+        {!edit && <button onMouseDown={(e) => e.stopPropagation()} onClick={() => setRolling((x) => !x)} style={{ ...b, background: rolling ? '#b45309' : '#16a34a' }}>{rolling ? '⏸ Pause' : '▶ Scroll'}</button>}
+        {!edit && <><button onMouseDown={(e) => e.stopPropagation()} onClick={() => setSpeed((x) => Math.max(1, x - 1))} style={b}>🐢</button><span style={{ fontSize: 12, minWidth: 14, textAlign: 'center' }}>{speed}</span><button onMouseDown={(e) => e.stopPropagation()} onClick={() => setSpeed((x) => Math.min(10, x + 1))} style={b}>🐇</button></>}
+        <button onMouseDown={(e) => e.stopPropagation()} onClick={() => setSize((x) => Math.max(14, x - 3))} style={b}>A−</button>
+        <button onMouseDown={(e) => e.stopPropagation()} onClick={() => setSize((x) => Math.min(60, x + 3))} style={b}>A+</button>
+        <button onMouseDown={(e) => e.stopPropagation()} onClick={() => { setEdit((x) => !x); setRolling(false) }} style={{ ...b, background: edit ? '#2563eb' : '#334155' }}>{edit ? '✓ Done' : '✏️ Edit'}</button>
+        <button onMouseDown={(e) => e.stopPropagation()} onClick={onClose} style={{ ...b, background: 'transparent', fontSize: 16 }}>×</button>
+      </div>
+      {text === null ? <div style={{ padding: 16, color: '#94a3b8' }}>Loading your notes…</div> : edit ? (
+        <>
+          <textarea autoFocus value={text} onChange={(e) => { setText(e.target.value); save(e.target.value) }} placeholder="Type or paste what you want to say. Only you (and other hosts of this room) can see it."
+            style={{ flex: 1, margin: 8, padding: 10, borderRadius: 10, border: '1px solid #334155', background: '#0f172a', color: '#fff', fontSize: 15, lineHeight: 1.45, resize: 'none' }} />
+          <div style={{ fontSize: 11.5, color: '#94a3b8', padding: '0 10px 6px' }}>{saved || 'Saves as you type.'}</div>
+        </>
+      ) : (
+        <div ref={scroller} onClick={() => setRolling((x) => !x)} style={{ flex: 1, overflowY: 'auto', padding: '12px 22px 40vh', fontSize: size, lineHeight: 1.4, fontWeight: 600, whiteSpace: 'pre-wrap', cursor: 'pointer' }}>
+          {text || <span style={{ color: '#94a3b8' }}>No notes yet. Press ✏️ Edit.</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TitleBar({ room, auth, isHost }) {
   const info = useRoomInfo()
   const roomMeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
@@ -395,6 +455,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   // typing in chat. The meeting window has to be the one in front.
   const [kbNote, setKbNote] = useState('')
   const [kbHelp, setKbHelp] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
   const kbRef = useRef({})
   kbRef.current = { dk, sc, iPresent, isHost, room, auth, bg, setDeck, setScripture, toggleRec, pickView, localParticipant, roomCtx, stageIds, recording: rmeta.recording }
   useEffect(() => {
@@ -444,6 +505,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
           {(room.public || isHost) && <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>}
           <button title="Keyboard shortcuts (for Stream Deck)" onClick={() => setKbHelp((x) => !x)} style={btn(kbHelp)}>⌨</button>
+          {isHost && <button title="Your private notes / teleprompter — only you see it" onClick={() => setNotesOpen((x) => !x)} style={{ ...btn(notesOpen), ...(notesOpen ? {} : { borderColor: '#f59e0b' }) }}>📝 My notes</button>}
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && (decksFor(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
@@ -553,6 +615,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
             {sharePanel && <SharePanel room={room} onClose={() => setSharePanel(false)} />}
+            {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
