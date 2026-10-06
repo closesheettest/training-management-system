@@ -368,7 +368,8 @@ export const handler = async (event) => {
 
   // Is a host in the room right now, and may non-hosts come in?
   // 👥 NO-HOST ROOM (Neal, 2026-10-06: "the 8 a.m. meeting, it's always just DeWayne and I … no host"):
-  // everyone who comes in has the host controls, and nobody waits for anyone — the room is always open.
+  // everyone from the COMPANY who comes in (their own link) has the host controls, and nobody waits —
+  // the room is always open. Outside guests / guest speakers are never hosts, so never see host notes.
   const openState = async (r) => {
     if (r.no_host) return { live: true, open: true }
     let live = false
@@ -1441,7 +1442,7 @@ export const handler = async (event) => {
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
     } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
-      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host || !!room.no_host // a My Tools caller's own seat
+      const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host // a My Tools caller's own seat — outside people never get host (so never the host notes), even in a no-host room
     } else {
       const t = await traineeByToken(b.t)
       if (t) {
