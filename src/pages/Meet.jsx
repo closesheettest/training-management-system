@@ -18,6 +18,7 @@ import {
   ControlBar, Chat, RoomAudioRenderer, TrackToggle, MediaDeviceMenu, ChatToggle, DisconnectButton, StartMediaButton, ChatIcon, LeaveIcon, LayoutContextProvider, ConnectionStateToast, VideoTrack,
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
+import { ReactionsOverlay, ReactButton, reactionsFor } from '../components/Reactions.jsx'
 import { Track, RoomEvent, ParticipantEvent, VideoPresets } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
@@ -72,7 +73,7 @@ function KeepDevices({ choices }) {
 // looking at it, not having to click it"). LiveKit's ControlBar, rebuilt from its own parts so each button
 // shows the device in use under its name ("Camera · FaceTime HD Camera"); the ⌄ menu still switches it.
 const cleanDevice = (l) => String(l || '').replace(/^Default\s*-\s*/i, '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim()
-function MeetControls({ mic, screenShare }) {
+function MeetControls({ mic, screenShare, reactions }) {
   const room = useRoomContext()
   const [names, setNames] = useState({})
   useEffect(() => {
@@ -117,6 +118,7 @@ function MeetControls({ mic, screenShare }) {
       {screenShare && (navigator.mediaDevices?.getDisplayMedia
         ? <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>
         : <button className="lk-button" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
+      {reactions && <ReactButton choices={reactions} />}
       <ChatToggle><ChatIcon />Chat</ChatToggle>
       <DisconnectButton><LeaveIcon />Leave</DisconnectButton>
       <StartMediaButton />
@@ -784,7 +786,8 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
-        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} />
+        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} />
+        <ReactionsOverlay />
       </div>
       <RoomAudioRenderer />
       <ConnectionStateToast />
