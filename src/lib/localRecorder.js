@@ -52,6 +52,13 @@ export class LocalRecorder {
 
   async stop() {
     if (this.stopping) return this.stopping
+    // SAVE AS (Neal, 2026-10-06: "what folder… how you name the file"): pressing Stop opens Chrome's Save
+    // box with the name filled in, so the host picks the folder and can rename it. Must open right away
+    // (it needs the click); if it can't (stopped by someone else / the browser bar), it downloads instead.
+    let saveTo = null
+    if (window.showSaveFilePicker) {
+      try { saveTo = await window.showSaveFilePicker({ suggestedName: this.fileName, types: [{ description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
+    }
     this.stopping = (async () => {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
@@ -60,7 +67,8 @@ export class LocalRecorder {
       let blob
       if (this.writable) { try { await this.writable.close() } catch { /* fine */ } blob = await this.handle.getFile() }
       else blob = new Blob(this.chunks, { type: 'video/webm' })
-      download(blob, this.fileName)
+      if (saveTo) { try { const w = await saveTo.createWritable(); await w.write(blob); await w.close() } catch { download(blob, this.fileName) } }
+      else download(blob, this.fileName)
       // Downloaded → remove the private copy a minute later (the download has its own file by then).
       if (this.handle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.handle.name) } catch { /* fine */ } }, 60000)
       this.onStopped?.()

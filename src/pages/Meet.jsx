@@ -407,10 +407,10 @@ function Stage({ room, auth, isHost, micLocked = false }) {
       if (starting) {
         if (!localRecordSupported()) { setRecBusy(false); setRecNote('Recording to your computer needs Chrome or Edge on a computer.'); return }
         const stamp = new Date().toLocaleString('en-CA', { timeZone: 'America/New_York', hour12: false }).replace(/[,:]/g, '').replace(/\s+/g, ' ').slice(0, 15)
-        const r = new LocalRecorder({ fileName: `${room.title} ${stamp}.webm`.replace(/[\\/:*?"<>|]/g, ''), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack })
+        const r = new LocalRecorder({ fileName: `${room.rec_name || `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack })
         try { await r.start() } catch (e) { setRecBusy(false); setRecNote(/Permission|NotAllowed|denied/i.test(String(e?.name || e)) ? 'Recording cancelled — in the box Chrome shows, pick this tab and press Share.' : `Couldn't start recording: ${e?.message || e}`); return }
         localRec.current = r
-        r.onStopped = () => { localRec.current = null; setRecNote('✅ Recording saved to your Downloads folder.'); call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
+        r.onStopped = () => { localRec.current = null; setRecNote('✅ Recording saved.'); call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
       } else if (localRec.current) {
         const r = localRec.current
         await r.stop() // onStopped tells the room it stopped

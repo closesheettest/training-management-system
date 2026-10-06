@@ -91,6 +91,7 @@ const publicRoom = (r) => ({
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
   rec_where: r.rec_where === 'host' ? 'host' : 'cloud',
+  rec_name: r.rec_name || '',
   mic_lock: !!r.mic_lock,
   no_host: !!r.no_host,
   // Which week a training room is for — the 📊 Present list only offers that week's decks (Neal,
@@ -864,7 +865,9 @@ export const handler = async (event) => {
     const hm = start.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })
     const once = `${etDay(start.getTime())}T${hm.slice(0, 2)}:${p2(hm.slice(3, 5))}`
     const callerFirst = String(caller).split(' ')[0]
-    const room = { title: `📞 ${callerFirst} ↔ ${name.split(' ')[0]}`, kind: 'oneoff', call: true, look: 'team', topic: '', cameras_required: false, once: [once], minutes: 60, invitees: [invitee], hosts: [String(caller)] }
+    const room = { title: `📞 ${callerFirst} ↔ ${name.split(' ')[0]}`, kind: 'oneoff', call: true, look: 'team', topic: '', cameras_required: false, once: [once], minutes: 60, invitees: [invitee], hosts: [String(caller)],
+      // ⏺ Record this call to my computer (Neal, 2026-10-06), with the file name typed on the call form.
+      ...(b.record ? { recording_enabled: true, rec_where: 'host', rec_name: String(b.rec_name || '').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 120) } : {}) }
     // Clear finished calls (over 2 days old) so Meeting Room Setup doesn't fill up with them.
     const cutoff = Date.now() - 2 * 86400000
     const kept = (await loadRooms()).filter((r) => !(r.call && (r.once || [])[0] && etWall(r.once[0].slice(0, 10), r.once[0].slice(11, 16)).getTime() < cutoff))

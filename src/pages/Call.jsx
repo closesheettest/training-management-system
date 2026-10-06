@@ -26,6 +26,9 @@ function Dialer({ mt }) {
   const [pick, setPick] = useState(null)
   const [other, setOther] = useState({ name: '', phone: '' })
   const [note, setNote] = useState('')
+  // ⏺ Record this call to my computer + what to call the file (Neal, 2026-10-06).
+  const [rec, setRec] = useState(false)
+  const [recName, setRecName] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(null) // what went out, shown before you go into the room
@@ -34,7 +37,8 @@ function Dialer({ mt }) {
   const go = async () => {
     const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone }
     setBusy(true); setErr('')
-    const j = await call({ action: 'call_start', ...auth, to, note }).catch(() => ({ error: 'Network error. Try again.' }))
+    const who = (pick?.name || other.name || '').trim()
+    const j = await call({ action: 'call_start', ...auth, to, note, ...(rec ? { record: true, rec_name: recName.trim() || `Call with ${who} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}` } : {}) }).catch(() => ({ error: 'Network error. Try again.' }))
     setBusy(false)
     if (!j.ok) { setErr(j.error || 'Could not start the call.'); return }
     // Say what went out (Neal, 2026-10-05: he couldn't tell whether Nikki had a number). Nothing
@@ -86,6 +90,13 @@ function Dialer({ mt }) {
       <label className="mt-4 block text-sm font-bold text-slate-700">Your message <span className="font-normal text-slate-500">(optional: it goes in the text and email, the join link is added under it)</span>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={600} placeholder="e.g. Hey Brent, jump on a quick video call with me about the Pasco jobs." className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal" />
       </label>
+      <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={rec} onChange={(e) => { setRec(e.target.checked); if (e.target.checked && !recName) setRecName(`Call with ${(pick?.name || other.name || '').trim()} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}`.replace(/\s+/g, ' ')) }} /> ⏺ Record this call to my computer</label>
+        {rec && <>
+          <input value={recName} onChange={(e) => setRecName(e.target.value)} maxLength={120} placeholder="Name the recording" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <p className="mt-1 text-xs text-slate-500">In the call, press <b>⏺ Record</b> (Chrome asks which tab: pick this one, then Share). When you press Stop, a Save box opens with this name so you can pick the folder. Chrome or Edge on a computer.</p>
+        </>}
+      </div>
       <button disabled={!ready} onClick={go} className={`mt-4 w-full rounded-xl py-4 text-xl font-extrabold text-white ${ready ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300'}`}>📞 Call{pick ? ` ${pick.name.split(' ')[0]}` : other.name.trim() ? ` ${other.name.trim().split(' ')[0]}` : ''}</button>
       <p className="mt-2 text-center text-xs text-slate-500">They get a text and an email with a "join now" link. You go straight into the room as host.</p>
     </div>
