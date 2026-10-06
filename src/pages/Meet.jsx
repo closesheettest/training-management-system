@@ -317,11 +317,11 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
               if (!on && stage.length >= 4) { setMsg('Up to 4 people on stage'); return }
               setStage(on ? stage.filter((x) => x !== p.identity) : [...stage, p.identity], on ? `${p.name} off stage` : `${p.name} on stage`)
             }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: 0, opacity: stage.includes(p.identity) ? 1 : 0.35 }}>⭐</button>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {p.name || p.identity}{me ? ' (you)' : ''}
-              <span style={{ marginLeft: 6, fontSize: 12 }}>{p.isCameraEnabled ? '📷' : '🚫📷'}</span>
-              <span style={{ marginLeft: 6, fontSize: 11.5, fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: p.isMicrophoneEnabled ? '#14532d' : '#7f1d1d', color: '#fff' }}>{p.isMicrophoneEnabled ? '🎙️ on' : '🔇 muted'}</span>
-            </span>
+            {/* Name shortens (…) when long; the camera + mic labels always show in full (Neal, 2026-10-06:
+                only DeWayne's "on" was readable — the others were cut off). */}
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.name || p.identity}>{p.name || p.identity}{me ? ' (you)' : ''}</span>
+            <span title={p.isCameraEnabled ? 'Camera on' : 'Camera off'} style={{ marginLeft: 4, fontSize: 12, flexShrink: 0 }}>{p.isCameraEnabled ? '📷' : '🚫📷'}</span>
+            <span style={{ marginLeft: 4, fontSize: 11, fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: p.isMicrophoneEnabled ? '#14532d' : '#7f1d1d', color: '#fff', flexShrink: 0, whiteSpace: 'nowrap' }}>{p.isMicrophoneEnabled ? '🎙️ mic on' : '🔇 muted'}</span>
             {!me && (p.isMicrophoneEnabled
               ? <button onClick={() => act('mute', p.identity, `${p.name} muted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #4b5563', background: '#1f2937', color: '#fff', cursor: 'pointer' }}>Mute</button>
               : <button onClick={() => unmute([p.identity], `${p.name} unmuted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #15803d', background: '#14532d', color: '#fff', cursor: 'pointer' }}>Unmute</button>)}
