@@ -112,7 +112,11 @@ function MeetControls({ mic, screenShare }) {
         <TrackToggle source={Track.Source.Camera} showIcon>{label('Camera', names.cam)}</TrackToggle>
         <div className="lk-button-group-menu"><MediaDeviceMenu kind="videoinput" /></div>
       </div>
-      {screenShare && <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>}
+      {/* iPhone / iPad browsers can't share a screen at all (Neal, 2026-10-06: Sam on his iPhone) — say so
+          instead of a button that silently does nothing. */}
+      {screenShare && (navigator.mediaDevices?.getDisplayMedia
+        ? <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>
+        : <button className="lk-button" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
       <ChatToggle><ChatIcon />Chat</ChatToggle>
       <DisconnectButton><LeaveIcon />Leave</DisconnectButton>
       <StartMediaButton />
