@@ -586,6 +586,8 @@ export const handler = async (event) => {
       sessions: ses.map((x) => ({ start: x.start.toISOString(), end: x.end.toISOString() })), from: plan.from, to: plan.to,
       join: t?.registration_token ? `${SITE}/meet/${tgt}?t=${t.registration_token}` : `${SITE}/meet/${tgt}`,
       slides: `${SITE}/homework/slides?from=${plan.from}&to=${plan.to}`, ...(plan.deck ? { deck: `${SITE}/homework/slides?from=${plan.deck[0]}&to=${plan.deck[1]}`, deck_from: plan.deck[0], deck_to: plan.deck[1] } : {}), script: `${SITE}/sales-pitch/sales-script.pdf`, practice: `${SITE}/practice/${tok}`,
+      // FIGS deck as a PDF to keep (Neal, 2026-10-06: "add that PDF to their homework so they can just download it").
+      figs: `${SITE}/find-their-button/Find-Their-Button-FIGS.pdf`,
       practice_done: row.grade_status !== 'invited', practice_expires: row.report.invite?.expires_at || null })
   }
 
