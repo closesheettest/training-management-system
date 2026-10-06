@@ -79,8 +79,9 @@ export class SmartBackgroundHD {
       if (m.type === 'ready') { this.ready = true; return }
       if (m.type === 'mask') this.uploadMask(m.alpha, m.w, m.h)
       this.busy = false
+      const r = this.waiting; this.waiting = null; if (r) r()
     }
-    this.worker.postMessage({ type: 'init', model: this.model })
+    this.worker.postMessage({ type: 'init', model: this.model, fresh: true })
   }
 
   setupGL() {
@@ -133,6 +134,23 @@ export class SmartBackgroundHD {
     this.small = [sw, sh]
   }
 
+  // NO TRAIL WHEN YOU MOVE (Neal, 2026-10-06: "no distortion around the outline until I move"). The old way
+  // laid the newest outline over a NEWER frame, so a moving head left a smear. Now each frame waits for
+  // its OWN outline (≈5–15 ms on the GPU) before it's drawn — the outline always matches the picture.
+  // If the finder is ever slower than 80 ms, that frame goes out with the last outline instead.
+  segmentNow(frame) {
+    if (!this.ready || !this.worker) return Promise.resolve()
+    const [mw, mh] = MODEL_SIZE[this.model]
+    return new Promise((resolve) => {
+      let done = false
+      const finish = () => { if (!done) { done = true; resolve() } }
+      setTimeout(() => { if (this.waiting === finish) this.waiting = null; finish() }, 80)
+      createImageBitmap(frame, { resizeWidth: mw, resizeHeight: mh, resizeQuality: 'medium' })
+        .then((bitmap) => { if (!this.worker) { bitmap.close(); return finish() } this.busy = true; this.waiting = finish; this.worker.postMessage({ type: 'frame', bitmap, ts: performance.now() }, [bitmap]) })
+        .catch(finish)
+    })
+  }
+
   async init({ track }) {
     await this.setOptions(this.opts)
     this.setupGL()
@@ -143,8 +161,10 @@ export class SmartBackgroundHD {
       const gen = new window.MediaStreamTrackGenerator({ kind: 'video' })
       this.abort = new AbortController()
       const tf = new TransformStream({
-        transform: (frame, ctl) => {
+        transform: async (frame, ctl) => {
           try {
+            if (!this.busy) await this.segmentNow(frame)
+            this.sync = true
             this.draw(frame, frame.displayWidth, frame.displayHeight)
             ctl.enqueue(new VideoFrame(this.canvas, { timestamp: frame.timestamp }))
           } catch { ctl.enqueue(frame.clone()) } finally { frame.close() }
@@ -182,7 +202,7 @@ export class SmartBackgroundHD {
     const gl = this.gl
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h }
     // Hand the worker the newest frame whenever it's free, at the model's own 16:9 size.
-    if (this.ready && !this.busy) {
+    if (this.ready && !this.busy && !this.sync) {
       this.busy = true
       const [mw, mh] = MODEL_SIZE[this.model]
       createImageBitmap(src, { resizeWidth: mw, resizeHeight: mh, resizeQuality: 'medium' })

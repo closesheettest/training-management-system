@@ -54,8 +54,9 @@ function frame(bitmap, ts) {
     alpha = new Uint8Array(n)
     for (let i = 0; i < n; i++) {
       const p = person[i]
-      // Steady small wobble, follow at once on real movement.
-      const s = first ? p : prev[i] + (p - prev[i]) * (Math.abs(p - prev[i]) > 0.2 ? 1 : 0.55)
+      // Each outline now belongs to its own frame (smartBackgroundHD.segmentNow), so it only needs a
+      // touch of steadying against flicker — heavy smoothing is what made a moving edge trail behind.
+      const s = first ? p : prev[i] + (p - prev[i]) * (Math.abs(p - prev[i]) > 0.12 ? 1 : 0.85)
       prev[i] = s
       alpha[i] = Math.round(255 * s)
     }
