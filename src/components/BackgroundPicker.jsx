@@ -51,6 +51,9 @@ export function useBackground(localParticipant) {
   const [choice, setChoice] = useState(() => read(KEY) || 'none')
   const [custom, setCustom] = useState(() => read(CUSTOM))
   const proc = useRef(null)
+  // 🐢 "Video too choppy? Click here" (Neal, 2026-10-06): this device drops to the lighter background.
+  const [hd, setHdState] = useState(hdOn)
+  const setHd = (on) => { write('meet_bg_engine', on ? 'hd' : 'old'); setHdState(on) }
   const camTrack = localParticipant?.getTrackPublication(Track.Source.Camera)?.track || null
   useEffect(() => {
     if (!camTrack || !smartBackgroundSupported()) return
@@ -58,12 +61,13 @@ export function useBackground(localParticipant) {
     ;(async () => {
       try {
         if (opts.mode === 'disabled') { if (camTrack.getProcessor()) await camTrack.stopProcessor(); proc.current = null; return }
-        if (proc.current && camTrack.getProcessor() === proc.current) { await proc.current.setOptions(opts); return }
-        proc.current = hdOn() && smartBackgroundHDSupported() ? new SmartBackgroundHD(opts) : new SmartBackground(opts)
+        const wantHD = hd && smartBackgroundHDSupported()
+        if (proc.current && camTrack.getProcessor() === proc.current && (proc.current instanceof SmartBackgroundHD) === wantHD) { await proc.current.setOptions(opts); return }
+        proc.current = wantHD ? new SmartBackgroundHD(opts) : new SmartBackground(opts)
         await camTrack.setProcessor(proc.current)
       } catch (e) { console.warn('background', e) }
     })()
-  }, [camTrack, choice, custom])
+  }, [camTrack, choice, custom, hd])
   // With a picture behind you, your own view stops mirroring so the logo reads the right way round
   // (Neal, 2026-10-04: "the logo came out backwards"). Everyone else always sees it unmirrored.
   useEffect(() => {
@@ -75,7 +79,7 @@ export function useBackground(localParticipant) {
   const upload = async (file) => { const url = await shrink(file); setCustom(url); write(CUSTOM, url); pick('custom') }
   // 🗑 on "My picture" (Neal, 2026-10-04): forget it; if it was on, go back to no background.
   const removeCustom = () => { setCustom(null); write(CUSTOM, null); if (choice === 'custom') pick('none') }
-  return { choice, custom, pick, upload, removeCustom, supported: smartBackgroundSupported(), camOn: !!camTrack && !camTrack.isMuted }
+  return { choice, custom, pick, upload, removeCustom, hd: hd && smartBackgroundHDSupported(), setHd, supported: smartBackgroundSupported(), camOn: !!camTrack && !camTrack.isMuted }
 }
 
 export function BackgroundPanel({ bg, onClose }) {
@@ -100,6 +104,16 @@ export function BackgroundPanel({ bg, onClose }) {
         </div>
         <button onClick={() => file.current?.click()} style={{ marginTop: 10, width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed #64748b', background: 'transparent', color: '#e5e7eb', fontWeight: 800, cursor: 'pointer' }}>{bg.custom ? '＋ Replace my picture…' : '＋ Use my own picture…'}</button>
         <input ref={file} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) bg.upload(f); e.target.value = '' }} />
+        {bg.choice !== 'none' && (bg.hd ? (
+          <button onClick={() => bg.setHd(false)} style={{ marginTop: 10, width: '100%', padding: '10px', borderRadius: 8, border: '2px solid #f59e0b', background: '#451a03', color: '#fde68a', fontWeight: 900, cursor: 'pointer', textAlign: 'left' }}>
+            🐢 Video too choppy? Click here
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: '#fcd34d', marginTop: 2 }}>Switches this computer to the lighter background. It's easier on older computers and phones.</div>
+          </button>
+        ) : (
+          <button onClick={() => bg.setHd(true)} style={{ marginTop: 10, width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #374151', background: 'transparent', color: '#94a3b8', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>
+            Using the lighter background · ✨ Try HD again
+          </button>
+        ))}
         <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 8 }}>Tip: the edges around you look cleanest with even light on your face and a plain wall behind you.</div>
       </>)}
     </div>
