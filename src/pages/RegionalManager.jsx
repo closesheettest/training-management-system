@@ -115,14 +115,17 @@ export default function RegionalManager() {
         // just don't record it as the manager having used it.
         body: JSON.stringify({ action: 'whoami', token, preview: new URLSearchParams(window.location.search).get('preview') === '1' }),
       })
-      const data = await res.json()
+      // A server error page instead of data used to surface as Safari's "The string did not match the
+      // expected pattern" (Anthony, 2026-10-05, during a database slow spell). Say it plainly instead.
+      const data = await res.json().catch(() => null)
+      if (!data) { setState({ status: 'error', error: 'The server was busy and didn\'t answer. Tap "Try again" in a few seconds.', retry: true }); return }
       if (!res.ok || !data.ok) {
         setState({ status: 'error', error: data?.error || 'Could not load.' })
         return
       }
       setState({ status: 'ready', manager: data.manager, reps: data.reps })
     } catch (e) {
-      setState({ status: 'error', error: e?.message || 'Network error.' })
+      setState({ status: 'error', error: 'Couldn\'t reach the server (no signal, or it was busy). Tap "Try again".' })
     }
   }, [token])
 
@@ -140,8 +143,9 @@ export default function RegionalManager() {
     return (
       <ShellFrame>
         <p className="text-red-200">{state.error}</p>
+        <button onClick={reload} className="mt-4 rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-slate-900">↻ Try again</button>
         <p className="mt-3 text-sm text-slate-200/70">
-          If you got this link in a text and it's not working, ask the office to re-send it.
+          If it still won't load after trying again, ask the office to re-send your link.
         </p>
       </ShellFrame>
     )
