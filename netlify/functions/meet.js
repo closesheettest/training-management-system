@@ -873,6 +873,33 @@ export const handler = async (event) => {
     const end = new Date(x.start.getTime() + x.mins * 60000)
     return `${f(x.start, { weekday: 'short', month: 'short', day: 'numeric' })} ${f(x.start, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}–${f(end, { hour: 'numeric', minute: '2-digit' }).replace(':00', '')}`
   }).join(' · ')
+  // TWO CLASSES AHEAD, SIGN-UP A WEEK OUT (Neal, 2026-10-06: "it has to be a week out, not the day
+  // before … just do two classes ahead"). Presentation retraining rides the Week B class every Tue–Thu,
+  // so the room the office set up is a TEMPLATE: we keep a copy for each upcoming week (same times,
+  // +7 days a week), and managers see the next two whose first day is 7+ days away. Each copy is an
+  // ordinary retraining room, so homework, links, schedule blocks and the join all work unchanged.
+  const fmtD = (d) => d.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+  const daysOut = (r) => { const f = sessionsOf(r)[0]; return f ? Math.round((Date.parse(etDay(f.start.getTime())) - Date.parse(etDay())) / 864e5) : -1 }
+  const signupOpen = (r) => daysOut(r) >= 7
+  const classRange = (r) => { const ss = sessionsOf(r); return ss.length ? (ss.length > 1 ? `${fmtD(ss[0].start)} – ${fmtD(ss[ss.length - 1].start)}` : fmtD(ss[0].start)) : '' }
+  const closesOn = (r) => { const f = sessionsOf(r)[0]; return f ? fmtD(new Date(f.start.getTime() - 7 * 864e5)) : '' }
+  const ensureRetrainClasses = async () => {
+    const rooms = await loadRooms()
+    let changed = false
+    for (const t of rooms.filter((r) => r.kind === 'retraining' && !r.template && (r.once || []).filter(Boolean).length)) {
+      const family = () => rooms.filter((r) => r.kind === 'retraining' && (r.slug === t.slug || r.template === t.slug) && signupOpen(r))
+      for (let w = 1; w <= 260 && family().length < 2; w++) {
+        const once = t.once.filter(Boolean).map((o) => { const d = new Date(`${o.slice(0, 10)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7 * w); return `${d.toISOString().slice(0, 10)}T${o.slice(11, 16)}` })
+        const slug = `${t.slug}-${once.slice().sort()[0].slice(0, 10)}`
+        if (rooms.some((r) => r.slug === slug)) continue
+        const copy = { ...t, slug, once, template: t.slug, invitees: [], visible_from: null, early_zones: [], rec_key: Math.random().toString(36).slice(2, 14), created_at: new Date().toISOString(), updated_by: 'auto (next class)' }
+        if (!signupOpen(copy)) continue
+        rooms.push(copy); changed = true
+      }
+    }
+    if (changed) await putSetting('meet_rooms', rooms)
+    return rooms
+  }
   const practiceDone = async (ids, slug) => {
     if (!ids.length) return {}
     const { data } = await sb.from('sales_practice_sessions').select('trainee_id, grade_status, report').in('trainee_id', ids).eq('section', 'slides_1_5')
@@ -901,16 +928,19 @@ export const handler = async (event) => {
     if (!who) return json(401, { ok: false })
     // visible_from: managers don't see it before then (Neal, 2026-10-05: reveal it on the 8:30 call).
     // early_zones: those zones' managers see it before visible_from (Neal previewing as SitSold, 2026-10-05).
-    // SIGN-UP CLOSES when the retraining starts (Neal, 2026-10-06: "the sign up was yesterday" — the card
-    // kept showing all week). Open until the day of the first session; gone from that day on.
-    const signupOpen = (r) => { const f = sessionsOf(r)[0]; return !f || etDay(f.start.getTime()) > etDay() }
-    const list = (await loadRooms()).filter((r) => r.kind === 'retraining' && nextMeeting(r) && signupOpen(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now() || (r.early_zones || []).includes(who.m.managed_region)))
+    // SIGN-UP CLOSES a week before the class starts; the next two open classes show (signupOpen above).
+    const all = await ensureRetrainClasses()
+    const list = all.filter((r) => r.kind === 'retraining' && nextMeeting(r) && signupOpen(r) && (!r.visible_from || Date.parse(r.visible_from) <= Date.now() || (r.early_zones || []).includes(who.m.managed_region)))
+    list.sort((a, c) => sessionsOf(a)[0].start - sessionsOf(c)[0].start)
     const out = []
-    for (const r of list) {
+    for (const r of list.slice(0, 2)) {
       const mine = (r.invitees || []).filter((x) => x.id && who.team.some((t) => t.id === x.id))
       const pr = await practiceDone(mine.map((x) => x.id), r.slug)
-      out.push({ slug: r.slug, title: r.title, sessions: sessionLine(r), first_at: sessionsOf(r)[0]?.start.toISOString() || null,
-        team: who.team.map((t) => ({ id: t.id, name: fullName(t), picked: mine.some((x) => x.id === t.id), practice: pr[t.id] || null })) })
+      // Already in ANOTHER upcoming class of the same retraining → shown, not pickable twice.
+      const fam = r.template || r.slug
+      const elsewhere = (id) => all.find((o) => o.slug !== r.slug && o.kind === 'retraining' && (o.template || o.slug) === fam && daysOut(o) >= 0 && (o.invitees || []).some((x) => x.id === id))
+      out.push({ slug: r.slug, title: r.title, sessions: sessionLine(r), range: classRange(r), closes: closesOn(r), first_at: sessionsOf(r)[0]?.start.toISOString() || null,
+        team: who.team.map((t) => { const o = elsewhere(t.id); return { id: t.id, name: fullName(t), picked: mine.some((x) => x.id === t.id), practice: pr[t.id] || null, other: o ? classRange(o) : null } }) })
     }
     return json(200, { ok: true, rooms: out })
   }
@@ -920,7 +950,7 @@ export const handler = async (event) => {
     const rooms0 = await loadRooms()
     const room = rooms0.find((r) => r.slug === b.slug && r.kind === 'retraining')
     if (!room || !nextMeeting(room)) return json(404, { ok: false, error: 'That retraining is not open.' })
-    { const f = sessionsOf(room)[0]; if (f && etDay(f.start.getTime()) <= etDay()) return json(400, { ok: false, error: 'Sign-up for this retraining has closed (it already started).' }) }
+    if (!signupOpen(room)) return json(400, { ok: false, error: `Sign-up for the ${classRange(room)} class closed a week before it starts. Pick the next class.` })
     const fresh = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((id) => who.team.some((t) => t.id === id) && !(room.invitees || []).some((x) => x.id === id))
     if (!fresh.length) return json(400, { ok: false, error: 'Pick at least one rep who isn\'t signed up yet.' })
     const mName = fullName(who.m), at = new Date().toISOString()

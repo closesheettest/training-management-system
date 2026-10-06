@@ -2673,7 +2673,7 @@ function RetrainingPick({ token }) {
   const submit = async (room) => {
     const ids = Object.keys(sel[room.slug] || {}).filter((k) => sel[room.slug][k])
     if (!ids.length) { setMsg('Tick the reps who need retraining first.'); return }
-    if (!window.confirm(`Sign up ${ids.length} rep${ids.length > 1 ? 's' : ''} for ${room.title}? Each one is texted + emailed their link and homework right away.`)) return
+    if (!window.confirm(`Sign up ${ids.length} rep${ids.length > 1 ? 's' : ''} for ${room.title} (${room.range})? Each one is texted + emailed their link and homework right away.`)) return
     setBusy(room.slug); setMsg('')
     const j = await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'retrain_nominate', token, slug: room.slug, ids }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
     setBusy('')
@@ -2688,14 +2688,15 @@ function RetrainingPick({ token }) {
         const picked = room.team.filter((t) => t.picked)
         return (
           <div key={room.slug} className="rounded-xl border-2 border-fuchsia-400 bg-gradient-to-r from-fuchsia-900/60 to-purple-900/60 p-4 text-slate-100">
-            <div className="text-lg font-extrabold text-white">🔁 {room.title} this week</div>
+            <div className="text-lg font-extrabold text-white">🔁 {room.title}: {room.range}</div>
             <div className="mt-0.5 text-sm font-semibold text-fuchsia-100">{room.sessions} (Eastern)</div>
+            <div className="mt-0.5 text-xs font-bold text-amber-200">Sign-up closes {room.closes} (a week before the class).</div>
             <div className="mt-2 text-sm text-slate-200">Tick which of your reps need it, then Submit. Each one gets their link plus homework: slides 1–5 with their points, the full sales script, and a practice test (slides 1–5, the easy homeowner), done before the first session.</div>
             <div className="mt-3 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
               {room.team.map((t) => (
                 <label key={t.id} className={`flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm ${t.picked ? '' : 'cursor-pointer'}`}>
-                  <input type="checkbox" disabled={t.picked} checked={t.picked || !!sel[room.slug]?.[t.id]} onChange={(e) => setSel({ ...sel, [room.slug]: { ...(sel[room.slug] || {}), [t.id]: e.target.checked } })} />
-                  <span className="flex-1">{t.name}</span>
+                  <input type="checkbox" disabled={t.picked || !!t.other} checked={t.picked || !!sel[room.slug]?.[t.id]} onChange={(e) => setSel({ ...sel, [room.slug]: { ...(sel[room.slug] || {}), [t.id]: e.target.checked } })} />
+                  <span className="flex-1">{t.name}{t.other && !t.picked && <span className="ml-1 text-xs text-slate-400">(in the {t.other} class)</span>}</span>
                   {t.picked && <span className={`rounded px-1.5 text-xs font-bold ${t.practice === 'done' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-amber-500/30 text-amber-200'}`}>{t.practice === 'done' ? '✓ signed up · practice done' : '✓ signed up · practice not done yet'}</span>}
                 </label>
               ))}
