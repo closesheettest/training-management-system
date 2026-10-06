@@ -15,7 +15,7 @@ async function opfsDir() {
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
-  constructor({ fileName, micTrack }) { this.fileName = fileName; this.micTrack = micTrack || null; this.chunks = []; this.onStopped = null }
+  constructor({ fileName, micTrack, folderId }) { this.fileName = fileName; this.micTrack = micTrack || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
 
   // MUST be called straight from a click (the browser requires it for the "share this tab" box).
   async start() {
@@ -57,7 +57,9 @@ export class LocalRecorder {
     // (it needs the click); if it can't (stopped by someone else / the browser bar), it downloads instead.
     let saveTo = null
     if (window.showSaveFilePicker) {
-      try { saveTo = await window.showSaveFilePicker({ suggestedName: this.fileName, types: [{ description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
+      // id = remember the folder per room: after the first save, the box opens straight to that folder
+      // (e.g. a shared iCloud / Google Drive "Devotional Recordings" folder Dianne can see) — just press Save.
+      try { saveTo = await window.showSaveFilePicker({ id: this.folderId || 'meet-recordings', startIn: 'videos', suggestedName: this.fileName, types: [{ description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
     }
     this.stopping = (async () => {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
