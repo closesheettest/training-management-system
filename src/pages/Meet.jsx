@@ -295,7 +295,7 @@ function TitleBar({ room, auth, isHost, compact = false }) {
         ? <><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} autoFocus placeholder="Today's topic" style={{ width: 220, padding: '5px 8px', borderRadius: 8, border: '1px solid #334155', background: '#0b1220', color: '#fff', fontSize: 13 }} />
             <button onClick={save} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>Save</button>
             <button onClick={() => setEditing(false)} style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid #475569', background: 'transparent', color: '#cbd5e1', cursor: 'pointer', fontSize: 13 }}>Cancel</button></>
-        : <button title={topic ? `Topic: ${topic}` : "Add today's topic"} onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>✏️ {topic || 'Topic'}</button>}
+        : <button title={topic ? `Topic: ${topic}` : "Add today's topic"} onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>✏️ Topic</button>}
     </span>
   )
   return (
