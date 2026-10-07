@@ -5,7 +5,7 @@
 //   • Tab audio = everyone else; the host's own mic is mixed in (tab capture never includes it).
 //   • Chunks are written to the browser's private disk as they arrive (OPFS), not held in memory, so a
 //     crash at minute 40 keeps 40 minutes: the next visit to a meeting offers "⬇ Save it".
-//   • Output is .webm (plays in Chrome, VLC; QuickTime needs converting).
+//   • Output is .mp4 where the browser can (recent Chrome), else .webm (plays in Chrome, VLC; YouTube takes both).
 const DIR = 'meet-recordings'
 
 async function opfsDir() {
@@ -36,7 +36,11 @@ export class LocalRecorder {
     }
     this.ctx = ctx
     const stream = new MediaStream([...display.getVideoTracks(), ...dest.stream.getAudioTracks()])
-    const type = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
+    // MP4 FIRST (Neal, 2026-10-07: can it go to YouTube, can it be edited?): recent Chrome records MP4, which opens in
+    // QuickTime / iMovie / any editor and uploads to YouTube. Older browsers fall back to WebM (YouTube takes that too).
+    const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
+    this.ext = type.startsWith('video/mp4') ? 'mp4' : 'webm'; this.mime = type.startsWith('video/mp4') ? 'video/mp4' : 'video/webm'
+    this.fileName = this.fileName.replace(/\.(webm|mp4)$/i, '') + '.' + this.ext
     this.rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 2_500_000 })
     const dir = await opfsDir()
     if (dir) {
@@ -57,7 +61,7 @@ export class LocalRecorder {
       try {
         const camStream = new MediaStream([this.camTrack.clone(), ...(this.micTrack ? [this.micTrack.clone()] : [])])
         this.camRec = new MediaRecorder(camStream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 4_000_000 })
-        this.camName = this.fileName.replace(/\.webm$/i, '') + ' - camera.webm'
+        this.camName = this.fileName.replace(/\.(webm|mp4)$/i, '') + ' - camera.' + this.ext
         if (dir) { this.camHandle = await dir.getFileHandle(`${Date.now()}__${this.camName}`, { create: true }); this.camWritable = await this.camHandle.createWritable() }
         this.camChunks = []; this.camQueue = Promise.resolve()
         this.camRec.ondataavailable = (e) => {
@@ -84,7 +88,7 @@ export class LocalRecorder {
     } else if (window.showSaveFilePicker) {
       // id = remember the folder per room: after the first save, the box opens straight to that folder
       // (e.g. a shared iCloud / Google Drive "Devotional Recordings" folder Dianne can see) — just press Save.
-      try { saveTo = await window.showSaveFilePicker({ id: this.folderId || 'meet-recordings', startIn: 'videos', suggestedName: this.fileName, types: [{ description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
+      try { saveTo = await window.showSaveFilePicker({ id: this.folderId || 'meet-recordings', startIn: 'videos', suggestedName: this.fileName, types: [this.ext === 'mp4' ? { description: 'Video (MP4)', accept: { 'video/mp4': ['.mp4'] } } : { description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
     }
     this.stopping = (async () => {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
@@ -94,12 +98,12 @@ export class LocalRecorder {
       await this.queue
       let blob
       if (this.writable) { try { await this.writable.close() } catch { /* fine */ } blob = await this.handle.getFile() }
-      else blob = new Blob(this.chunks, { type: 'video/webm' })
+      else blob = new Blob(this.chunks, { type: this.mime || 'video/webm' })
       let camBlob = null
       if (this.camRec) {
         await this.camQueue
         if (this.camWritable) { try { await this.camWritable.close() } catch { /* fine */ } camBlob = await this.camHandle.getFile() }
-        else camBlob = new Blob(this.camChunks, { type: 'video/webm' })
+        else camBlob = new Blob(this.camChunks, { type: this.mime || 'video/webm' })
       }
       const into = async (d, name, b) => { const fh = await d.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close() }
       if (saveDir) {
