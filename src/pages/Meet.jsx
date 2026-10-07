@@ -464,6 +464,13 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   }, [roomCtx])
   const [recBusy, setRecBusy] = useState(false)
   const [recNote, setRecNote] = useState('')
+  // Full screen on/off, so the button can say how to get out (Neal, 2026-10-07: "how do I get back to my address bar?").
+  const [isFull, setIsFull] = useState(() => !!(document.fullscreenElement || document.webkitFullscreenElement))
+  useEffect(() => {
+    const on = () => setIsFull(!!(document.fullscreenElement || document.webkitFullscreenElement))
+    document.addEventListener('fullscreenchange', on); document.addEventListener('webkitfullscreenchange', on)
+    return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on) }
+  }, [])
   useEffect(() => { if (!recNote) return; const t = setTimeout(() => setRecNote(''), 10000); return () => clearTimeout(t) }, [recNote])
   // 💻 Rooms set to "Save recordings to: the host's computer" record in THIS browser (lib/localRecorder.js).
   const localRec = useRef(activeRecorder()) // picks up a recording already running on this page
@@ -497,7 +504,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   useEffect(() => { if (!rmeta.recording && localRec.current) localRec.current.stop() }, [rmeta.recording])
   // A recording left behind by a crash / closed tab → offer to save it (hosts only).
   const [leftovers, setLeftovers] = useState([])
-  useEffect(() => { if (isHost && room.rec_where === 'host') leftoverRecordings().then(setLeftovers).catch(() => {}) }, [isHost, room.rec_where])
+  // Any host, any room (Neal, 2026-10-07: refreshed mid-recording, Stop had nothing to save — the "💻 Record to my
+  // computer" button works in every room, so the "⬇ Save it" offer for an interrupted recording has to too).
+  useEffect(() => { if (isHost) leftoverRecordings().then(setLeftovers).catch(() => {}) }, [isHost])
   useEffect(() => { const s = speakers.find((p) => !p.isLocal) || speakers[0]; if (s) setLastSpeaker(s.identity) }, [speakers])
   // A screen share TAKES OVER for everyone, people in a strip beside it, like Zoom (Neal,
   // 2026-10-04). Someone who presses Gallery during a share gets faces back until it ends.
@@ -652,7 +661,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           {isHost && <TitleBar room={room} auth={auth} isHost compact />}
           {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
               Chrome only hides its own bars in full screen; Esc comes back out. */}
-          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={btn(false)}>⛶ Full screen</button>
+          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={isFull ? { ...btn(false), background: '#b91c1c', border: 'none', color: '#fff' } : btn(false)}>{isFull ? '✕ Exit full screen' : '⛶ Full screen'}</button>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
