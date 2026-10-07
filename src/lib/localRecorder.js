@@ -7,6 +7,10 @@
 //     crash at minute 40 keeps 40 minutes: the next visit to a meeting offers "⬇ Save it".
 //   • Output is .mp4 where the browser can (recent Chrome), else .webm (plays in Chrome, VLC; YouTube takes both).
 const DIR = 'meet-recordings'
+// FILE SIZE (Neal, 2026-10-07: "Zoom ones came in at 40 MB, this one at 400"). The meeting view at standard HD,
+// 24 fps, ~0.9 Mbps ≈ 7 MB a minute; the host-camera file (for editing) sharper at ~2 Mbps ≈ 15 MB a minute.
+// Was 1080p at 5 Mbps + 4 Mbps (~65 MB a minute together).
+const OUT_W = 1280, OUT_H = 720, OUT_FPS = 24, MEET_BPS = 900_000, CAM_BPS = 2_000_000
 
 async function opfsDir() {
   try { const root = await navigator.storage.getDirectory(); return await root.getDirectoryHandle(DIR, { create: true }) } catch { return null }
@@ -97,19 +101,19 @@ export class LocalRecorder {
       const fit = (w, h) => { const k = Math.min(1, 1920 / (w || 1280), 1080 / (h || 720)); return [Math.round(((w || 1280) * k) / 2) * 2, Math.round(((h || 720) * k) / 2) * 2] }
       // ALWAYS 1920×1080 (2026-10-07: a narrow window recorded at 1228×1080 — Chrome's MP4 encoder corrupted it and
       // QuickTime couldn't decode a single frame). The tab is fitted inside, black bars on the sides / top as needed.
-      cv.width = 1920; cv.height = 1080; void fit; void st
+      cv.width = OUT_W; cv.height = OUT_H; void fit; void st
       this.drawTimer = setInterval(() => {
         try {
           const src = latest || v
           const sw = latest ? latest.displayWidth : v.videoWidth, sh = latest ? latest.displayHeight : v.videoHeight
           if (!sw || !sh) return
-          const k = Math.min(1920 / sw, 1080 / sh), dw = Math.round(sw * k), dh = Math.round(sh * k)
-          g.fillStyle = '#000'; g.fillRect(0, 0, 1920, 1080)
-          g.drawImage(src, Math.round((1920 - dw) / 2), Math.round((1080 - dh) / 2), dw, dh)
+          const k = Math.min(OUT_W / sw, OUT_H / sh), dw = Math.round(sw * k), dh = Math.round(sh * k)
+          g.fillStyle = '#000'; g.fillRect(0, 0, OUT_W, OUT_H)
+          g.drawImage(src, Math.round((OUT_W - dw) / 2), Math.round((OUT_H - dh) / 2), dw, dh)
         } catch { /* a frame skipped */ }
-      }, 1000 / 30)
+      }, 1000 / OUT_FPS)
       this.drawVideo = v
-      vTrack = cv.captureStream(30).getVideoTracks()[0] || vTrack
+      vTrack = cv.captureStream(OUT_FPS).getVideoTracks()[0] || vTrack
     } catch { /* fall back to the raw tab frames */ }
     const stream = new MediaStream([vTrack, ...dest.stream.getAudioTracks()])
     // MP4 FIRST (Neal, 2026-10-07: can it go to YouTube, can it be edited?): recent Chrome records MP4, which opens in
@@ -119,7 +123,7 @@ export class LocalRecorder {
     const type = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4d0028,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
     this.ext = type.startsWith('video/mp4') ? 'mp4' : 'webm'; this.mime = type.startsWith('video/mp4') ? 'video/mp4' : 'video/webm'
     this.fileName = this.fileName.replace(/\.(webm|mp4)$/i, '') + '.' + this.ext
-    this.rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 5_000_000 })
+    this.rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: MEET_BPS })
     const dir = await opfsDir()
     if (dir) {
       this.handle = await dir.getFileHandle(`${Date.now()}__${this.fileName}`, { create: true })
@@ -138,7 +142,7 @@ export class LocalRecorder {
     if (this.camTrack && this.camTrack.readyState === 'live') {
       try {
         const camStream = new MediaStream([this.camTrack.clone(), ...(this.micTrack ? [this.micTrack.clone()] : [])])
-        this.camRec = new MediaRecorder(camStream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 4_000_000 })
+        this.camRec = new MediaRecorder(camStream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: CAM_BPS })
         this.camName = this.fileName.replace(/\.(webm|mp4)$/i, '') + ' - camera.' + this.ext
         if (dir) { this.camHandle = await dir.getFileHandle(`${Date.now()}__${this.camName}`, { create: true }); this.camWritable = await this.camHandle.createWritable() }
         this.camChunks = []; this.camQueue = Promise.resolve()
