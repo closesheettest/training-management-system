@@ -464,6 +464,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   }, [roomCtx])
   const [recBusy, setRecBusy] = useState(false)
   const [recNote, setRecNote] = useState('')
+  useEffect(() => { if (!recNote) return; const t = setTimeout(() => setRecNote(''), 10000); return () => clearTimeout(t) }, [recNote])
   // 💻 Rooms set to "Save recordings to: the host's computer" record in THIS browser (lib/localRecorder.js).
   const localRec = useRef(activeRecorder()) // picks up a recording already running on this page
   if (!localRec.current && activeRecorder()) localRec.current = activeRecorder()
@@ -480,7 +481,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         const r = new LocalRecorder({ fileName: `${room.rec_name || `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}` })
         try { await r.start() } catch (e) { setRecBusy(false); setRecNote(/Permission|NotAllowed|denied/i.test(String(e?.name || e)) ? 'Recording cancelled — in the box Chrome shows, pick this tab and press Share.' : `Couldn't start recording: ${e?.message || e}`); return }
         localRec.current = r
-        r.onStopped = () => { localRec.current = null; setRecNote('✅ Recording saved.'); call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
+        r.onStopped = () => { localRec.current = null; call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
       } else if (localRec.current) {
         const r = localRec.current
         await r.stop() // onStopped tells the room it stopped
@@ -490,7 +491,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
     const j = await call({ action: starting ? 'record_start' : 'record_stop', room: room.slug, identity: localParticipant?.identity, ...(isLocal ? { local: true } : {}), ...auth }).catch(() => ({}))
     setRecBusy(false)
     if (!j.ok) { setRecNote(j.error || 'Did not work'); if (starting && localRec.current) { localRec.current.onStopped = null; localRec.current.stop(); localRec.current = null } }
-    else if (j.note) setRecNote(j.note)
+    // (No "recording to your computer · muted 1 person" note on success — the flashing ● REC says it; Neal, 2026-10-07.)
   }
   // Another host stopped the recording → finish and save ours too.
   useEffect(() => { if (!rmeta.recording && localRec.current) localRec.current.stop() }, [rmeta.recording])
@@ -651,7 +652,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           {isHost && <TitleBar room={room} auth={auth} isHost compact />}
           {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
               Chrome only hides its own bars in full screen; Esc comes back out. */}
-          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={btn(false)}>⛶</button>
+          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={btn(false)}>⛶ Full screen</button>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
@@ -671,7 +672,8 @@ function Stage({ room, auth, isHost, micLocked = false }) {
             : rmeta.scripture && (rmeta.scripture.verses || []).length > 0
               ? <button title={`Show ${rmeta.scripture.ref || 'the last passage'} again`} onClick={() => setScripture({ ...rmeta.scripture, showing: true })} style={{ ...btn(false), background: '#15803d', border: 'none', marginRight: 6 }}>▶ Scripture on</button>
               : null)}
-          {recNote && <span style={{ fontSize: 12.5, color: '#fcd34d', marginRight: 6 }}>{recNote}</span>}
+          {/* Errors only, on a dark pill so it reads on the light (devotional) bar too — the gold-on-white note couldn't be read. */}
+          {recNote && <span style={{ fontSize: 12.5, color: '#fde68a', background: '#1e293b', padding: '3px 10px', borderRadius: 999, marginRight: 6 }}>{recNote}</span>}
           {isHost && room.recording_enabled && !(rmeta.recording && localRec.current) && <button disabled={recBusy} onClick={() => toggleRec(false)} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
           {isHost && (localRec.current || (room.rec_where !== 'host' && !rmeta.recording)) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
@@ -684,6 +686,8 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
             {/* SCREEN SHARE, WHOLE SCREEN (Neal, 2026-10-05: a trainee "couldn't see the full screen"): the
                 shared screen is fitted inside the window, never cropped, and anyone can go full screen. */}
+            {/* LiveKit's own two-arrow "focus" button on each video looked like full screen and did nothing here — hidden. */}
+            <style>{'.lk-focus-toggle-button{display:none!important}'}</style>
             <style>{'.lk-participant-tile[data-lk-source="screen_share"] video, .lk-focus-layout video[data-lk-source="screen_share"] { object-fit: contain !important; background: #000; }'}</style>
             {share && !dk && !sc && !pr && (
               <button onClick={() => { const el = document.querySelector('.lk-focus-layout') || document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) }}
