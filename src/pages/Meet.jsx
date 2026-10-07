@@ -666,7 +666,14 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           {isHost && <TitleBar room={room} auth={auth} isHost compact />}
           {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
               Chrome only hides its own bars in full screen; Esc comes back out. */}
-          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={isFull ? { ...btn(false), background: '#b91c1c', border: 'none', color: '#fff' } : btn(false)}>{isFull ? '✕ Exit full screen' : '⛶ Full screen'}</button>
+          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => {
+            const d = document
+            if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); return }
+            // WHILE THIS TAB IS RECORDING ITSELF Chrome turns page full screen into "full screen inside the tab" (the window
+            // shrinks instead — Neal, 2026-10-07). Its own full screen still works: say how instead of doing the wrong thing.
+            if (localRec.current) { setRecNote(/Mac/i.test(navigator.platform) ? 'While recording, press Cmd + Ctrl + F (Chrome menu View → untick "Always Show Toolbar in Full Screen")' : 'While recording, press F11 for full screen'); return }
+            const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)
+          }} style={isFull ? { ...btn(false), background: '#b91c1c', border: 'none', color: '#fff' } : btn(false)}>{isFull ? '✕ Exit full screen' : '⛶ Full screen'}</button>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
