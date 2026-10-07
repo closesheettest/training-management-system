@@ -1662,11 +1662,16 @@ export const handler = async (event) => {
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     if (!host) { const st = await openState(room); if (!st.open) { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } }
-    // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in"). Nobody new
-    // gets in; someone already in today can rejoin after a drop; hosts always can. Clears itself at the end of the day.
-    if (!host) {
+    // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in … if I'm the
+    // host, I don't want anybody else coming in. The only way another host can come in is if I do it in the setup saying
+    // there's more than one host"). Nobody new gets in — not even another manager or an admin with the PIN — except the
+    // one who locked it and the hosts named in Meeting Room Setup. Someone already in today can rejoin after a drop.
+    // Clears itself at the end of the day.
+    {
       const lk = await getSetting(`meet_lock_${room.slug}_${etDay()}`, null)
-      if (lk?.on) {
+      const first = (x) => String(x || '').trim().split(/\s+/)[0].toLowerCase()
+      const named = new Set([...(room.hosts || []), ...(room.host_names || []), ...LEADERS.filter((l) => (room.also || []).includes(l.key)).map((l) => l.name), lk?.by].map(first).filter(Boolean))
+      if (lk?.on && !named.has(first(name))) {
         const { data: seen } = await sb.from('app_settings').select('key').eq('key', `meet_att_${etDay()}_${room.slug}_${identity}`).maybeSingle()
         if (!seen) return json(200, { ok: false, locked: true, title: 'This meeting is locked', message: 'The host has closed this meeting to anyone new. If you should be in it, contact the host.' })
       }
