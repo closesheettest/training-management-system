@@ -84,12 +84,17 @@ export class LocalRecorder {
       const st = vTrack.getSettings ? vTrack.getSettings() : {}
       // At most 1920×1080 (even sizes): a Retina tab is ~3000 wide, more than an MP4 player expects.
       const fit = (w, h) => { const k = Math.min(1, 1920 / (w || 1280), 1080 / (h || 720)); return [Math.round(((w || 1280) * k) / 2) * 2, Math.round(((h || 720) * k) / 2) * 2] }
-      ;[cv.width, cv.height] = fit(v.videoWidth || st.width, v.videoHeight || st.height)
+      // ALWAYS 1920×1080 (2026-10-07: a narrow window recorded at 1228×1080 — Chrome's MP4 encoder corrupted it and
+      // QuickTime couldn't decode a single frame). The tab is fitted inside, black bars on the sides / top as needed.
+      cv.width = 1920; cv.height = 1080; void fit; void st
       this.drawTimer = setInterval(() => {
         try {
-          if (v.videoWidth) { const [w, h] = fit(v.videoWidth, v.videoHeight); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h } }
-          if (latest) { const fw = latest.displayWidth, fh = latest.displayHeight; if (fw) { const [w, h] = fit(fw, fh); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h } } g.drawImage(latest, 0, 0, cv.width, cv.height) }
-          else g.drawImage(v, 0, 0, cv.width, cv.height)
+          const src = latest || v
+          const sw = latest ? latest.displayWidth : v.videoWidth, sh = latest ? latest.displayHeight : v.videoHeight
+          if (!sw || !sh) return
+          const k = Math.min(1920 / sw, 1080 / sh), dw = Math.round(sw * k), dh = Math.round(sh * k)
+          g.fillStyle = '#000'; g.fillRect(0, 0, 1920, 1080)
+          g.drawImage(src, Math.round((1920 - dw) / 2), Math.round((1080 - dh) / 2), dw, dh)
         } catch { /* a frame skipped */ }
       }, 1000 / 30)
       this.drawVideo = v
