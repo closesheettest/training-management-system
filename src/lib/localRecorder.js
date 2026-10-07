@@ -105,12 +105,20 @@ export class LocalRecorder {
         if (this.camWritable) { try { await this.camWritable.close() } catch { /* fine */ } camBlob = await this.camHandle.getFile() }
         else camBlob = new Blob(this.camChunks, { type: this.mime || 'video/webm' })
       }
-      const into = async (d, name, b) => { const fh = await d.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close() }
+      // SAVE WITH PROGRESS (Neal, 2026-10-07: "Zoom gives me a progress bar … this doesn't, so I don't know how much is
+      // saved"). Written in 8 MB pieces; onProgress(0–100) after each, across every file being saved.
+      const total = blob.size + (camBlob ? camBlob.size : 0); let done = 0
+      const tick = (n) => { done += n; this.onProgress?.(total ? Math.min(100, Math.round((100 * done) / total)) : 100) }
+      const pour = async (w, b) => { const CH = 8 * 1048576; for (let o = 0; o < b.size; o += CH) { const part = b.slice(o, o + CH); await w.write(part); tick(part.size) } }
+      const into = async (d, name, b) => { const fh = await d.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await pour(w, b); await w.close() }
+      this.savedWhere = saveDir ? saveDir.name : saveTo ? saveTo.name : 'Downloads'
+      this.savedFiles = [this.fileName, ...(camBlob ? [this.camName] : [])]
+      this.onProgress?.(0)
       if (saveDir) {
         try { await into(saveDir, this.fileName, blob) } catch { download(blob, this.fileName) }
         if (camBlob) { try { await into(saveDir, this.camName, camBlob) } catch { download(camBlob, this.camName) } }
       } else {
-        if (saveTo) { try { const w = await saveTo.createWritable(); await w.write(blob); await w.close() } catch { download(blob, this.fileName) } }
+        if (saveTo) { try { const w = await saveTo.createWritable(); await pour(w, blob); await w.close() } catch { download(blob, this.fileName) } }
         else download(blob, this.fileName)
         if (camBlob) download(camBlob, this.camName)
       }

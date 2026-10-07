@@ -464,6 +464,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   }, [roomCtx])
   const [recBusy, setRecBusy] = useState(false)
   const [recNote, setRecNote] = useState('')
+  const [saveState, setSaveState] = useState(null) // { pct } while saving · { done, where, files } after
   // Full screen on/off, so the button can say how to get out (Neal, 2026-10-07: "how do I get back to my address bar?").
   const [isFull, setIsFull] = useState(() => !!(document.fullscreenElement || document.webkitFullscreenElement))
   useEffect(() => {
@@ -496,7 +497,10 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         r.onStopped = () => { localRec.current = null; call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
       } else if (localRec.current) {
         const r = localRec.current
+        r.onProgress = (p) => setSaveState({ pct: p })
         await r.stop() // onStopped tells the room it stopped
+        setSaveState({ done: true, where: r.savedWhere, files: r.savedFiles || [] })
+        setTimeout(() => setSaveState(null), 20000)
         setRecBusy(false); return
       }
     }
@@ -695,6 +699,10 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               : null)}
           {/* Errors only, on a dark pill so it reads on the light (devotional) bar too — the gold-on-white note couldn't be read. */}
           {recNote && <span style={{ fontSize: 12.5, color: '#fde68a', background: '#1e293b', padding: '3px 10px', borderRadius: 999, marginRight: 6 }}>{recNote}</span>}
+          {saveState && (saveState.done
+            ? <span title={(saveState.files || []).join('\n')} style={{ fontSize: 12.5, color: '#bbf7d0', background: '#14532d', padding: '3px 10px', borderRadius: 999, marginRight: 6, fontWeight: 800 }}>✅ Saved — {(saveState.files || []).length} file{(saveState.files || []).length === 1 ? '' : 's'} in {saveState.where}</span>
+            : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#fff', background: '#1e293b', padding: '3px 10px', borderRadius: 999, marginRight: 6, fontWeight: 800 }}>💾 Saving… {saveState.pct ?? 0}%
+                <span style={{ width: 80, height: 6, background: '#334155', borderRadius: 3, overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${saveState.pct ?? 0}%`, background: '#22c55e' }} /></span></span>)}
           {isHost && room.recording_enabled && !(rmeta.recording && localRec.current) && <button disabled={recBusy} onClick={() => toggleRec(false)} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
           {isHost && (localRec.current || (room.rec_where !== 'host' && !rmeta.recording)) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
