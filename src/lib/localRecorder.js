@@ -35,11 +35,21 @@ export class LocalRecorder {
     // old way: the tab's sound + the mic.
     const ctx = new AudioContext(), dest = ctx.createMediaStreamDestination()
     const added = new Set()
-    const add = (t) => { if (!t || added.has(t.id) || t.readyState !== 'live') return; added.add(t.id); try { ctx.createMediaStreamSource(new MediaStream([t])).connect(dest) } catch { /* track gone */ } }
+    // Chrome only feeds a REMOTE WebRTC track into Web Audio while a media element is playing that same stream —
+    // otherwise it mixes in silence (still no attendee voice after the first fix, 2026-10-07; same trick as MeetPractice).
+    this.keepAlive = []
+    const add = (t, remote) => {
+      if (!t || added.has(t.id) || t.readyState !== 'live') return; added.add(t.id)
+      try {
+        const ms = new MediaStream([t])
+        if (remote) { const a = new Audio(); a.muted = true; a.srcObject = ms; a.play().catch(() => {}); this.keepAlive.push(a) }
+        ctx.createMediaStreamSource(ms).connect(dest)
+      } catch { /* track gone */ }
+    }
     const R = this.liveRoom
     if (R) {
       const each = () => {
-        for (const p of R.remoteParticipants?.values?.() || []) for (const pub of p.audioTrackPublications?.values?.() || []) add(pub.track?.mediaStreamTrack)
+        for (const p of R.remoteParticipants?.values?.() || []) for (const pub of p.audioTrackPublications?.values?.() || []) add(pub.track?.mediaStreamTrack, true)
         for (const pub of R.localParticipant?.audioTrackPublications?.values?.() || []) add(pub.track?.mediaStreamTrack)
       }
       each(); add(this.micTrack)
@@ -107,6 +117,7 @@ export class LocalRecorder {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
       if (this.camRec && this.camRec.state !== 'inactive') await new Promise((res) => { this.camRec.onstop = res; this.camRec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
+      for (const a of this.keepAlive || []) { try { a.pause(); a.srcObject = null } catch { /* fine */ } }
       if (this.liveRoom && this.onRoomTrack) for (const ev of ['trackSubscribed', 'localTrackPublished', 'trackUnmuted']) { try { this.liveRoom.off(ev, this.onRoomTrack) } catch { /* fine */ } }
       try { await this.ctx?.close() } catch { /* fine */ }
       await this.queue
