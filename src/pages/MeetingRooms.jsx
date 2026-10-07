@@ -51,6 +51,7 @@ export default function MeetingRooms() {
   const [people, setPeople] = useState(null)
   const [pq, setPq] = useState('')
   const [staff, setStaff] = useState(null)
+  const [newC, setNewC] = useState({ name: '', phone: '', email: '' })
   const [sq, setSq] = useState('')
   const [openDepts, setOpenDepts] = useState({})
   const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []); setStaff(j.ok ? j.staff || [] : []) }
@@ -371,6 +372,39 @@ export default function MeetingRooms() {
                   })}
                 </div>
                 {people && pq && <button onClick={() => { const add = people.filter((x) => `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => ({ id: x.id })); setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !add.some((a) => a.id === y.id)), ...add] }) }} className="mt-1 text-xs font-semibold text-blue-700">+ Invite everyone matching "{pq}"</button>}
+                {/* 📇 MY CONTACTS (Neal, 2026-10-07: "it's saying my contacts but I have nothing in here … so I can select
+                    people"): always shown, its own box — the people this PIN has saved, tick to invite, plus an add line
+                    that saves the person AND invites them in one tap. */}
+                <div className="mt-4 font-semibold text-slate-800">📇 My contacts <span className="font-normal text-slate-500">(people outside the company you've saved — Five Star, vendors…)</span></div>
+                <div className="mt-1 rounded border border-slate-200 bg-white p-2" onMouseEnter={loadPeople}>
+                  {(() => {
+                    if (!staff) return <button type="button" onClick={loadPeople} className="text-sm font-semibold text-blue-700">Show my contacts</button>
+                    const dg = (v) => String(v || '').replace(/\D/g, '').slice(-10)
+                    const mine = staff.filter((x) => x.dept === '📇 My contacts')
+                    const same = (x) => (y) => !y.id && ((x.cell && dg(y.phone) === x.cell) || (x.email && String(y.email || '').toLowerCase() === x.email) || String(y.name || '').toLowerCase() === x.name.toLowerCase())
+                    return <>
+                      {!mine.length && <div className="text-sm text-slate-500">No one saved yet — add someone below and they'll be here every time.</div>}
+                      {mine.map((x) => {
+                        const on = (form.invitees || []).some(same(x))
+                        return <label key={x.email || x.cell || x.name} className="flex cursor-pointer items-center gap-2 py-0.5">
+                          <input type="checkbox" checked={on} onChange={(e) => setForm({ ...form, invitees: e.target.checked ? [...(form.invitees || []), { name: x.name, phone: x.phone, email: x.email }] : (form.invitees || []).filter((y) => !same(x)(y)) })} />
+                          <span className="font-semibold">{x.name}</span> <span className="text-xs text-slate-500">{[x.cell && `📱 …${x.cell.slice(-4)}`, x.email].filter(Boolean).join(' · ')}</span>
+                        </label>
+                      })}
+                      <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-100 pt-2">
+                        {['name', 'phone', 'email'].map((f) => <input key={f} value={newC[f]} placeholder={f[0].toUpperCase() + f.slice(1)} onChange={(e) => setNewC({ ...newC, [f]: e.target.value })} className="w-36 flex-1 rounded border border-slate-300 px-2 py-1 text-sm" />)}
+                        <button type="button" onClick={async () => {
+                          const c = { name: newC.name.trim(), phone: newC.phone.trim(), email: newC.email.trim() }
+                          if (!c.name || !(c.phone || c.email)) { alert('Add a name and a phone or email.'); return }
+                          const j = await call({ action: 'import_contacts', contacts: [c] }).catch(() => ({}))
+                          if (!j.ok) { alert(j.error || 'Could not save.'); return }
+                          const r = await call({ action: 'people_search' }).catch(() => ({})); if (r.ok) setStaff(r.staff || [])
+                          setForm((fm) => ({ ...fm, invitees: [...(fm.invitees || []), c] })); setNewC({ name: '', phone: '', email: '' })
+                        }} className="rounded bg-blue-600 px-3 py-1 text-sm font-semibold text-white">+ Save &amp; invite</button>
+                      </div>
+                    </>
+                  })()}
+                </div>
                 {/* EVERYONE ELSE IN THE COMPANY (Neal, 2026-10-05: Nikki, Hank want department meetings).
                     Office staff from GoHighLevel; picked ones get their own link by text + email. */}
                 <div className="mt-4 font-semibold text-slate-800">🏢 Everyone else in the company <span className="font-normal text-slate-500">(active in JobNimbus, by department; search "Foreman", "Admin", "PA"…)</span></div>
@@ -383,7 +417,7 @@ export default function MeetingRooms() {
                     const dg = (v) => String(v || '').replace(/\D/g, '').slice(-10)
                     const same = (x) => (y) => !y.id && (x.cell ? dg(y.phone) === x.cell : String(y.name || '').toLowerCase() === x.name.toLowerCase())
                     const isOn = (x) => (form.invitees || []).some(same(x))
-                    const shown = staff.filter((x) => !sq || `${x.name} ${x.dept}`.toLowerCase().includes(sq.toLowerCase()))
+                    const shown = staff.filter((x) => x.dept !== '📇 My contacts' && (!sq || `${x.name} ${x.dept}`.toLowerCase().includes(sq.toLowerCase())))
                     const depts = [...new Set(shown.map((x) => x.dept))].sort((a, c) => a.localeCompare(c))
                     const setMany = (list, on) => setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !list.some((x) => same(x)(y))), ...(on ? list.map((x) => ({ name: x.name, phone: x.phone, email: x.email })) : [])] })
                     return depts.map((d) => {
