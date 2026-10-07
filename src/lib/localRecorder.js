@@ -58,7 +58,26 @@ export class LocalRecorder {
     } else for (const t of [...display.getAudioTracks(), ...(this.micTrack ? [this.micTrack] : [])]) add(t)
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     this.ctx = ctx
-    const stream = new MediaStream([...display.getVideoTracks(), ...dest.stream.getAudioTracks()])
+    // STEADY 30 FPS (Neal, 2026-10-07: the meeting-view MP4 played as a frozen still with the sound running). A captured
+    // tab only sends a frame when the screen changes; MP4 players freeze on that. Redrawn onto a canvas 30 times a
+    // second, the recorder gets an even stream of frames.
+    let vTrack = display.getVideoTracks()[0]
+    try {
+      const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = new MediaStream([vTrack])
+      await v.play()
+      const cv = document.createElement('canvas'); const g = cv.getContext('2d')
+      const st = vTrack.getSettings ? vTrack.getSettings() : {}
+      cv.width = v.videoWidth || st.width || 1280; cv.height = v.videoHeight || st.height || 720
+      this.drawTimer = setInterval(() => {
+        try {
+          if (v.videoWidth && (cv.width !== v.videoWidth || cv.height !== v.videoHeight)) { cv.width = v.videoWidth; cv.height = v.videoHeight }
+          g.drawImage(v, 0, 0, cv.width, cv.height)
+        } catch { /* a frame skipped */ }
+      }, 1000 / 30)
+      this.drawVideo = v
+      vTrack = cv.captureStream(30).getVideoTracks()[0] || vTrack
+    } catch { /* fall back to the raw tab frames */ }
+    const stream = new MediaStream([vTrack, ...dest.stream.getAudioTracks()])
     // MP4 FIRST (Neal, 2026-10-07: can it go to YouTube, can it be edited?): recent Chrome records MP4, which opens in
     // QuickTime / iMovie / any editor and uploads to YouTube. Older browsers fall back to WebM (YouTube takes that too).
     const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
@@ -117,6 +136,7 @@ export class LocalRecorder {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
       if (this.camRec && this.camRec.state !== 'inactive') await new Promise((res) => { this.camRec.onstop = res; this.camRec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
+      clearInterval(this.drawTimer); try { this.drawVideo?.pause(); if (this.drawVideo) this.drawVideo.srcObject = null } catch { /* fine */ }
       for (const a of this.keepAlive || []) { try { a.pause(); a.srcObject = null } catch { /* fine */ } }
       if (this.liveRoom && this.onRoomTrack) for (const ev of ['trackSubscribed', 'localTrackPublished', 'trackUnmuted']) { try { this.liveRoom.off(ev, this.onRoomTrack) } catch { /* fine */ } }
       try { await this.ctx?.close() } catch { /* fine */ }
