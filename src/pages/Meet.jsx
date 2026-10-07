@@ -709,6 +709,10 @@ function Stage({ room, auth, isHost, micLocked = false }) {
           {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
           {isHost && (localRec.current || (room.rec_where !== 'host' && !rmeta.recording)) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
           {isHost && auth.pin && !scriptureRoom && <button onClick={() => setPractice((x) => !x)} style={{ ...btn(practice), background: '#b45309', border: 'none', marginRight: 6 }}>🎭 Practice</button>}
+          {/* 🔒 LOCK (Neal, 2026-10-07): nobody new can join; people already in can rejoin; hosts always can. */}
+          {isHost && <button title={rmeta.locked ? 'Locked — nobody new can join. Tap to let people in again.' : "Stop anyone else from joining (people already here can rejoin if they drop)"}
+            onClick={() => call({ action: 'set_lock', room: room.slug, on: !rmeta.locked, by: localParticipant?.name || '', ...auth }).catch(() => {})}
+            style={{ ...btn(false), background: rmeta.locked ? '#b91c1c' : '#334155', border: 'none', color: '#fff', marginRight: 6 }}>{rmeta.locked ? '🔒 Locked' : '🔓 Lock meeting'}</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:

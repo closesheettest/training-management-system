@@ -1662,6 +1662,15 @@ export const handler = async (event) => {
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     if (!host) { const st = await openState(room); if (!st.open) { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } }
+    // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in"). Nobody new
+    // gets in; someone already in today can rejoin after a drop; hosts always can. Clears itself at the end of the day.
+    if (!host) {
+      const lk = await getSetting(`meet_lock_${room.slug}_${etDay()}`, null)
+      if (lk?.on) {
+        const { data: seen } = await sb.from('app_settings').select('key').eq('key', `meet_att_${etDay()}_${room.slug}_${identity}`).maybeSingle()
+        if (!seen) return json(200, { ok: false, locked: true, title: 'This meeting is locked', message: 'The host has closed this meeting to anyone new. If you should be in it, contact the host.' })
+      }
+    }
     // Training room, class in session: this join IS today's sign-in (same row the kiosk writes).
     if (room.kind === 'training' && !host && !isRetrainee && identity.startsWith('t:')) {
       const { data: tr } = await sb.from('trainees').select('class_id, is_field_trainee, is_active_sales_rep, classes!class_id(week_start_date)').eq('id', identity.slice(2)).maybeSingle()
@@ -1798,6 +1807,12 @@ export const handler = async (event) => {
     }
     // How the presenter's camera sits beside slides / scripture (Neal, 2026-10-05): circle (small, in
     // the corner) | split (half and half) | stack_top (you on top) | stack_bottom (you underneath).
+    if (b.action === 'set_lock') {
+      const on = !!b.on
+      await putSetting(`meet_lock_${room.slug}_${etDay()}`, { on, by: String(b.by || '').slice(0, 60), at: new Date().toISOString() })
+      await setMeta({ locked: on })
+      return json(200, { ok: true, locked: on })
+    }
     if (b.action === 'set_layout') {
       const layout = ['circle', 'split', 'stack_top', 'stack_bottom'].includes(b.layout) ? b.layout : 'circle'
       await setMeta({ layout })
