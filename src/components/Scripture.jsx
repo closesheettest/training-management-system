@@ -57,16 +57,16 @@ export function ScriptureSlide({ sc, look: L, camTrack }) {
   const long = shown.reduce((t, x) => t + x.text.length, 0)
   const size = all ? (long > 900 ? 'clamp(16px, 2.1vw, 26px)' : long > 450 ? 'clamp(18px, 2.6vw, 32px)' : 'clamp(22px, 3.2vw, 40px)') : (long > 260 ? 'clamp(24px, 3.4vw, 44px)' : 'clamp(28px, 4.4vw, 58px)')
   return (
-    <div style={{ position: 'relative', height: '100%', width: '100%', background: L.light ? L.bg : '#0b1220', color: L.light ? '#1f2937' : '#f8fafc', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4% 22% 6% 7%', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100%', width: '100%', background: '#000', color: '#fff', /* ALWAYS BLACK (Neal, 2026-10-07): the light look lit his face up like a key light */ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4% 22% 6% 7%', boxSizing: 'border-box', overflow: 'hidden' }}>
       <div style={{ color: L.accent || '#fbbf24', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', fontSize: 'clamp(13px, 1.5vw, 20px)', marginBottom: '2.5%' }}>
         {sc.ref}{!all && sc.verses.length > 1 ? ` · verse ${shown[0]?.n ?? (sc.idx || 0) + 1}` : ''} · {v.key}
       </div>
-      <div style={{ fontFamily: L.fontHead && L.fontHead !== 'inherit' ? L.fontHead : "'Cormorant Garamond', Georgia, serif", fontSize: size, lineHeight: 1.35, fontWeight: 500, color: L.light ? L.head : '#fff' }}>
+      <div style={{ fontFamily: L.fontHead && L.fontHead !== 'inherit' ? L.fontHead : "'Cormorant Garamond', Georgia, serif", fontSize: size, lineHeight: 1.35, fontWeight: 500, color: '#fff' }}>
         {shown.map((x, i) => (
           <span key={i}>{x.n != null && (all || sc.verses.length > 1) ? <sup style={{ fontSize: '.5em', color: L.accent || '#fbbf24', marginRight: 4, fontWeight: 700 }}>{x.n}</sup> : null}{x.text}{' '}</span>
         ))}
       </div>
-      {v.credit && <div style={{ position: 'absolute', left: '7%', right: '30%', bottom: '2.5%', fontSize: 'clamp(8px, .8vw, 11px)', color: L.light ? '#6b7280' : '#94a3b8', lineHeight: 1.3 }}>{v.credit}</div>}
+      {v.credit && <div style={{ position: 'absolute', left: '7%', right: '30%', bottom: '2.5%', fontSize: 'clamp(8px, .8vw, 11px)', color: '#94a3b8', lineHeight: 1.3 }}>{v.credit}</div>}
       {camTrack && (
         <div style={{ position: 'absolute', right: '3%', bottom: '5%', width: 'min(24%, 260px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: `4px solid ${L.accent || 'rgba(255,255,255,.85)'}`, boxShadow: '0 8px 24px rgba(0,0,0,.35)', background: '#000' }}>
           <VideoTrack trackRef={camTrack} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
