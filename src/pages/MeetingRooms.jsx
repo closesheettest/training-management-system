@@ -408,6 +408,25 @@ export default function MeetingRooms() {
                     })
                   })()}
                 </div>
+                {/* 📥 IMPORT CONTACTS (Neal, 2026-10-07): Gmail → Contacts → Export → vCard, or Mac Contacts → File → Export vCard.
+                    They land in the 📇 Contacts group above, with everyone you've invited from outside before. */}
+                <label className="mt-2 inline-block cursor-pointer text-sm font-semibold text-blue-700">
+                  📥 Import contacts (.vcf from Gmail or Mac Contacts)
+                  <input type="file" accept=".vcf,text/vcard" className="hidden" onChange={async (e) => {
+                    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return
+                    const text = await f.text()
+                    const cards = text.split(/END:VCARD/i).map((c) => {
+                      const line = (k) => (c.match(new RegExp(`^${k}[^:\\n]*:(.*)$`, 'im')) || [])[1]?.trim() || ''
+                      const n = line('FN') || line('N').split(';').filter(Boolean).reverse().join(' ')
+                      return { name: n.replace(/\\,/g, ',').trim(), email: line('EMAIL'), phone: line('TEL') }
+                    }).filter((c) => c.name && (c.email || c.phone))
+                    if (!cards.length) { alert('No contacts with an email or phone in that file.'); return }
+                    const j = await call({ action: 'import_contacts', contacts: cards }).catch(() => ({}))
+                    if (!j.ok) { alert(j.error || 'Could not import.'); return }
+                    alert(`Imported ${j.added} new contact${j.added === 1 ? '' : 's'} (${j.total} in 📇 Contacts). They're in 📇 Contacts below.`)
+                    const r = await call({ action: 'people_search' }).catch(() => ({})); if (r.ok) setStaff(r.staff || [])
+                  }} />
+                </label>
                 <div className="mt-3 font-bold">Someone not in TMS?</div>
                 {(form.invitees || []).filter((y) => !y.id).map((y, i) => (
                   <div key={y.key || i} className="mt-1 flex flex-wrap gap-2">

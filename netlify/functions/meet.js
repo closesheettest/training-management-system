@@ -1057,7 +1057,7 @@ export const handler = async (event) => {
   }
 
   // ---- ADMIN: rooms ----
-  if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'set_staff_cell', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
+  if (['rooms', 'save_room', 'delete_room', 'reorder', 'people_search', 'import_contacts', 'set_staff_cell', 'audience', 'send_links', 'attendance', 'guests', 'email_log', 'recordings', 'delete_recording', 'early_grad'].includes(b.action)) {
     const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
@@ -1224,8 +1224,35 @@ export const handler = async (event) => {
       const dg = (x) => String(x || '').replace(/\D/g, '').slice(-10)
       const { data: allT } = await sb.from('trainees').select('phone').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const tms = new Set((allT || []).map((x) => dg(x.phone)).filter(Boolean))
-      const staff = (await companyStaff()).filter((x) => !x.cell || !tms.has(x.cell)).sort((a, c) => a.dept.localeCompare(c.dept) || a.name.localeCompare(c.name))
+      const staffAll = (await companyStaff()).filter((x) => !x.cell || !tms.has(x.cell))
+      // 📇 CONTACTS (Neal, 2026-10-07: "invite two people from Five Star … they're in my email"): everyone ever invited from
+      // outside on any room, plus contacts imported from a Gmail / Mac Contacts file (meet_contacts). Not staff, not in TMS.
+      const seen = new Set([...staffAll.map((x) => (x.email || '').toLowerCase()), ...staffAll.map((x) => x.cell)].filter(Boolean))
+      const contacts = []
+      const addC = (c) => {
+        const name = String(c.name || '').trim(), email = String(c.email || '').trim().toLowerCase(), cell = dg(c.phone)
+        if (!name || (!email && !cell)) return
+        const k = email || cell; if (seen.has(k) || (cell && tms.has(cell))) return; seen.add(k); if (email && cell) seen.add(cell)
+        contacts.push({ name, email: email || null, phone: c.phone || null, cell: cell || null, dept: '📇 Contacts' })
+      }
+      for (const r of rooms) for (const y of r.invitees || []) if (!y.id) addC(y)
+      for (const c of (await getSetting('meet_contacts', [])) || []) addC(c)
+      const staff = [...staffAll, ...contacts].sort((a, c) => a.dept.localeCompare(c.dept) || a.name.localeCompare(c.name))
       return json(200, { ok: true, staff, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
+    }
+    // 📥 IMPORT CONTACTS: a list parsed from a .vcf (Gmail "Export → vCard", Mac Contacts "Export vCard") — merged, deduped.
+    if (b.action === 'import_contacts') {
+      const cur = (await getSetting('meet_contacts', [])) || []
+      const dgt = (x) => String(x || '').replace(/\D/g, '').slice(-10)
+      const have = new Set(cur.map((c) => (c.email || '').toLowerCase() || dgt(c.phone)))
+      let added = 0
+      for (const c of (Array.isArray(b.contacts) ? b.contacts : []).slice(0, 5000)) {
+        const name = String(c.name || '').trim().slice(0, 80), email = String(c.email || '').trim().toLowerCase().slice(0, 120), phone = String(c.phone || '').trim().slice(0, 30)
+        const k = email || dgt(phone); if (!name || !k || have.has(k)) continue
+        have.add(k); cur.push({ name, email: email || null, phone: phone || null }); added++
+      }
+      await putSetting('meet_contacts', cur)
+      return json(200, { ok: true, added, total: cur.length })
     }
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))
