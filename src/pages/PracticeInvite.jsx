@@ -41,7 +41,7 @@ export default function PracticeInvite() {
   if (stage === 'live') {
     return wrap(
       <LiveSession
-        persona={persona} section={section} trainee={{ id: null, name: inv.name, class_id: null }}
+        persona={persona} section={section} trainee={{ id: null, name: inv.name, class_id: null }} impulseKey={inv.impulse || null}
         fetchToken={async () => {
           // The first token starts the practice; every later one is a reconnect of a practice
           // already under way, which may run past the link's expiry.

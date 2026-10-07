@@ -221,6 +221,7 @@ export default function SalesPractice() {
   const [traineeId, setTraineeId] = useState('')
   const [personaKey, setPersonaKey] = useState('welcome') // start new reps on the very easy one
   const [sectionKey, setSectionKey] = useState('full')
+  const [impulsePick, setImpulsePick] = useState('random') // 'random' or an IMPULSES key (Neal, 2026-10-07)
   const [slideN, setSlideN] = useState('')           // for "One slide"
   const [reps, setReps] = useState([])
   const [slidePoints, setSlidePoints] = useState([]) // Slide Points rows, for the one-slide picker
@@ -273,7 +274,7 @@ export default function SalesPractice() {
   const [linkMsg, setLinkMsg] = useState(null)
   const sendLink = async () => {
     setLinkBusy(true); setLinkMsg(null)
-    const d = await api({ action: 'invite', invite: { ...linkForm, trainee_id: trainee?.id || null, class_id: trainee?.class_id || null, persona_key: personaKey, section: effectiveSection } })
+    const d = await api({ action: 'invite', invite: { ...linkForm, trainee_id: trainee?.id || null, class_id: trainee?.class_id || null, persona_key: personaKey, section: effectiveSection, ...(impulsePick !== 'random' && IMPULSE_SECTIONS.includes(effectiveSection) ? { impulse: impulsePick } : {}) } })
     setLinkBusy(false)
     if (!d.ok) { setLinkMsg({ err: true, text: d.error || 'Could not send.' }); return }
     const how = [d.sms && 'texted', d.email && 'emailed'].filter(Boolean).join(' and ')
@@ -285,6 +286,7 @@ export default function SalesPractice() {
     return (
       <LiveSession
         persona={personaByKey(personaKey)} section={sectionByKey(effectiveSection)} trainee={trainee}
+        impulseKey={impulsePick !== 'random' ? impulsePick : null}
         onDone={(id) => { setReportId(id); setStage(id ? 'report' : 'setup'); loadHistory() }}
       />
     )
@@ -321,23 +323,7 @@ export default function SalesPractice() {
         </select>
       </Step>
 
-      <Step n="2" title="Pick the homeowner">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[...PERSONAS].sort((x, y) => ({ 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[x.difficulty] - { 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[y.difficulty])).map((p) => (
-            <button key={p.key} type="button" onClick={() => setPersonaKey(p.key)}
-              className={`rounded-xl border p-4 text-left transition ${personaKey === p.key ? 'border-brand-navy bg-brand-navy-50 ring-2 ring-brand-navy' : 'border-slate-200 bg-white hover:border-slate-400'}`}>
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-brand-navy">{p.tagline}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.difficulty === 'Very hard' ? 'bg-red-700 text-white' : p.difficulty === 'Hard' ? 'bg-red-50 text-red-700' : p.difficulty === 'Very easy' ? 'bg-emerald-600 text-white' : p.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.difficulty}</span>
-              </div>
-              <div className="mt-0.5 text-xs text-slate-500">{p.name}</div>
-              <div className="mt-2 text-sm text-slate-700">{p.blurb}</div>
-            </button>
-          ))}
-        </div>
-      </Step>
-
-      <Step n="3" title="What are they practicing?">
+      <Step n="2" title="What are they doing?">
         <div className="grid gap-2 sm:grid-cols-2">
           {SECTIONS.map((s) => (
             <label key={s.key} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${sectionKey === s.key ? 'border-brand-navy bg-brand-navy-50' : 'border-slate-200 bg-white'}`}>
@@ -356,7 +342,42 @@ export default function SalesPractice() {
           </select>
         )}
         <GradingGuide sectionKey={sectionKey} slideN={slideN} slidePoints={slidePoints} />
-        {IMPULSE_SECTIONS.includes(sectionKey) && <div className="mt-3"><ImpulseLesson sectionKey={sectionKey} /></div>}
+      </Step>
+
+      <Step n="3" title="Easy, medium or hard? Pick the homeowner">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[...PERSONAS].sort((x, y) => ({ 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[x.difficulty] - { 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }[y.difficulty])).map((p) => (
+            <button key={p.key} type="button" onClick={() => setPersonaKey(p.key)}
+              className={`rounded-xl border p-4 text-left transition ${personaKey === p.key ? 'border-brand-navy bg-brand-navy-50 ring-2 ring-brand-navy' : 'border-slate-200 bg-white hover:border-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-brand-navy">{p.tagline}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.difficulty === 'Very hard' ? 'bg-red-700 text-white' : p.difficulty === 'Hard' ? 'bg-red-50 text-red-700' : p.difficulty === 'Very easy' ? 'bg-emerald-600 text-white' : p.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.difficulty}</span>
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">{p.name}</div>
+              <div className="mt-2 text-sm text-slate-700">{p.blurb}</div>
+            </button>
+          ))}
+        </div>
+      </Step>
+
+      {/* 4. THE IMPULSE FACTOR (Neal, 2026-10-07: "click the sales person, then what is he/she doing, then easy
+          med hard, then impulse factor"). Pick the homeowner's hidden impulse (FIGS) or leave it a surprise.
+          Only the parts that use an impulse offer it. */}
+      <Step n="4" title="Impulse factor">
+        {IMPULSE_SECTIONS.includes(effectiveSection) ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {[{ key: 'random', label: '🎲 Surprise me' }, ...IMPULSES].map((x) => (
+                <button key={x.key} type="button" onClick={() => setImpulsePick(x.key)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-bold ${impulsePick === x.key ? 'border-brand-navy bg-brand-navy text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-500'}`}>
+                  {x.short ? `${x.short} · ` : ''}{x.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">{impulsePick === 'random' ? 'The homeowner gets one of the four at random. Nobody knows which until the end.' : `The homeowner's hidden impulse will be ${impulseByKey(impulsePick).label}. Don't tell the rep; at the end they're asked which it was.`}</p>
+            <div className="mt-3"><ImpulseLesson sectionKey={effectiveSection} /></div>
+          </>
+        ) : <p className="text-sm text-slate-500">This part doesn't use an impulse factor.</p>}
       </Step>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -425,7 +446,7 @@ const trainerToken = async () => {
 
 // The live presentation. Used by the trainer page and by the practice link page
 // (src/pages/PracticeInvite.jsx), which pass their own fetchToken / saveSession.
-export function LiveSession({ persona, section, trainee, onDone, fetchToken = trainerToken, saveSession = null }) {
+export function LiveSession({ persona, section, trainee, onDone, fetchToken = trainerToken, saveSession = null, impulseKey = null }) {
   const [status, setStatus] = useState('starting')
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
@@ -448,7 +469,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   }, [status, muted])
   // FIGS (Neal, 27 Sep): a full presentation secretly gives the homeowner one
   // impulse factor; at the end the rep is asked which it was.
-  const [impulse] = useState(() => (IMPULSE_SECTIONS.includes(section.key) ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null))
+  const [impulse] = useState(() => (IMPULSE_SECTIONS.includes(section.key) ? (impulseByKey(impulseKey)?.key || IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key) : null))
   const [guessFor, setGuessFor] = useState(null) // the stopped session, waiting for the rep's answer
   const liveRef = useRef(null)
   const logRef = useRef(null)

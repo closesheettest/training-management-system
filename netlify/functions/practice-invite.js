@@ -26,7 +26,7 @@ export const handler = async (event) => {
   const status = row.grade_status === 'invited' ? (open ? 'ready' : 'expired') : 'done'
 
   if (body.action === 'load') {
-    return json(200, { ok: true, name: row.trainee_name, persona_key: row.persona_key, section: row.section, status, sent_by: inv.sent_by || null })
+    return json(200, { ok: true, name: row.trainee_name, persona_key: row.persona_key, section: row.section, status, sent_by: inv.sent_by || null, impulse: inv.impulse || null })
   }
   if (body.action === 'get') {
     if (status !== 'done') return json(400, { ok: false, error: 'This practice has not been done yet.' })

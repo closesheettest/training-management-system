@@ -89,7 +89,7 @@ export const handler = async (event) => {
       trainee_id: v.trainee_id || null, trainee_name: name, class_id: v.class_id || null,
       trainer_name: who.name || null, persona_key: String(v.persona_key || ''), section: v.section,
       grade_status: 'invited', transcript: [],
-      report: { invite: { token, expires_at: expires, phone: phone || null, email: email || null, sent_by: who.name || null } },
+      report: { invite: { token, expires_at: expires, phone: phone || null, email: email || null, sent_by: who.name || null, ...(['fear','indifference','greed','urgency'].includes(v.impulse) ? { impulse: v.impulse } : {}) } },
     }).select('id').single()
     if (error) return json(500, { ok: false, error: error.message })
     const link = `${SITE}/practice/${token}`
