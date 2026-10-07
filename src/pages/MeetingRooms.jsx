@@ -52,6 +52,9 @@ export default function MeetingRooms() {
   const [pq, setPq] = useState('')
   const [staff, setStaff] = useState(null)
   const [newC, setNewC] = useState({ name: '', phone: '', email: '' })
+  // Collapsible invite sections (Neal, 2026-10-07: "make it so we can collapse them") — remembered on this device.
+  const [shut, setShut] = useState(() => { try { return JSON.parse(localStorage.getItem('meet_invite_shut') || '{}') } catch { return {} } })
+  const toggleShut = (k) => setShut((v) => { const n = { ...v, [k]: !v[k] }; try { localStorage.setItem('meet_invite_shut', JSON.stringify(n)) } catch { /* private window */ } return n })
   const [sq, setSq] = useState('')
   const [openDepts, setOpenDepts] = useState({})
   const loadPeople = async () => { if (people) return; const j = await call({ action: 'people_search' }).catch(() => ({})); setPeople(j.ok ? j.people : []); setStaff(j.ok ? j.staff || [] : []) }
@@ -363,7 +366,8 @@ export default function MeetingRooms() {
             {(form.kind === 'oneoff' || form.kind === 'custom') && (
               <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 sm:col-span-2 text-sm">
                 <div className="font-bold">Who's invited <span className="font-normal text-slate-500">({(form.invitees || []).length} picked)</span></div>
-                <div className="mt-2 font-semibold text-slate-800">👥 Active sales reps <span className="font-normal text-slate-500">(and managers, trainees)</span></div>
+                <button type="button" onClick={() => toggleShut('reps')} className="mt-2 font-semibold text-slate-800 block w-full text-left">{shut.reps ? '▸' : '▾'} 👥 Active sales reps <span className="font-normal text-slate-500">(and managers, trainees)</span></button>
+                {!shut.reps && <>
                 <input value={pq} onChange={(e) => setPq(e.target.value)} onFocus={loadPeople} placeholder="Search names, teams, Manager, Trainee…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 bg-white">
                   {!people ? <div className="p-2 text-slate-500">Loading…</div> : people.filter((x) => !pq || `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => {
@@ -372,10 +376,12 @@ export default function MeetingRooms() {
                   })}
                 </div>
                 {people && pq && <button onClick={() => { const add = people.filter((x) => `${x.name} ${x.tag}`.toLowerCase().includes(pq.toLowerCase())).map((x) => ({ id: x.id })); setForm({ ...form, invitees: [...(form.invitees || []).filter((y) => !add.some((a) => a.id === y.id)), ...add] }) }} className="mt-1 text-xs font-semibold text-blue-700">+ Invite everyone matching "{pq}"</button>}
+                </>}
                 {/* 📇 MY CONTACTS (Neal, 2026-10-07: "it's saying my contacts but I have nothing in here … so I can select
                     people"): always shown, its own box — the people this PIN has saved, tick to invite, plus an add line
                     that saves the person AND invites them in one tap. */}
-                <div className="mt-4 font-semibold text-slate-800">📇 My contacts <span className="font-normal text-slate-500">(people outside the company you've saved — Five Star, vendors…)</span></div>
+                <button type="button" onClick={() => toggleShut('contacts')} className="mt-4 font-semibold text-slate-800 block w-full text-left">{shut.contacts ? '▸' : '▾'} 📇 My contacts <span className="font-normal text-slate-500">(people outside the company you've saved — Five Star, vendors…)</span></button>
+                {!shut.contacts && <>
                 <div className="mt-1 rounded border border-slate-200 bg-white p-2" onMouseEnter={loadPeople}>
                   {(() => {
                     if (!staff) return <button type="button" onClick={loadPeople} className="text-sm font-semibold text-blue-700">Show my contacts</button>
@@ -405,9 +411,11 @@ export default function MeetingRooms() {
                     </>
                   })()}
                 </div>
+                </>}
                 {/* EVERYONE ELSE IN THE COMPANY (Neal, 2026-10-05: Nikki, Hank want department meetings).
                     Office staff from GoHighLevel; picked ones get their own link by text + email. */}
-                <div className="mt-4 font-semibold text-slate-800">🏢 Everyone else in the company <span className="font-normal text-slate-500">(active in JobNimbus, by department; search "Foreman", "Admin", "PA"…)</span></div>
+                <button type="button" onClick={() => toggleShut('company')} className="mt-4 font-semibold text-slate-800 block w-full text-left">{shut.company ? '▸' : '▾'} 🏢 Everyone else in the company <span className="font-normal text-slate-500">(active in JobNimbus, by department; search "Foreman", "Admin", "PA"…)</span></button>
+                {!shut.company && <>
                 <input value={sq} onChange={(e) => setSq(e.target.value)} onFocus={loadPeople} placeholder="Search a name (or tick a whole department below)…" className="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
                 {/* BY JOB FUNCTION (Neal, 2026-10-05: "sort it by title … Nikki wants a meeting with all the
                     foremen … click on all job site foremen and it selects everybody"). One header per
@@ -442,6 +450,7 @@ export default function MeetingRooms() {
                     })
                   })()}
                 </div>
+                </>}
                 {/* 📥 IMPORT CONTACTS (Neal, 2026-10-07): Gmail → Contacts → Export → vCard, or Mac Contacts → File → Export vCard.
                     They land in 📇 My contacts (this PIN's own list) above. */}
                 <label className="mt-2 inline-block cursor-pointer text-sm font-semibold text-blue-700">
