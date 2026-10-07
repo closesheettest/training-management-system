@@ -488,7 +488,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         // hit "already exists — replace?"), so every recording gets its own file.
         const now = new Date()
         const stamp = `${now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} ${now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }).replace(':', '-')}`
-        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`,
+        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`, liveRoom: roomCtx,
           // TWO FILES (Neal, 2026-10-07: "in my settings I have it set to save two files — the viewer and the camera view"):
           // the room's "both" / "raw" setting also records the host's own camera, saved next to the meeting file.
           camTrack: ['both', 'raw'].includes(room.rec_kind) ? localParticipant?.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack : null })

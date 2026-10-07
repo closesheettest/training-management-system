@@ -20,7 +20,7 @@ export const activeRecorder = () => ACTIVE
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
-  constructor({ fileName, micTrack, folderId, camTrack }) { this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
+  constructor({ fileName, micTrack, folderId, camTrack, liveRoom }) { this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.liveRoom = liveRoom || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
 
   // MUST be called straight from a click (the browser requires it for the "share this tab" box).
   async start() {
@@ -29,11 +29,24 @@ export class LocalRecorder {
       preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude', systemAudio: 'include',
     })
     this.display = display
-    // Mix the tab's sound (everyone else) with the host's own mic.
+    // EVERYONE'S VOICE (Neal, 2026-10-07: the recording had only his voice). The tab's own sound often doesn't come with
+    // "share this tab", so with the meeting at hand every voice is taken straight from it — each attendee's audio
+    // plus the host's mic — and anyone who joins (or unmutes) later is added as they arrive. Without the meeting, the
+    // old way: the tab's sound + the mic.
     const ctx = new AudioContext(), dest = ctx.createMediaStreamDestination()
-    for (const t of [...display.getAudioTracks(), ...(this.micTrack ? [this.micTrack] : [])]) {
-      try { ctx.createMediaStreamSource(new MediaStream([t])).connect(dest) } catch { /* track gone */ }
-    }
+    const added = new Set()
+    const add = (t) => { if (!t || added.has(t.id) || t.readyState !== 'live') return; added.add(t.id); try { ctx.createMediaStreamSource(new MediaStream([t])).connect(dest) } catch { /* track gone */ } }
+    const R = this.liveRoom
+    if (R) {
+      const each = () => {
+        for (const p of R.remoteParticipants?.values?.() || []) for (const pub of p.audioTrackPublications?.values?.() || []) add(pub.track?.mediaStreamTrack)
+        for (const pub of R.localParticipant?.audioTrackPublications?.values?.() || []) add(pub.track?.mediaStreamTrack)
+      }
+      each(); add(this.micTrack)
+      this.onRoomTrack = () => each()
+      for (const ev of ['trackSubscribed', 'localTrackPublished', 'trackUnmuted']) R.on(ev, this.onRoomTrack)
+    } else for (const t of [...display.getAudioTracks(), ...(this.micTrack ? [this.micTrack] : [])]) add(t)
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     this.ctx = ctx
     const stream = new MediaStream([...display.getVideoTracks(), ...dest.stream.getAudioTracks()])
     // MP4 FIRST (Neal, 2026-10-07: can it go to YouTube, can it be edited?): recent Chrome records MP4, which opens in
@@ -94,6 +107,7 @@ export class LocalRecorder {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
       if (this.camRec && this.camRec.state !== 'inactive') await new Promise((res) => { this.camRec.onstop = res; this.camRec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
+      if (this.liveRoom && this.onRoomTrack) for (const ev of ['trackSubscribed', 'localTrackPublished', 'trackUnmuted']) { try { this.liveRoom.off(ev, this.onRoomTrack) } catch { /* fine */ } }
       try { await this.ctx?.close() } catch { /* fine */ }
       await this.queue
       let blob
