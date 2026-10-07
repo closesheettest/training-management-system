@@ -417,6 +417,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const [deckPanel, setDeckPanel] = useState(false)
   const deckApi = useRef(null)
   const stageRef = useRef(null) // the meeting picture — what "Record to my computer" keeps (no toolbars)
+  const viewRef = useRef(null)  // the meeting view alone (no panels on top) — Element Capture records this
   const [practice, setPractice] = useState(false) // 🎭 AI homeowner practice (trainer PIN only)
   const [circle, setCircle] = useState(true) // presenter circle — the sharer's choice, on by default
   const [lastSpeaker, setLastSpeaker] = useState(null)
@@ -489,7 +490,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         // hit "already exists — replace?"), so every recording gets its own file.
         const now = new Date()
         const stamp = `${now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} ${now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }).replace(':', '-')}`
-        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`, liveRoom: roomCtx, cropEl: stageRef.current,
+        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`, liveRoom: roomCtx, cropEl: stageRef.current, onlyEl: viewRef.current,
           // TWO FILES (Neal, 2026-10-07: "in my settings I have it set to save two files — the viewer and the camera view"):
           // the room's "both" / "raw" setting also records the host's own camera, saved next to the meeting file.
           camTrack: ['both', 'raw'].includes(room.rec_kind) ? localParticipant?.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack : null })
@@ -723,6 +724,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               <button onClick={() => { const el = document.querySelector('.lk-focus-layout') || document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) }}
                 style={{ position: 'absolute', top: 8, right: 8, zIndex: 30, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.8)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>⛶ Full screen</button>
             )}
+            {/* THE RECORDED PICTURE (Neal, 2026-10-07): just the meeting view, in its own layer. Element Capture records this
+                and nothing floating over it — your notes, Present, Host controls and the other panels stay out of the file. */}
+            <div ref={viewRef} style={{ position: 'absolute', inset: 0, isolation: 'isolate' }}>
             {pr ? (
               hostFaces(<PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />)
             ) : sc ? (
@@ -777,6 +781,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
               </FocusLayoutContainer>
               )
             )}
+            </div>
             {isHost && deckPanel && (
               <div style={{ position: 'absolute', top: 8, left: 12, zIndex: 60, width: 320, maxHeight: '80vh', overflow: 'auto', background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 12, color: '#e5e7eb', fontSize: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}><b style={{ flex: 1 }}>📊 Present</b><button onClick={() => setDeckPanel(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>×</button></div>

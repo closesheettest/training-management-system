@@ -20,7 +20,7 @@ export const activeRecorder = () => ACTIVE
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
-  constructor({ fileName, micTrack, folderId, camTrack, liveRoom, cropEl }) { this.cropEl = cropEl || null; this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.liveRoom = liveRoom || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
+  constructor({ fileName, micTrack, folderId, camTrack, liveRoom, cropEl, onlyEl }) { this.cropEl = cropEl || null; this.onlyEl = onlyEl || null; this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.liveRoom = liveRoom || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
 
   // MUST be called straight from a click (the browser requires it for the "share this tab" box).
   async start() {
@@ -64,7 +64,13 @@ export class LocalRecorder {
     let vTrack = display.getVideoTracks()[0]
     // JUST THE MEETING PICTURE (Neal, 2026-10-07: "yes for sure" — leave the toolbars out). Chrome's Region Capture
     // crops this tab's capture to one element: the stage between the top toolbar and the mic/camera bar.
-    if (this.cropEl && window.CropTarget && vTrack.cropTo) {
+    // Best: Element Capture records ONLY the meeting view — anything floating on top of it (notes, Present, Host
+    // controls) is left out even where it covers the video. Older Chrome: Region Capture crops to the stage instead.
+    let restricted = false
+    if (this.onlyEl && window.RestrictionTarget && vTrack.restrictTo) {
+      try { await vTrack.restrictTo(await window.RestrictionTarget.fromElement(this.onlyEl)); restricted = true } catch { /* crop instead */ }
+    }
+    if (!restricted && this.cropEl && window.CropTarget && vTrack.cropTo) {
       try { await vTrack.cropTo(await window.CropTarget.fromElement(this.cropEl)) } catch { /* whole tab then */ }
     }
     try {
