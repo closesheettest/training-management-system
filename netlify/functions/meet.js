@@ -1061,6 +1061,24 @@ export const handler = async (event) => {
     const admin = INTERNAL ? 'reminder job' : await verifyPin(b.pin)
     if (!admin) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const rooms = await loadRooms()
+    // 📇 MY CONTACTS (Neal, 2026-10-07: "it knows it's me from my PIN … add someone else and it saves their contact
+    // information in my contacts"): one list per PIN holder. Fed by every outside person they invite (on save, or the
+    // 💾 button) and by a .vcf import. The old shared list (meet_contacts) is read as Neal's — it's the one he started.
+    const myKey = `meet_contacts_${slugify(admin)}`
+    const dgt = (x) => String(x || '').replace(/\D/g, '').slice(-10)
+    const loadMine = async () => { const m = (await getSetting(myKey, null)) || []; return m.length || !/^neal/i.test(admin) ? m : (await getSetting('meet_contacts', [])) || [] }
+    const addMine = async (list) => {
+      const cur = await loadMine(); let added = 0
+      const at = new Map(cur.map((c, i) => [(c.email || '').toLowerCase() || dgt(c.phone), i]))
+      for (const c of (Array.isArray(list) ? list : []).slice(0, 5000)) {
+        const name = String(c.name || '').trim().slice(0, 80), email = String(c.email || '').trim().toLowerCase().slice(0, 120), phone = String(c.phone || '').trim().slice(0, 30)
+        const k = email || dgt(phone); if (!name || !k) continue
+        if (at.has(k)) { const o = cur[at.get(k)]; if (!o.email && email) o.email = email; if (!o.phone && phone) o.phone = phone; continue } // fill in what was missing
+        at.set(k, cur.length); cur.push({ name, email: email || null, phone: phone || null }); added++
+      }
+      await putSetting(myKey, cur)
+      return { added, total: cur.length }
+    }
     if (b.action === 'rooms') {
       // One-off meetings: RSVP counts for the card.
       const { data: rs } = await sb.from('app_settings').select('key, value').like('key', 'meet_rsvp_%')
@@ -1085,6 +1103,7 @@ export const handler = async (event) => {
     }
     if (b.action === 'save_room') {
       const r = b.room || {}
+      await addMine((r.invitees || []).filter((y) => !y.id)).catch((e) => console.warn('my contacts', e.message))
       // A NEW room gets its own address. Team rooms all called "Morning Sales Training" used to
       // share one, so saving the second wrote over the first (Neal, 2026-10-04). Team rooms take
       // the team name (morning-sales-training-hurricane); any clash after that gets -2, -3….
@@ -1225,35 +1244,23 @@ export const handler = async (event) => {
       const { data: allT } = await sb.from('trainees').select('phone').or('is_active_sales_rep.eq.true,managed_region.not.is.null')
       const tms = new Set((allT || []).map((x) => dg(x.phone)).filter(Boolean))
       const staffAll = (await companyStaff()).filter((x) => !x.cell || !tms.has(x.cell))
-      // 📇 CONTACTS (Neal, 2026-10-07: "invite two people from Five Star … they're in my email"): everyone ever invited from
-      // outside on any room, plus contacts imported from a Gmail / Mac Contacts file (meet_contacts). Not staff, not in TMS.
+      // 📇 CONTACTS (Neal, 2026-10-07: "invite two people from Five Star … they're in my email"): MY contacts first (this
+      // PIN's own list), then anyone else ever invited from outside on any room. Not staff, not in TMS.
       const seen = new Set([...staffAll.map((x) => (x.email || '').toLowerCase()), ...staffAll.map((x) => x.cell)].filter(Boolean))
       const contacts = []
-      const addC = (c) => {
+      const addC = (c, dept) => {
         const name = String(c.name || '').trim(), email = String(c.email || '').trim().toLowerCase(), cell = dg(c.phone)
         if (!name || (!email && !cell)) return
         const k = email || cell; if (seen.has(k) || (cell && tms.has(cell))) return; seen.add(k); if (email && cell) seen.add(cell)
-        contacts.push({ name, email: email || null, phone: c.phone || null, cell: cell || null, dept: '📇 Contacts' })
+        contacts.push({ name, email: email || null, phone: c.phone || null, cell: cell || null, dept })
       }
-      for (const r of rooms) for (const y of r.invitees || []) if (!y.id) addC(y)
-      for (const c of (await getSetting('meet_contacts', [])) || []) addC(c)
+      for (const c of await loadMine()) addC(c, '📇 My contacts')
+      for (const r of rooms) for (const y of r.invitees || []) if (!y.id) addC(y, '📇 Invited before')
       const staff = [...staffAll, ...contacts].sort((a, c) => a.dept.localeCompare(c.dept) || a.name.localeCompare(c.name))
       return json(200, { ok: true, staff, people: (data || []).filter((p) => p.registration_token).map((p) => ({ id: p.id, name: fullName(p), tag: p.managed_region ? `Manager · ${TEAMS[p.managed_region] || p.managed_region}` : now.has(p.id) && !p.is_active_sales_rep ? 'Trainee' : p.rep_level === 'non_field' ? 'Office' : (TEAMS[p.region] || p.region || 'Rep') })).sort((a, c) => a.name.localeCompare(c.name)) })
     }
     // 📥 IMPORT CONTACTS: a list parsed from a .vcf (Gmail "Export → vCard", Mac Contacts "Export vCard") — merged, deduped.
-    if (b.action === 'import_contacts') {
-      const cur = (await getSetting('meet_contacts', [])) || []
-      const dgt = (x) => String(x || '').replace(/\D/g, '').slice(-10)
-      const have = new Set(cur.map((c) => (c.email || '').toLowerCase() || dgt(c.phone)))
-      let added = 0
-      for (const c of (Array.isArray(b.contacts) ? b.contacts : []).slice(0, 5000)) {
-        const name = String(c.name || '').trim().slice(0, 80), email = String(c.email || '').trim().toLowerCase().slice(0, 120), phone = String(c.phone || '').trim().slice(0, 30)
-        const k = email || dgt(phone); if (!name || !k || have.has(k)) continue
-        have.add(k); cur.push({ name, email: email || null, phone: phone || null }); added++
-      }
-      await putSetting('meet_contacts', cur)
-      return json(200, { ok: true, added, total: cur.length })
-    }
+    if (b.action === 'import_contacts') return json(200, { ok: true, ...(await addMine(b.contacts)) })
     if (b.action === 'delete_room') {
       await putSetting('meet_rooms', rooms.filter((x) => x.slug !== b.slug))
       return json(200, { ok: true })

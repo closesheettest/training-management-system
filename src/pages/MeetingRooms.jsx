@@ -409,9 +409,9 @@ export default function MeetingRooms() {
                   })()}
                 </div>
                 {/* 📥 IMPORT CONTACTS (Neal, 2026-10-07): Gmail → Contacts → Export → vCard, or Mac Contacts → File → Export vCard.
-                    They land in the 📇 Contacts group above, with everyone you've invited from outside before. */}
+                    They land in 📇 My contacts (this PIN's own list) above. */}
                 <label className="mt-2 inline-block cursor-pointer text-sm font-semibold text-blue-700">
-                  📥 Import contacts (.vcf from Gmail or Mac Contacts)
+                  📥 Import a contacts file (optional — .vcf from Gmail or Mac Contacts)
                   <input type="file" accept=".vcf,text/vcard" className="hidden" onChange={async (e) => {
                     const f = e.target.files?.[0]; e.target.value = ''; if (!f) return
                     const text = await f.text()
@@ -423,14 +423,22 @@ export default function MeetingRooms() {
                     if (!cards.length) { alert('No contacts with an email or phone in that file.'); return }
                     const j = await call({ action: 'import_contacts', contacts: cards }).catch(() => ({}))
                     if (!j.ok) { alert(j.error || 'Could not import.'); return }
-                    alert(`Imported ${j.added} new contact${j.added === 1 ? '' : 's'} (${j.total} in 📇 Contacts). They're in 📇 Contacts below.`)
+                    alert(`Imported ${j.added} new contact${j.added === 1 ? '' : 's'} — ${j.total} in 📇 My contacts.`)
                     const r = await call({ action: 'people_search' }).catch(() => ({})); if (r.ok) setStaff(r.staff || [])
                   }} />
                 </label>
                 <div className="mt-3 font-bold">Someone not in TMS?</div>
+                <div className="text-xs text-slate-500">Anyone you add here is saved to 📇 My contacts when you save the meeting — next time, just tick them in the list.</div>
                 {(form.invitees || []).filter((y) => !y.id).map((y, i) => (
                   <div key={y.key || i} className="mt-1 flex flex-wrap gap-2">
                     {['name', 'phone', 'email'].map((f) => <input key={f} value={y[f] || ''} placeholder={f[0].toUpperCase() + f.slice(1)} onChange={(e) => setForm({ ...form, invitees: form.invitees.map((z) => (z === y ? { ...z, [f]: e.target.value } : z)) })} className="w-40 flex-1 rounded border border-slate-300 px-2 py-1" />)}
+                    <button title="Save to My contacts now" onClick={async () => {
+                      if (!String(y.name || '').trim() || !(String(y.phone || '').trim() || String(y.email || '').trim())) { alert('Add a name and a phone or email first.'); return }
+                      const j = await call({ action: 'import_contacts', contacts: [y] }).catch(() => ({}))
+                      if (!j.ok) { alert(j.error || 'Could not save.'); return }
+                      const r = await call({ action: 'people_search' }).catch(() => ({})); if (r.ok) setStaff(r.staff || [])
+                      alert(`${String(y.name).trim()} is in 📇 My contacts.`)
+                    }} className="text-xs font-semibold text-blue-700">💾 save</button>
                     <button onClick={() => setForm({ ...form, invitees: form.invitees.filter((z) => z !== y) })} className="text-xs text-red-600">remove</button>
                   </div>
                 ))}
