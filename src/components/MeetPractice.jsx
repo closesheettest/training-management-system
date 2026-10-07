@@ -29,6 +29,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const [who, setWho] = useState('')
   const [personaKey, setPersonaKey] = useState('welcome')
   const [sectionKey, setSectionKey] = useState('full')
+  const [impulsePick, setImpulsePick] = useState('random') // same 4th step as the Sales Training page (Neal, 2026-10-07)
   // ONE SLIDE (and the 5-minute control drill) — pick which slide, same list as the Sales Training
   // Customer page (training_days "Slide N" rows) (Neal, 2026-10-04).
   const [slideN, setSlideN] = useState('')
@@ -70,7 +71,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
       // something is playing it, so a muted <audio> keeps it flowing.
       const inStream = new MediaStream([mic])
       audioEl.current = new Audio(); audioEl.current.muted = true; audioEl.current.srcObject = inStream; audioEl.current.play().catch(() => {})
-      const imp = IMPULSE_SECTIONS.includes(section.key) ? IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key : null
+      const imp = IMPULSE_SECTIONS.includes(section.key) ? (IMPULSES.find((x) => x.key === impulsePick)?.key || IMPULSES[Math.floor(Math.random() * IMPULSES.length)].key) : null
       setImpulse(imp)
       const h = new LiveHomeowner({
         systemPrompt: homeownerPrompt(persona, section.key, imp), voice: persona.voice, inputStream: inStream, routeOut: true,
@@ -146,16 +147,22 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
             <option value="">{trainees.length ? '— pick who is presenting —' : '— nobody else in the meeting yet —'}</option>
             {trainees.map((p) => <option key={p.identity} value={p.identity}>{p.isLocal ? `Me (${p.name || 'you'}) — demo it` : p.name}{p.isMicrophoneEnabled ? '' : ' (muted)'}</option>)}
           </select></label>
-          <label>Homeowner<select value={personaKey} onChange={(e) => setPersonaKey(e.target.value)} style={sel}>
-            {[...PERSONAS].sort((a, b) => ORDER[a.difficulty] - ORDER[b.difficulty]).map((p) => <option key={p.key} value={p.key}>{p.difficulty}: {p.name}</option>)}
-          </select></label>
-          <label>Section<select value={sectionKey} onChange={(e) => setSectionKey(e.target.value)} style={sel}>
+          <label>What are they doing?<select value={sectionKey} onChange={(e) => setSectionKey(e.target.value)} style={sel}>
             {SECTIONS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select></label>
           {picker && (
             <label>Which slide<select value={slideN} onChange={(e) => setSlideN(e.target.value)} style={sel}>
               <option value="">— pick the slide —</option>
               {slideList.map((d) => { const n = parseInt(String(d.subject).match(/\d+/)[0], 10); return <option key={d.subject} value={n}>{d.subject}: {d.title}</option> })}
+            </select></label>
+          )}
+          <label>Easy, medium or hard? (homeowner)<select value={personaKey} onChange={(e) => setPersonaKey(e.target.value)} style={sel}>
+            {[...PERSONAS].sort((a, b) => ORDER[a.difficulty] - ORDER[b.difficulty]).map((p) => <option key={p.key} value={p.key}>{p.difficulty}: {p.name}</option>)}
+          </select></label>
+          {IMPULSE_SECTIONS.includes(sectionKey) && (
+            <label>Impulse factor<select value={impulsePick} onChange={(e) => setImpulsePick(e.target.value)} style={sel}>
+              <option value="random">🎲 Surprise me</option>
+              {IMPULSES.map((x) => <option key={x.key} value={x.key}>{x.short} · {x.label}</option>)}
             </select></label>
           )}
           <p style={{ fontSize: 12.5, color: '#94a3b8', margin: '0 0 8px' }}>The homeowner joins as its own tile and hears only the presenter. Share the slides as usual and use ◀ ▶ here so the homeowner knows which slide is up. Ask everyone else to mute.</p>
