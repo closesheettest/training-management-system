@@ -201,7 +201,9 @@ export default function RegionalManager() {
               // first thing in Today's work (Neal, 2026-10-05). Nothing shows on a no-meeting day.
               ['', <YourMeetings token={token} banner />],
               ['', <RetrainingPick token={token} />],
-              ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts'],
+              // ALWAYS SHOWN (Anthony, 2026-10-07: "the section that let me assign appts as well as look at appts my team had
+              // scheduled for today and tomorrow and had a map … is missing") — it's also the team's today/tomorrow view.
+              ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts', true],
               ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} onCount={counter('deals')} />, 'deals'],
               ['🛠️ Deals to fix', <DealsToFix zone={manager.region} onCount={counter('fix')} />, 'fix'],
               ['🚫 Cancel reviews', <CancelReviews zone={manager.region} onCount={counter('cancel')} />, 'cancel'],
@@ -4487,7 +4489,7 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
             ? (() => {
               // A to-do (has a count key) shows only when something is waiting; while it's
               // still loading it stays mounted but hidden so it can finish (Neal, 2026-09-30).
-              const keyed = t.parts.filter((x) => x[2])
+              const keyed = t.parts.filter((x) => x[2] && !x[3])
               const none = (k) => counts[k] === 0 || (counts[k] === undefined && waited)
               const allClear = keyed.length > 0 && keyed.every((x) => none(x[2]))
               const checking = !waited && keyed.some((x) => counts[x[2]] === undefined)
@@ -4500,13 +4502,18 @@ function TileBoard({ tiles, storageKey, counts = {} }) {
                   </div>
                 )}
                 {checking && !allClear && <div className="mb-3 text-xs text-slate-300/70">Checking what's waiting…</div>}
-                {t.parts.map(([label, node, k], pi) => {
-                  const hide = k && !(counts[k] > 0 || counts[k] === -1)
+                {t.parts.map(([label, node, k, always], pi) => {
+                  const hide = k && !always && !(counts[k] > 0 || counts[k] === -1)
+                  // An empty to-do says so in one line instead of vanishing (Anthony, 2026-10-07: "the red button … is missing").
+                  const empty = hide && counts[k] === 0 && !allClear
                   return (
-                    <div key={label || pi} className="mb-5" style={hide ? { display: 'none' } : undefined}>
+                    <div key={label || pi} className="mb-5">
+                      {empty && label && <div className="rounded-md border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-200">✅ {label.replace(/^\S+\s/, '')} — nothing waiting right now</div>}
+                      <div style={hide ? { display: 'none' } : undefined}>
                       {/* No bar when it would only repeat the section's own title. */}
                       {label && <div className={`mb-2 rounded-md bg-gradient-to-r ${t.color} px-3 py-1.5 text-sm font-bold text-white opacity-90`}>{label}{k && counts[k] > 0 ? ` · ${counts[k]}` : ''}</div>}
                       {node}
+                      </div>
                     </div>
                   )
                 })}
