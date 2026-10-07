@@ -416,6 +416,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   const [scripturePanel, setScripturePanel] = useState(false)
   const [deckPanel, setDeckPanel] = useState(false)
   const deckApi = useRef(null)
+  const stageRef = useRef(null) // the meeting picture — what "Record to my computer" keeps (no toolbars)
   const [practice, setPractice] = useState(false) // 🎭 AI homeowner practice (trainer PIN only)
   const [circle, setCircle] = useState(true) // presenter circle — the sharer's choice, on by default
   const [lastSpeaker, setLastSpeaker] = useState(null)
@@ -488,7 +489,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         // hit "already exists — replace?"), so every recording gets its own file.
         const now = new Date()
         const stamp = `${now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} ${now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }).replace(':', '-')}`
-        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`, liveRoom: roomCtx,
+        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`, liveRoom: roomCtx, cropEl: stageRef.current,
           // TWO FILES (Neal, 2026-10-07: "in my settings I have it set to save two files — the viewer and the camera view"):
           // the room's "both" / "raw" setting also records the host's own camera, saved next to the meeting file.
           camTrack: ['both', 'raw'].includes(room.rec_kind) ? localParticipant?.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack : null })
@@ -712,7 +713,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
             "the bottom should freeze so if you have to scroll that doesn't move"). */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
+          <div ref={stageRef} style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
             {/* SCREEN SHARE, WHOLE SCREEN (Neal, 2026-10-05: a trainee "couldn't see the full screen"): the
                 shared screen is fitted inside the window, never cropped, and anyone can go full screen. */}
             {/* LiveKit's own two-arrow "focus" button on each video looked like full screen and did nothing here — hidden. */}

@@ -20,7 +20,7 @@ export const activeRecorder = () => ACTIVE
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
-  constructor({ fileName, micTrack, folderId, camTrack, liveRoom }) { this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.liveRoom = liveRoom || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
+  constructor({ fileName, micTrack, folderId, camTrack, liveRoom, cropEl }) { this.cropEl = cropEl || null; this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.liveRoom = liveRoom || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
 
   // MUST be called straight from a click (the browser requires it for the "share this tab" box).
   async start() {
@@ -62,6 +62,11 @@ export class LocalRecorder {
     // tab only sends a frame when the screen changes; MP4 players freeze on that. Redrawn onto a canvas 30 times a
     // second, the recorder gets an even stream of frames.
     let vTrack = display.getVideoTracks()[0]
+    // JUST THE MEETING PICTURE (Neal, 2026-10-07: "yes for sure" — leave the toolbars out). Chrome's Region Capture
+    // crops this tab's capture to one element: the stage between the top toolbar and the mic/camera bar.
+    if (this.cropEl && window.CropTarget && vTrack.cropTo) {
+      try { await vTrack.cropTo(await window.CropTarget.fromElement(this.cropEl)) } catch { /* whole tab then */ }
+    }
     try {
       // FRAMES STRAIGHT FROM THE CAPTURE (2026-10-07: still frozen — a video element that isn't on the page can stop
       // updating, so the canvas kept drawing the first frame). MediaStreamTrackProcessor hands over every frame the tab
