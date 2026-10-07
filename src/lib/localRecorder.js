@@ -63,15 +63,33 @@ export class LocalRecorder {
     // second, the recorder gets an even stream of frames.
     let vTrack = display.getVideoTracks()[0]
     try {
+      // FRAMES STRAIGHT FROM THE CAPTURE (2026-10-07: still frozen — a video element that isn't on the page can stop
+      // updating, so the canvas kept drawing the first frame). MediaStreamTrackProcessor hands over every frame the tab
+      // sends; the newest one is drawn 30 times a second. Where that isn't available, the video element is put ON the
+      // page (tiny and see-through) so Chrome keeps it playing.
+      let latest = null
+      if (typeof window.MediaStreamTrackProcessor === 'function') {
+        try {
+          const reader = new window.MediaStreamTrackProcessor({ track: vTrack }).readable.getReader()
+          this.frameReader = reader
+          ;(async () => { for (;;) { const { value, done } = await reader.read(); if (done) break; const old = latest; latest = value; try { old?.close() } catch { /* fine */ } } })().catch(() => {})
+          this.closeFrame = () => { try { latest?.close() } catch { /* fine */ } latest = null }
+        } catch { latest = null }
+      }
       const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = new MediaStream([vTrack])
+      v.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1'
+      document.body.appendChild(v)
       await v.play()
       const cv = document.createElement('canvas'); const g = cv.getContext('2d')
       const st = vTrack.getSettings ? vTrack.getSettings() : {}
-      cv.width = v.videoWidth || st.width || 1280; cv.height = v.videoHeight || st.height || 720
+      // At most 1920×1080 (even sizes): a Retina tab is ~3000 wide, more than an MP4 player expects.
+      const fit = (w, h) => { const k = Math.min(1, 1920 / (w || 1280), 1080 / (h || 720)); return [Math.round(((w || 1280) * k) / 2) * 2, Math.round(((h || 720) * k) / 2) * 2] }
+      ;[cv.width, cv.height] = fit(v.videoWidth || st.width, v.videoHeight || st.height)
       this.drawTimer = setInterval(() => {
         try {
-          if (v.videoWidth && (cv.width !== v.videoWidth || cv.height !== v.videoHeight)) { cv.width = v.videoWidth; cv.height = v.videoHeight }
-          g.drawImage(v, 0, 0, cv.width, cv.height)
+          if (v.videoWidth) { const [w, h] = fit(v.videoWidth, v.videoHeight); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h } }
+          if (latest) { const fw = latest.displayWidth, fh = latest.displayHeight; if (fw) { const [w, h] = fit(fw, fh); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h } } g.drawImage(latest, 0, 0, cv.width, cv.height) }
+          else g.drawImage(v, 0, 0, cv.width, cv.height)
         } catch { /* a frame skipped */ }
       }, 1000 / 30)
       this.drawVideo = v
@@ -80,10 +98,12 @@ export class LocalRecorder {
     const stream = new MediaStream([vTrack, ...dest.stream.getAudioTracks()])
     // MP4 FIRST (Neal, 2026-10-07: can it go to YouTube, can it be edited?): recent Chrome records MP4, which opens in
     // QuickTime / iMovie / any editor and uploads to YouTube. Older browsers fall back to WebM (YouTube takes that too).
-    const type = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
+    // HIGH PROFILE (avc1.640028 = level 4.0, up to 1080p). The baseline 42E01E only covers ~720×576, so a full-size tab
+    // came out as one frame and silence-for-video in QuickTime (2026-10-07).
+    const type = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1.4d0028,mp4a.40.2', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,opus', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || ''
     this.ext = type.startsWith('video/mp4') ? 'mp4' : 'webm'; this.mime = type.startsWith('video/mp4') ? 'video/mp4' : 'video/webm'
     this.fileName = this.fileName.replace(/\.(webm|mp4)$/i, '') + '.' + this.ext
-    this.rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 2_500_000 })
+    this.rec = new MediaRecorder(stream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 5_000_000 })
     const dir = await opfsDir()
     if (dir) {
       this.handle = await dir.getFileHandle(`${Date.now()}__${this.fileName}`, { create: true })
@@ -136,7 +156,8 @@ export class LocalRecorder {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
       if (this.camRec && this.camRec.state !== 'inactive') await new Promise((res) => { this.camRec.onstop = res; this.camRec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
-      clearInterval(this.drawTimer); try { this.drawVideo?.pause(); if (this.drawVideo) this.drawVideo.srcObject = null } catch { /* fine */ }
+      clearInterval(this.drawTimer); try { this.drawVideo?.pause(); if (this.drawVideo) { this.drawVideo.srcObject = null; this.drawVideo.remove() } } catch { /* fine */ }
+      try { this.frameReader?.cancel() } catch { /* fine */ } this.closeFrame?.()
       for (const a of this.keepAlive || []) { try { a.pause(); a.srcObject = null } catch { /* fine */ } }
       if (this.liveRoom && this.onRoomTrack) for (const ev of ['trackSubscribed', 'localTrackPublished', 'trackUnmuted']) { try { this.liveRoom.off(ev, this.onRoomTrack) } catch { /* fine */ } }
       try { await this.ctx?.close() } catch { /* fine */ }
