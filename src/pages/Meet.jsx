@@ -270,7 +270,7 @@ function DeviceHelp({ onClose }) {
   )
 }
 
-function TitleBar({ room, auth, isHost }) {
+function TitleBar({ room, auth, isHost, compact = false }) {
   const info = useRoomInfo()
   const roomMeta = useMemo(() => { try { return JSON.parse(info.metadata || '{}') } catch { return {} } }, [info.metadata])
   const live = roomMeta.topic
@@ -284,6 +284,20 @@ function TitleBar({ room, auth, isHost }) {
   const color = room.color || '#2563eb'
   const L = lookOf(room)
   const bn = L.banner || { bg: `linear-gradient(90deg, ${color}, ${color}cc)`, color: '#fff', font: "'Oswald', 'Arial Narrow', sans-serif", upper: true }
+  // COMPACT, FOR THE HOST (Neal, 2026-10-07: "everything above Gallery, Speaker, Background, Share meeting can go away …
+  // the attendees can see it's on forgiveness, I don't need to"): no title bar, no topic banner — just the REC light
+  // and the topic button, sitting in the toolbar row.
+  if (compact) return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <style>{'@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
+      {roomMeta.recording && <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: 12, whiteSpace: 'nowrap', animation: 'recBlink 1.4s ease-in-out infinite' }}>● REC</span>}
+      {editing
+        ? <><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} autoFocus placeholder="Today's topic" style={{ width: 220, padding: '5px 8px', borderRadius: 8, border: '1px solid #334155', background: '#0b1220', color: '#fff', fontSize: 13 }} />
+            <button onClick={save} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>Save</button>
+            <button onClick={() => setEditing(false)} style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid #475569', background: 'transparent', color: '#cbd5e1', cursor: 'pointer', fontSize: 13 }}>Cancel</button></>
+        : <button title={topic ? `Topic: ${topic}` : "Add today's topic"} onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>✏️ {topic || 'Topic'}</button>}
+    </span>
+  )
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: L.bar, color: L.text, borderBottom: L.light ? `1px solid ${L.border}` : 'none' }}>
@@ -628,12 +642,16 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   return (
     <LayoutContextProvider value={layoutContext} onWidgetChange={(w) => setShowChat(!!w.showChat)}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <TitleBar room={room} auth={auth} isHost={isHost} />
+        {!isHost && <TitleBar room={room} auth={auth} isHost={isHost} />}
         {/* 📱 PHONES (Neal, 2026-10-06: "on my phone it is cutting off tools on top and bottom"): both bars
             wrap onto a second line instead of running off the screen; device names + the "computer only"
             share button are hidden there to save room. */}
         <style>{'@media (max-width: 760px){.meet-topbar{flex-wrap:wrap;row-gap:6px;padding:6px 8px!important}.meet-topbar button{padding:5px 9px!important;font-size:12px!important}.lk-control-bar{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px!important;height:auto!important}.lk-control-bar .lk-button{padding:7px 10px;font-size:13px}.meet-devname,.meet-noshare{display:none!important}}'}</style>
         <div className="meet-topbar" style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
+          {isHost && <TitleBar room={room} auth={auth} isHost compact />}
+          {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
+              Chrome only hides its own bars in full screen; Esc comes back out. */}
+          <button title="Full screen — hides the browser's tabs, address bar and bookmarks (Esc to exit)" onClick={() => { const d = document; if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d); else { const el = d.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) } }} style={btn(false)}>⛶</button>
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
