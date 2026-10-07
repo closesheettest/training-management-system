@@ -91,6 +91,7 @@ const publicRoom = (r) => ({
   topic: r.topic || '', schedule: r.schedule || '', cameras_required: !!r.cameras_required, public: !!r.public,
   recording_enabled: !!r.recording_enabled,
   rec_where: r.rec_where === 'host' ? 'host' : 'cloud',
+  rec_kind: ['combined', 'raw', 'both'].includes(r.rec_kind) ? r.rec_kind : 'combined',
   rec_name: r.rec_name || '',
   mic_lock: !!r.mic_lock,
   no_host: !!r.no_host,

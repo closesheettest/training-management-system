@@ -483,9 +483,14 @@ function Stage({ room, auth, isHost, micLocked = false }) {
     if (isLocal) {
       if (starting) {
         if (!localRecordSupported()) { setRecBusy(false); setRecNote('Recording to your computer needs Chrome or Edge on a computer.'); return }
-        // Default file name = the room's name + the date (Neal, 2026-10-06); the Save box lets them change it.
-        const stamp = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-        const r = new LocalRecorder({ fileName: `${room.rec_name || `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}` })
+        // Default file name = the room's name + the date AND TIME (Neal, 2026-10-07: a second recording the same day
+        // hit "already exists — replace?"), so every recording gets its own file.
+        const now = new Date()
+        const stamp = `${now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })} ${now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }).replace(':', '-')}`
+        const r = new LocalRecorder({ fileName: `${room.rec_name ? `${room.rec_name} ${stamp}` : `${room.title} ${stamp}`}.webm`.replace(/[\\/:*?"<>|]/g, '').replace(/^[^\w(]+/, '').trim(), micTrack: localParticipant?.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack, folderId: `rec-${room.slug}`,
+          // TWO FILES (Neal, 2026-10-07: "in my settings I have it set to save two files — the viewer and the camera view"):
+          // the room's "both" / "raw" setting also records the host's own camera, saved next to the meeting file.
+          camTrack: ['both', 'raw'].includes(room.rec_kind) ? localParticipant?.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack : null })
         try { await r.start() } catch (e) { setRecBusy(false); setRecNote(/Permission|NotAllowed|denied/i.test(String(e?.name || e)) ? 'Recording cancelled — in the box Chrome shows, pick this tab and press Share.' : `Couldn't start recording: ${e?.message || e}`); return }
         localRec.current = r
         r.onStopped = () => { localRec.current = null; call({ action: 'record_stop', room: room.slug, identity: localParticipant?.identity, ...auth }).catch(() => {}) }

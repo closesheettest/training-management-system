@@ -20,7 +20,7 @@ export const activeRecorder = () => ACTIVE
 export const localRecordSupported = () => typeof window !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined'
 
 export class LocalRecorder {
-  constructor({ fileName, micTrack, folderId }) { this.fileName = fileName; this.micTrack = micTrack || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
+  constructor({ fileName, micTrack, folderId, camTrack }) { this.fileName = fileName; this.micTrack = micTrack || null; this.camTrack = camTrack || null; this.folderId = folderId ? String(folderId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) : null; this.chunks = []; this.onStopped = null }
 
   // MUST be called straight from a click (the browser requires it for the "share this tab" box).
   async start() {
@@ -52,6 +52,22 @@ export class LocalRecorder {
     // The browser's own "Stop sharing" bar ends the recording too.
     display.getVideoTracks()[0].addEventListener('ended', () => { if (this.rec?.state === 'recording') this.stop() })
     this.rec.start(2000)
+    // THE HOST'S CAMERA ON ITS OWN (the room's two-file setting): its own recorder + private file, saved next to the meeting.
+    if (this.camTrack && this.camTrack.readyState === 'live') {
+      try {
+        const camStream = new MediaStream([this.camTrack.clone(), ...(this.micTrack ? [this.micTrack.clone()] : [])])
+        this.camRec = new MediaRecorder(camStream, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 4_000_000 })
+        this.camName = this.fileName.replace(/\.webm$/i, '') + ' - camera.webm'
+        if (dir) { this.camHandle = await dir.getFileHandle(`${Date.now()}__${this.camName}`, { create: true }); this.camWritable = await this.camHandle.createWritable() }
+        this.camChunks = []; this.camQueue = Promise.resolve()
+        this.camRec.ondataavailable = (e) => {
+          if (!e.data || !e.data.size) return
+          if (this.camWritable) this.camQueue = this.camQueue.then(() => this.camWritable.write(e.data)).catch(() => { this.camChunks.push(e.data) })
+          else this.camChunks.push(e.data)
+        }
+        this.camRec.start(2000)
+      } catch { this.camRec = null }
+    }
     this.startedAt = Date.now()
     ACTIVE = this
   }
@@ -61,22 +77,40 @@ export class LocalRecorder {
     // SAVE AS (Neal, 2026-10-06: "what folder… how you name the file"): pressing Stop opens Chrome's Save
     // box with the name filled in, so the host picks the folder and can rename it. Must open right away
     // (it needs the click); if it can't (stopped by someone else / the browser bar), it downloads instead.
-    let saveTo = null
-    if (window.showSaveFilePicker) {
+    let saveTo = null, saveDir = null
+    // Two files → pick the FOLDER once and both land in it (a second Save box can't open without another click).
+    if (this.camRec && window.showDirectoryPicker) {
+      try { saveDir = await window.showDirectoryPicker({ id: this.folderId || 'meet-recordings', mode: 'readwrite', startIn: 'videos' }) } catch { saveDir = null }
+    } else if (window.showSaveFilePicker) {
       // id = remember the folder per room: after the first save, the box opens straight to that folder
       // (e.g. a shared iCloud / Google Drive "Devotional Recordings" folder Dianne can see) — just press Save.
       try { saveTo = await window.showSaveFilePicker({ id: this.folderId || 'meet-recordings', startIn: 'videos', suggestedName: this.fileName, types: [{ description: 'Video (WebM)', accept: { 'video/webm': ['.webm'] } }] }) } catch { saveTo = null }
     }
     this.stopping = (async () => {
       if (this.rec && this.rec.state !== 'inactive') await new Promise((res) => { this.rec.onstop = res; this.rec.stop() })
+      if (this.camRec && this.camRec.state !== 'inactive') await new Promise((res) => { this.camRec.onstop = res; this.camRec.stop() })
       try { this.display?.getTracks().forEach((t) => t.stop()) } catch { /* fine */ }
       try { await this.ctx?.close() } catch { /* fine */ }
       await this.queue
       let blob
       if (this.writable) { try { await this.writable.close() } catch { /* fine */ } blob = await this.handle.getFile() }
       else blob = new Blob(this.chunks, { type: 'video/webm' })
-      if (saveTo) { try { const w = await saveTo.createWritable(); await w.write(blob); await w.close() } catch { download(blob, this.fileName) } }
-      else download(blob, this.fileName)
+      let camBlob = null
+      if (this.camRec) {
+        await this.camQueue
+        if (this.camWritable) { try { await this.camWritable.close() } catch { /* fine */ } camBlob = await this.camHandle.getFile() }
+        else camBlob = new Blob(this.camChunks, { type: 'video/webm' })
+      }
+      const into = async (d, name, b) => { const fh = await d.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(b); await w.close() }
+      if (saveDir) {
+        try { await into(saveDir, this.fileName, blob) } catch { download(blob, this.fileName) }
+        if (camBlob) { try { await into(saveDir, this.camName, camBlob) } catch { download(camBlob, this.camName) } }
+      } else {
+        if (saveTo) { try { const w = await saveTo.createWritable(); await w.write(blob); await w.close() } catch { download(blob, this.fileName) } }
+        else download(blob, this.fileName)
+        if (camBlob) download(camBlob, this.camName)
+      }
+      if (this.camHandle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.camHandle.name) } catch { /* fine */ } }, 60000)
       // Downloaded → remove the private copy a minute later (the download has its own file by then).
       if (this.handle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.handle.name) } catch { /* fine */ } }, 60000)
       if (ACTIVE === this) ACTIVE = null
