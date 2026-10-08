@@ -672,7 +672,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         {/* 📱 PHONES (Neal, 2026-10-06: "on my phone it is cutting off tools on top and bottom"): both bars
             wrap onto a second line instead of running off the screen; device names + the "computer only"
             share button are hidden there to save room. */}
-        <style>{'@media (max-width: 760px){.meet-topbar{flex-wrap:wrap;row-gap:6px;padding:6px 8px!important}.meet-topbar button{padding:5px 9px!important;font-size:12px!important}.lk-control-bar{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px!important;height:auto!important}.lk-control-bar .lk-button{padding:7px 10px;font-size:13px}.meet-devname,.meet-noshare{display:none!important}}'}</style>
+        <style>{'.lk-disconnect-button{background:#dc2626!important;color:#fff!important;font-weight:800!important;border:none!important}@media (max-width: 760px){.meet-topbar{flex-wrap:wrap;row-gap:6px;padding:6px 8px!important}.meet-topbar button{padding:5px 9px!important;font-size:12px!important}.lk-control-bar{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px!important;height:auto!important}.lk-control-bar .lk-button{padding:7px 10px;font-size:13px}.meet-devname,.meet-noshare{display:none!important}}'}</style>
         <div className="meet-topbar" style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
           {isHost && <TitleBar room={room} auth={auth} isHost compact />}
           {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
@@ -721,6 +721,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           {/* 🚪 Breakout rooms (Neal, 2026-10-08: "put it up with the other tools up top") — opens the panel in Breakouts.jsx. */}
           {isHost && <button onClick={() => window.dispatchEvent(new Event('open-breakouts'))} title="Split people into breakout rooms" style={{ ...btn(false), background: '#4c1d95', border: 'none', marginRight: 6 }}>🚪 Breakout rooms</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
+          {/* 🔴 LEAVE, top right, for everyone (Neal, 2026-10-08: DeWayne couldn't find Leave in the Five Star meeting — it was
+              only in the bottom bar). The bottom one stays too, now solid red. */}
+          <button onClick={() => roomCtx.disconnect()} title="Leave this meeting"
+            style={{ ...btn(false), marginLeft: 'auto', background: '#dc2626', border: 'none', color: '#fff', fontSize: 14, padding: '7px 16px' }}>✕ Leave meeting</button>
         </div>
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
             "the bottom should freeze so if you have to scroll that doesn't move"). */}
