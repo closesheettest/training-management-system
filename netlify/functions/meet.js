@@ -1755,7 +1755,8 @@ export const handler = async (event) => {
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     let inLobby = null // ⏰ the devotional before it starts: early arrivals go to the lobby room instead of "not open"
-    if (!host) { const st = await openState(room); if (!st.open) { if (st.lobby) inLobby = { starts_at: st.starts_at }; else { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } } }
+    // test_lobby (?lobby=test on a link): straight into the lobby any time, to try it out (Neal, 2026-10-08).
+    if (!host) { const st = await openState(room); if (!st.open) { if (st.lobby || (st.on_time && b.test_lobby && st.starts_at)) inLobby = { starts_at: st.starts_at }; else { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } } }
     // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in … if I'm the
     // host, I don't want anybody else coming in. The only way another host can come in is if I do it in the setup saying
     // there's more than one host"). Nobody new gets in — not even another manager or an admin with the PIN — except the

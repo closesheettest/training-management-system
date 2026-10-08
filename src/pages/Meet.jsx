@@ -1033,7 +1033,7 @@ export default function Meet() {
 
   const doJoin = async (body) => {
     setBusy(true); setErr('')
-    const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
+    const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), ...(sp.get('lobby') === 'test' ? { test_lobby: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
     if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
