@@ -225,6 +225,21 @@ function NotesPrompter({ room, auth, me, onClose }) {
   )
 }
 
+// ⏺ HOW LONG IT'S BEEN RECORDING (Neal, 2026-10-08: "right up top where it's flashing recording … a time that it's been
+// recording"). Counts from the server's recording_at stamp (same for everyone, survives a reload); a room that was
+// already recording before the stamp existed counts from when this page first saw it.
+function RecBadge({ meta, size = 12 }) {
+  const seen = useRef(null)
+  const [, tick] = useState(0)
+  useEffect(() => { if (!meta.recording) { seen.current = null; return } if (!seen.current) seen.current = Date.now(); const iv = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(iv) }, [meta.recording])
+  if (!meta.recording) return null
+  const from = Date.parse(meta.recording_at || '') || seen.current || Date.now()
+  const s = Math.max(0, Math.floor((Date.now() - from) / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+  const t = h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`
+  return <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: size, letterSpacing: '.03em', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+    <span style={{ animation: 'recBlink 1.4s ease-in-out infinite' }}>●</span> REC {t}</span>
+}
+
 // ❓ HELP: CAMERA, MIC & SCREEN SHARING (Neal, 2026-10-06, after Sam's meeting on his iPhone). One guide per
 // device, the device you're on first. On the sign-in page and in the meeting's top bar.
 const DEVICE_HELP = [
@@ -291,7 +306,7 @@ function TitleBar({ room, auth, isHost, compact = false }) {
   if (compact) return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <style>{'@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
-      {roomMeta.recording && <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: 12, whiteSpace: 'nowrap', animation: 'recBlink 1.4s ease-in-out infinite' }}>● REC</span>}
+      <RecBadge meta={roomMeta} />
       {editing
         ? <><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} autoFocus placeholder="Today's topic" style={{ width: 220, padding: '5px 8px', borderRadius: 8, border: '1px solid #334155', background: '#0b1220', color: '#fff', fontSize: 13 }} />
             <button onClick={save} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>Save</button>
@@ -307,7 +322,7 @@ function TitleBar({ room, auth, isHost, compact = false }) {
         <div style={{ flex: 1, minWidth: 0, fontSize: L.light ? 24 : 17, fontWeight: L.light ? 600 : 900, fontFamily: L.fontHead, color: L.head, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {room.team && <span style={{ color, marginRight: 8 }}>{room.team}</span>}{room.title}
         </div>
-        {roomMeta.recording && <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: 12.5, letterSpacing: '.05em', whiteSpace: 'nowrap', animation: 'recBlink 1.4s ease-in-out infinite' }}>● REC</span>}
+        <RecBadge meta={roomMeta} size={12.5} />
         <style>{'@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.45}}'}</style>
         {isHost && !editing && <button onClick={() => { setDraft(topic || ''); setEditing(true) }} style={{ background: 'none', border: '1px solid #334155', borderRadius: 8, padding: '5px 10px', color: '#93c5fd', cursor: 'pointer', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>✏️ {topic ? 'Change' : 'Add'} today's topic</button>}
       </div>
@@ -620,7 +635,8 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
   }, [iPresent])
-  // ⌨ SHORTCUTS for Stream Deck buttons (Neal, 2026-10-04: Elgato Stream Deck → a "Hotkey" button
+  // (The ⌨ and ❓ toolbar buttons were removed 2026-10-08 — the keys below still work.)
+// ⌨ SHORTCUTS for Stream Deck buttons (Neal, 2026-10-04: Elgato Stream Deck → a "Hotkey" button
   // per action). All are Control+Option (Ctrl+Alt on Windows) + a key, so they never fire while
   // typing in chat. The meeting window has to be the one in front.
   const [kbNote, setKbNote] = useState('')
@@ -690,8 +706,6 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
           <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
           {(room.public || isHost) && <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>}
-          <button title="Keyboard shortcuts (for Stream Deck)" onClick={() => setKbHelp((x) => !x)} style={btn(kbHelp)}>⌨</button>
-          <button title="Help: camera, mic & screen sharing" onClick={() => setDevHelp(true)} style={btn(false)}>❓</button>
           {isHost && <button title="Your private notes / teleprompter — only you see it" onClick={() => setNotesOpen((x) => !x)} style={{ ...btn(notesOpen), ...(notesOpen ? {} : { borderColor: '#f59e0b' }) }}>📝 My notes</button>}
           <span style={{ flex: 1 }} />
           {isHost && !scriptureRoom && (decksFor(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}

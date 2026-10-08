@@ -1970,7 +1970,7 @@ export const handler = async (event) => {
         const act = await getSetting(activeKey, null)
         for (const id of act?.egress_ids || []) { try { await egress.stopEgress(id) } catch { /* already stopped */ } }
         await putSetting(activeKey, null)
-        try { await setMeta({ recording: false }) } catch { /* room closed */ }
+        try { await setMeta({ recording: false, recording_at: null }) } catch { /* room closed */ }
         // The file lands a minute or two later; meet-webhook (egress_ended) emails the link.
         return json(200, { ok: true, recording: false })
       }
@@ -1981,7 +1981,7 @@ export const handler = async (event) => {
       // and saves the file — nothing is sent to the recording service.
       if (room.rec_where === 'host' || b.local) {
         for (const p of list) if (!meta(p).host && !/^(egress|homeowner)/.test(p.identity)) { try { await muteMic(p); mutedN++ } catch { /* left */ } }
-        await setMeta({ recording: true, recording_local: true, spotlight: String(b.identity || '') })
+        await setMeta({ recording: true, recording_local: true, recording_at: new Date().toISOString(), spotlight: String(b.identity || '') }) // recording_at → the ● REC timer
         return json(200, { ok: true, recording: true, local: true, note: `⏺ Recording to your computer. ${mutedN ? `Muted ${mutedN} ${mutedN === 1 ? 'person' : 'people'}.` : ''}`.trim() })
       }
       for (const p of list) if (!meta(p).host && !/^(egress|homeowner)/.test(p.identity)) { try { await muteMic(p); mutedN++ } catch { /* left */ } }
@@ -2001,7 +2001,7 @@ export const handler = async (event) => {
           saved = ids.length > 0
         } catch (e) { note = `Recording didn't start: ${e.message}`; for (const id of ids) { try { await egress.stopEgress(id) } catch { /* ignore */ } } }
       } else note = 'Muted and switched everyone to speaker view. Saving the video needs storage set up (ask Neal).'
-      await setMeta({ recording: saved, spotlight: String(b.identity || '') })
+      await setMeta({ recording: saved, recording_at: saved ? new Date().toISOString() : null, spotlight: String(b.identity || '') })
       const mutedLine = mutedN ? `Muted ${mutedN} ${mutedN === 1 ? 'person' : 'people'}.` : 'Nobody else to mute.'
       return json(200, { ok: true, recording: saved, note: saved ? `⏺ Recording. ${mutedLine}` : `${mutedLine} ${note}`.trim() })
     }
