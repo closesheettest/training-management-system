@@ -52,6 +52,32 @@ export default function RepAttendance({ managerToken } = {}) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [only, setOnly] = useState('all') // all | problems
+  // 🌧 RAIN BY ZONE (Neal, 2026-10-08: "this week we've had rain … by area, when it rained"). ACTUAL rain, never a
+  // forecast: for each zone, where its reps knocked this range (their average door GPS, from CCG), the hours of the
+  // 9 AM–6 PM work day with a real shower (≥ 0.5 mm in the hour), from Open-Meteo's free hourly history. Today
+  // counts only the hours already gone. Shown as "🌧 5 of 9 hrs" — NOT a %, which reads as a chance of rain.
+  const [rain, setRain] = useState({}) // zone → { 'YYYY-MM-DD': { wet, of, mm } }
+  useEffect(() => {
+    if (!data?.places || !data?.days?.length) return
+    const pts = {}
+    for (const r of roster) { const p = data.places[r.jnid]; if (!p) continue; const z = r.zone || 'No zone'; (pts[z] = pts[z] || []).push(p) }
+    let live = true
+    const nowEt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+    const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    Promise.all(Object.entries(pts).map(async ([z, ps]) => {
+      const la = ps.reduce((t, p) => t + p[0], 0) / ps.length, lo = ps.reduce((t, p) => t + p[1], 0) / ps.length
+      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la.toFixed(3)}&longitude=${lo.toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${data.days[0]}&end_date=${data.days[data.days.length - 1]}`).then((x) => x.json()).catch(() => null)
+      const out = {}
+      ;(j?.hourly?.time || []).forEach((t, i) => {
+        const d = t.slice(0, 10), h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0
+        if (h < 9 || h > 17 || d > todayEt) return
+        if (d === todayEt && h >= nowEt.getHours()) return // not happened yet
+        const o = (out[d] = out[d] || { wet: 0, of: 0, mm: 0 }); o.of += 1; o.mm += mm; if (mm >= 0.5) o.wet += 1
+      })
+      return [z, out]
+    })).then((list) => { if (live) setRain(Object.fromEntries(list)) })
+    return () => { live = false }
+  }, [data, roster])
 
   async function load(p = pin, w = range) {
     if (!p) return
@@ -188,7 +214,7 @@ export default function RepAttendance({ managerToken } = {}) {
                 A rep is <b>checked in</b> when they open their personal dashboard <b>or DoorDispatcher</b> that day (🗺️ = DoorDispatcher). It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
                 {' '}A weekday they missed after that has to be given a reason the next time they sign in —
                 {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. A day William took them out shows <b>🎓 Training</b> and is never asked about.
-                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>📅 Appts</b> = sales appointments on their JobNimbus calendar that day. <b>⏱ Hrs</b> = active time knocking on DoorDispatcher (the time between doors, leaving out any gap over 30 minutes — an appointment, lunch, the drive). <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day).
+                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>📅 Appts</b> = sales appointments on their JobNimbus calendar that day. <b>⏱ Hrs</b> = active time knocking on DoorDispatcher (the time between doors, leaving out any gap over 30 minutes — an appointment, lunch, the drive). <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day). <b>🌧 rained 5 of 9 hrs</b> (on each team's row) = it ACTUALLY rained in 5 of the 9 work hours (9 AM–6 PM) where that team knocked — measured rain, not a chance-of-rain forecast; today counts only the hours so far.
               </p>
               {notStarted && <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Tracking starts {dayLabel(data.start)}. Days before that aren&rsquo;t counted.</div>}
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -236,6 +262,9 @@ export default function RepAttendance({ managerToken } = {}) {
                           {data.days.map((ds, i) => (
                             <td key={ds} className="whitespace-nowrap px-2 py-1.5 text-center text-[11px] font-bold text-indigo-900">
                               {z.byDay[i].appts ? `📅 ${z.byDay[i].appts} · ` : ''}🚪 {z.byDay[i].doors} · ⏱ {z.byDay[i].hrs}h
+                              {(() => { const w = rain[z.zone]?.[ds]; if (!w || !w.of) return null
+                                const tip = `Actual rain where ${z.zone} knocked (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
+                                return <div title={tip} className={`mt-0.5 text-[11px] font-extrabold ${w.wet ? 'text-sky-700' : 'text-slate-400'}`}>{w.wet ? `🌧 rained ${w.wet} of ${w.of} hrs` : `☀️ dry${w.of < 9 ? ' so far' : ''}`}</div> })()}
                             </td>
                           ))}
                         </tr>

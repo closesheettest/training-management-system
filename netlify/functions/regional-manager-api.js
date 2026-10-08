@@ -402,7 +402,7 @@ export const handler = async (event) => {
         const d = await r.json().catch(() => ({}))
         if (!d.ok) return json(502, { ok: false, error: d.error || 'Attendance unavailable' })
         const keep = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => ids.has(k)))
-        return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), appts: keep(d.appts), door_span: keep(d.door_span), active_hrs: keep(d.active_hrs), team: members })
+        return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), appts: keep(d.appts), door_span: keep(d.door_span), active_hrs: keep(d.active_hrs), places: keep(d.places), team: members })
       }
       const qs = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? `?date=${body.date}` : ''
       const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/presentation-activity${qs}`)
