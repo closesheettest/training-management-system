@@ -24,6 +24,7 @@ import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
 import { ScriptureSlide } from '../components/Scripture.jsx'
+import { ScriptureFollow, ScriptureCard } from '../components/ScriptureFollow.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby, { READY } from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
@@ -430,6 +431,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
   const [scripturePanel, setScripturePanel] = useState(false)
+  const [myScripture, setMyScripture] = useState(null) // 📖 the passage kept on the HOST's screen after "back to me"
   const [deckPanel, setDeckPanel] = useState(false)
   const deckApi = useRef(null)
   const stageRef = useRef(null) // the meeting picture — what "Record to my computer" keeps (no toolbars)
@@ -865,6 +867,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             {devHelp && <DeviceHelp onClose={() => setDevHelp(false)} />}
             {kbHelp && <ShortcutHelp isHost={isHost} onClose={() => setKbHelp(false)} />}
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
+            {/* 📖 Voice-follow: when the presenting host reads the last words, "Done with the scripture?" → the room sees
+                them again and the passage stays in a corner card on their screen only (Neal, 2026-10-08). */}
+            <ScriptureFollow sc={sc} active={!!(isHost && sc && sc.by && sc.by === localParticipant?.identity)} onBack={(s) => { setMyScripture(s); setScripture({ ...s, showing: false }); setScripturePanel(false) }} />
+            {myScripture && !sc && <ScriptureCard sc={myScripture} onClose={() => setMyScripture(null)} />}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
