@@ -430,11 +430,12 @@ export const handler = async (event) => {
     // used to open the room ("live") to everyone. Here nobody but a host gets in until the start time; the waiting page
     // lets them in by itself at the minute. Every other room keeps "15 minutes early, or as soon as a host is in".
     if (r.kind === 'prayer' || r.look === 'devotional') {
-      // …or a host pressed "Let everyone in" today. Before that, arrivals from 15 minutes early wait in the LOBBY
+      // …or a host pressed "Let everyone in" today. Before that, arrivals (any time) wait in the LOBBY
       // (their own room — they can talk), and come through together (Neal, 2026-10-08: "like a breakaway room that comes together").
       const letIn = !!(await getSetting(`meet_lobby_open_${r.slug}_${etDay()}`, null))
       const open = letIn || !!(nm && Date.now() >= nm.start.getTime() - 20000)
-      return { live, open, on_time: true, lobby: !open && !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000), starts_at: nm ? nm.start.toISOString() : null }
+      // Straight to the lobby whenever they arrive before the start — no "opens at 9:00" screen (DeWayne via Neal, 2026-10-08).
+      return { live, open, on_time: true, lobby: !open && !!nm, starts_at: nm ? nm.start.toISOString() : null }
     }
     const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
     return { live, open }
