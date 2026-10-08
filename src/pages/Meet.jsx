@@ -454,6 +454,11 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   }, [localParticipant, micLocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const bg = useBackground(localParticipant)
   const [bgPanel, setBgPanel] = useState(false)
+  // 🚫 NO BACKGROUND FOR DEWAYNE (Neal, 2026-10-08: "remove background just for DeWayne … it's really annoying him").
+  // The pick is remembered per device, so on his joins it's forced off, the 🖼 button is hidden and the 1/2/3/9/0
+  // background keys do nothing — it can't come back on by accident.
+  const noBg = /^(de\s*wayne|dwayne)\b/i.test(String(localParticipant?.name || '').trim())
+  useEffect(() => { if (noBg && bg.choice && bg.choice !== 'none') bg.pick('none') }, [noBg, bg.choice]) // eslint-disable-line react-hooks/exhaustive-deps
   const [sharePanel, setSharePanel] = useState(false)
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
@@ -646,7 +651,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const [notesOpen, setNotesOpen] = useState(false)
   const [devHelp, setDevHelp] = useState(false)
   const kbRef = useRef({})
-  kbRef.current = { dk, sc, iPresent, isHost, room, auth, bg, setDeck, setScripture, toggleRec, pickView, localParticipant, roomCtx, stageIds, recording: rmeta.recording }
+  kbRef.current = { dk, sc, iPresent, isHost, room, auth, bg, noBg, setDeck, setScripture, toggleRec, pickView, localParticipant, roomCtx, stageIds, recording: rmeta.recording }
   useEffect(() => {
     const say = (t) => { setKbNote(t); clearTimeout(say.t); say.t = setTimeout(() => setKbNote(''), 1800) }
     const onKey = async (e) => {
@@ -668,10 +673,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         KeyG: () => { k.pickView('gallery'); say('Gallery view') },
         KeyK: () => { k.pickView('speaker'); say('Speaker view') },
         KeyP: () => { if (!k.isHost || !k.stageIds.length) return say('Podcast mode is not on'); host('set_stage', 'Left podcast mode') },
-        Digit1: () => { k.bg.pick('uss-white'); say('Background: white, logo right') },
-        Digit2: () => { k.bg.pick('uss-white-center'); say('Background: white, logo top') },
-        Digit3: () => { k.bg.pick('uss-navy'); say('Background: navy') },
-        Digit9: () => { k.bg.pick('blur'); say('Background: blur') },
+        Digit1: () => { if (k.noBg) return; k.bg.pick('uss-white'); say('Background: white, logo right') },
+        Digit2: () => { if (k.noBg) return; k.bg.pick('uss-white-center'); say('Background: white, logo top') },
+        Digit3: () => { if (k.noBg) return; k.bg.pick('uss-navy'); say('Background: navy') },
+        Digit9: () => { if (k.noBg) return; k.bg.pick('blur'); say('Background: blur') },
         Digit0: () => { k.bg.pick('none'); say('Background: none') },
         Slash: () => setKbHelp((x) => !x),
       }
@@ -706,7 +711,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           <span style={{ color: '#94a3b8', fontSize: 13, marginRight: 4 }}>View:</span>
           <button onClick={() => pickView('gallery')} style={btn(share ? galleryDuringShare : view === 'gallery')}>▦ Gallery</button>
           <button onClick={() => pickView('speaker')} style={btn(share ? !galleryDuringShare : view === 'speaker')}>{share ? '🖥 Shared screen' : '◧ Speaker'}</button>
-          <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>
+          {!noBg && <button onClick={() => setBgPanel((x) => !x)} style={btn(bgPanel)}>🖼 Background</button>}
           {(room.public || isHost) && <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>}
           {isHost && <button title="Your private notes / teleprompter — only you see it" onClick={() => setNotesOpen((x) => !x)} style={{ ...btn(notesOpen), ...(notesOpen ? {} : { borderColor: '#f59e0b' }) }}>📝 My notes</button>}
           <span style={{ flex: 1 }} />
