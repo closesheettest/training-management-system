@@ -2689,6 +2689,8 @@ function RetrainingPick({ token }) {
   const [sel, setSel] = useState({})
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
+  const [open, setOpen] = useState(false)
+  const [week, setWeek] = useState('')
   const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'retrain_open', token }) }).then((r) => r.json()).then((j) => setD(j.ok ? j.rooms : [])).catch(() => setD([]))
   useEffect(() => { load() }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!d || !d.length) return null
@@ -2704,31 +2706,58 @@ function RetrainingPick({ token }) {
     setMsg(`✅ Signed up ${j.added}. Invites and homework sent.${miss.length ? ` Couldn't reach: ${miss.join(', ')}.` : ''}`)
     setSel({ ...sel, [room.slug]: {} }); load()
   }
+  // ONE BUTTON, NOT A WALL (Neal, 2026-10-08: "it takes over" the dashboard): tap → pick the week → tick reps → Submit.
+  const totalPicked = d.reduce((n, r) => n + r.team.filter((t) => t.picked).length, 0)
+  const room = d.find((r) => r.slug === week) || null
   return (
-    <div className="space-y-3">
-      {d.map((room) => {
-        const picked = room.team.filter((t) => t.picked)
-        return (
-          <div key={room.slug} className="rounded-xl border-2 border-fuchsia-400 bg-gradient-to-r from-fuchsia-900/60 to-purple-900/60 p-4 text-slate-100">
-            <div className="text-lg font-extrabold text-white">🔁 {room.title}: {room.range}</div>
-            <div className="mt-0.5 text-sm font-semibold text-fuchsia-100">{room.sessions} (Eastern)</div>
-            <div className="mt-0.5 text-xs font-bold text-amber-200">Sign-up closes {room.closes} (a week before the class).</div>
-            <div className="mt-2 text-sm text-slate-200">Tick which of your reps need it, then Submit. Each one gets their link plus homework: slides 1–5 with their points, the full sales script, and a practice test (slides 1–5, the easy homeowner), done before the first session.</div>
-            <div className="mt-3 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
-              {room.team.map((t) => (
-                <label key={t.id} className={`flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm ${t.picked ? '' : 'cursor-pointer'}`}>
-                  <input type="checkbox" disabled={t.picked || !!t.other} checked={t.picked || !!sel[room.slug]?.[t.id]} onChange={(e) => setSel({ ...sel, [room.slug]: { ...(sel[room.slug] || {}), [t.id]: e.target.checked } })} />
-                  <span className="flex-1">{t.name}{t.other && !t.picked && <span className="ml-1 text-xs text-slate-400">(in the {t.other} class)</span>}</span>
-                  {t.picked && <span className={`rounded px-1.5 text-xs font-bold ${t.practice === 'done' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-amber-500/30 text-amber-200'}`}>{t.practice === 'done' ? '✓ signed up · practice done' : '✓ signed up · practice not done yet'}</span>}
-                </label>
-              ))}
-            </div>
-            <button type="button" disabled={busy === room.slug} onClick={() => submit(room)} className="mt-3 w-full rounded-md bg-fuchsia-600 px-4 py-2.5 font-extrabold text-white disabled:opacity-60">{busy === room.slug ? 'Sending…' : 'Submit: sign them up & send their homework'}</button>
-            {picked.length > 0 && <div className="mt-2 text-xs text-slate-300">{picked.length} signed up so far.</div>}
-            {msg && <p className={`mt-2 text-sm font-semibold ${msg.startsWith('✅') ? 'text-emerald-300' : 'text-amber-300'}`}>{msg}</p>}
-          </div>
-        )
-      })}
+    <div className="rounded-xl border border-fuchsia-400/70 bg-fuchsia-900/30 text-slate-100">
+      <button type="button" onClick={() => { setOpen(!open); setMsg('') }} className="flex w-full items-center gap-2 px-4 py-3 text-left">
+        <span className="flex-1 text-base font-extrabold text-white">🔁 {d[0].title}: sign up reps</span>
+        {totalPicked > 0 && <span className="rounded bg-fuchsia-500/30 px-2 text-xs font-bold text-fuchsia-100">{totalPicked} signed up</span>}
+        <span className="text-slate-300">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-white/10 px-4 pb-4 pt-3">
+          {!room ? (
+            <>
+              <div className="mb-2 text-sm font-semibold text-slate-200">Which week?</div>
+              <div className="space-y-2">
+                {d.map((r) => {
+                  const n = r.team.filter((t) => t.picked).length
+                  return (
+                    <button key={r.slug} type="button" onClick={() => { setWeek(r.slug); setMsg('') }} className="flex w-full items-center gap-2 rounded-lg border border-white/15 bg-slate-950/30 px-3 py-2 text-left hover:bg-white/5">
+                      <span className="flex-1">
+                        <span className="block font-bold text-white">{r.range}</span>
+                        <span className="block text-xs text-amber-200">Sign-up closes {r.closes}</span>
+                      </span>
+                      {n > 0 && <span className="text-xs text-slate-300">{n} signed up</span>}
+                      <span className="text-slate-300">›</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => { setWeek(''); setMsg('') }} className="mb-2 text-sm font-semibold text-fuchsia-200">‹ Pick a different week</button>
+              <div className="font-extrabold text-white">{room.range}</div>
+              <div className="text-xs text-fuchsia-100">{room.sessions} (Eastern) · sign-up closes {room.closes}</div>
+              <div className="mt-1 text-xs text-slate-300">Each rep you tick gets their link plus homework (slides 1–5 with their points, the full script, a practice test), due before the first session.</div>
+              <div className="mt-2 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
+                {room.team.map((t) => (
+                  <label key={t.id} className={`flex items-center gap-2 border-b border-white/10 px-3 py-1.5 text-sm ${t.picked ? '' : 'cursor-pointer'}`}>
+                    <input type="checkbox" disabled={t.picked || !!t.other} checked={t.picked || !!sel[room.slug]?.[t.id]} onChange={(e) => setSel({ ...sel, [room.slug]: { ...(sel[room.slug] || {}), [t.id]: e.target.checked } })} />
+                    <span className="flex-1">{t.name}{t.other && !t.picked && <span className="ml-1 text-xs text-slate-400">(in the {t.other} class)</span>}</span>
+                    {t.picked && <span className={`rounded px-1.5 text-xs font-bold ${t.practice === 'done' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-amber-500/30 text-amber-200'}`}>{t.practice === 'done' ? '✓ signed up · practice done' : '✓ signed up · practice not done yet'}</span>}
+                  </label>
+                ))}
+              </div>
+              <button type="button" disabled={busy === room.slug} onClick={() => submit(room)} className="mt-3 w-full rounded-md bg-fuchsia-600 px-4 py-2.5 font-extrabold text-white disabled:opacity-60">{busy === room.slug ? 'Sending…' : 'Submit: sign them up & send their homework'}</button>
+            </>
+          )}
+          {msg && <p className={`mt-2 text-sm font-semibold ${msg.startsWith('✅') ? 'text-emerald-300' : 'text-amber-300'}`}>{msg}</p>}
+        </div>
+      )}
     </div>
   )
 }
