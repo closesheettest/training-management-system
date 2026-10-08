@@ -86,9 +86,14 @@ export default function RepAttendance({ managerToken } = {}) {
       }
     }
     Promise.all(jobs.map(async (jb) => {
-      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${jb.p[0].toFixed(3)}&longitude=${jb.p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${jb.d}&end_date=${jb.d}`).then((x) => x.json()).catch(() => null)
+      // HRRR (the 3 km US storm model) catches Florida's pop-up afternoon storms; the default global blend missed
+      // William's Wed 10/7 storms entirely (showed 1 hr, HRRR 5 — he was right). Global blend only if HRRR has nothing.
+      const url = (m) => `https://api.open-meteo.com/v1/forecast?latitude=${jb.p[0].toFixed(3)}&longitude=${jb.p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${jb.d}&end_date=${jb.d}${m ? `&models=${m}` : ''}`
+      let j = await fetch(url('ncep_hrrr_conus')).then((x) => x.json()).catch(() => null)
+      if (!(j?.hourly?.precipitation || []).some((v) => v != null)) j = await fetch(url('')).then((x) => x.json()).catch(() => null)
       const o = { wet: 0, of: 0, mm: 0, near: jb.near ? { name: jb.near.name, zone: jb.near.zone } : null, far: jb.far }
-      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 9 || h > 17) return; if (jb.d === todayEt && h >= nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
+      // Each value is the rain in the hour ENDING at its time, so 9 AM–6 PM = the values stamped 10:00 … 18:00.
+      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 10 || h > 18) return; if (jb.d === todayEt && h > nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
       return [jb.key, o]
     })).then((list) => { if (live) setRain(Object.fromEntries(list)) })
     return () => { live = false }
