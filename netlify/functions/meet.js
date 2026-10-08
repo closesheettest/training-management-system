@@ -429,7 +429,9 @@ export const handler = async (event) => {
     // ⏰ STARTS ON TIME — the devotional (Neal, 2026-10-08): hosts come in early to set up notes and scripture, and that
     // used to open the room ("live") to everyone. Here nobody but a host gets in until the start time; the waiting page
     // lets them in by itself at the minute. Every other room keeps "15 minutes early, or as soon as a host is in".
-    if (r.kind === 'prayer' || r.look === 'devotional') {
+    // SWITCHED OFF 2026-10-08 (Neal: "reset it back to the way it was before" — not finished testing before the 9:15).
+    // Turn back on per room by setting r.lobby = true in Meeting Room Setup data.
+    if (r.lobby === true && (r.kind === 'prayer' || r.look === 'devotional')) {
       // …or a host pressed "Let everyone in" today. Before that, arrivals (any time) wait in the LOBBY
       // (their own room — they can talk), and come through together (Neal, 2026-10-08: "like a breakaway room that comes together").
       const letIn = !!(await getSetting(`meet_lobby_open_${r.slug}_${etDay()}`, null))
