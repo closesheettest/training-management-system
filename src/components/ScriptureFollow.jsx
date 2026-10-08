@@ -102,16 +102,16 @@ export function ScriptureCard({ sc, onClose }) {
   const onDown = (e) => { const r = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top }; e.currentTarget.setPointerCapture(e.pointerId) }
   const onMove = (e) => { if (!drag.current) return; setPos({ x: Math.max(0, Math.min(window.innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.current.dy)) }) }
   const onUp = () => { drag.current = null }
-  const place = pos.x == null ? { right: 14, top: 64 } : { left: pos.x, top: pos.y }
+  const place = pos.x == null ? { right: 14, top: 60 } : { left: pos.x, top: pos.y }
   return (
-    <div style={{ position: 'fixed', ...place, zIndex: 57, width: small ? 220 : 'min(360px, 80vw)', background: '#0b0b0b', color: '#fff', border: '1px solid #3f3f46', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.45)' }}>
+    <div style={{ position: 'fixed', ...place, zIndex: 57, width: small ? 240 : 'min(760px, 92vw)', // big (Neal + DeWayne, 2026-10-08: "double the size … I want to see the scripture") background: '#0b0b0b', color: '#fff', border: '1px solid #3f3f46', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.45)' }}>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'move', borderBottom: small ? 'none' : '1px solid #27272a', userSelect: 'none' }}>
-        <span style={{ flex: 1, fontWeight: 800, fontSize: 13, color: '#fbbf24' }}>📖 {sc.ref} · {sc.version}</span>
+        <span style={{ flex: 1, fontWeight: 800, fontSize: small ? 13 : 17, color: '#fbbf24' }}>📖 {sc.ref} · {sc.version}</span>
         <button onClick={() => setSmall((x) => !x)} title={small ? 'Show the text' : 'Shrink'} style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 14 }}>{small ? '▢' : '–'}</button>
         <button onClick={onClose} title="Close" style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 16 }}>✕</button>
       </div>
       {!small && (
-        <div style={{ maxHeight: '45vh', overflow: 'auto', padding: '10px 12px', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 17, lineHeight: 1.4 }}>
+        <div style={{ maxHeight: '78vh', overflow: 'auto', padding: '14px 18px', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(22px, 2.6vw, 34px)', lineHeight: 1.4 }}>
           {(sc.verses || []).map((v, i) => <span key={i}>{v.n != null ? <sup style={{ color: '#fbbf24', fontSize: '.6em', marginRight: 3 }}>{v.n}</sup> : null}{v.text} </span>)}
         </div>
       )}
