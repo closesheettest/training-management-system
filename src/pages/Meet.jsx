@@ -483,6 +483,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   }, [localParticipant, micLocked]) // eslint-disable-line react-hooks/exhaustive-deps
   const bg = useBackground(localParticipant)
   const [bgPanel, setBgPanel] = useState(false)
+  // 👥 HOW MANY ARE HERE (Neal, 2026-10-08: "a button that says number of attendees … I'll know whether there's 10 or 15")
+  const everyone = useParticipants()
+  const hereCount = everyone.filter((p) => !/^(egress|homeowner)/.test(p.identity)).length
   // 🚫 NO BACKGROUND FOR DEWAYNE (Neal, 2026-10-08: "remove background just for DeWayne … it's really annoying him").
   // The pick is remembered per device, so on his joins it's forced off, the 🖼 button is hidden and the 1/2/3/9/0
   // background keys do nothing — it can't come back on by accident.
@@ -771,6 +774,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             style={{ ...btn(false), background: rmeta.locked ? '#b91c1c' : '#334155', border: 'none', color: '#fff', marginRight: 6 }}>{rmeta.locked ? '🔒 Locked' : '🔓 Lock meeting'}</button>}
           {/* 🚪 Breakout rooms (Neal, 2026-10-08: "put it up with the other tools up top") — opens the panel in Breakouts.jsx. */}
           {isHost && <button onClick={() => window.dispatchEvent(new Event('open-breakouts'))} title="Split people into breakout rooms" style={{ ...btn(false), background: '#4c1d95', border: 'none', marginRight: 6 }}>🚪 Breakout rooms</button>}
+          {isHost && <button onClick={() => setPanel(true)} title="Everyone in the meeting, you included — tap for the list" style={{ ...btn(false), background: '#0f766e', border: 'none', marginRight: 6, fontVariantNumeric: 'tabular-nums' }}>👥 {hereCount} here</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
