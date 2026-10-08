@@ -21,6 +21,9 @@ export const DECKS = [
   { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
   { key: 'b1f', week: 'B', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
   { key: 'b1q', week: 'B', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
+  // The in-home SALES PRESENTATION (the rep dashboard deck, public/practice-slides) — what reps practice slide by slide.
+  // Also what a 🚪 breakout room shows when the host gives the rooms slides to work on (Neal, 2026-10-08).
+  { key: 'pres', week: 'B', label: 'Sales presentation (the in-home deck)', type: 'images', base: '/practice-slides/s-', count: 31, start: 1 },
   // 🆕 NEW FLOW — Week A DoorDispatcher intro (Neal, 2026-10-06, final): 1) play the "Why we use it" video
   // to the room (synced), 2) present the how-to slides, whose last slide has the presenter's 📲 Send
   // DoorDispatcher access button, 3) on their link they watch the HOW-TO video, then take the test.
@@ -44,7 +47,9 @@ const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
 
 // The slide area. host=true: the trainer can click/arrow inside it and every move is reported
 // (onMove); everyone else just follows `pos`.
-export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndAction }) {
+// range [min, max]: an image deck held to those pages (a breakout working on slides 1–5). shared: several people drive it
+// (everyone in a breakout room) — then the page always follows the room's copy, never a stale local one.
+export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndAction, range = null, shared = false }) {
   const d = deckOf(dk)
   // A deck with an endAction shows that button to the PRESENTER on its last slide (Neal, 2026-10-06:
   // "at the end of that presentation, let's have a button that says send them dispatcher access").
@@ -58,7 +63,8 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndA
   // 2026-10-04: "it was bouncing back and forth"). For image decks the presenter keeps their own n.
   const [myN, setMyN] = useState(null)
   useEffect(() => { setMyN(null) }, [dk])
-  const n = host && myN != null ? myN : (pos?.n || d?.start || 1)
+  const n = host && myN != null && !shared ? myN : (pos?.n || range?.[0] || d?.start || 1)
+  const lo = range ? range[0] : 1, hi = range ? range[1] : d?.count
   // Follow the trainer (everyone else).
   useEffect(() => {
     if (!d || d.type !== 'reveal' || host) return
@@ -81,9 +87,9 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndA
   useEffect(() => {
     if (!apiRef || d?.type === 'video') return
     apiRef.current = {
-      next: () => { if (d?.type === 'reveal') reveal()?.next(); else { const x = Math.min(d.count, n + 1); setMyN(x); onMove?.({ n: x }) } },
-      prev: () => { if (d?.type === 'reveal') reveal()?.prev(); else { const x = Math.max(1, n - 1); setMyN(x); onMove?.({ n: x }) } },
-      first: () => { if (d?.type === 'reveal') reveal()?.slide(0, 0, -1); else { setMyN(1); onMove?.({ n: 1 }) } },
+      next: () => { if (d?.type === 'reveal') reveal()?.next(); else { const x = Math.min(hi, n + 1); setMyN(x); onMove?.({ n: x }) } },
+      prev: () => { if (d?.type === 'reveal') reveal()?.prev(); else { const x = Math.max(lo, n - 1); setMyN(x); onMove?.({ n: x }) } },
+      first: () => { if (d?.type === 'reveal') reveal()?.slide(0, 0, -1); else { setMyN(lo); onMove?.({ n: lo }) } },
     }
   })
   if (!d) return null
@@ -102,7 +108,7 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndA
           {busyEnd ? 'Sending…' : d.endAction}
         </button>
       )}
-      {host && apiRef && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} />}
+      {host && apiRef && <DeckControls d={d} pos={{ ...(pos || {}), n }} api={apiRef} reveal={reveal} range={range} />}
       {camTrack && (
         <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(20%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', background: '#000', pointerEvents: 'none' }}>
           <VideoTrack trackRef={camTrack} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -112,9 +118,9 @@ export function DeckView({ deck: dk, pos, host, onMove, camTrack, apiRef, onEndA
   )
 }
 
-function DeckControls({ d, pos, api, reveal }) {
+function DeckControls({ d, pos, api, reveal, range }) {
   const R = d.type === 'reveal' ? reveal() : null
-  const total = R?.getTotalSlides?.() || d.count || 0
+  const total = range ? range[1] : R?.getTotalSlides?.() || d.count || 0
   const at = R ? (R.getSlidePastCount?.() ?? pos?.h ?? 0) + 1 : (pos?.n || d.start)
   const b = (bg) => ({ padding: '8px 14px', borderRadius: 10, border: 'none', background: bg, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' })
   return (

@@ -1574,6 +1574,19 @@ export const handler = async (event) => {
     const on = !!(bo && bo.on && Date.parse(bo.ends_at) > Date.now() - 60000)
     return json(200, { ok: true, on, ends_at: on ? bo.ends_at : null, rooms: on ? (bo.rooms || []).map((r) => ({ n: r.n, name: r.name, people: r.people || [] })) : [] })
   }
+  // 🚪 Anyone in a breakout room moves its slides (Back / Next) — held to the range the host set.
+  if (b.action === 'bo_deck') {
+    const bo = await getSetting(`meet_breakout_${room.slug}`, null)
+    const n = Number(b.breakout) || 0
+    if (!(bo && bo.on && bo.deck && (bo.rooms || []).some((r) => r.n === n))) return json(400, { ok: false, error: 'No slides in that room.' })
+    const page = Math.min(bo.deck.max, Math.max(bo.deck.min, Number(b.n) || bo.deck.min))
+    const name = `${room.slug}__br${n}`
+    let cur = {}
+    try { const [lr] = await svc().listRooms([name]); cur = JSON.parse(lr?.metadata || '{}') } catch { /* not open */ }
+    const deck = { key: bo.deck.key, showing: true, shared: true, min: bo.deck.min, max: bo.deck.max, ...(cur.deck || {}), pos: { n: page } }
+    try { await svc().updateRoomMetadata(name, JSON.stringify({ ...cur, deck })) } catch (e) { return json(500, { ok: false, error: e.message }) }
+    return json(200, { ok: true, n: page })
+  }
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
@@ -1762,7 +1775,8 @@ export const handler = async (event) => {
     const micLocked = !!room.mic_lock && !host && !boN
     at.addGrant({ room: lkRoom, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
     // Open the room with its top line already set, so the first person in sees it.
-    try { await svc().createRoom({ name: lkRoom, emptyTimeout: 600, metadata: JSON.stringify({ topic: boN ? '' : (room.topic || '') }) }) } catch { /* already open */ }
+    const boMeta = boN && bo.deck ? { topic: bo.deck.label || '', deck: { key: bo.deck.key, pos: { n: bo.deck.min }, showing: true, shared: true, min: bo.deck.min, max: bo.deck.max } } : { topic: boN ? '' : (room.topic || '') }
+    try { await svc().createRoom({ name: lkRoom, emptyTimeout: 600, metadata: JSON.stringify(boMeta) }) } catch { /* already open */ }
     await mark('in')
     const boRoom = boN ? (bo.rooms || []).find((r) => r.n === boN) : null
     return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room),
@@ -1887,7 +1901,12 @@ export const handler = async (event) => {
         .filter((r) => r.ids.length)
       if (!rooms.length) return json(400, { ok: false, error: 'Put at least one person in a room.' })
       const minutes = Math.min(180, Math.max(1, Number(b.minutes) || 45))
-      const st = { on: true, rooms, ends_at: new Date(Date.now() + minutes * 60000).toISOString(), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
+      // Slides every room works on (Neal, 2026-10-08: "they had a practice one through five … showing on the screen where
+      // they hit next, next"): an image deck held to pages min–max; each room starts on min.
+      const BO_DECKS = { pres: 31 }
+      const dkIn = b.deck && BO_DECKS[b.deck.key] ? b.deck : null
+      const deck = dkIn ? (() => { const max = Math.min(BO_DECKS[dkIn.key], Math.max(1, Number(dkIn.max) || 1)), min = Math.min(max, Math.max(1, Number(dkIn.min) || 1)); return { key: dkIn.key, min, max, label: String(dkIn.label || '').slice(0, 60) } })() : null
+      const st = { on: true, rooms, deck, ends_at: new Date(Date.now() + minutes * 60000).toISOString(), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
       await putSetting(`meet_breakout_${room.slug}`, st)
       await setMeta({ breakout: { ends_at: st.ends_at, rooms: rooms.map((r) => ({ n: r.n, name: r.name, ids: r.ids })) } })
       return json(200, { ok: true, state: st })

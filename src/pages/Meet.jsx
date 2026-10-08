@@ -411,7 +411,7 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
 // The stage. Each person picks their own view, like Zoom:
 //   Gallery — everyone in tiles (pages when the class is big); a shared screen joins the grid
 //   Speaker — whoever is talking big (or the shared screen), everyone else in a strip
-function Stage({ room, auth, isHost, micLocked = false }) {
+function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
   const [panel, setPanel] = useState(false)
   const [scripturePanel, setScripturePanel] = useState(false)
@@ -591,7 +591,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   useEffect(() => { if (!pr) setPrTalked(false); else if (speakers.some((x) => x.identity === pr.presenter)) setPrTalked(true) }, [pr?.presenter, pr?.showing, speakers]) // eslint-disable-line react-hooks/exhaustive-deps
   // 📊 The deck being presented (Week A day decks / Week B), and whether I'm the one driving it.
   const dk = rmeta.deck && rmeta.deck.showing && deckOf(rmeta.deck.key) ? rmeta.deck : null
-  const iPresent = !!dk && isHost && dk.by === localParticipant?.identity
+  // 🚪 A breakout room's slides (dk.shared): everyone in the room drives them — Back / Next for all, held to the range.
+  const dkShared = !!dk?.shared && !!breakoutN
+  const iPresent = !!dk && ((isHost && dk.by === localParticipant?.identity) || dkShared)
   const dkCam = dk ? cams.find((t) => t.participant.identity === dk.by && isTrackReference(t) && !t.publication?.isMuted) : null
   // 👀 EVERYONE DOWN THE LEFT WHILE PRESENTING (Neal, 2026-10-06: "in all of them … when you go to
   // presentation, you can see everybody in the room down the left") — slides, scripture and practice.
@@ -599,7 +601,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
   // already show the room in a side strip for everyone.)
   const hostFaces = (el) => {
     const faces = cams.filter((t) => t.participant.identity !== localParticipant?.identity && !/^homeowner/.test(t.participant.identity))
-    return isHost && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{el}</div></FocusLayoutContainer> : el
+    return (isHost || dkShared) && faces.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={faces}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{el}</div></FocusLayoutContainer> : el
   }
   // 📲 🆕 New flow: DoorDispatcher access for every trainee in the meeting (panel button + the deck's last slide).
   const sendDdAccess = async () => {
@@ -610,7 +612,9 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                     const good = j.results.filter((r) => r.ok), bad = j.results.filter((r) => !r.ok)
                     window.alert(`✅ DoorDispatcher access sent to ${good.length}:\n${good.map((r) => `• ${r.name}${r.sms ? ' 📱' : ''}${r.email ? ' ✉️' : ''}${!r.sms && !r.email ? ' (text + email both failed — resend from Rep Links)' : ''}`).join('\n')}${bad.length ? `\n\n⚠️ Not sent:\n${bad.map((r) => `• ${r.name}: ${r.error}`).join('\n')}` : ''}`)
                   }
-  const setDeck = (next) => call({ action: 'set_deck', room: room.slug, deck: next, identity: localParticipant?.identity, ...auth }).catch(() => {})
+  const setDeck = (next) => (dkShared
+    ? call({ action: 'bo_deck', room: room.slug, breakout: breakoutN, n: next?.pos?.n }).catch(() => {})
+    : call({ action: 'set_deck', room: room.slug, deck: next, identity: localParticipant?.identity, ...auth }).catch(() => {}))
   useEffect(() => {
     if (!iPresent) return
     const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
@@ -742,7 +746,7 @@ function Stage({ room, auth, isHost, micLocked = false }) {
                 // see their faces as I'm training them"). The host sees everyone in a strip beside the
                 // slides; everyone else still gets the slides full size.
                 const deckEl = (
-              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} apiRef={deckApi} onEndAction={sendDdAccess} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
+              <PresenterFrame layout={layout} cam={dkCam} isHost={isHost} onLayout={pickLayout}><DeckView deck={dk.key} pos={dk.pos} host={iPresent} shared={dkShared} range={dkShared && dk.min && dk.max ? [dk.min, dk.max] : null} apiRef={deckApi} onEndAction={sendDdAccess} camTrack={layout === 'circle' ? dkCam : null} onMove={(pos) => { try { localStorage.setItem(`deck_pos_${room.slug}_${dk.key}`, JSON.stringify(pos)) } catch { /* private */ } setDeck({ ...dk, pos, showing: true }) }} /></PresenterFrame>
                 )
                 return hostFaces(deckEl)
               })()
@@ -1290,7 +1294,7 @@ export default function Meet() {
         onDisconnected={() => { if (!moving.current) setChoices(null) }} style={{ height: '100%' }}>
         <KeepDevices choices={choices} />
         <BreakoutLayer slug={slug} auth={auth || {}} isHost={!!join.host} breakout={join.breakout || null} me={join.me || ''} onMove={onMove} />
-        <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} /></MeetErrorBoundary>
+        <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} breakoutN={join.breakout?.n || 0} /></MeetErrorBoundary>
       </LiveKitRoom>
     </div>
   )

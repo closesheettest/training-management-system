@@ -10,12 +10,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParticipants, useRoomContext, useRoomInfo } from '@livekit/components-react'
 import { RoomEvent } from 'livekit-client'
+import { DECK } from '../lib/salesPractice.js'
 
 const FN = '/.netlify/functions/meet'
 const call = async (body) => (await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
 const stableId = (id) => (/^(host|g|a):/.test(String(id)) ? String(id).replace(/:[a-z0-9]{5}$/, '') : String(id))
 const left = (endsAt, now) => Math.max(0, Math.round((Date.parse(endsAt) - now) / 1000))
+// The script's slide numbers (what trainers and reps say: "slides 1 through 5") → pages of the in-home deck. Slide 11 is
+// two pages, slides 13–14 are nine install photos, and so on — salesPractice DECK maps each page to its script slide.
+const scriptNo = (e) => { const m = String(e.script || '').match(/^Slides? (\d+)/); return m ? Number(m[1]) : null }
+const pagesFor = (from, to) => { const ps = DECK.filter((e) => { const k = scriptNo(e); return k != null && k >= from && k <= to }).map((e) => e.page); return ps.length ? [Math.min(...ps), Math.max(...ps)] : null }
 const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 // Runs inside the LiveKit room. breakout = { n, name, ends_at, people } when THIS page is in a breakout room.
@@ -136,6 +141,9 @@ function SetupPanel({ slug, auth, onClose, onStarted }) {
   const [as, setAs] = useState({}) // identity → room number (0 = stays in the main room)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [slides, setSlides] = useState(false) // 📊 the sales presentation in every room
+  const [from, setFrom] = useState(1)
+  const [to, setTo] = useState(5)
   // Split evenly the first time (and when the number of rooms changes): A,B → Room 1; C,D → Room 2…
   const split = (n) => { const m = {}; people.forEach((p, i) => { m[p.identity] = (i % n) + 1 }); setAs(m) }
   useEffect(() => { split(count) }, [count, people.length]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -146,8 +154,14 @@ function SetupPanel({ slug, auth, onClose, onStarted }) {
       return { name: nameOf(n), ids: ps.map((p) => stableId(p.identity)), people: ps.map((p) => p.name || p.identity) }
     })
     if (!rooms.some((r) => r.ids.length)) { setErr('Put at least one person in a room.'); return }
+    let deck = null
+    if (slides) {
+      const pg = pagesFor(Math.min(from, to), Math.max(from, to))
+      if (!pg) { setErr('Those slide numbers aren\'t in the presentation (1–23).'); return }
+      deck = { key: 'pres', min: pg[0], max: pg[1], label: `Slides ${Math.min(from, to)}–${Math.max(from, to)}` }
+    }
     setBusy(true); setErr('')
-    const j = await call({ action: 'breakout_start', room: slug, rooms, minutes, ...auth }).catch(() => ({ error: 'Network error' }))
+    const j = await call({ action: 'breakout_start', room: slug, rooms, minutes, deck, ...auth }).catch(() => ({ error: 'Network error' }))
     setBusy(false)
     if (!j.ok) { setErr(j.error || 'Could not start.'); return }
     onStarted()
@@ -171,6 +185,17 @@ function SetupPanel({ slug, auth, onClose, onStarted }) {
             {!people.some((p) => as[p.identity] === n) && <div style={{ fontSize: 13, color: '#64748b' }}>Nobody yet</div>}
           </div>
         ))}
+        {/* 📊 Slides to work on (Neal, 2026-10-08): each room opens on them and everyone in it has Back / Next. */}
+        <div style={{ border: '1px solid #334155', borderRadius: 10, padding: 10, margin: '10px 0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, cursor: 'pointer' }}>
+            <input type="checkbox" checked={slides} onChange={(e) => setSlides(e.target.checked)} /> 📊 Put the sales presentation on screen in every room
+          </label>
+          {slides && <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            Slides <input type="number" min={1} max={23} value={from} onChange={(e) => setFrom(Number(e.target.value) || 1)} style={{ ...field, width: 60 }} />
+            to <input type="number" min={1} max={23} value={to} onChange={(e) => setTo(Number(e.target.value) || 1)} style={{ ...field, width: 60 }} />
+            <span style={{ fontSize: 12.5, color: '#94a3b8' }}>Each room starts on slide {Math.min(from, to)}; anyone in it can press Back / Next, up to slide {Math.max(from, to)}.</span>
+          </div>}
+        </div>
         <div style={{ fontWeight: 800, margin: '12px 0 6px' }}>Who goes where</div>
         {people.map((p) => (
           <div key={p.identity} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid #1e293b' }}>
