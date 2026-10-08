@@ -54,8 +54,8 @@ export default function RepAttendance({ managerToken } = {}) {
   const [only, setOnly] = useState('all') // all | problems
   // 🌧 RAIN BY ZONE (Neal, 2026-10-08: "this week we've had rain … by area, when it rained"). ACTUAL rain, never a
   // forecast: for each zone, where its reps knocked this range (their average door GPS, from CCG), the hours of the
-  // 9 AM–6 PM work day with ANY measurable rain (≥ 0.1 mm in the hour — light steady rain stops door-knocking too; William's Tue 10/6 read 2 hrs at ≥ 0.5 mm when it rained 5), from Open-Meteo's free hourly history. Today
-  // counts only the hours already gone. Shown as "🌧 5 of 9 hrs" — NOT a %, which reads as a chance of rain.
+  // 1 PM–8 PM knocking window with ANY measurable rain (≥ 0.1 mm in the hour), from Open-Meteo's HRRR 15-minute
+  // history (see the fetch). Today counts only the hours already gone. Shown as "🌧 4 of 7 hrs" — NOT a %, which reads as a chance of rain.
   const [rain, setRain] = useState({}) // zone → { 'YYYY-MM-DD': { wet, of, mm } }
   useEffect(() => {
     if (!data?.places || !data?.days?.length) return
@@ -86,14 +86,25 @@ export default function RepAttendance({ managerToken } = {}) {
       }
     }
     Promise.all(jobs.map(async (jb) => {
-      // HRRR (the 3 km US storm model) catches Florida's pop-up afternoon storms; the default global blend missed
-      // William's Wed 10/7 storms entirely (showed 1 hr, HRRR 5 — he was right). Global blend only if HRRR has nothing.
-      const url = (m) => `https://api.open-meteo.com/v1/forecast?latitude=${jb.p[0].toFixed(3)}&longitude=${jb.p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${jb.d}&end_date=${jb.d}${m ? `&models=${m}` : ''}`
-      let j = await fetch(url('ncep_hrrr_conus')).then((x) => x.json()).catch(() => null)
-      if (!(j?.hourly?.precipitation || []).some((v) => v != null)) j = await fetch(url('')).then((x) => x.json()).catch(() => null)
-      const o = { wet: 0, of: 0, mm: 0, near: jb.near ? { name: jb.near.name, zone: jb.near.zone } : null, far: jb.far }
-      // Each value is the rain in the hour ENDING at its time, so 9 AM–6 PM = the values stamped 10:00 … 18:00.
-      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 10 || h > 18) return; if (jb.d === todayEt && h > nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
+      // HRRR (the 3 km US storm model) — read from its 15-MINUTE data, the only place the API serves it (the hourly
+      // field returns the coarse global blend, which missed William's Wed 10/7 storms: 1 hr vs 5 — he was right).
+      // Each 15-min value is the rain in the 15 min ENDING at its time. Work window 1 PM–8 PM for everyone (Neal,
+      // 2026-10-08). An hour is wet with any measurable rain (≥ 0.1 mm). Today counts only hours already over.
+      const FROM = 13, TO = 20
+      const q = (extra) => `https://api.open-meteo.com/v1/forecast?latitude=${jb.p[0].toFixed(3)}&longitude=${jb.p[1].toFixed(3)}&timezone=America%2FNew_York&start_date=${jb.d}&end_date=${jb.d}&${extra}`
+      const hrs = {}
+      const j15 = await fetch(q('minutely_15=precipitation&models=ncep_hrrr_conus')).then((x) => x.json()).catch(() => null)
+      ;(j15?.minutely_15?.time || []).forEach((t, i) => {
+        const v = j15.minutely_15.precipitation[i]; if (v == null) return
+        const end = new Date(`${t}:00`), start = new Date(end.getTime() - 15 * 60000), h = start.getHours()
+        if (h >= FROM && h < TO) hrs[h] = (hrs[h] || 0) + v
+      })
+      if (!Object.keys(hrs).length) { // no 15-min data for that day (older dates) → the hourly blend
+        const jh = await fetch(q('hourly=precipitation')).then((x) => x.json()).catch(() => null)
+        ;(jh?.hourly?.time || []).forEach((t, i) => { const v = jh.hourly.precipitation[i]; const h = +t.slice(11, 13) - 1; if (v != null && h >= FROM && h < TO) hrs[h] = (hrs[h] || 0) + v })
+      }
+      const o = { wet: 0, of: 0, mm: 0 }
+      for (const [h, mm] of Object.entries(hrs)) { if (jb.d === todayEt && +h >= nowEt.getHours()) continue; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 }
       return [jb.key, o]
     })).then((list) => { if (live) setRain(Object.fromEntries(list)) })
     return () => { live = false }
@@ -234,7 +245,7 @@ export default function RepAttendance({ managerToken } = {}) {
                 A rep is <b>checked in</b> when they open their personal dashboard <b>or DoorDispatcher</b> that day (🗺️ = DoorDispatcher). It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
                 {' '}A weekday they missed after that has to be given a reason the next time they sign in —
                 {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. A day William took them out shows <b>🎓 Training</b> and is never asked about.
-                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>📅 Appts</b> = sales appointments on their JobNimbus calendar that day. <b>⏱ Hrs</b> = active time knocking on DoorDispatcher (the time between doors, leaving out any gap over 30 minutes — an appointment, lunch, the drive). <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day). <b>🌧 rained 5 of 9 hrs</b> (on each team's row) = it ACTUALLY rained in 5 of the 9 work hours (9 AM–6 PM) where that team knocked — measured rain, not a chance-of-rain forecast; today counts only the hours so far.
+                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>📅 Appts</b> = sales appointments on their JobNimbus calendar that day. <b>⏱ Hrs</b> = active time knocking on DoorDispatcher (the time between doors, leaving out any gap over 30 minutes — an appointment, lunch, the drive). <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day). <b>🌧 rained 4 of 7 hrs</b> (on each team's row) = it ACTUALLY rained in 4 of the 7 knocking hours (1 PM–8 PM) where that team knocked — measured rain, not a chance-of-rain forecast; today counts only the hours so far.
               </p>
               {notStarted && <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Tracking starts {dayLabel(data.start)}. Days before that aren&rsquo;t counted.</div>}
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -286,7 +297,7 @@ export default function RepAttendance({ managerToken } = {}) {
                               {(() => { const tk = z.zone === 'Trainer' ? rain[`__trainer_${ds}`] : null
                                 const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.near?.zone || 'William') : z.zone
                                 const w = tk && tk.of ? tk : rain[`${zr}|${ds}`]; if (!w || !w.of) return null
-                                const tip = `Actual rain where ${z.zone === 'Trainer' ? 'he worked that day' : `${zr} knocked`} (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
+                                const tip = `Actual rain where ${z.zone === 'Trainer' ? 'he worked that day' : `${zr} knocked`} (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (1 PM–8 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
                                 return <div title={tip} className={`mt-0.5 text-[11px] font-extrabold ${w.wet ? 'text-sky-700' : 'text-slate-400'}`}>{w.wet ? `🌧 rained ${w.wet} of ${w.of} hrs` : `☀️ dry${w.of < 9 ? ' so far' : ''}`}</div> })()}
                             </td>
                           ))}
