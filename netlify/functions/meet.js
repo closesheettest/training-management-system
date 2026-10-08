@@ -237,10 +237,12 @@ export async function runRetrainHomework() {
     // ONLY THE ONES WHO SHOWED UP (Neal, 2026-10-06: "send to the ones in retraining that showed up today,
     // in the attendance"). If a session was held today, tonight's homework goes only to the reps who
     // joined it (meeting attendance in the room they join).
+    // …and when the session before it wasn't today (Neal moved Thu 10/8 → Fri 10/9: "only the ones that were there
+    // yesterday"), the attendance of THAT session, whatever day it was held.
     let sendIds = ids
-    if (k > 0 && etDay(retrainSessions(room)[k - 1].start.getTime()) === etDay()) {
-      const tgt = room.joins_room || room.slug
-      const { data: att } = await sb.from('app_settings').select('key').like('key', `meet_att_${etDay()}_${tgt}_t:%`)
+    if (k > 0) {
+      const tgt = room.joins_room || room.slug, prevDay = etDay(retrainSessions(room)[k - 1].start.getTime())
+      const { data: att } = await sb.from('app_settings').select('key').like('key', `meet_att_${prevDay}_${tgt}_t:%`)
       const came = new Set((att || []).map((x) => x.key.split('_t:')[1]))
       sendIds = ids.filter((id) => came.has(id))
     }
