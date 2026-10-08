@@ -2718,29 +2718,15 @@ function RetrainingPick({ token }) {
       </button>
       {open && (
         <div className="border-t border-white/10 px-4 pb-4 pt-3">
-          {!room ? (
+          {/* A dropdown, not a list of cards (Neal, 2026-10-08). The classes roll: a new one is made every week and the
+              next two still open for sign-up show here; one drops off when its sign-up closes. */}
+          <select value={week} onChange={(e) => { setWeek(e.target.value); setMsg('') }} className="w-full rounded-md border border-white/20 bg-slate-950/60 px-3 py-2 text-sm font-semibold text-white">
+            <option value="">Pick a week…</option>
+            {d.map((r) => { const n = r.team.filter((t) => t.picked).length; return <option key={r.slug} value={r.slug}>{r.range} (sign-up closes {r.closes}){n ? ` · ${n} signed up` : ''}</option> })}
+          </select>
+          {room && (
             <>
-              <div className="mb-2 text-sm font-semibold text-slate-200">Which week?</div>
-              <div className="space-y-2">
-                {d.map((r) => {
-                  const n = r.team.filter((t) => t.picked).length
-                  return (
-                    <button key={r.slug} type="button" onClick={() => { setWeek(r.slug); setMsg('') }} className="flex w-full items-center gap-2 rounded-lg border border-white/15 bg-slate-950/30 px-3 py-2 text-left hover:bg-white/5">
-                      <span className="flex-1">
-                        <span className="block font-bold text-white">{r.range}</span>
-                        <span className="block text-xs text-amber-200">Sign-up closes {r.closes}</span>
-                      </span>
-                      {n > 0 && <span className="text-xs text-slate-300">{n} signed up</span>}
-                      <span className="text-slate-300">›</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          ) : (
-            <>
-              <button type="button" onClick={() => { setWeek(''); setMsg('') }} className="mb-2 text-sm font-semibold text-fuchsia-200">‹ Pick a different week</button>
-              <div className="font-extrabold text-white">{room.range}</div>
+              <div className="mt-3 font-extrabold text-white">{room.range}</div>
               <div className="text-xs text-fuchsia-100">{room.sessions} (Eastern) · sign-up closes {room.closes}</div>
               <div className="mt-1 text-xs text-slate-300">Each rep you tick gets their link plus homework (slides 1–5 with their points, the full script, a practice test), due before the first session.</div>
               <div className="mt-2 max-h-64 overflow-auto rounded-md border border-white/15 bg-slate-950/30">
