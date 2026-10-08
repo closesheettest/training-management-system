@@ -33,6 +33,8 @@ export function BreakoutLayer({ slug, auth, isHost, breakout, me, onMove }) {
   const [status, setStatus] = useState(null) // breakout_status while in a breakout, or for the host's panel
   const moved = useRef('')
   useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv) }, [])
+  // The 🚪 button lives in the host toolbar (Meet.jsx) — it opens this panel with a window event.
+  useEffect(() => { const open = () => setPanel(true); window.addEventListener('open-breakouts', open); return () => window.removeEventListener('open-breakouts', open) }, [])
 
   // In the MAIN room: breakouts just started and I'm in one → go.
   const mainBo = !breakout ? rmeta.breakout : null
@@ -101,7 +103,6 @@ export function BreakoutLayer({ slug, auth, isHost, breakout, me, onMove }) {
           {isHost && <button onClick={bringBack} style={pill('#16a34a')}>Bring everyone back</button>}
         </div>
       )}
-      {isHost && !running && <BreakoutButton onClick={() => setPanel(true)} />}
       {panel && isHost && (running
         ? <RunningPanel rooms={roomsNow} secs={secs} breakout={breakout} onGo={(n) => { setPanel(false); onMove(n) }} onMain={() => { setPanel(false); onMove(0) }} onEnd={bringBack} onClose={() => setPanel(false)} />
         : <SetupPanel slug={slug} auth={auth} onClose={() => setPanel(false)} onStarted={() => setPanel(false)} />)}
@@ -110,12 +111,6 @@ export function BreakoutLayer({ slug, auth, isHost, breakout, me, onMove }) {
 }
 
 const pill = (bg) => ({ background: bg, color: '#fff', border: 'none', borderRadius: 999, padding: '3px 10px', fontWeight: 800, fontSize: 12.5, cursor: 'pointer' })
-
-// The host's way in: a floating button bottom-left (the toolbar is already full).
-function BreakoutButton({ onClick }) {
-  return <button onClick={onClick} title="Split people into breakout rooms"
-    style={{ position: 'fixed', left: 10, bottom: 74, zIndex: 55, background: '#4c1d95', color: '#fff', border: '1px solid #a78bfa', borderRadius: 999, padding: '8px 14px', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,.35)' }}>🚪 Breakout rooms</button>
-}
 
 function Modal({ title, onClose, children }) {
   return (

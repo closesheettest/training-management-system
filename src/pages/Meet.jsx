@@ -718,6 +718,8 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           {isHost && <button title={rmeta.locked ? 'Locked — nobody new can join. Tap to let people in again.' : "Stop anyone else from joining (people already here can rejoin if they drop)"}
             onClick={() => call({ action: 'set_lock', room: room.slug, on: !rmeta.locked, by: localParticipant?.name || '', ...auth }).catch(() => {})}
             style={{ ...btn(false), background: rmeta.locked ? '#b91c1c' : '#334155', border: 'none', color: '#fff', marginRight: 6 }}>{rmeta.locked ? '🔒 Locked' : '🔓 Lock meeting'}</button>}
+          {/* 🚪 Breakout rooms (Neal, 2026-10-08: "put it up with the other tools up top") — opens the panel in Breakouts.jsx. */}
+          {isHost && <button onClick={() => window.dispatchEvent(new Event('open-breakouts'))} title="Split people into breakout rooms" style={{ ...btn(false), background: '#4c1d95', border: 'none', marginRight: 6 }}>🚪 Breakout rooms</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
