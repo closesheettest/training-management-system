@@ -426,6 +426,16 @@ export const handler = async (event) => {
     if (r.no_host) return { live, open: true }
     if (!hasSchedule(r)) return { live, open: r.kind === 'company' ? live : true }
     const nm = nextMeeting(r)
+    // ⏰ STARTS ON TIME — the devotional (Neal, 2026-10-08): hosts come in early to set up notes and scripture, and that
+    // used to open the room ("live") to everyone. Here nobody but a host gets in until the start time; the waiting page
+    // lets them in by itself at the minute. Every other room keeps "15 minutes early, or as soon as a host is in".
+    if (r.kind === 'prayer' || r.look === 'devotional') {
+      // …or a host pressed "Let everyone in" today. Before that, arrivals from 15 minutes early wait in the LOBBY
+      // (their own room — they can talk), and come through together (Neal, 2026-10-08: "like a breakaway room that comes together").
+      const letIn = !!(await getSetting(`meet_lobby_open_${r.slug}_${etDay()}`, null))
+      const open = letIn || !!(nm && Date.now() >= nm.start.getTime() - 20000)
+      return { live, open, on_time: true, lobby: !open && !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000), starts_at: nm ? nm.start.toISOString() : null }
+    }
     const open = live || !!(nm && Date.now() >= nm.start.getTime() - 15 * 60000)
     return { live, open }
   }
@@ -1584,6 +1594,12 @@ export const handler = async (event) => {
     : room.merge && room.merge.date === etDay() ? room.merge.into : null
   // 🚪 BREAKOUT STATUS (public): whether breakouts are running, when they end, who is in which room. Polled by people in a
   // breakout room (that room's metadata doesn't carry it) so they come back when the host ends it.
+  // ⏰ LOBBY STATUS (public): is the room open yet, when it starts, how many are waiting — polled by the lobby and by hosts.
+  if (b.action === 'lobby_status') {
+    const st = await openState(room)
+    let waiting = 0; try { waiting = (await svc().listParticipants(`${room.slug}__lobby`)).filter((p) => !/^egress/.test(p.identity)).length } catch { /* empty */ }
+    return json(200, { ok: true, open: !!st.open, on_time: !!st.on_time, starts_at: st.starts_at || null, waiting })
+  }
   if (b.action === 'breakout_status') {
     const bo = await getSetting(`meet_breakout_${room.slug}`, null)
     const on = !!(bo && bo.on && Date.parse(bo.ends_at) > Date.now() - 60000)
@@ -1738,7 +1754,8 @@ export const handler = async (event) => {
     }
     if (!identity) return json(401, { ok: false, error: b.pin ? 'PIN not recognised.' : 'Open the meeting from your own link.' })
     // Not a host and no meeting on: say when the next one is instead of an empty room.
-    if (!host) { const st = await openState(room); if (!st.open) { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } }
+    let inLobby = null // ⏰ the devotional before it starts: early arrivals go to the lobby room instead of "not open"
+    if (!host) { const st = await openState(room); if (!st.open) { if (st.lobby) inLobby = { starts_at: st.starts_at }; else { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } } }
     // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in … if I'm the
     // host, I don't want anybody else coming in. The only way another host can come in is if I do it in the setup saying
     // there's more than one host"). Nobody new gets in — not even another manager or an admin with the PIN — except the
@@ -1782,12 +1799,12 @@ export const handler = async (event) => {
         else if (!want && !b.main && !host && mine) boN = mine.n
       }
     }
-    const lkRoom = boN ? `${room.slug}__br${boN}` : room.slug
+    const lkRoom = inLobby ? `${room.slug}__lobby` : boN ? `${room.slug}__br${boN}` : room.slug
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host, ...(busyAs ? { busy: busyAs } : {}) }) })
     // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
     // muted and they cannot unmute. I am the only one that can unmute"). Non-hosts may publish
     // their camera only; the host's Unmute grants the mic (allow_mic) and Mute takes it back.
-    const micLocked = !!room.mic_lock && !host && !boN
+    const micLocked = !!room.mic_lock && !host && !boN && !inLobby
     at.addGrant({ room: lkRoom, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
     // Open the room with its top line already set, so the first person in sees it.
     const boMeta = boN && bo.deck ? { topic: bo.deck.label || '', deck: { key: bo.deck.key, pos: { n: bo.deck.min }, showing: true, shared: true, min: bo.deck.min, max: bo.deck.max } } : { topic: boN ? '' : (room.topic || '') }
@@ -1795,7 +1812,7 @@ export const handler = async (event) => {
     await mark('in')
     const boRoom = boN ? (bo.rooms || []).find((r) => r.n === boN) : null
     return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room),
-      breakout: boRoom ? { n: boN, name: boRoom.name, ends_at: bo.ends_at, people: boRoom.people || [] } : null, me: stableId(identity) })
+      breakout: boRoom ? { n: boN, name: boRoom.name, ends_at: bo.ends_at, people: boRoom.people || [] } : null, lobby: inLobby, me: stableId(identity) })
   }
 
   // PRACTICE IN THE MEETING: a seat for the AI homeowner (its own tile), run from the trainer's
@@ -1933,6 +1950,12 @@ export const handler = async (event) => {
       await putSetting(`meet_breakout_${room.slug}`, { on: false, ended_at: new Date().toISOString() })
       try { await setMeta({ breakout: null }) } catch { /* main room empty */ }
       for (const r of (st && st.rooms) || []) { try { await svc().sendData(`${room.slug}__br${r.n}`, new TextEncoder().encode(JSON.stringify({ type: 'back' })), DataPacket_Kind.RELIABLE, { topic: 'breakout' }) } catch { /* nobody in it */ } }
+      return json(200, { ok: true })
+    }
+    // ⏰ "Let everyone in" (before the start time): opens the room for today and tells the lobby to come through.
+    if (b.action === 'lobby_open') {
+      await putSetting(`meet_lobby_open_${room.slug}_${etDay()}`, { by: String(b.by || '').slice(0, 60), at: new Date().toISOString() })
+      try { await svc().sendData(`${room.slug}__lobby`, new TextEncoder().encode(JSON.stringify({ type: 'open' })), DataPacket_Kind.RELIABLE, { topic: 'lobby' }) } catch { /* nobody waiting */ }
       return json(200, { ok: true })
     }
     if (b.action === 'set_lock') {

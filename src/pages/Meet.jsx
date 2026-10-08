@@ -29,6 +29,7 @@ import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby, { READY } from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
 import { BreakoutLayer } from '../components/Breakouts.jsx'
+import { LobbyLayer } from '../components/Lobby.jsx'
 import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
 import { LocalRecorder, localRecordSupported, leftoverRecordings, saveLeftover, dropLeftover, activeRecorder } from '../lib/localRecorder.js'
 import { useBackground, BackgroundPanel } from '../components/BackgroundPicker.jsx'
@@ -239,6 +240,34 @@ function RecBadge({ meta, size = 12 }) {
   const t = h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`
   return <span style={{ padding: '3px 10px', borderRadius: 999, background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: size, letterSpacing: '.03em', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
     <span style={{ animation: 'recBlink 1.4s ease-in-out infinite' }}>●</span> REC {t}</span>
+}
+
+// ⏰ WAITING FOR THE START (the devotional): a countdown, then it joins by itself at the minute — no button to press,
+// and no early room to chat in (Neal, 2026-10-08: "it will start promptly at 9:15, please wait … auto let everybody in").
+function OnTimeWait({ door, nextAt, L, hTitle, onJoin, onHost }) {
+  const [, tick] = useState(0)
+  const fired = useRef(false)
+  const start = Date.parse(nextAt), at = start - 15 * 60000 // the lobby opens 15 minutes before
+  useEffect(() => { const iv = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(iv) }, [])
+  const left = Math.max(0, Math.round((at - Date.now()) / 1000))
+  useEffect(() => { if (left <= 0 && !fired.current) { fired.current = true; onJoin() } }, [left]) // eslint-disable-line react-hooks/exhaustive-deps
+  // if the first try lands a hair early, try again every 10 s until it opens
+  useEffect(() => { if (left > 0) return; const iv = setInterval(() => onJoin(), 10000); return () => clearInterval(iv) }, [left > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fmt = (ms) => new Date(ms).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+  const time = fmt(start)
+  const m = Math.floor(left / 60), s = left % 60
+  return (
+    <div style={{ maxWidth: 460, width: '100%', textAlign: 'center' }}>
+      {door?.badge && <img src={door.badge} alt="" style={{ height: 64, marginBottom: 6 }} />}
+      <h1 style={hTitle}>{door?.title || 'Meeting'}</h1>
+      <div style={{ marginTop: 14, padding: '18px 14px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}` }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: L.head }}>We start promptly at {time}.</div>
+        <div style={{ marginTop: 6, color: L.text, fontSize: 15.5 }}>The lobby opens at {fmt(at)} — keep this page open and you'll be let in automatically.</div>
+        <div style={{ marginTop: 12, fontSize: 34, fontWeight: 900, color: L.head, fontVariantNumeric: 'tabular-nums' }}>{left > 0 ? `${m}:${String(s).padStart(2, '0')}` : 'Letting you in…'}</div>
+      </div>
+      <div><button onClick={onHost} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>I'm the host</button></div>
+    </div>
+  )
 }
 
 // ❓ HELP: CAMERA, MIC & SCREEN SHARING (Neal, 2026-10-06, after Sam's meeting on his iPhone). One guide per
@@ -1191,6 +1220,11 @@ export default function Meet() {
   }
 
   // NO MEETING ON RIGHT NOW (Neal, 2026-10-04): say when the next one is, instead of an empty room.
+  // ⏰ The devotional starts ON TIME: early arrivals wait here and are let in automatically at the minute (see meet.js openState).
+  const onTime = door?.kind === 'prayer' || door?.look === 'devotional'
+  if (!join && notOpen && !hostMode && onTime && notOpen.next_at && Date.parse(notOpen.next_at) - Date.now() < 3 * 3600000) {
+    return shell(<OnTimeWait door={door} nextAt={notOpen.next_at} L={L} hTitle={hTitle} onJoin={() => doJoin(lastBody || {})} onHost={() => { setErr(''); setHostMode(true) }} />)
+  }
   if (!join && notOpen && !hostMode) {
     const when = notOpen.next_at ? new Date(notOpen.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
     return shell(
@@ -1322,6 +1356,7 @@ export default function Meet() {
         onDisconnected={() => { if (!moving.current) setChoices(null) }} style={{ height: '100%' }}>
         <KeepDevices choices={choices} />
         <BreakoutLayer slug={slug} auth={auth || {}} isHost={!!join.host} breakout={join.breakout || null} me={join.me || ''} onMove={onMove} />
+        <LobbyLayer slug={slug} auth={auth || {}} isHost={!!join.host} onTime={(join.room || door)?.kind === 'prayer' || (join.room || door)?.look === 'devotional'} lobby={join.lobby || null} onMove={onMove} />
         <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} breakoutN={join.breakout?.n || 0} /></MeetErrorBoundary>
       </LiveKitRoom>
     </div>

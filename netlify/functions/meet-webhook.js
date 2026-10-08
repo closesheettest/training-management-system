@@ -77,8 +77,8 @@ export const handler = async (event) => {
     }
   }
   const at = Number(ev.createdAt) ? Number(ev.createdAt) * 1000 : Date.now()
-  // Time in a 🚪 breakout room (<slug>__br<n>) is time in the class: it counts on the main room's attendance.
-  const attRoom = String(ev.room.name || '').replace(/__br\d+$/, '')
+  // Time in a 🚪 breakout room (<slug>__br<n>) or the ⏰ lobby (<slug>__lobby) is time in the class: it counts on the main room's attendance.
+  const attRoom = String(ev.room.name || '').replace(/__(br\d+|lobby)$/, '') // lobby time counts too
   const key = `meet_att_${etDay(at)}_${safe(attRoom)}_${safe(ev.participant.identity)}`
   const { data } = await sb.from('app_settings').select('value').eq('key', key).maybeSingle()
   let rec = null
