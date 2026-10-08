@@ -64,29 +64,33 @@ export default function RepAttendance({ managerToken } = {}) {
     let live = true
     const nowEt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
     const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-    // William (Trainer) moves zone to zone: his rain is fetched per DAY at the spot he knocked that day.
-    const trainerDays = []
-    for (const r of roster) if (r.zone === 'Trainer') for (const [d, p] of Object.entries(data.places_day?.[r.jnid] || {})) trainerDays.push([d, p])
-    const zonePts = Object.entries(pts).map(([z, ps]) => [z, ps.reduce((t, p) => t + p[0], 0) / ps.length, ps.reduce((t, p) => t + p[1], 0) / ps.length])
-    Promise.all([...zonePts.map(async ([z, la, lo]) => {
-      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la.toFixed(3)}&longitude=${lo.toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${data.days[0]}&end_date=${data.days[data.days.length - 1]}`).then((x) => x.json()).catch(() => null)
-      const out = {}
-      ;(j?.hourly?.time || []).forEach((t, i) => {
-        const d = t.slice(0, 10), h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0
-        if (h < 9 || h > 17 || d > todayEt) return
-        if (d === todayEt && h >= nowEt.getHours()) return // not happened yet
-        const o = (out[d] = out[d] || { wet: 0, of: 0, mm: 0 }); o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1
-      })
-      return [z, out]
-    }), ...trainerDays.map(async ([d, p]) => {
-      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p[0].toFixed(3)}&longitude=${p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${d}&end_date=${d}`).then((x) => x.json()).catch(() => null)
-      const o = { wet: 0, of: 0, mm: 0 }
-      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 9 || h > 17) return; if (d === todayEt && h >= nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
-      // Nearest team to where he knocked = the zone he worked.
-      let near = null, best = Infinity
-      for (const [z, la, lo] of zonePts) { if (z === 'Trainer' || z === 'No zone') continue; const dd = (la - p[0]) ** 2 + ((lo - p[1]) * Math.cos((p[0] * Math.PI) / 180)) ** 2; if (dd < best) { best = dd; near = z } }
-      return [`__trainer_${d}`, { ...o, zone: near }]
-    })]).then((list) => { if (live) setRain(Object.fromEntries(list)) })
+    // Rain is fetched per ZONE per DAY at where that zone's reps knocked THAT day (their average door GPS); a zone
+    // with no doors that day falls back to its whole-range spot. William (Trainer) gets his own spot each day, and his
+    // label is the rep he was nearest that day (within ~30 mi) — not just the closest team on the map (Neal, 2026-10-08:
+    // Melbourne read "Zone 3" with Zone 3 ~100 mi away).
+    const mi = (a, b) => Math.hypot((a[0] - b[0]) * 69, (a[1] - b[1]) * 69 * Math.cos((a[0] * Math.PI) / 180))
+    const avgP = (ps) => [ps.reduce((t, p) => t + p[0], 0) / ps.length, ps.reduce((t, p) => t + p[1], 0) / ps.length]
+    const jobs = []
+    const repDay = (d) => roster.filter((r) => r.zone !== 'Trainer').map((r) => [r, data.places_day?.[r.jnid]?.[d]]).filter(([, p]) => p)
+    for (const d of data.days) {
+      if (d > todayEt) continue
+      for (const [z, ps] of Object.entries(pts)) {
+        if (z === 'Trainer') continue
+        const today = repDay(d).filter(([r]) => (r.zone || 'No zone') === z).map(([, p]) => p)
+        jobs.push({ key: `${z}|${d}`, d, p: today.length ? avgP(today) : avgP(ps) })
+      }
+      for (const r of roster) if (r.zone === 'Trainer') { const p = data.places_day?.[r.jnid]?.[d]; if (!p) continue
+        let near = null, best = Infinity
+        for (const [x, q] of repDay(d)) { const m = mi(p, q); if (m < best) { best = m; near = x } }
+        jobs.push({ key: `__trainer_${d}`, d, p, near: best <= 30 ? near : null, far: best === Infinity ? null : Math.round(best) })
+      }
+    }
+    Promise.all(jobs.map(async (jb) => {
+      const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${jb.p[0].toFixed(3)}&longitude=${jb.p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${jb.d}&end_date=${jb.d}`).then((x) => x.json()).catch(() => null)
+      const o = { wet: 0, of: 0, mm: 0, near: jb.near ? { name: jb.near.name, zone: jb.near.zone } : null, far: jb.far }
+      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 9 || h > 17) return; if (jb.d === todayEt && h >= nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
+      return [jb.key, o]
+    })).then((list) => { if (live) setRain(Object.fromEntries(list)) })
     return () => { live = false }
   }, [data, roster])
 
@@ -277,14 +281,14 @@ export default function RepAttendance({ managerToken } = {}) {
                                   with (ride-alongs) — and that zone's rain. */}
                               {z.zone === 'Trainer' && (() => {
                                 const rode = roster.filter((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])
-                                const knocked = rain[`__trainer_${ds}`]?.zone
-                                if (!rode.length) return knocked ? <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title="The team area nearest the doors he knocked that day">📍 {knocked} area</div> : null
+                                const tk = rain[`__trainer_${ds}`]
+                                if (!rode.length) return tk && (tk.near || tk.far != null) ? <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title={tk.near ? 'The rep he knocked nearest to that day (within ~30 miles)' : `No rep knocked within 30 miles of him that day (nearest ~${tk.far} mi)`}>📍 {tk.near ? `near ${tk.near.name.split(' ')[0]} (${tk.near.zone})` : 'away from the teams'}</div> : null
                                 const zs = [...new Set(rode.map((r) => r.zone || 'No zone'))]
                                 return <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title={`Rode with ${rode.map((r) => r.name).join(', ')}`}>🚗 {zs.map((zn) => `${zn} · ${rode.filter((r) => (r.zone || 'No zone') === zn).map((r) => r.name.split(' ')[0]).join(', ')}`).join(' / ')}</div>
                               })()}
                               {(() => { const tk = z.zone === 'Trainer' ? rain[`__trainer_${ds}`] : null
-                                const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.zone) : z.zone
-                                const w = tk && tk.of ? tk : rain[zr]?.[ds]; if (!w || !w.of) return null
+                                const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.near?.zone || 'William') : z.zone
+                                const w = tk && tk.of ? tk : rain[`${zr}|${ds}`]; if (!w || !w.of) return null
                                 const tip = `Actual rain where ${zr} knocked (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
                                 return <div title={tip} className={`mt-0.5 text-[11px] font-extrabold ${w.wet ? 'text-sky-700' : 'text-slate-400'}`}>{w.wet ? `🌧 rained ${w.wet} of ${w.of} hrs` : `☀️ dry${w.of < 9 ? ' so far' : ''}`}</div> })()}
                             </td>
