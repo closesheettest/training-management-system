@@ -35,7 +35,7 @@
 // Who you are is decided HERE, never by the page: the name on your tile comes from TMS, so
 // nobody can join as someone else. Env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
 // SUPABASE_URL, SUPABASE_SECRET_KEY, URL.
-import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, EncodedFileOutput, S3Upload } from 'livekit-server-sdk'
+import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, EncodedFileOutput, S3Upload, DataPacket_Kind } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3'
@@ -52,6 +52,9 @@ const TRIAL = { slug: 'trial', title: 'Trial meeting', kind: 'custom', hosts: []
 // CORS open: the CCG rep dashboard calls my_rooms from its own site.
 const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' }, body: JSON.stringify(obj) })
 const REP_PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/rep-pin'
+// A person's identity without the per-device seat (host:/g:/a: identities end in :xxxxx, new on every join), so a
+// breakout assignment still finds them after a refresh. t:<id> and x:<key> have no seat.
+const stableId = (id) => (/^(host|g|a):/.test(String(id)) ? String(id).replace(/:[a-z0-9]{5}$/, '') : String(id))
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 // The "when" line people see on the link, written from the room's own schedule (Neal, 2026-10-05:
 // Nikki typed "Tues 10am" AND set the schedule — "why have it twice"). Weekly: "Tue 10 AM" or
@@ -1564,6 +1567,13 @@ export const handler = async (event) => {
   // retraining room lands in the room it joins — one call.
   const mergedInto = room.kind === 'retraining' && room.joins_room && room.joins_room !== room.slug ? room.joins_room
     : room.merge && room.merge.date === etDay() ? room.merge.into : null
+  // 🚪 BREAKOUT STATUS (public): whether breakouts are running, when they end, who is in which room. Polled by people in a
+  // breakout room (that room's metadata doesn't carry it) so they come back when the host ends it.
+  if (b.action === 'breakout_status') {
+    const bo = await getSetting(`meet_breakout_${room.slug}`, null)
+    const on = !!(bo && bo.on && Date.parse(bo.ends_at) > Date.now() - 60000)
+    return json(200, { ok: true, on, ends_at: on ? bo.ends_at : null, rooms: on ? (bo.rooms || []).map((r) => ({ n: r.n, name: r.name, people: r.people || [] })) : [] })
+  }
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
@@ -1729,16 +1739,34 @@ export const handler = async (event) => {
       // class, so every day-2 join can safely knock.
       if (dayIdx === 1 && process.env.CRON_SECRET) await fetch(`${SITE}/.netlify/functions/notify-day-2-provision?secret=${encodeURIComponent(process.env.CRON_SECRET)}`).catch(() => {})
     }
+    // 🚪 BREAKOUT ROOMS (Neal, 2026-10-08: "you A and you B, I'm going to put you in a room … for the next 45 minutes, and
+    // then we come back"). While the host has breakouts running, a person assigned to one is given a seat in its own
+    // LiveKit room (<slug>__br<n>) — on purpose (the page asks with breakout:n) or on any rejoin. Hosts may enter any.
+    // Mics are always open in a breakout: the point is to talk. main:true = back to the main room.
+    let boN = null, bo = null
+    {
+      const st = await getSetting(`meet_breakout_${room.slug}`, null)
+      if (st && st.on && Date.parse(st.ends_at) > Date.now()) {
+        bo = st
+        const mine = (st.rooms || []).find((r) => (r.ids || []).includes(stableId(identity)))
+        const want = Number(b.breakout) || 0
+        if (want && (host || (mine && mine.n === want)) && (st.rooms || []).some((r) => r.n === want)) boN = want
+        else if (!want && !b.main && !host && mine) boN = mine.n
+      }
+    }
+    const lkRoom = boN ? `${room.slug}__br${boN}` : room.slug
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host, ...(busyAs ? { busy: busyAs } : {}) }) })
     // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
     // muted and they cannot unmute. I am the only one that can unmute"). Non-hosts may publish
     // their camera only; the host's Unmute grants the mic (allow_mic) and Mute takes it back.
-    const micLocked = !!room.mic_lock && !host
-    at.addGrant({ room: room.slug, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
+    const micLocked = !!room.mic_lock && !host && !boN
+    at.addGrant({ room: lkRoom, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: host, ...(micLocked ? { canPublishSources: [TrackSource.CAMERA] } : {}) })
     // Open the room with its top line already set, so the first person in sees it.
-    try { await svc().createRoom({ name: room.slug, emptyTimeout: 600, metadata: JSON.stringify({ topic: room.topic || '' }) }) } catch { /* already open */ }
+    try { await svc().createRoom({ name: lkRoom, emptyTimeout: 600, metadata: JSON.stringify({ topic: boN ? '' : (room.topic || '') }) }) } catch { /* already open */ }
     await mark('in')
-    return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room) })
+    const boRoom = boN ? (bo.rooms || []).find((r) => r.n === boN) : null
+    return json(200, { ok: true, url, token: await at.toJwt(), name, host, mic_locked: micLocked, title: room.title, room: publicRoom(room),
+      breakout: boRoom ? { n: boN, name: boRoom.name, ends_at: bo.ends_at, people: boRoom.people || [] } : null, me: stableId(identity) })
   }
 
   // PRACTICE IN THE MEETING: a seat for the AI homeowner (its own tile), run from the trainer's
@@ -1851,6 +1879,27 @@ export const handler = async (event) => {
     }
     // How the presenter's camera sits beside slides / scripture (Neal, 2026-10-05): circle (small, in
     // the corner) | split (half and half) | stack_top (you on top) | stack_bottom (you underneath).
+    // 🚪 BREAKOUTS — start: rooms [{ name, ids:[identity], people:[name] }], minutes. The main room's metadata carries the
+    // assignments, so everyone in it moves at once; the state is kept so a refresh / late join lands in the right room.
+    if (b.action === 'breakout_start') {
+      const rooms = (Array.isArray(b.rooms) ? b.rooms : []).slice(0, 10).map((r, i) => ({ n: i + 1, name: String(r.name || `Room ${i + 1}`).slice(0, 40),
+        ids: (Array.isArray(r.ids) ? r.ids : []).map((x) => stableId(String(x))).slice(0, 50), people: (Array.isArray(r.people) ? r.people : []).map((x) => String(x).slice(0, 60)).slice(0, 50) }))
+        .filter((r) => r.ids.length)
+      if (!rooms.length) return json(400, { ok: false, error: 'Put at least one person in a room.' })
+      const minutes = Math.min(180, Math.max(1, Number(b.minutes) || 45))
+      const st = { on: true, rooms, ends_at: new Date(Date.now() + minutes * 60000).toISOString(), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
+      await putSetting(`meet_breakout_${room.slug}`, st)
+      await setMeta({ breakout: { ends_at: st.ends_at, rooms: rooms.map((r) => ({ n: r.n, name: r.name, ids: r.ids })) } })
+      return json(200, { ok: true, state: st })
+    }
+    // 🚪 BREAKOUTS — end: everyone back to the main room (the rooms are told directly; their pages also poll the status).
+    if (b.action === 'breakout_end') {
+      const st = await getSetting(`meet_breakout_${room.slug}`, null)
+      await putSetting(`meet_breakout_${room.slug}`, { on: false, ended_at: new Date().toISOString() })
+      try { await setMeta({ breakout: null }) } catch { /* main room empty */ }
+      for (const r of (st && st.rooms) || []) { try { await svc().sendData(`${room.slug}__br${r.n}`, new TextEncoder().encode(JSON.stringify({ type: 'back' })), DataPacket_Kind.RELIABLE, { topic: 'breakout' }) } catch { /* nobody in it */ } }
+      return json(200, { ok: true })
+    }
     if (b.action === 'set_lock') {
       const on = !!b.on
       await putSetting(`meet_lock_${room.slug}_${etDay()}`, { on, by: String(b.by || '').slice(0, 60), at: new Date().toISOString() })

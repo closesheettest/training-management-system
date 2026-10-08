@@ -27,6 +27,7 @@ import { ScriptureSlide } from '../components/Scripture.jsx'
 import { PodcastStage } from '../components/PodcastStage.jsx'
 import CompanyLobby, { READY } from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
+import { BreakoutLayer } from '../components/Breakouts.jsx'
 import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
 import { LocalRecorder, localRecordSupported, leftoverRecordings, saveLeftover, dropLeftover, activeRecorder } from '../lib/localRecorder.js'
 import { useBackground, BackgroundPanel } from '../components/BackgroundPicker.jsx'
@@ -912,6 +913,18 @@ export default function Meet() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [choices, setChoices] = useState(null)
+  // 🚪 BREAKOUTS: switching rooms swaps the token; the old connection's "disconnected" must not send them back to the
+  // join screen (moving), and the new one keeps their camera + mic choices.
+  const moving = useRef(false)
+  const moveTo = useRef(null)
+  moveTo.current = async (n) => {
+    const j = await call({ action: 'join', ...(auth || {}), ...(asAttendee ? { attendee: true } : {}), room: slug, ...(n ? { breakout: n } : { main: true }) }).catch(() => null)
+    if (!j?.ok) return false
+    moving.current = true
+    setJoin(j)
+    return true
+  }
+  const onMove = useMemo(() => (n) => moveTo.current(n), [])
   const [preHelp, setPreHelp] = useState(false)
   const [notOpen, setNotOpen] = useState(null) // { next_at } — no meeting on right now
   const [checkin, setCheckin] = useState(() => { try { return JSON.parse(getS('meet_checkin', localStorage) || 'null') || { first: '', last: '', email: '' } } catch { return { first: '', last: '', email: '' } } })
@@ -1263,7 +1276,7 @@ export default function Meet() {
   return (
     <div data-lk-theme="default" style={{ height: '100dvh', overflow: 'hidden', background: L.bg, fontFamily: L.fontBody }}>
       <FontsFor look={L} />
-      <LiveKitRoom serverUrl={join.url} token={join.token} connect
+      <LiveKitRoom key={join.token} serverUrl={join.url} token={join.token} connect onConnected={() => { moving.current = false }}
         // SMOOTH VIDEO (Neal, 2026-10-05: "when I move … it seems choppy"). 720p at 30 fps from the camera;
         // when the connection or computer is stretched, keep the FRAME RATE and soften the picture
         // instead of stuttering; a little more bitrate; viewers only get the size they display.
@@ -1273,9 +1286,10 @@ export default function Meet() {
           publishDefaults: { videoEncoding: { maxBitrate: 2_500_000, maxFramerate: 30 }, videoSimulcastLayers: [VideoPresets.h360, VideoPresets.h540], degradationPreference: 'maintain-framerate' },
         }}
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
-        audio={choices.audioEnabled && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
-        onDisconnected={() => setChoices(null)} style={{ height: '100%' }}>
+        audio={(choices.audioEnabled || join.breakout) && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
+        onDisconnected={() => { if (!moving.current) setChoices(null) }} style={{ height: '100%' }}>
         <KeepDevices choices={choices} />
+        <BreakoutLayer slug={slug} auth={auth || {}} isHost={!!join.host} breakout={join.breakout || null} me={join.me || ''} onMove={onMove} />
         <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} /></MeetErrorBoundary>
       </LiveKitRoom>
     </div>

@@ -77,11 +77,13 @@ export const handler = async (event) => {
     }
   }
   const at = Number(ev.createdAt) ? Number(ev.createdAt) * 1000 : Date.now()
-  const key = `meet_att_${etDay(at)}_${safe(ev.room.name)}_${safe(ev.participant.identity)}`
+  // Time in a 🚪 breakout room (<slug>__br<n>) is time in the class: it counts on the main room's attendance.
+  const attRoom = String(ev.room.name || '').replace(/__br\d+$/, '')
+  const key = `meet_att_${etDay(at)}_${safe(attRoom)}_${safe(ev.participant.identity)}`
   const { data } = await sb.from('app_settings').select('value').eq('key', key).maybeSingle()
   let rec = null
   try { rec = data ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : null } catch { rec = null }
-  rec = rec || { name: ev.participant.name || ev.participant.identity, identity: ev.participant.identity, room: ev.room.name, joins: [], camera: [] }
+  rec = rec || { name: ev.participant.name || ev.participant.identity, identity: ev.participant.identity, room: attRoom, joins: [], camera: [] }
   const iso = new Date(at).toISOString()
   const open = rec.joins.length && !rec.joins[rec.joins.length - 1].out ? rec.joins[rec.joins.length - 1] : null
 
