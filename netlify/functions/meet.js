@@ -1558,7 +1558,12 @@ export const handler = async (event) => {
 
   // What the door shows before anyone signs in (title, badge, whether outside guests can come in).
   // 🔀 COMBINED TODAY: this room's people go to another team's room (redirect on the page).
-  const mergedInto = room.merge && room.merge.date === etDay() ? room.merge.into : null
+  // A RETRAINING MEETS IN ITS JOIN ROOM (Neal, 2026-10-08: "I kept going into the Master the Presentation room … oh
+  // crap, I have to go into Second Week Training"). Its reps' links already went to Second Week Training, but opening the
+  // Master the Presentation room itself (the host, from Meeting Rooms) started a separate, empty call. Now any way into a
+  // retraining room lands in the room it joins — one call.
+  const mergedInto = room.kind === 'retraining' && room.joins_room && room.joins_room !== room.slug ? room.joins_room
+    : room.merge && room.merge.date === etDay() ? room.merge.into : null
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
