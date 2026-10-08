@@ -270,6 +270,14 @@ function OnTimeWait({ door, nextAt, L, hTitle, onJoin, onHost }) {
   )
 }
 
+// A boundary that renders NOTHING on error, so an add-on (scripture voice-follow) can never take the meeting down.
+class QuietBoundary extends Component {
+  constructor(p) { super(p); this.state = { bad: false } }
+  static getDerivedStateFromError() { return { bad: true } }
+  componentDidCatch(e) { console.warn('add-on switched off:', e && e.message) }
+  render() { return this.state.bad ? null : this.props.children }
+}
+
 // ❓ HELP: CAMERA, MIC & SCREEN SHARING (Neal, 2026-10-06, after Sam's meeting on his iPhone). One guide per
 // device, the device you're on first. On the sign-in page and in the meeting's top bar.
 const DEVICE_HELP = [
@@ -927,8 +935,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             {kbNote && <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 70, background: 'rgba(15,23,42,.92)', color: '#fff', padding: '8px 16px', borderRadius: 10, fontWeight: 800, fontSize: 15, pointerEvents: 'none' }}>{kbNote}</div>}
             {/* 📖 Voice-follow: when the presenting host reads the last words, "Done with the scripture?" → the room sees
                 them again and the passage stays in a corner card on their screen only (Neal, 2026-10-08). */}
-            <ScriptureFollow sc={sc} active={!!(isHost && sc && sc.by && sc.by === localParticipant?.identity)} onBack={(s) => { setMyScripture(s); setScripture({ ...s, showing: false }); setScripturePanel(false) }} />
-            {myScripture && !sc && <ScriptureCard sc={myScripture} onClose={() => setMyScripture(null)} />}
+            {/* Fenced off: if the voice-follow ever errors it switches itself off — sharing the scripture is never touched. */}
+            <QuietBoundary><ScriptureFollow sc={sc} active={!!(isHost && sc && sc.by && sc.by === localParticipant?.identity)} onBack={(s) => { setMyScripture(s); setScripture({ ...s, showing: false }); setScripturePanel(false) }} /></QuietBoundary>
+            {myScripture && !sc && <QuietBoundary><ScriptureCard sc={myScripture} onClose={() => setMyScripture(null)} /></QuietBoundary>}
             {isHost && scripturePanel && <ScripturePanel current={rmeta.scripture} onSet={setScripture} onClose={() => setScripturePanel(false)} layoutPick={<LayoutPick layout={layout} onLayout={pickLayout} />} />}
             {isHost && auth.pin && practice && <MeetPractice roomSlug={room.slug} pin={auth.pin} onClose={() => setPractice(false)} />}
             {isHost && panel && <HostPanel room={room} auth={auth} onClose={() => setPanel(false)} circle={circle} setCircle={setCircle} />}
