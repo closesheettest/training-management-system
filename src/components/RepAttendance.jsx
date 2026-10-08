@@ -277,15 +277,7 @@ export default function RepAttendance({ managerToken } = {}) {
                           {data.days.map((ds, i) => (
                             <td key={ds} className="whitespace-nowrap px-2 py-1.5 text-center text-[11px] font-bold text-indigo-900">
                               {z.byDay[i].appts ? `📅 ${z.byDay[i].appts} · ` : ''}🚪 {z.byDay[i].doors} · ⏱ {z.byDay[i].hrs}h
-                              {/* 🚗 WILLIAM (Neal, 2026-10-08): on the Trainer row, which zone he worked that day — the reps he rode
-                                  with (ride-alongs) — and that zone's rain. */}
-                              {z.zone === 'Trainer' && (() => {
-                                const rode = roster.filter((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])
-                                const tk = rain[`__trainer_${ds}`]
-                                if (!rode.length) return tk && (tk.near || tk.far != null) ? <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title={tk.near ? 'The rep he knocked nearest to that day (within ~30 miles)' : `No rep knocked within 30 miles of him that day (nearest ~${tk.far} mi)`}>📍 {tk.near ? `near ${tk.near.name.split(' ')[0]} (${tk.near.zone})` : 'away from the teams'}</div> : null
-                                const zs = [...new Set(rode.map((r) => r.zone || 'No zone'))]
-                                return <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title={`Rode with ${rode.map((r) => r.name).join(', ')}`}>🚗 {zs.map((zn) => `${zn} · ${rode.filter((r) => (r.zone || 'No zone') === zn).map((r) => r.name.split(' ')[0]).join(', ')}`).join(' / ')}</div>
-                              })()}
+                              {/* William's row: just the rain where he worked that day — no zone / location label (Neal, 2026-10-08). */}
                               {(() => { const tk = z.zone === 'Trainer' ? rain[`__trainer_${ds}`] : null
                                 const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.near?.zone || 'William') : z.zone
                                 const w = tk && tk.of ? tk : rain[`${zr}|${ds}`]; if (!w || !w.of) return null
