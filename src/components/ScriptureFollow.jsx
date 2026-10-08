@@ -94,7 +94,8 @@ export function ScriptureFollow({ sc, active, onBack }) {
   )
 }
 
-// The passage on the HOST's screen only, after "back to me" — a small card in the corner to teach from.
+// The passage on the HOST's screen only, after "back to me" — a BIG card (Neal + DeWayne, 2026-10-08: "double the size …
+// I want to see the scripture"), shrinkable / closable, to teach from.
 export function ScriptureCard({ sc, onClose }) {
   const [pos, setPos] = useState({ x: null, y: null })
   const [small, setSmall] = useState(false)
@@ -104,7 +105,7 @@ export function ScriptureCard({ sc, onClose }) {
   const onUp = () => { drag.current = null }
   const place = pos.x == null ? { right: 14, top: 60 } : { left: pos.x, top: pos.y }
   return (
-    <div style={{ position: 'fixed', ...place, zIndex: 57, width: small ? 240 : 'min(760px, 92vw)', // big (Neal + DeWayne, 2026-10-08: "double the size … I want to see the scripture") background: '#0b0b0b', color: '#fff', border: '1px solid #3f3f46', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.45)' }}>
+    <div style={{ position: 'fixed', ...place, zIndex: 57, width: small ? 240 : 'min(760px, 92vw)', background: '#0b0b0b', color: '#fff', border: '1px solid #3f3f46', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.45)' }}>
       <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'move', borderBottom: small ? 'none' : '1px solid #27272a', userSelect: 'none' }}>
         <span style={{ flex: 1, fontWeight: 800, fontSize: small ? 13 : 17, color: '#fbbf24' }}>📖 {sc.ref} · {sc.version}</span>
         <button onClick={() => setSmall((x) => !x)} title={small ? 'Show the text' : 'Shrink'} style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 14 }}>{small ? '▢' : '–'}</button>
