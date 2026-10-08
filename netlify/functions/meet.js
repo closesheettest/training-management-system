@@ -1908,7 +1908,8 @@ export const handler = async (event) => {
       const deck = dkIn ? (() => { const max = Math.min(BO_DECKS[dkIn.key], Math.max(1, Number(dkIn.max) || 1)), min = Math.min(max, Math.max(1, Number(dkIn.min) || 1)); return { key: dkIn.key, min, max, label: String(dkIn.label || '').slice(0, 60) } })() : null
       const st = { on: true, rooms, deck, ends_at: new Date(Date.now() + minutes * 60000).toISOString(), by: String(b.by || '').slice(0, 60), at: new Date().toISOString() }
       await putSetting(`meet_breakout_${room.slug}`, st)
-      await setMeta({ breakout: { ends_at: st.ends_at, rooms: rooms.map((r) => ({ n: r.n, name: r.name, ids: r.ids })) } })
+      // Tell the main room (everyone in it moves). Nobody in it yet → the saved state still routes them as they join.
+      try { await setMeta({ breakout: { ends_at: st.ends_at, rooms: rooms.map((r) => ({ n: r.n, name: r.name, ids: r.ids })) } }) } catch { /* main room not open */ }
       return json(200, { ok: true, state: st })
     }
     // 🚪 BREAKOUTS — end: everyone back to the main room (the rooms are told directly; their pages also poll the status).
