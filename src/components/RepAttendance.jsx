@@ -323,7 +323,9 @@ export default function RepAttendance({ managerToken } = {}) {
                           </td>
                           {r.cells.map((c, i) => (
                             <td key={i} className="whitespace-nowrap px-2 py-1.5 text-center">
-                              {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`${c.via === 'map' ? 'On DoorDispatcher' : c.via === 'both' ? 'On DoorDispatcher and the dashboard' : 'On the dashboard'} — first ${etTime(c.x.first)}`}>✓ {etTime(c.x.first)}{c.via !== 'dash' ? ' 🗺️' : ''}</span>}
+                              {/* The time shown is the FIRST DOOR, not when they opened the map (Neal, 2026-10-08: "signed on to the map is useless").
+                                  Checking in still counts for attendance — that time is in the hover. */}
+                              {c.kind === 'in' && <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800" title={`Checked in ${etTime(c.x.first)} (${c.via === 'map' ? 'DoorDispatcher' : c.via === 'both' ? 'DoorDispatcher + dashboard' : 'dashboard'})${data.door_span?.[r.jnid]?.[data.days[i]] ? ` · first door ${etTime(data.door_span[r.jnid][data.days[i]][0])}, last ${etTime(data.door_span[r.jnid][data.days[i]][1])}` : ' · no doors'}`}>✓ {data.door_span?.[r.jnid]?.[data.days[i]] ? `🚪 ${etTime(data.door_span[r.jnid][data.days[i]][0])}` : 'in'}</span>}
                               {c.kind === 'training' && <span className="rounded bg-indigo-100 px-1.5 py-0.5 font-bold text-indigo-800" title="Out in the field with William (his ride-along picks)">🎓 Training</span>}
                               {c.kind === 'in' && c.trained && <div className="mt-0.5 text-[10px] font-bold text-indigo-700">🎓 with William</div>}
                               {c.kind === 'reason' && <span className={`rounded px-1.5 py-0.5 font-bold ${REASON[c.x.reason]?.[1] || ''}`} title={c.x.note || ''}>{REASON[c.x.reason]?.[0] || c.x.reason}{c.x.note ? ' 💬' : ''}</span>}
@@ -350,7 +352,7 @@ export default function RepAttendance({ managerToken } = {}) {
                       {!shown.length && <tr><td colSpan={data.days.length + 6} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays in this range since tracking began (Oct 1).'}</td></tr>}
                     </tbody>
                   </table>
-                  <p className="mt-2 text-[11px] text-slate-500">On a computer, point at a reason with 💬 to read the note the rep typed, or at a ✓ to see whether they checked in on their dashboard or DoorDispatcher. The ✓ time is when they first checked in that day (Eastern).</p>
+                  <p className="mt-2 text-[11px] text-slate-500">On a computer, point at a reason with 💬 to read the note the rep typed, or at a ✓ to see whether they checked in on their dashboard or DoorDispatcher. The ✓ time is their FIRST DOOR that day (Eastern); point at it for when they checked in and their last door.</p>
                 </div>
               )}
             </>
