@@ -54,7 +54,7 @@ export default function RepAttendance({ managerToken } = {}) {
   const [only, setOnly] = useState('all') // all | problems
   // 🌧 RAIN BY ZONE (Neal, 2026-10-08: "this week we've had rain … by area, when it rained"). ACTUAL rain, never a
   // forecast: for each zone, where its reps knocked this range (their average door GPS, from CCG), the hours of the
-  // 9 AM–6 PM work day with a real shower (≥ 0.5 mm in the hour), from Open-Meteo's free hourly history. Today
+  // 9 AM–6 PM work day with ANY measurable rain (≥ 0.1 mm in the hour — light steady rain stops door-knocking too; William's Tue 10/6 read 2 hrs at ≥ 0.5 mm when it rained 5), from Open-Meteo's free hourly history. Today
   // counts only the hours already gone. Shown as "🌧 5 of 9 hrs" — NOT a %, which reads as a chance of rain.
   const [rain, setRain] = useState({}) // zone → { 'YYYY-MM-DD': { wet, of, mm } }
   useEffect(() => {
@@ -75,13 +75,13 @@ export default function RepAttendance({ managerToken } = {}) {
         const d = t.slice(0, 10), h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0
         if (h < 9 || h > 17 || d > todayEt) return
         if (d === todayEt && h >= nowEt.getHours()) return // not happened yet
-        const o = (out[d] = out[d] || { wet: 0, of: 0, mm: 0 }); o.of += 1; o.mm += mm; if (mm >= 0.5) o.wet += 1
+        const o = (out[d] = out[d] || { wet: 0, of: 0, mm: 0 }); o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1
       })
       return [z, out]
     }), ...trainerDays.map(async ([d, p]) => {
       const j = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p[0].toFixed(3)}&longitude=${p[1].toFixed(3)}&hourly=precipitation&timezone=America%2FNew_York&start_date=${d}&end_date=${d}`).then((x) => x.json()).catch(() => null)
       const o = { wet: 0, of: 0, mm: 0 }
-      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 9 || h > 17) return; if (d === todayEt && h >= nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.5) o.wet += 1 })
+      ;(j?.hourly?.time || []).forEach((t, i) => { const h = +t.slice(11, 13), mm = j.hourly.precipitation[i] || 0; if (h < 9 || h > 17) return; if (d === todayEt && h >= nowEt.getHours()) return; o.of += 1; o.mm += mm; if (mm >= 0.1) o.wet += 1 })
       // Nearest team to where he knocked = the zone he worked.
       let near = null, best = Infinity
       for (const [z, la, lo] of zonePts) { if (z === 'Trainer' || z === 'No zone') continue; const dd = (la - p[0]) ** 2 + ((lo - p[1]) * Math.cos((p[0] * Math.PI) / 180)) ** 2; if (dd < best) { best = dd; near = z } }
