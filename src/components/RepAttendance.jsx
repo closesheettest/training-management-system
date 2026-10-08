@@ -281,7 +281,7 @@ export default function RepAttendance({ managerToken } = {}) {
                               {(() => { const tk = z.zone === 'Trainer' ? rain[`__trainer_${ds}`] : null
                                 const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.near?.zone || 'William') : z.zone
                                 const w = tk && tk.of ? tk : rain[`${zr}|${ds}`]; if (!w || !w.of) return null
-                                const tip = `Actual rain where ${zr} knocked (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
+                                const tip = `Actual rain where ${z.zone === 'Trainer' ? 'he worked that day' : `${zr} knocked`} (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
                                 return <div title={tip} className={`mt-0.5 text-[11px] font-extrabold ${w.wet ? 'text-sky-700' : 'text-slate-400'}`}>{w.wet ? `🌧 rained ${w.wet} of ${w.of} hrs` : `☀️ dry${w.of < 9 ? ' so far' : ''}`}</div> })()}
                             </td>
                           ))}
