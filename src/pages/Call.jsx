@@ -22,9 +22,13 @@ function Dialer({ mt }) {
   const pin = (() => { try { return sessionStorage.getItem(`${KEY}_pin`) || '' } catch { return '' } })()
   const auth = mt ? { mt } : { pin }
   const [people, setPeople] = useState(null)
+  const [contacts, setContacts] = useState([])
+  // Who to call: 🏢 U.S. Shingle (company list) · 📇 My contacts · ➕ New (Neal, 2026-10-08).
+  const [tab, setTab] = useState('company')
+  const [saveNew, setSaveNew] = useState(true)
   const [q, setQ] = useState('')
   const [pick, setPick] = useState(null)
-  const [other, setOther] = useState({ name: '', phone: '' })
+  const [other, setOther] = useState({ name: '', phone: '', email: '' })
   const [note, setNote] = useState('')
   // ⏺ Record this call to my computer + what to call the file (Neal, 2026-10-06).
   const [rec, setRec] = useState(false)
@@ -32,13 +36,13 @@ function Dialer({ mt }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(null) // what went out, shown before you go into the room
-  useEffect(() => { call({ action: 'call_people', ...auth }).then((j) => (j.ok ? setPeople(j.people) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const list = (people || []).filter((p) => !q.trim() || `${p.name} ${p.tag}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
+  useEffect(() => { call({ action: 'call_people', ...auth }).then((j) => (j.ok ? (setPeople(j.people), setContacts(j.contacts || [])) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const list = (tab === 'contacts' ? contacts : (people || [])).filter((p) => !q.trim() || `${p.name} ${p.tag}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
   const go = async () => {
-    const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone }
+    const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone, email: other.email }
     setBusy(true); setErr('')
     const who = (pick?.name || other.name || '').trim()
-    const j = await call({ action: 'call_start', ...auth, to, note, ...(rec ? { record: true, rec_name: recName.trim() || `Call with ${who} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}` } : {}) }).catch(() => ({ error: 'Network error. Try again.' }))
+    const j = await call({ action: 'call_start', ...auth, to, note, ...(!pick && saveNew ? { save_contact: true } : {}), ...(rec ? { record: true, rec_name: recName.trim() || `Call with ${who} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}` } : {}) }).catch(() => ({ error: 'Network error. Try again.' }))
     setBusy(false)
     if (!j.ok) { setErr(j.error || 'Could not start the call.'); return }
     // Say what went out (Neal, 2026-10-05: he couldn't tell whether Nikki had a number). Nothing
@@ -70,21 +74,31 @@ function Dialer({ mt }) {
         </div>
       ) : (
         <>
-          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Who do you want to call? Type a name…" className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base" />
+          <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1">
+            {[['company', '🏢 U.S. Shingle'], ['contacts', `📇 My contacts${contacts.length ? ` (${contacts.length})` : ''}`], ['new', '➕ New']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => { setTab(k); setQ('') }} className={`rounded-lg py-2 text-sm font-bold ${tab === k ? 'bg-white text-brand-navy shadow' : 'text-slate-600'}`}>{l}</button>
+            ))}
+          </div>
+          {tab !== 'new' && <>
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tab === 'contacts' ? 'Search your contacts…' : 'Who do you want to call? Type a name…'} className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base" />
           <div className="mt-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white">
             {!people ? <p className="p-3 text-sm text-slate-500">Loading people…</p> : list.length ? list.map((p) => (
-              <button key={p.id || p.phone} onClick={() => setPick(p)} className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50">
+              <button key={p.id || p.phone || p.email || p.name} onClick={() => setPick(p)} className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50">
                 <span className="flex-1 font-semibold text-slate-900">{p.name}</span>
                 <span className={`text-xs ${p.cell ? 'text-slate-500' : 'font-bold text-red-600'}`}>{p.cell ? `📱 …${p.cell.slice(-4)}` : '⚠️ no cell'}</span>
                 <span className="text-xs text-slate-500">{p.tag}</span>
               </button>
-            )) : <p className="p-3 text-sm text-slate-500">No one by that name. Type them in below.</p>}
+            )) : <p className="p-3 text-sm text-slate-500">{tab === 'contacts' && !contacts.length ? 'No contacts yet. Use ➕ New and they\'re saved here for next time.' : <>No one by that name. Use <button type="button" onClick={() => setTab('new')} className="font-bold text-blue-700 underline">➕ New</button>.</>}</p>}
           </div>
-          <div className="mt-4 text-sm font-bold text-slate-700">Someone else</div>
-          <div className="mt-1 flex gap-2">
-            <input value={other.name} onChange={(e) => setOther({ ...other, name: e.target.value })} placeholder="Name" className="flex-1 rounded-lg border border-slate-300 px-3 py-2" />
-            <input value={other.phone} onChange={(e) => setOther({ ...other, phone: e.target.value })} inputMode="tel" placeholder="Cell" className="w-40 rounded-lg border border-slate-300 px-3 py-2" />
-          </div>
+          </>}
+          {tab === 'new' && <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex gap-2">
+              <input autoFocus value={other.name} onChange={(e) => setOther({ ...other, name: e.target.value })} placeholder="Name" className="flex-1 rounded-lg border border-slate-300 px-3 py-2" />
+              <input value={other.phone} onChange={(e) => setOther({ ...other, phone: e.target.value })} inputMode="tel" placeholder="Cell" className="w-40 rounded-lg border border-slate-300 px-3 py-2" />
+            </div>
+            <input value={other.email} onChange={(e) => setOther({ ...other, email: e.target.value })} inputMode="email" placeholder="Email (optional)" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <label className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} /> 📇 Add to my contacts</label>
+          </div>}
         </>
       )}
       <label className="mt-4 block text-sm font-bold text-slate-700">Your message <span className="font-normal text-slate-500">(optional: it goes in the text and email, the join link is added under it)</span>

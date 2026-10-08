@@ -55,6 +55,9 @@ const REP_PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/function
 // A person's identity without the per-device seat (host:/g:/a: identities end in :xxxxx, new on every join), so a
 // breakout assignment still finds them after a refresh. t:<id> and x:<key> have no seat.
 const stableId = (id) => (/^(host|g|a):/.test(String(id)) ? String(id).replace(/:[a-z0-9]{5}$/, '') : String(id))
+// 📇 MY CONTACTS, one list per person, keyed by FIRST NAME so the meetings page (admin PIN → "Neal") and Call from
+// My Tools ("Neal S") share it (Neal, 2026-10-08). Neal's oldest list (meet_contacts) is read as his if his is empty.
+const contactsKey = (who) => `meet_contacts_${String(who || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]+/g, '')}`
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 // The "when" line people see on the link, written from the room's own schedule (Neal, 2026-10-05:
 // Nikki typed "Tues 10am" AND set the schedule — "why have it twice"). Weekly: "Tue 10 AM" or
@@ -861,7 +864,11 @@ export const handler = async (event) => {
       const seen = new Set(people.map((p) => p.ph).filter(Boolean))
       const tmsNames = new Set(people.map((p) => p.name.toLowerCase()))
       const all = [...people, ...staff.filter((x) => !tmsNames.has(x.name.toLowerCase()) && (!x.ph || (!seen.has(x.ph) && seen.add(x.ph))))].map(({ ph, ...x }) => x).sort((a, c) => a.name.localeCompare(c.name))
-      return json(200, { ok: true, people: all })
+      // 📇 This caller's own contacts (Five Star, vendors…) — the same list as the meetings page.
+      let mine = (await getSetting(contactsKey(caller), null)) || []
+      if (!mine.length && /^neal/i.test(caller)) mine = (await getSetting('meet_contacts', [])) || []
+      const contacts = mine.filter((c) => c && c.name).map((c) => ({ name: c.name, phone: c.phone || '', email: c.email || '', cell: digits(c.phone) || null, has_email: !!c.email, tag: '📇 My contacts' })).sort((a, c) => a.name.localeCompare(c.name))
+      return json(200, { ok: true, people: all, contacts })
     }
     // call_start
     const to = b.to || {}
@@ -877,6 +884,14 @@ export const handler = async (event) => {
       if (!name || digits(to.phone).length !== 10) return json(400, { ok: false, error: 'Pick someone, or type a name and a 10-digit cell.' })
       invitee = { key: crypto.randomBytes(6).toString('base64url'), name, phone: String(to.phone).trim().slice(0, 20), email: String(to.email || '').trim().toLowerCase().slice(0, 120) }
       to.cell = digits(to.phone)
+      // ➕ New person + "Add to my contacts" ticked → saved to the caller's list (one per phone / email).
+      if (b.save_contact) {
+        const k = contactsKey(caller)
+        let cur = (await getSetting(k, null)) || []
+        if (!cur.length && /^neal/i.test(caller)) cur = (await getSetting('meet_contacts', [])) || []
+        const same = (c) => (invitee.email && String(c.email || '').toLowerCase() === invitee.email) || (digits(c.phone) && digits(c.phone) === to.cell)
+        if (!cur.some(same)) { cur.push({ name, phone: invitee.phone || null, email: invitee.email || null }); await putSetting(k, cur) }
+      }
     }
     const start = new Date(Date.now() - 60000)
     const p2 = (n) => String(n).padStart(2, '0')
@@ -1067,7 +1082,7 @@ export const handler = async (event) => {
     // 📇 MY CONTACTS (Neal, 2026-10-07: "it knows it's me from my PIN … add someone else and it saves their contact
     // information in my contacts"): one list per PIN holder. Fed by every outside person they invite (on save, or the
     // 💾 button) and by a .vcf import. The old shared list (meet_contacts) is read as Neal's — it's the one he started.
-    const myKey = `meet_contacts_${slugify(admin)}`
+    const myKey = contactsKey(admin)
     const dgt = (x) => String(x || '').replace(/\D/g, '').slice(-10)
     const loadMine = async () => { const m = (await getSetting(myKey, null)) || []; return m.length || !/^neal/i.test(admin) ? m : (await getSetting('meet_contacts', [])) || [] }
     const addMine = async (list) => {
