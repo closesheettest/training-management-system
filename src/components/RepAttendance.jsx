@@ -262,8 +262,17 @@ export default function RepAttendance({ managerToken } = {}) {
                           {data.days.map((ds, i) => (
                             <td key={ds} className="whitespace-nowrap px-2 py-1.5 text-center text-[11px] font-bold text-indigo-900">
                               {z.byDay[i].appts ? `📅 ${z.byDay[i].appts} · ` : ''}🚪 {z.byDay[i].doors} · ⏱ {z.byDay[i].hrs}h
-                              {(() => { const w = rain[z.zone]?.[ds]; if (!w || !w.of) return null
-                                const tip = `Actual rain where ${z.zone} knocked (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
+                              {/* 🚗 WILLIAM (Neal, 2026-10-08): on the Trainer row, which zone he worked that day — the reps he rode
+                                  with (ride-alongs) — and that zone's rain. */}
+                              {z.zone === 'Trainer' && (() => {
+                                const rode = roster.filter((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])
+                                if (!rode.length) return null
+                                const zs = [...new Set(rode.map((r) => r.zone || 'No zone'))]
+                                return <div className="mt-0.5 text-[11px] font-extrabold text-amber-800" title={`Rode with ${rode.map((r) => r.name).join(', ')}`}>🚗 {zs.map((zn) => `${zn} · ${rode.filter((r) => (r.zone || 'No zone') === zn).map((r) => r.name.split(' ')[0]).join(', ')}`).join(' / ')}</div>
+                              })()}
+                              {(() => { const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone) : z.zone
+                                const w = rain[zr]?.[ds]; if (!w || !w.of) return null
+                                const tip = `Actual rain where ${zr} knocked (not a forecast): it rained in ${w.wet} of the ${w.of} work hours (9 AM–6 PM)${w.of < 9 ? ' so far today' : ''}, ${(w.mm / 25.4).toFixed(2)} in total.`
                                 return <div title={tip} className={`mt-0.5 text-[11px] font-extrabold ${w.wet ? 'text-sky-700' : 'text-slate-400'}`}>{w.wet ? `🌧 rained ${w.wet} of ${w.of} hrs` : `☀️ dry${w.of < 9 ? ' so far' : ''}`}</div> })()}
                             </td>
                           ))}
