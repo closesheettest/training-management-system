@@ -485,7 +485,11 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const [bgPanel, setBgPanel] = useState(false)
   // 👥 HOW MANY ARE HERE (Neal, 2026-10-08: "a button that says number of attendees … I'll know whether there's 10 or 15")
   const everyone = useParticipants()
-  const hereCount = everyone.filter((p) => !/^(egress|homeowner)/.test(p.identity)).length
+  const humans = everyone.filter((p) => !/^(egress|homeowner)/.test(p.identity))
+  const hereCount = humans.length
+  // …and tap it for a plain list of NAMES down the right side — no pictures — that stays up in presentation mode,
+  // where only a few faces show (Neal, 2026-10-08: "30 people but I don't know who's actually on"). Tap again to hide.
+  const [showNames, setShowNames] = useState(false)
   // 🚫 NO BACKGROUND FOR DEWAYNE (Neal, 2026-10-08: "remove background just for DeWayne … it's really annoying him").
   // The pick is remembered per device, so on his joins it's forced off, the 🖼 button is hidden and the 1/2/3/9/0
   // background keys do nothing — it can't come back on by accident.
@@ -774,7 +778,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             style={{ ...btn(false), background: rmeta.locked ? '#b91c1c' : '#334155', border: 'none', color: '#fff', marginRight: 6 }}>{rmeta.locked ? '🔒 Locked' : '🔓 Lock meeting'}</button>}
           {/* 🚪 Breakout rooms (Neal, 2026-10-08: "put it up with the other tools up top") — opens the panel in Breakouts.jsx. */}
           {isHost && <button onClick={() => window.dispatchEvent(new Event('open-breakouts'))} title="Split people into breakout rooms" style={{ ...btn(false), background: '#4c1d95', border: 'none', marginRight: 6 }}>🚪 Breakout rooms</button>}
-          {isHost && <button onClick={() => setPanel(true)} title="Everyone in the meeting, you included — tap for the list" style={{ ...btn(false), background: '#0f766e', border: 'none', marginRight: 6, fontVariantNumeric: 'tabular-nums' }}>👥 {hereCount} here</button>}
+          {isHost && <button onClick={() => setShowNames((x) => !x)} title="Who's on — tap to show / hide the list of names" style={{ ...btn(showNames), background: showNames ? '#115e59' : '#0f766e', border: 'none', marginRight: 6, fontVariantNumeric: 'tabular-nums' }}>👥 {hereCount} here {showNames ? '▴' : '▾'}</button>}
           {isHost && <button onClick={() => setPanel((x) => !x)} style={{ ...btn(panel), background: '#7c3aed', border: 'none' }}>👥 Host controls</button>}
         </div>
         {/* Only this middle area can grow; it never pushes the bottom bar off screen (Neal, 2026-10-06:
@@ -901,6 +905,21 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                   <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6 }}>If your browser asks, choose Allow for the microphone.</div>
                 </button>
                 <button onClick={() => setUnmuteAsk(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 26, cursor: 'pointer' }}>×</button>
+              </div>
+            )}
+            {isHost && showNames && (
+              <div style={{ position: 'fixed', right: 8, top: 56, bottom: 84, zIndex: 56, width: 210, display: 'flex', flexDirection: 'column', background: 'rgba(15,23,42,.92)', color: '#e2e8f0', borderRadius: 12, border: '1px solid #334155', boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '8px 10px', borderBottom: '1px solid #334155', fontWeight: 900, fontSize: 13.5 }}>
+                  <span style={{ flex: 1 }}>👥 {hereCount} on now</span>
+                  <button onClick={() => setShowNames(false)} title="Hide" style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 15 }}>✕</button>
+                </div>
+                <div style={{ overflow: 'auto', padding: '4px 0' }}>
+                  {humans.slice().sort((a, b) => String(a.name || a.identity).localeCompare(String(b.name || b.identity))).map((p) => (
+                    <div key={p.identity} style={{ padding: '4px 12px', fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {p.name || p.identity}{metaOf(p).host ? <span style={{ color: '#a78bfa', fontSize: 11, fontWeight: 800 }}> · host</span> : null}{p.isLocal ? <span style={{ color: '#64748b', fontSize: 11 }}> (you)</span> : null}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {devHelp && <DeviceHelp onClose={() => setDevHelp(false)} />}
