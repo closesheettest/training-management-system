@@ -26,6 +26,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { adminVerify } from './_admin-auth.js'
 
 const BUCKET = 'trainee-docs'
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
@@ -56,8 +57,7 @@ export const DOCS = {
 async function adminOk(pin) {
   if (!pin) return null
   try {
-    const r = await fetch(PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', pin: String(pin) }) })
-    const d = await r.json()
+    const d = await adminVerify(pin)   // admin PIN or My Tools sign-in (one sign-in, 2026-10-09)
     return d.valid ? (d.name || 'admin') : null
   } catch { return null }
 }

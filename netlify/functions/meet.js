@@ -43,6 +43,7 @@ import { sendSmsViaGhl, getSmsStatus, ghlHeaders } from './_ghl.js'
 import { sendEmail } from './_email.js'
 import { doorsFor, weekAFieldDays, EFFORT_DOORS, addDays } from './_effort.js'
 import { recipientsForEvent } from './_recipients.js'
+import { adminVerify } from './_admin-auth.js'
 
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
 const SITE = 'https://trainingmanagementsys.netlify.app'
@@ -83,8 +84,7 @@ const etDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA', { ti
 
 const verifyPin = async (pin) => {
   if (!String(pin || '').trim()) return null
-  const v = await fetch(PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', pin: String(pin) }) })
-    .then((r) => r.json()).catch(() => ({}))
+  const v = await adminVerify(pin)   // admin PIN or My Tools sign-in (one sign-in, 2026-10-09)
   return v.valid ? (v.name || 'Host') : null
 }
 

@@ -15,9 +15,20 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 // then the page is unlocked without a second PIN (Neal, 2026-10-09). The page's server functions must accept
 // "mt:<…>" as the PIN (Sales Training Customer: _practice-auth verifyTrainerPin). Wiped from the address bar at once.
 const MT_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/manager-dashboard'
-export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', keepPin = false, acceptMt = false, children }) {
+// ONE SIGN-IN (Neal, 2026-10-09: "a pin just to get in and you have access to all the stuff you have access to"):
+// whichever gated page someone signs into, the sign-in is kept for 12 hours on this device and every other gated
+// page (any tab) opens with it. The servers accept it the same way (admin PIN or My Tools sign-in). Lock clears it.
+const SHARED = 'tms_signin', SHARED_HOURS = 12
+const readShared = () => { try { const v = JSON.parse(localStorage.getItem(SHARED) || 'null'); return v && v.exp > Date.now() && v.cred ? v : null } catch { return null } }
+const saveShared = (name, cred) => { try { localStorage.setItem(SHARED, JSON.stringify({ name: name || '', cred, exp: Date.now() + SHARED_HOURS * 3600 * 1000 })) } catch { /* private mode */ } }
+export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', keepPin = false, acceptMt = true, children }) {
   const [unlocked, setUnlocked] = useState(() => {
-    try { return sessionStorage.getItem(storageKey) === '1' } catch { return false }
+    try {
+      if (sessionStorage.getItem(storageKey) === '1') return true
+      const sh = readShared()   // signed in on another page → this one too (its own keys seeded for the page's code)
+      if (sh) { sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', sh.name); sessionStorage.setItem(storageKey + '_pin', sh.cred); return true }
+      return false
+    } catch { return false }
   })
   const [who, setWho] = useState(() => { try { return sessionStorage.getItem(storageKey + '_name') || '' } catch { return '' } })
   // Coming from My Tools: say so instead of flashing the PIN screen while CCG checks the sign-in.
@@ -48,6 +59,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
         sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', mt.name || '')
         if (keepPin) sessionStorage.setItem(storageKey + '_pin', 'mt:' + raw)
       } catch { /* private mode */ }
+      saveShared(mt.name, 'mt:' + raw)
       setWho(mt.name || ''); setUnlocked(true)
       } finally { setMtChecking(false) }
     })()
@@ -62,6 +74,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
       sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', nm || '')
       if (keepPin) sessionStorage.setItem(storageKey + '_pin', pin)
     } catch { /* private mode */ }
+    if (pin) saveShared(nm, pin)
     setWho(nm || ''); setUnlocked(true); setPin(''); setConfirm(''); setName('')
   }
 
@@ -95,7 +108,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   }
 
   const lock = () => {
-    try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + '_name'); sessionStorage.removeItem(storageKey + '_pin') } catch { /* ignore */ }
+    try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(storageKey + '_name'); sessionStorage.removeItem(storageKey + '_pin'); localStorage.removeItem(SHARED) } catch { /* ignore */ }
     setUnlocked(false); setStep('pin'); setName(''); setPin(''); setConfirm(''); setErr('')
   }
   const startOver = () => { setStep('pin'); setPin(''); setConfirm(''); setName(''); setErr('') }

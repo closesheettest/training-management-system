@@ -13,6 +13,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 import { createClient } from '@supabase/supabase-js'
+import { adminVerify } from './_admin-auth.js'
 
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
 const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(obj) })
@@ -46,7 +47,7 @@ export const handler = async (event) => {
   }
 
   if (b.action === 'report') {
-    const v = await fetch(PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', pin: String(b.pin || '') }) }).then((r) => r.json()).catch(() => ({}))
+    const v = await adminVerify(b.pin)
     if (!v.valid) return json(401, { ok: false, error: 'Sign in again (PIN not recognised).' })
     const audit = await load()
     if (!audit) return json(404, { ok: false, error: 'No send recorded under that name.' })

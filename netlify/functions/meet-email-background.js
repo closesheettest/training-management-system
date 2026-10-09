@@ -10,6 +10,7 @@
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
 import { sendEmail } from './_email.js'
+import { adminVerify } from './_admin-auth.js'
 
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
 const SITE = 'https://trainingmanagementsys.netlify.app'
@@ -19,7 +20,7 @@ export const unsubSig = (slug, h) => crypto.createHmac('sha256', String(process.
 export const handler = async (event) => {
   let b = {}
   try { b = JSON.parse(event.body || '{}') } catch { return { statusCode: 400 } }
-  const v = await fetch(PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', pin: String(b.pin || '') }) }).then((r) => r.json()).catch(() => ({}))
+  const v = await adminVerify(b.pin)
   if (!v.valid) return { statusCode: 401 }
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
   const get = async (k) => { const { data } = await sb.from('app_settings').select('value').eq('key', k).maybeSingle(); try { return data ? JSON.parse(data.value) : null } catch { return null } }
