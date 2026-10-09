@@ -54,7 +54,9 @@ export default function PracticeSelf() {
     nav(`/practice/${d.token}`)
   }
 
-  const wrap = (children) => <div className="min-h-screen bg-slate-50 px-4 py-6"><div className="mx-auto max-w-lg">{children}</div></div>
+  // Back to the rep's Personal Dashboard (CCG) — Neal, 2026-10-09: "no back button".
+  const back = <a href="https://free-roof-inspections.netlify.app/?mode=rep" className="mb-3 inline-block text-sm font-bold text-slate-700">← Back to your Personal Dashboard</a>
+  const wrap = (children) => <div className="min-h-screen bg-slate-50 px-4 py-6"><div className="mx-auto max-w-lg">{back}{children}</div></div>
   if (err && !st) return wrap(<div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-700">{err}</div>)
   if (!st) return wrap(<div className="p-6 text-center text-slate-500">Loading…</div>)
   const first = (st.name || '').split(/\s+/)[0]

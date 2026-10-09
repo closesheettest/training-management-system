@@ -28,7 +28,10 @@ export default function PracticeInvite() {
     })
   }, [token])
 
-  const wrap = (children) => <div className="min-h-screen bg-slate-50 px-4 py-6">{children}</div>
+  // A rep's own practice (from their Personal Dashboard) gets a way back there (Neal, 2026-10-09).
+  const back = inv?.sent_by === 'Self practice' && stage !== 'live'
+    ? <div className="mx-auto mb-3 max-w-lg"><a href="https://free-roof-inspections.netlify.app/?mode=rep" className="text-sm font-bold text-slate-700">← Back to your Personal Dashboard</a></div> : null
+  const wrap = (children) => <div className="min-h-screen bg-slate-50 px-4 py-6">{back}{children}</div>
   if (err) return wrap(<div className="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-700">{err}</div>)
   if (!inv) return wrap(<div className="p-6 text-center text-slate-500">Loading…</div>)
 
