@@ -113,6 +113,7 @@ export const handler = async (event) => {
       text_model: textModel, text_model_found: names.includes(textModel),
       live_models_available: names.filter((n) => /live|native-audio/i.test(n)),
       flash_models_available: names.filter((n) => /flash/i.test(n) && !/live|audio|tts|image/i.test(n)).slice(0, 12),
+      tts_models_available: names.filter((n) => /tts/i.test(n)),   // the audio report's voice (2026-10-09)
     })
   }
 
