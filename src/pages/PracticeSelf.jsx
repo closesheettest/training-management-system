@@ -13,10 +13,14 @@ const call = (payload) => fetch('/.netlify/functions/practice-self', {
 }).then((r) => r.json()).catch(() => ({ ok: false, error: 'Network error. Check the connection and try again.' }))
 
 const LEVEL_COLOR = { 'Very easy': '#16a34a', Easy: '#65a30d', Medium: '#ca8a04', Hard: '#ea580c', 'Very hard': '#dc2626' }
+// Tapping one doesn't start anything (Neal, 2026-10-09): it opens under the button with what to focus on.
 const WHAT = [
-  { key: 'slide', emoji: '🖼️', label: 'One slide', desc: 'Pick a slide and present it. 3–5 minutes.' },
-  { key: 'control', emoji: '🎯', label: 'Control drill', desc: 'Pick a slide. The homeowner keeps asking questions — keep control. If a question isn’t about what you’re going over right now, park it. Don’t let them pull you where they want you to go. 5 minutes.' },
-  { key: 'full', emoji: '🏠', label: 'Full presentation', desc: 'Slide 1 through asking for the business. 30–60 minutes.' },
+  { key: 'slide', emoji: '🖼️', label: 'One slide', desc: '3–5 minutes',
+    focus: ['Pick the slide below — its points show up here.', 'Make each point the way the script makes it.', 'Ask questions: whoever asks the questions is in control.', 'Get them to say it: a question that puts the point in their mouth lands it best.'] },
+  { key: 'control', emoji: '🎯', label: 'Control drill', desc: '5 minutes',
+    focus: ['Pick a slide. The homeowner keeps asking questions to take control.', 'Answer short, then lead back with a question of your own.', 'A question that isn’t about what you’re going over right now? Park it: acknowledge it, say when you’ll get to it, ask them to hold it, and get back to your point.', 'Don’t let them pull you where they want you to go.'] },
+  { key: 'full', emoji: '🏠', label: 'Full presentation', desc: '30–60 minutes',
+    focus: ['Slide 1 all the way through asking for the business.', 'Hit every slide’s points the way the script makes them.', 'Keep asking questions: whoever asks the questions is in control.', 'Objections: acknowledge, isolate, answer only if it belongs on this slide, otherwise park it and come back to it.', 'After you ask for the business, stay quiet and let them answer.', 'At the end you’ll guess what was driving them: fear of loss, indifference, greed or urgency.'] },
 ]
 
 export default function PracticeSelf() {
@@ -83,25 +87,40 @@ export default function PracticeSelf() {
 
       {step(2, 'What do you want to practice?')}
       <div className="grid grid-cols-1 gap-2">
-        {WHAT.map((w) => (
-          <button key={w.key} type="button" onClick={() => { setWhat(w.key); if (w.key === 'full') setSlide('') }}
-            className={`rounded-xl border-2 px-4 py-3 text-left ${what === w.key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-900'}`}>
-            <div className="text-lg font-bold">{w.emoji} {w.label}</div>
-            <div className={`text-sm ${what === w.key ? 'text-slate-200' : 'text-slate-500'}`}>{w.desc}</div>
-          </button>
-        ))}
+        {WHAT.map((w) => {
+          const on = what === w.key, sl = st.slides.find((x) => String(x.n) === String(slide))
+          return (
+            <div key={w.key} className={`rounded-xl border-2 ${on ? 'border-slate-900' : 'border-slate-300'} bg-white`}>
+              <button type="button" onClick={() => { setWhat(on ? '' : w.key); if (w.key === 'full') setSlide('') }}
+                className={`flex w-full items-center justify-between rounded-t-lg px-4 py-3 text-left ${on ? 'bg-slate-900 text-white' : 'text-slate-900'}`}>
+                <span className="text-lg font-bold">{w.emoji} {w.label} <span className={`text-sm font-normal ${on ? 'text-slate-300' : 'text-slate-500'}`}>· {w.desc}</span></span>
+                <span className="text-xl">{on ? '▾' : '▸'}</span>
+              </button>
+              {on && (
+                <div className="px-4 pb-4 pt-3">
+                  <div className="text-sm font-bold uppercase tracking-wide text-slate-500">What to focus on</div>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-700">{w.focus.map((f) => <li key={f}>{f}</li>)}</ul>
+                  {(w.key === 'slide' || w.key === 'control') && (
+                    <>
+                      <select value={slide} onChange={(e) => setSlide(e.target.value)}
+                        className="mt-3 w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-3 text-lg font-semibold text-slate-900">
+                        <option value="">Pick a slide…</option>
+                        {st.slides.map((s) => <option key={s.n} value={s.n}>Slide {s.n}: {s.title}</option>)}
+                      </select>
+                      {w.key === 'slide' && sl && sl.points?.length > 0 && (
+                        <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                          <div className="text-sm font-bold text-slate-800">Slide {sl.n}: the points to hit</div>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-700">{sl.points.map((p) => <li key={p}>{p}</li>)}</ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
-
-      {needSlide && (
-        <>
-          {step(3, 'Which slide?')}
-          <select value={slide} onChange={(e) => setSlide(e.target.value)}
-            className="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-3 text-lg font-semibold text-slate-900">
-            <option value="">Pick a slide…</option>
-            {st.slides.map((s) => <option key={s.n} value={s.n}>Slide {s.n}: {s.title}</option>)}
-          </select>
-        </>
-      )}
 
       {err && <div className="mt-4 rounded-lg bg-red-50 p-3 font-semibold text-red-700">{err}</div>}
       <button type="button" disabled={!ready || busy} onClick={start}
