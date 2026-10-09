@@ -60,6 +60,7 @@ import TrainingDays from './pages/TrainingDays.jsx'
 import SlidePoints, { SlidePointsView } from './pages/SlidePoints.jsx'
 import ReviewTrainingDay from './pages/ReviewTrainingDay.jsx'
 import PracticeInvite from './pages/PracticeInvite.jsx'
+import PracticeSelf from './pages/PracticeSelf.jsx'
 import OngoingTrainingView from './pages/OngoingTrainingView.jsx'
 import HomeworkSlides from './pages/HomeworkSlides.jsx'
 import FieldTrainee from './pages/FieldTrainee.jsx'
@@ -157,6 +158,7 @@ export default function App() {
         <Route path="/review-training-day/:token" element={<ReviewTrainingDay />} />
         {/* Sales Training Customer practice link: the token is the permission, for one session. */}
         <Route path="/practice/:token" element={<PracticeInvite />} />
+        <Route path="/practice-self" element={<PracticeSelf />} />
 
         {/* Public regional sales manager dashboard. The token IS the
             credential — no app chrome, no nav. The manager can see the
