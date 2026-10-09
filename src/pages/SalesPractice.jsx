@@ -719,7 +719,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
       {s.grade_status === 'done' && audioLoad && (
-        <PracticeAudio key={`au-${id}-${nonce}`} tone="navy" title="Listen: the coaching plan" sub="About a minute — the one thing to work on, what to assign, what to watch on a ride-along."
+        <PracticeAudio key={`au-${id}-${nonce}`} tone="navy" fileName={`${String(s.trainee_name || "Practice").replace(/[^A-Za-z0-9]+/g, "-")}-coaching-plan`} title="Listen: the coaching plan" sub="About a minute — the one thing to work on, what to assign, what to watch on a ride-along."
           fetchAudio={async () => { const d = await audioLoad(id); return d?.ok ? { ...d, url: d.manager } : d }} />
       )}
 
