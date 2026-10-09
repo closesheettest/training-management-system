@@ -15,7 +15,7 @@ const call = (payload) => fetch('/.netlify/functions/practice-self', {
 const LEVEL_COLOR = { 'Very easy': '#16a34a', Easy: '#65a30d', Medium: '#ca8a04', Hard: '#ea580c', 'Very hard': '#dc2626' }
 const WHAT = [
   { key: 'slide', emoji: '🖼️', label: 'One slide', desc: 'Pick a slide and present it. 3–5 minutes.' },
-  { key: 'control', emoji: '🎯', label: 'Control drill', desc: 'Pick a slide. The homeowner keeps asking questions; keep control. 5 minutes.' },
+  { key: 'control', emoji: '🎯', label: 'Control drill', desc: 'Pick a slide. The homeowner keeps asking questions — keep control. If a question isn’t about what you’re going over right now, park it. Don’t let them pull you where they want you to go. 5 minutes.' },
   { key: 'full', emoji: '🏠', label: 'Full presentation', desc: 'Slide 1 through asking for the business. 30–60 minutes.' },
 ]
 

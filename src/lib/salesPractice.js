@@ -287,7 +287,7 @@ export const SECTIONS = [
   // CONTROL DRILL (Neal, 25 Sep): 5 minutes, one slide, a homeowner who keeps
   // asking relevant questions to take control. Scored only on how often the rep
   // took control back with a relevant question of their own.
-  { key: 'control', label: 'Control drill (5 min)', desc: 'Pick a slide. The homeowner fires relevant questions to take control; scored on how often the rep keeps it.', range: null, picker: true },
+  { key: 'control', label: 'Control drill (5 min)', desc: 'Pick a slide. The homeowner keeps asking questions — keep control. If a question isn’t about what you’re going over right now, park it. Don’t let them pull you where they want you to go. Scored on how often the rep keeps control.', range: null, picker: true },
 ]
 // First deck page for a script slide number (slide 12 starts on page 13, etc.).
 export function deckPageFor(n) {
