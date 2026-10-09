@@ -1038,7 +1038,7 @@ export default function Meet() {
   }, [gate, lastBody]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${join?.room?.title || door?.title || 'Meeting'} · Meeting` }, [join, door])
   // Combined with another team today → go straight to that room, keeping their own link (?t=…).
-  useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok && j.room?.merged_into) { window.location.replace(`/meet/${j.room.merged_into}${window.location.search}`); return } if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
+  useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok && j.room?.merged_into) { const q = new URLSearchParams(window.location.search); if (!q.get('via')) q.set('via', slug); window.location.replace(`/meet/${j.room.merged_into}?${q.toString()}`); return } if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
 
   const doJoin = async (body) => {
     setBusy(true); setErr('')
@@ -1061,7 +1061,7 @@ export default function Meet() {
     // Class starting within the hour (or on now) and they've already confirmed → straight in, no card
     // (Neal, 2026-10-05: 13 minutes before class nobody was in — the card told confirmed trainees to
     // "open this same link 15 minutes before class" while they were ON it, and stopped there).
-    call({ action: 'class_confirm', room: slug, t, tag: sp.get('tag') || '' }).then((j) => {
+    call({ action: 'class_confirm', room: slug, t, tag: sp.get('tag') || '', via: sp.get('via') || '' }).then((j) => {
       const soon = j?.next_at && Date.parse(j.next_at) - Date.now() < 60 * 60000
       if (j?.ok && j.status === 'confirmed' && soon) { setConfirmStep(null); doJoin({ t }); return }
       setConfirmStep(j.ok ? { ...j, soon } : null)
@@ -1215,7 +1215,7 @@ export default function Meet() {
   if (!join && confirmStep && !confirmStep.loading) {
     const when = confirmStep.next_at ? new Date(confirmStep.next_at).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
     const answer = async (status) => {
-      const j = await call({ action: 'class_confirm', room: slug, t, status }).catch(() => ({}))
+      const j = await call({ action: 'class_confirm', room: slug, t, status, via: sp.get('via') || '' }).catch(() => ({}))
       if (!j.ok) return
       // Saying yes right before class → go straight in.
       if (j.status === 'confirmed' && confirmStep.soon) { setConfirmStep(null); doJoin({ t }); return }

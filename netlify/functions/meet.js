@@ -1015,7 +1015,9 @@ export const handler = async (event) => {
     for (const t of rooms.filter((r) => r.kind === 'retraining' && !r.template && (r.once || []).filter(Boolean).length)) {
       const family = () => rooms.filter((r) => r.kind === 'retraining' && (r.slug === t.slug || r.template === t.slug) && signupOpen(r))
       for (let w = 1; w <= 260 && family().length < 2; w++) {
-        const once = t.once.filter(Boolean).map((o) => { const d = new Date(`${o.slice(0, 10)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7 * w); return `${d.toISOString().slice(0, 10)}T${o.slice(11, 16)}` })
+        // clone_once: the template's normal week, when a one-off change moved this week's dates (Neal moved the 3rd
+        // session of 10/6's class to Mon 10/12 — future classes keep Tue/Wed/Thu).
+        const once = (t.clone_once || t.once).filter(Boolean).map((o) => { const d = new Date(`${o.slice(0, 10)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7 * w); return `${d.toISOString().slice(0, 10)}T${o.slice(11, 16)}` })
         const slug = `${t.slug}-${once.slice().sort()[0].slice(0, 10)}`
         if (rooms.some((r) => r.slug === slug)) continue
         const copy = { ...t, slug, once, template: t.slug, invitees: [], visible_from: null, early_zones: [], rec_key: Math.random().toString(36).slice(2, 14), created_at: new Date().toISOString(), updated_by: 'auto (next class)' }
@@ -1569,13 +1571,17 @@ export const handler = async (event) => {
 
   // CLASS CONFIRMATION from the trainee's own link (?confirm=1) — the same confirmation the class
   // page shows (trainees.confirmation_status), and it marks the invite as opened if it was tracked.
-  if (b.action === 'class_confirm' && room.kind === 'training') {
+  // A RETRAINING class too (Neal, 2026-10-09: "send it with the link… please click the link to confirm"). Its page
+  // forwards to the room it meets in; `via` is the retraining room the link was for, so the time shown is its own.
+  if (b.action === 'class_confirm' && (room.kind === 'training' || room.kind === 'retraining')) {
+    const viaRoom = b.via ? (await loadRooms()).find((r) => r.slug === String(b.via) && r.kind === 'retraining') : null
+    const whenRoom = viaRoom || room
     const t = await traineeByToken(b.t)
     if (!t) return json(401, { ok: false, error: 'Open this from your own link.' })
     if (b.status === 'yes' || b.status === 'no') await sb.from('trainees').update({ confirmation_status: b.status === 'yes' ? 'confirmed' : 'declined', confirmation_at: new Date().toISOString() }).eq('id', t.id)
     if (b.tag) await fetch(`${SITE}/.netlify/functions/invite-audit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', token: String(b.t), tag: String(b.tag) }) }).catch(() => {})
     const { data: c } = await sb.from('trainees').select('confirmation_status, confirmation_at').eq('id', t.id).maybeSingle()
-    return json(200, { ok: true, first: t.first_name || '', status: c?.confirmation_status || null, room: publicRoom(room), next_at: hasSchedule(room) ? nextMeeting(room)?.start?.toISOString() || null : null })
+    return json(200, { ok: true, first: t.first_name || '', status: c?.confirmation_status || null, room: publicRoom(whenRoom), next_at: hasSchedule(whenRoom) ? nextMeeting(whenRoom)?.start?.toISOString() || null : null })
   }
 
   // RSVP for a one-off meeting: ✅ I'll be there / ❌ Can't make it, from their own link.
