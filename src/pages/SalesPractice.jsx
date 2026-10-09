@@ -744,7 +744,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
 
       {s.grade_status === 'done' && !r.drill && (
         <>
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+          <Card title="📝 Summary and how it ended">
             <p className="text-slate-800">{r.summary}</p>
             {r.outcome && <p className="mt-2 text-sm text-slate-600"><span className="font-semibold">How it ended:</span> {r.outcome}</p>}
             {r.not_reached && <p className="mt-2 text-sm text-slate-500"><span className="font-semibold">Not reached (not graded):</span> {r.not_reached}</p>}
@@ -753,9 +753,9 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
                 {s.close_silence.held ? `✓ Held the silence after asking for the business (${s.close_silence.seconds}s)` : `✗ Spoke again ${s.close_silence.seconds}s after asking for the business. The script says: do not speak until they do.`}
               </p>
             )}
-          </div>
+          </Card>
 
-          <ImpulseCard imp={r.impulse} read={r.impulse_read} />
+          {(r.impulse || r.impulse_read) && <Card title="🧠 What was driving the homeowner (FIGS)"><ImpulseCard imp={r.impulse} read={r.impulse_read} /></Card>}
           {r.control && (
             <Card title="🎯 Who controlled the conversation">
               <div className="flex flex-wrap items-center gap-4">
@@ -802,7 +802,7 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
             </Card>
           )}
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
             <Card title="🔧 Fix these first" tone="red"><ol className="list-decimal space-y-1 pl-5">{(r.top_fixes || []).map((x, i) => <li key={i}>{x}</li>)}</ol></Card>
             <Card title="💪 What went well" tone="green"><ul className="list-disc space-y-1 pl-5">{(r.strengths || []).map((x, i) => <li key={i}>{x}</li>)}</ul></Card>
           </div>
@@ -943,13 +943,17 @@ function DrillReport({ r, speaker }) {
   )
 }
 
-function Card({ title, tone, children }) {
+// COLLAPSIBLE (Neal, 2026-10-09: the report "just looks huge"): every section under the coaching plan starts
+// closed — tap its title to read it.
+function Card({ title, tone, children, open = false }) {
   const border = tone === 'red' ? 'border-red-200' : tone === 'green' ? 'border-emerald-200' : 'border-slate-200'
   return (
-    <section className={`mt-4 rounded-xl border ${border} bg-white p-4`}>
-      <h2 className="mb-2 font-bold text-brand-navy">{title}</h2>
-      {children}
-    </section>
+    <details open={open} className={`group mt-3 rounded-xl border ${border} bg-white`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-bold text-brand-navy">
+        <span>{title}</span><span className="text-slate-400 group-open:rotate-90">▸</span>
+      </summary>
+      <div className="px-4 pb-4">{children}</div>
+    </details>
   )
 }
 
