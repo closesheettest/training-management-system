@@ -218,7 +218,7 @@ export default function App() {
           <Route path="/slide-points" element={<RouteGate pageKey="setup.training_days"><SlidePoints /></RouteGate>} />
           <Route path="/field-trainee" element={<RouteGate pageKey="setup.field_trainee"><FieldTrainee /></RouteGate>} />
           {/* Sales Training Customer: trainer-only (trainees never get this link). PIN re-checked by its functions. */}
-          <Route path="/sales-practice" element={<RouteGate pageKey="setup.training_days"><PinGate title="Sales Training Customer" storageKey="sp_admin_ok" keepPin><SalesPractice /></PinGate></RouteGate>} />
+          <Route path="/sales-practice" element={<RouteGate pageKey="setup.training_days"><PinGate title="Sales Training Customer" storageKey="sp_admin_ok" keepPin acceptMt><SalesPractice /></PinGate></RouteGate>} />
         </Route>
       </Routes>
       </RegionsProvider>

@@ -11,11 +11,17 @@ const LB_ORIGIN = 'https://free-roof-inspections.netlify.app/.netlify/functions/
 // keepPin: also hold the PIN for this tab so the page can hand it to its own
 // server functions, which re-check it (Sales Training Customer spends Gemini
 // money per call). Session-only, cleared on Lock.
-export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', keepPin = false, children }) {
+// acceptMt: opened from My Tools with #mt=<base64 {name, pin}> (the person's My Tools sign-in) — checked with CCG,
+// then the page is unlocked without a second PIN (Neal, 2026-10-09). The page's server functions must accept
+// "mt:<…>" as the PIN (Sales Training Customer: _practice-auth verifyTrainerPin). Wiped from the address bar at once.
+const MT_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/manager-dashboard'
+export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional Managers', keepPin = false, acceptMt = false, children }) {
   const [unlocked, setUnlocked] = useState(() => {
     try { return sessionStorage.getItem(storageKey) === '1' } catch { return false }
   })
   const [who, setWho] = useState(() => { try { return sessionStorage.getItem(storageKey + '_name') || '' } catch { return '' } })
+  // Coming from My Tools: say so instead of flashing the PIN screen while CCG checks the sign-in.
+  const [mtChecking, setMtChecking] = useState(() => { try { return acceptMt && /mt=/.test(window.location.hash) } catch { return false } })
 
   const [step, setStep] = useState('pin')       // pin (returning) → create (first time)
   const [name, setName] = useState('')
@@ -24,6 +30,28 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [showReset, setShowReset] = useState(false)
+
+  useEffect(() => {
+    if (!acceptMt) return
+    let raw = ''
+    try { const m = window.location.hash.match(/mt=([^&]+)/); if (m) { raw = m[1]; window.history.replaceState(null, '', window.location.pathname + window.location.search) } } catch { /* */ }
+    if (!raw) return
+    let mt = null
+    try { mt = JSON.parse(decodeURIComponent(atob(raw))) } catch { setMtChecking(false); return }
+    ;(async () => {
+      try {
+      const has = await fetch(`${MT_URL}?manager=${encodeURIComponent(mt.name || '')}`).then((r) => r.json()).catch(() => ({}))
+      if (!has.pin_set) return
+      const ok = await fetch(MT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auth', manager: mt.name, pin: mt.pin }) }).then((r) => r.json()).catch(() => ({}))
+      if (!ok.ok) return
+      try {
+        sessionStorage.setItem(storageKey, '1'); sessionStorage.setItem(storageKey + '_name', mt.name || '')
+        if (keepPin) sessionStorage.setItem(storageKey + '_pin', 'mt:' + raw)
+      } catch { /* private mode */ }
+      setWho(mt.name || ''); setUnlocked(true)
+      } finally { setMtChecking(false) }
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const call = (payload) => fetch(LB_ORIGIN + 'regional-admin-pin', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -72,6 +100,7 @@ export default function PinGate({ storageKey = 'rm_admin_ok', title = 'Regional 
   }
   const startOver = () => { setStep('pin'); setPin(''); setConfirm(''); setName(''); setErr('') }
 
+  if (!unlocked && mtChecking) return <div className="p-10 text-center text-slate-500">Signing you in from My Tools…</div>
   if (unlocked) {
     return (
       <div>
