@@ -401,6 +401,12 @@ export const handler = async (event) => {
         })
         const d = await r.json().catch(() => ({}))
         if (!d.ok) return json(502, { ok: false, error: d.error || 'Attendance unavailable' })
+        // ACTIVE TRAINEES in this zone (Neal, 2026-10-09): CCG's DoorDispatcher trainees, placed by their TMS trainee
+        // row's zone (matched by name — they have no JobNimbus id in TMS yet).
+        const nk = (x) => String(x || '').toLowerCase().replace(/[^a-z]+/g, '')
+        const { data: zt } = await supabase.from('trainees').select('first_name, last_name').eq('region', region).eq('is_active_sales_rep', false)
+        const zoneNames = new Set((zt || []).map((t) => nk(`${t.first_name} ${t.last_name}`)))
+        for (const tr of d.trainees || []) if (zoneNames.has(nk(tr.name)) && !ids.has(tr.jnid)) { ids.add(tr.jnid); members.push({ name: `${tr.name} (trainee)`, jnid: tr.jnid, level: 'trainee', zone: region }) }
         const keep = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => ids.has(k)))
         return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), appts: keep(d.appts), door_span: keep(d.door_span), active_hrs: keep(d.active_hrs), places: keep(d.places), places_day: keep(d.places_day), team: members })
       }

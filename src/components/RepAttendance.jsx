@@ -125,7 +125,9 @@ export default function RepAttendance({ managerToken } = {}) {
       }
       const [res, tr] = await Promise.all([
         fetch(CCG, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: p, from, to }) }).then((r) => r.json()),
-        supabase.from('trainees').select('first_name, last_name, jobnimbus_id, rep_level, region').eq('is_active_sales_rep', true).not('jobnimbus_id', 'is', null),
+        // ACTIVE TRAINEES too (Neal, 2026-10-09) — field trainees still in training, same rule as the manager view.
+        supabase.from('trainees').select('first_name, last_name, jobnimbus_id, rep_level, region, is_active_sales_rep, is_field_trainee, dropped_out_at, declined_at, enrolled')
+          .or('is_active_sales_rep.eq.true,is_field_trainee.eq.true').not('jobnimbus_id', 'is', null),
       ])
       if (!res.ok) {
         if (/PIN/i.test(res.error || '')) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setPin('') }
@@ -135,7 +137,20 @@ export default function RepAttendance({ managerToken } = {}) {
       // William's TMS record has no JobNimbus id; CCG names him (res.trainer) so he can be matched.
       const extra = res.trainer && !(tr.data || []).some((t) => t.jobnimbus_id === res.trainer.jnid)
         ? [{ first_name: res.trainer.name, last_name: '', jobnimbus_id: res.trainer.jnid, rep_level: null, region: 'Trainer' }] : []
-      setRoster([...(tr.data || []), ...extra]
+      const people = (tr.data || []).filter((t) => t.is_active_sales_rep === true || (!t.dropped_out_at && !t.declined_at && t.enrolled !== false))
+        .map((t) => (t.is_active_sales_rep ? t : { ...t, rep_level: 'trainee', first_name: t.first_name, last_name: `${t.last_name || ''} (trainee)` }))
+      // the same person can have a rep row and an older trainee row: keep one per JobNimbus id, the rep row first
+      const seen = new Set(), uniq = people.sort((a, b) => (b.is_active_sales_rep ? 1 : 0) - (a.is_active_sales_rep ? 1 : 0)).filter((t) => (seen.has(t.jobnimbus_id) ? false : (seen.add(t.jobnimbus_id), true)))
+      // ACTIVE TRAINEES from CCG (DoorDispatcher trainees), each under their TMS zone when we know it (by name).
+      const nk = (x) => String(x || '').toLowerCase().replace(/[^a-z]+/g, '')
+      let zoneOf = new Map()
+      if ((res.trainees || []).length) {
+        const { data: zr } = await supabase.from('trainees').select('first_name, last_name, region, created_at').not('region', 'is', null).order('created_at', { ascending: true })
+        zoneOf = new Map((zr || []).map((t) => [nk(`${t.first_name} ${t.last_name}`), t.region]))
+      }
+      const have = new Set(uniq.map((t) => t.jobnimbus_id))
+      const trainees = (res.trainees || []).filter((t) => !have.has(t.jnid)).map((t) => ({ first_name: t.name, last_name: '(trainee)', jobnimbus_id: t.jnid, rep_level: 'trainee', region: zoneOf.get(nk(t.name)) || 'Trainees' }))
+      setRoster([...uniq, ...trainees, ...extra]
         .map((t) => ({ name: `${t.first_name || ''} ${t.last_name || ''}`.trim(), jnid: t.jobnimbus_id, level: t.rep_level, zone: t.region }))
         // William (the trainer) at the bottom in his own group (Neal, 2026-10-02).
         .map((t) => (t.name.toLowerCase() === 'william hernandez' ? { ...t, zone: 'Trainer' } : t))
