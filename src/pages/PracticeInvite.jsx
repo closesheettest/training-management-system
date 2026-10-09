@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { LiveSession, ImpulseCard } from './SalesPractice.jsx'
 import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
+import PracticeAudio from '../components/PracticeAudio.jsx'
 
 const call = (token, payload) => fetch('/.netlify/functions/practice-invite', {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -127,6 +128,7 @@ function RepReport({ token, persona, section, name }) {
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">U.S. Shingle &amp; Metal · Your practice: {section.label} with {persona.tagline.toLowerCase()}</div>
       <h1 className="mt-1 text-2xl font-bold text-brand-navy">Great work, {first}! 🎉</h1>
       {e.opening && <p className="mt-2 text-lg text-slate-800">{e.opening}</p>}
+      <PracticeAudio title="Listen to your feedback" sub="About a minute — what went well and what to try next." fetchAudio={() => call(token, { action: 'audio' })} />
 
       {(e.wins || []).length > 0 && (
         <section className={`${box} border-emerald-200`}>

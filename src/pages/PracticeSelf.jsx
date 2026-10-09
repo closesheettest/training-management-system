@@ -15,12 +15,14 @@ const call = (payload) => fetch('/.netlify/functions/practice-self', {
 const LEVEL_COLOR = { 'Very easy': '#16a34a', Easy: '#65a30d', Medium: '#ca8a04', Hard: '#ea580c', 'Very hard': '#dc2626' }
 // Tapping one doesn't start anything (Neal, 2026-10-09): it opens under the button with what to focus on.
 const WHAT = [
+  { key: 'survey', emoji: '👋', label: 'Warm-up', desc: '10–15 minutes',
+    focus: ['You start in the living room. The homeowner gives one-word answers at first.', 'Make it a normal conversation, not a form: find common ground and react to what they say.', 'Find out their wants and needs (the customer survey is on screen if you want it).', 'Once they open up and talk freely, move to the kitchen table. Not before.'] },
   { key: 'slide', emoji: '🖼️', label: 'One slide', desc: '3–5 minutes',
     focus: ['Pick the slide below — its points show up here.', 'Make each point the way the script makes it.', 'Ask questions: whoever asks the questions is in control.', 'Get them to say it: a question that puts the point in their mouth lands it best.'] },
   { key: 'control', emoji: '🎯', label: 'Control drill', desc: '5 minutes',
-    focus: ['Pick a slide. The homeowner keeps asking questions to take control.', 'Answer short, then lead back with a question of your own.', 'A question that isn’t about what you’re going over right now? Park it: acknowledge it, say when you’ll get to it, ask them to hold it, and get back to your point.', 'Don’t let them pull you where they want you to go.'] },
+    focus: ['Pick a slide. The homeowner keeps asking questions to take control.', 'Answer short, then lead back with a question of your own.', 'A question that isn’t about what you’re going over right now? Park it: acknowledge it, say when you’ll get to it, ask them to hold it, and get back to your point.', 'Don’t let them pull you where they want you to go.', 'If the homeowner keeps saying the same thing over and over, it’s not broken — it’s because you haven’t acknowledged it and parked it yet.'] },
   { key: 'full', emoji: '🏠', label: 'Full presentation', desc: '30–60 minutes',
-    focus: ['Slide 1 all the way through asking for the business.', 'Hit every slide’s points the way the script makes them.', 'Keep asking questions: whoever asks the questions is in control.', 'Objections: acknowledge, isolate, answer only if it belongs on this slide, otherwise park it and come back to it.', 'After you ask for the business, stay quiet and let them answer.', 'At the end you’ll guess what was driving them: fear of loss, indifference, greed or urgency.'] },
+    focus: ['Slide 1 all the way through asking for the business.', 'Hit every slide’s points the way the script makes them.', 'Keep asking questions: whoever asks the questions is in control.', 'Objections: acknowledge, isolate, answer only if it belongs on this slide, otherwise park it and come back to it.', 'If the homeowner keeps repeating the same concern, it’s not broken — acknowledge it and park it, and they’ll let it go.', 'After you ask for the business, stay quiet and let them answer.', 'At the end you’ll guess what was driving them: fear of loss, indifference, greed or urgency.'] },
 ]
 
 export default function PracticeSelf() {
@@ -93,7 +95,7 @@ export default function PracticeSelf() {
           const on = what === w.key, sl = st.slides.find((x) => String(x.n) === String(slide))
           return (
             <div key={w.key} className={`rounded-xl border-2 ${on ? 'border-slate-900' : 'border-slate-300'} bg-white`}>
-              <button type="button" onClick={() => { setWhat(on ? '' : w.key); if (w.key === 'full') setSlide('') }}
+              <button type="button" onClick={() => { setWhat(on ? '' : w.key); if (w.key === 'full' || w.key === 'survey') setSlide('') }}
                 className={`flex w-full items-center justify-between rounded-t-lg px-4 py-3 text-left ${on ? 'bg-slate-900 text-white' : 'text-slate-900'}`}>
                 <span className="text-lg font-bold">{w.emoji} {w.label} <span className={`text-sm font-normal ${on ? 'text-slate-300' : 'text-slate-500'}`}>· {w.desc}</span></span>
                 <span className="text-xl">{on ? '▾' : '▸'}</span>

@@ -76,6 +76,7 @@ export const handler = async (event) => {
     if (!level) return json(400, { ok: false, error: 'Pick a level.' })
     let section
     if (body.what === 'full') section = 'full'
+    else if (body.what === 'survey') section = 'survey'   // the warm-up (Neal, 2026-10-09)
     else if (body.what === 'slide' || body.what === 'control') {
       const n = parseInt(body.slide, 10)
       if (!SLIDES.some((s) => s.n === n)) return json(400, { ok: false, error: 'Pick a slide.' })

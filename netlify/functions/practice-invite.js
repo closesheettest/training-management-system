@@ -50,6 +50,13 @@ export const handler = async (event) => {
       pairs: r.drill ? (r.pairs || []).map((x) => ({ homeowner: x.homeowner, rep: x.rep, verdict: x.verdict, better_question: x.better_question })) : undefined,
     } })
   }
+  // THE AUDIO REPORT (2026-10-09): the rep's spoken summary only — never the manager's.
+  if (body.action === 'audio') {
+    const au = row.report?.audio
+    if (status !== 'done' || row.grade_status !== 'done') return json(200, { ok: true, status: 'making' })
+    if (au?.rep) { const { data } = await sb.storage.from('practice-audio').createSignedUrl(au.rep, 3600); return json(200, { ok: true, status: 'ready', url: data?.signedUrl || null }) }
+    return json(200, { ok: true, status: au?.error ? 'error' : 'making' })
+  }
   // A practice that STARTED before the link ran out gets 2 hours to finish: its voice
   // reconnects and its save must not be refused because the clock passed expires_at mid-run
   // (Neal, 2026-10-01: Chad's link ran out at 9:22 — a run started at 9:15 would have been

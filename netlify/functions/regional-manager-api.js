@@ -413,7 +413,7 @@ export const handler = async (event) => {
     } catch (e) { return json(502, { ok: false, error: e.message || 'CCG request failed' }) }
   }
 
-  if (action === 'practice_list' || action === 'practice_get') {
+  if (action === 'practice_list' || action === 'practice_get' || action === 'practice_audio') {
     const { data: team } = await supabase.from('trainees').select('id').eq('region', region)
     const ids = (team || []).map((t) => t.id)
     if (action === 'practice_list') {
@@ -430,6 +430,14 @@ export const handler = async (event) => {
     const { data, error } = await supabase.from('sales_practice_sessions').select('*').eq('id', String(body.id || '')).maybeSingle()
     if (error) return json(500, { ok: false, error: error.message })
     if (!data || !ids.includes(data.trainee_id)) return json(404, { ok: false, error: 'Not found' })
+    // THE AUDIO REPORT (2026-10-09): the manager's spoken coaching plan for their own rep's run.
+    if (action === 'practice_audio') {
+      const au = data.report?.audio
+      if (data.grade_status !== 'done' || !au) return json(200, { ok: true, status: 'making' })
+      if (au.error || !au.manager) return json(200, { ok: true, status: 'error' })
+      const { data: su } = await supabase.storage.from('practice-audio').createSignedUrl(au.manager, 3600)
+      return json(200, { ok: true, status: 'ready', manager: su?.signedUrl || null })
+    }
     // Opening a GRADED report marks it reviewed for this manager (kept inside the report
     // JSON, per manager id — no new column).
     if (data.grade_status === 'done' && data.report && !(data.report.manager_reviews || {})[manager.id]) {

@@ -213,6 +213,12 @@ function withCost(report, prev) {
   return { ...report, ...(prev?.retrain ? { retrain: prev.retrain, day: prev.day, opened_at: prev.opened_at || null } : {}), ...(prev?.invite ? { invite: prev.invite } : {}), ...(prev?.manager_reviews ? { manager_reviews: prev.manager_reviews } : {}), ...(prev?.impulse ? { impulse: { ...prev.impulse, ...(report.impulse || {}) } } : {}), usage: { ...u, grades }, cost: Math.round(total * 10000) / 10000 }
 }
 
+// THE AUDIO REPORT (2026-10-09): once graded, the spoken rep + manager summaries are made in their own background run.
+async function makeAudio(id) {
+  const base = (process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
+  await fetch(`${base}/.netlify/functions/practice-audio-background`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, secret: process.env.CRON_SECRET }) }).catch(() => {})
+}
+
 async function geminiJson(prompt, schema) {
   const models = [...new Set([process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-flash-latest'])]
   const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms))
@@ -331,6 +337,7 @@ ${pairs.map((p, i) => `${i + 1}. HOMEOWNER: ${p.homeowner}\n   REP: ${p.rep}${p.
     encouragement: out.encouragement || null, manager_plan: out.manager_plan || null,
   }
   await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score: Math.round((100 * kept) / scored.length), report: withCost(report, row.report) }).eq('id', id)
+    await makeAudio(id)
 }
 
 export const handler = async (event) => {
@@ -460,6 +467,7 @@ Score = roughly HALF how well the points landed, HALF who controlled the convers
     if (notReached) report.not_reached = notReached
     report.questions = questions
     await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report: withCost(report, row.report) }).eq('id', body.id)
+    await makeAudio(body.id)
   } catch (e) {
     await fail(e.message || 'grading failed')
   }

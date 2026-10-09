@@ -124,6 +124,16 @@ export const handler = async (event) => {
 
   // Delete one practice run (Neal, 2026-09-28): the trainer clears try-outs and
   // bad runs from Past practice. Trainer PIN required, like everything here.
+  // THE AUDIO REPORT (2026-10-09): signed links to the spoken rep + manager summaries.
+  if (body.action === 'audio') {
+    const { data } = await sb.from('sales_practice_sessions').select('grade_status, report').eq('id', body.id).maybeSingle()
+    const au = data?.report?.audio
+    if (!data || data.grade_status !== 'done' || !au) return json(200, { ok: true, status: au?.error ? 'error' : 'making' })
+    if (au.error) return json(200, { ok: true, status: 'error', error: au.error })
+    const sign = async (p) => (p ? (await sb.storage.from('practice-audio').createSignedUrl(p, 3600)).data?.signedUrl || null : null)
+    return json(200, { ok: true, status: 'ready', manager: await sign(au.manager), rep: await sign(au.rep) })
+  }
+
   if (body.action === 'delete') {
     const id = String(body.id || '').trim()
     if (!id) return json(400, { ok: false, error: 'id required' })

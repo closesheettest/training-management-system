@@ -8,6 +8,7 @@
 // saved to the trainee. Trainees never get a link to this page.
 //
 // Homeowners, sections and the deck: src/lib/salesPractice.js.
+import PracticeAudio from '../components/PracticeAudio.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
@@ -671,7 +672,7 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
 // ── The report card ──────────────────────────────────────────────────────────
 const trainerLoad = (id) => api({ action: 'get', id })
 
-export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
+export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audioLoad = (rid) => api({ action: 'audio', id: rid }) }) {
   const [s, setS] = useState(null)
   const [err, setErr] = useState('')
   const [showT, setShowT] = useState(false)
@@ -717,6 +718,10 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true }) {
         </div>
         {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
       </div>
+      {s.grade_status === 'done' && audioLoad && (
+        <PracticeAudio key={`au-${id}-${nonce}`} tone="navy" title="Listen: the coaching plan" sub="About a minute — the one thing to work on, what to assign, what to watch on a ride-along."
+          fetchAudio={async () => { const d = await audioLoad(id); return d?.ok ? { ...d, url: d.manager } : d }} />
+      )}
 
       {s.grade_status === 'invited' && (
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-slate-700">

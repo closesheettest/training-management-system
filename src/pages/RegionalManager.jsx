@@ -4407,7 +4407,7 @@ function PracticeReports({ token }) {
     <section className="mb-6 rounded-xl bg-white p-4 text-slate-800">
       {openId ? (
         <Suspense fallback={<div className="text-sm text-slate-500">Loading the report…</div>}>
-          <PracticeReportCard id={openId} onBack={() => { setOpenId(null); load() }} canRegrade={false} load={(id) => call({ action: 'practice_get', id })} />
+          <PracticeReportCard id={openId} onBack={() => { setOpenId(null); load() }} canRegrade={false} load={(id) => call({ action: 'practice_get', id })} audioLoad={(id) => call({ action: 'practice_audio', id })} />
         </Suspense>
       ) : (
         <>
