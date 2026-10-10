@@ -1579,7 +1579,17 @@ function AssignAppointments({ token, onCount }) {
     const repVal = s.rep != null ? s.rep : (item.sales_rep_id || '')
     const ready = ownerVal && repVal
     const target = { key: item.key, appt_id: item.source === 'app' ? item.id : null, jn_job_id: item.jn_job_id, curOwner: item.owner_id, curRep: item.sales_rep_id }
+    // THEIR DAY (Neal, 2026-10-10: Eli got Annette Whitaker at noon on top of 6430 Missouri Ave at noon). What each rep
+    // already has on this appointment's day, from their live JobNimbus calendar; anything within 90 min shows red.
+    const day = item.appt_at ? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(item.appt_at)) : null
+    const others = (jn) => ((d && d.rep_days && d.rep_days[jn] && d.rep_days[jn][day]) || [])
+      .filter((x) => !(item.appt_at && Math.abs(Date.parse(x.at) - Date.parse(item.appt_at)) < 60000 && String(x.homeowner || '').toLowerCase().includes(String(item.homeowner || '').toLowerCase().split(' ')[0] || '~')))
+    const clash = (x) => item.appt_at && Math.abs(Date.parse(x.at) - Date.parse(item.appt_at)) < 90 * 60000
+    const t12 = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
+    const optLabel = (r) => { const n = day ? others(r.jobnimbus_id).length : 0; const c = day && others(r.jobnimbus_id).some(clash); return `${repLabel(r)}${n ? ` · ${n} that day${c ? ' ⚠️' : ''}` : ''}` }
+    const picked = repVal ? others(repVal) : []
     return (
+      <>
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <label className="text-xs text-slate-600">Assigned to (owner)
           <select value={ownerVal} onChange={(e) => pick(item.key, 'owner', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800">
@@ -1590,11 +1600,19 @@ function AssignAppointments({ token, onCount }) {
         <label className="text-xs text-slate-600">Sales Rep
           <select value={repVal} onChange={(e) => pick(item.key, 'rep', e.target.value)} className="mt-0.5 block min-w-[140px] rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800">
             <option value="">Select…</option>
-            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{repLabel(r)}</option>)}
+            {reps.map((r) => <option key={r.jobnimbus_id} value={r.jobnimbus_id}>{optLabel(r)}</option>)}
           </select>
         </label>
         <button onClick={() => submit(target)} disabled={busy === item.key || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === item.key ? 'Saving…' : (saveLabel || 'Save')}</button>
       </div>
+      {repVal && day && (
+        <div className={`mt-1 rounded px-2 py-1 text-xs ${picked.some(clash) ? 'bg-red-50 text-red-800' : 'bg-slate-50 text-slate-600'}`}>
+          {picked.length
+            ? <>📅 {(reps.find((r) => r.jobnimbus_id === repVal) || {}).name || 'This rep'} already has that day: {picked.map((x, i) => <span key={i} className={clash(x) ? 'font-bold' : ''}>{i ? ' · ' : ''}{t12(x.at)} {x.homeowner}{clash(x) ? ' ⚠️ same time' : ''}</span>)}</>
+            : <>📅 Nothing else on their calendar that day.</>}
+        </div>
+      )}
+      </>
     )
   }
 
