@@ -291,7 +291,7 @@ export default function RepAttendance({ managerToken } = {}) {
                       <tr className="bg-slate-100 text-slate-700">
                         <th className="sticky left-0 z-10 bg-slate-100 px-2 py-1.5 text-left">Rep</th>
                         <th className="px-2 py-1.5 text-center" title="Checked in / excused / missed with no reason">In · Exc · Miss</th>
-                        <th className="px-2 py-1.5 text-center" title="Sales appointments on their JobNimbus calendar across these days (come-backs not counted; a rescheduled house counts once)">📅 Appts</th>
+                        <th className="px-2 py-1.5 text-center" title="Appointments the rep booked on DoorDispatcher for these days. Setter bookings and ones typed into JobNimbus are not counted; come-backs not counted; a rescheduled house counts once.">📅 DD appts</th>
                         <th className="px-2 py-1.5 text-center" title="Free roof inspections signed across these days (cancelled ones left out). Not in 📅 Appts, which is sales appointments only.">✍️ INSP sold</th>
                         <th className="px-2 py-1.5 text-center" title="Doors worked on DoorDispatcher across these days">🚪 Doors</th>
                         <th className="px-2 py-1.5 text-center" title="Active hours knocking on DoorDispatcher (gaps over 30 min left out), added up over these days">⏱ Hrs</th>
@@ -357,7 +357,7 @@ export default function RepAttendance({ managerToken } = {}) {
                               {c.kind === 'off' && <span className="text-slate-400">holiday</span>}
                               {c.kind === 'weekend' && <span className="text-slate-300">off</span>}
                               {c.hrs > 0 && <div className="mt-0.5 text-[11px] font-bold text-slate-700" title={`Active knocking time (gaps over 30 min left out). First door ${c.span}`}>⏱ {c.hrs}h</div>}
-                              {c.appts > 0 && <div className="mt-0.5 text-[11px] font-bold text-indigo-700" title="Sales appointments that day">📅 {c.appts}</div>}
+                              {c.appts > 0 && <div className="mt-0.5 text-[11px] font-bold text-indigo-700" title="DoorDispatcher appointments that day">📅 {c.appts}</div>}
                               {c.insp > 0 && <div className="mt-0.5 text-[11px] font-bold text-emerald-700" title="Free roof inspections signed that day">✍️ {c.insp}</div>}
                               {c.kind !== 'before' && c.kind !== 'nopin' && c.kind !== 'notstarted' || c.doors > 0 ? (
                                 <div className={`mt-0.5 text-[11px] font-bold ${c.counts && goal ? (c.doors >= goal ? 'text-emerald-700' : 'text-red-700') : c.doors ? 'text-slate-800' : 'text-slate-400'}`}
