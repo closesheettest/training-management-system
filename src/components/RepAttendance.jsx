@@ -209,11 +209,11 @@ export default function RepAttendance({ managerToken } = {}) {
   const goal = data?.daily_doors || 0
   const rows = data ? roster.map((r) => {
     // ✍️ INSP sold: free roof inspections signed that day (Neal, 2026-10-10) — the 📅 column is sales appointments only.
-    const cells = data.days.map((ds) => { const c = cell(r, ds); return { ...c, counts: counts(c), insp: data.insp_sold?.[r.jnid]?.[ds] || 0 } })
+    const cells = data.days.map((ds) => { const c = cell(r, ds); return { ...c, counts: counts(c), insp: data.insp_sold?.[r.jnid]?.[ds] || 0, own: data.own_appts?.[r.jnid]?.[ds] || 0 } })
     const pinDays = cells.filter((c) => c.counts)
     const pinDoors = pinDays.reduce((t, c) => t + (c.doors || 0), 0)
     r = { ...r, pinDays: pinDays.length, avg: pinDays.length ? Math.round(pinDoors / pinDays.length) : null, hit: goal ? pinDays.filter((c) => c.doors >= goal).length : null }
-    return { ...r, cells, insp: cells.reduce((t, c) => t + (c.insp || 0), 0), missing: cells.filter((c) => c.kind === 'missing').length, never: cells.some((c) => c.kind === 'nopin' || c.kind === 'notstarted'), excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in' || c.kind === 'training').length, doors: cells.reduce((t, c) => t + (c.doors || 0), 0), appts: cells.reduce((t, c) => t + (c.appts || 0), 0), hrs: Math.round(cells.reduce((t, c) => t + (c.hrs || 0), 0) * 10) / 10 }
+    return { ...r, cells, insp: cells.reduce((t, c) => t + (c.insp || 0), 0), own: cells.reduce((t, c) => t + (c.own || 0), 0), missing: cells.filter((c) => c.kind === 'missing').length, never: cells.some((c) => c.kind === 'nopin' || c.kind === 'notstarted'), excused: cells.filter((c) => c.kind === 'reason').length, present: cells.filter((c) => c.kind === 'in' || c.kind === 'training').length, doors: cells.reduce((t, c) => t + (c.doors || 0), 0), appts: cells.reduce((t, c) => t + (c.appts || 0), 0), hrs: Math.round(cells.reduce((t, c) => t + (c.hrs || 0), 0) * 10) / 10 }
   }) : []
   const shown = only === 'problems' ? rows.filter((r) => r.missing || r.excused || r.never) : rows
   const notStarted = data && data.today < data.start
@@ -228,11 +228,12 @@ export default function RepAttendance({ managerToken } = {}) {
       const pinDoors = reps.reduce((t, r) => t + r.cells.filter((c) => c.counts).reduce((u, c) => u + (c.doors || 0), 0), 0)
       return {
         zone, reps, present: sum((r) => r.present), excused: sum((r) => r.excused), missing: sum((r) => r.missing),
-        appts: sum((r) => r.appts), insp: sum((r) => r.insp), doors: sum((r) => r.doors), hrs: Math.round(sum((r) => r.hrs) * 10) / 10,
+        appts: sum((r) => r.appts), own: sum((r) => r.own), insp: sum((r) => r.insp), doors: sum((r) => r.doors), hrs: Math.round(sum((r) => r.hrs) * 10) / 10,
         avg: pinDays ? Math.round(pinDoors / pinDays) : null,
         byDay: (data?.days || []).map((_, i) => ({
           appts: reps.reduce((t, r) => t + (r.cells[i]?.appts || 0), 0),
           insp: reps.reduce((t, r) => t + (r.cells[i]?.insp || 0), 0),
+          own: reps.reduce((t, r) => t + (r.cells[i]?.own || 0), 0),
           doors: reps.reduce((t, r) => t + (r.cells[i]?.doors || 0), 0),
           hrs: Math.round(reps.reduce((t, r) => t + (r.cells[i]?.hrs || 0), 0) * 10) / 10,
         })),
@@ -292,6 +293,7 @@ export default function RepAttendance({ managerToken } = {}) {
                         <th className="sticky left-0 z-10 bg-slate-100 px-2 py-1.5 text-left">Rep</th>
                         <th className="px-2 py-1.5 text-center" title="Checked in / excused / missed with no reason">In · Exc · Miss</th>
                         <th className="px-2 py-1.5 text-center" title="Appointments the rep booked on DoorDispatcher for these days. Setter bookings and ones typed into JobNimbus are not counted; come-backs not counted; a rescheduled house counts once.">📅 DD appts</th>
+                        <th className="px-2 py-1.5 text-center" title="The rep's OWN leads (referral, self-generated, their harvested lead) that they booked by typing into JobNimbus instead of DoorDispatcher — counted, but they should use DoorDispatcher's ⭐ Referral / self-gen pin.">⭐ Own (JN)</th>
                         <th className="px-2 py-1.5 text-center" title="Free roof inspections signed across these days (cancelled ones left out). Not in 📅 Appts, which is sales appointments only.">✍️ INSP sold</th>
                         <th className="px-2 py-1.5 text-center" title="Doors worked on DoorDispatcher across these days">🚪 Doors</th>
                         <th className="px-2 py-1.5 text-center" title="Active hours knocking on DoorDispatcher (gaps over 30 min left out), added up over these days">⏱ Hrs</th>
@@ -305,13 +307,14 @@ export default function RepAttendance({ managerToken } = {}) {
                           <td className="sticky left-0 z-10 bg-indigo-50 px-2 py-1.5 text-sm font-extrabold text-indigo-900">{z.zone} <span className="text-[11px] font-semibold text-indigo-700">· {z.reps.length} rep{z.reps.length === 1 ? '' : 's'}</span></td>
                           <td className="px-2 py-1.5 text-center text-xs font-bold text-indigo-900">{z.present} · {z.excused} · {z.missing}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-extrabold text-indigo-900">{z.appts}</td>
+                          <td className="px-2 py-1.5 text-center text-sm font-extrabold text-amber-700">{z.own}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-extrabold text-emerald-800">{z.insp}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-extrabold text-indigo-900">{z.doors}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-extrabold text-indigo-900">{z.hrs}</td>
                           <td className="px-2 py-1.5 text-center text-xs font-bold text-indigo-900">{z.avg == null ? '—' : `${z.avg} avg`}</td>
                           {data.days.map((ds, i) => (
                             <td key={ds} className="whitespace-nowrap px-2 py-1.5 text-center text-[11px] font-bold text-indigo-900">
-                              {z.byDay[i].appts ? `📅 ${z.byDay[i].appts} · ` : ''}{z.byDay[i].insp ? `✍️ ${z.byDay[i].insp} · ` : ''}🚪 {z.byDay[i].doors} · ⏱ {z.byDay[i].hrs}h
+                              {z.byDay[i].appts ? `📅 ${z.byDay[i].appts} · ` : ''}{z.byDay[i].own ? `⭐ ${z.byDay[i].own} · ` : ''}{z.byDay[i].insp ? `✍️ ${z.byDay[i].insp} · ` : ''}🚪 {z.byDay[i].doors} · ⏱ {z.byDay[i].hrs}h
                               {/* William's row: just the rain where he worked that day — no zone / location label (Neal, 2026-10-08). */}
                               {(() => { const tk = z.zone === 'Trainer' ? rain[`__trainer_${ds}`] : null
                                 const zr = z.zone === 'Trainer' ? (roster.find((r) => r.zone !== 'Trainer' && data.training?.[r.jnid]?.[ds])?.zone || tk?.near?.zone || 'William') : z.zone
@@ -330,6 +333,7 @@ export default function RepAttendance({ managerToken } = {}) {
                             <span className="text-emerald-700">{r.present}</span> · <span className="text-sky-700">{r.excused}</span> · <span className={r.missing ? 'text-red-700' : 'text-slate-400'}>{r.missing}</span>
                           </td>
                           <td className="px-2 py-1.5 text-center text-sm font-bold text-slate-800">{r.appts}</td>
+                          <td className="px-2 py-1.5 text-center text-sm font-bold text-amber-700">{r.own || 0}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-bold text-emerald-800">{r.insp || 0}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-bold text-slate-800">{r.doors}</td>
                           <td className="px-2 py-1.5 text-center text-sm font-bold text-slate-800">{r.hrs || 0}</td>
@@ -358,6 +362,7 @@ export default function RepAttendance({ managerToken } = {}) {
                               {c.kind === 'weekend' && <span className="text-slate-300">off</span>}
                               {c.hrs > 0 && <div className="mt-0.5 text-[11px] font-bold text-slate-700" title={`Active knocking time (gaps over 30 min left out). First door ${c.span}`}>⏱ {c.hrs}h</div>}
                               {c.appts > 0 && <div className="mt-0.5 text-[11px] font-bold text-indigo-700" title="DoorDispatcher appointments that day">📅 {c.appts}</div>}
+                              {c.own > 0 && <div className="mt-0.5 text-[11px] font-bold text-amber-700" title="Their own lead booked by typing into JobNimbus (should be DoorDispatcher)">⭐ {c.own}</div>}
                               {c.insp > 0 && <div className="mt-0.5 text-[11px] font-bold text-emerald-700" title="Free roof inspections signed that day">✍️ {c.insp}</div>}
                               {c.kind !== 'before' && c.kind !== 'nopin' && c.kind !== 'notstarted' || c.doors > 0 ? (
                                 <div className={`mt-0.5 text-[11px] font-bold ${c.counts && goal ? (c.doors >= goal ? 'text-emerald-700' : 'text-red-700') : c.doors ? 'text-slate-800' : 'text-slate-400'}`}
@@ -370,7 +375,7 @@ export default function RepAttendance({ managerToken } = {}) {
                         </tr>
                       ))}
                       </Fragment>))}
-                      {!shown.length && <tr><td colSpan={data.days.length + 7} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays in this range since tracking began (Oct 1).'}</td></tr>}
+                      {!shown.length && <tr><td colSpan={data.days.length + 8} className="px-2 py-3 text-center text-slate-500">{data.days.length ? 'Nobody to show.' : 'No weekdays in this range since tracking began (Oct 1).'}</td></tr>}
                     </tbody>
                   </table>
                   <p className="mt-2 text-[11px] text-slate-500">On a computer, point at a reason with 💬 to read the note the rep typed, or at a ✓ to see whether they checked in on their dashboard or DoorDispatcher. The ✓ time is their FIRST DOOR that day (Eastern); point at it for when they checked in and their last door.</p>

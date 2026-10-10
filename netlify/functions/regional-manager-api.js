@@ -408,7 +408,7 @@ export const handler = async (event) => {
         const zoneNames = new Set((zt || []).map((t) => nk(`${t.first_name} ${t.last_name}`)))
         for (const tr of d.trainees || []) if (zoneNames.has(nk(tr.name)) && !ids.has(tr.jnid)) { ids.add(tr.jnid); members.push({ name: `${tr.name} (trainee)`, jnid: tr.jnid, level: 'trainee', zone: region }) }
         const keep = (o) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => ids.has(k)))
-        return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), appts: keep(d.appts), insp_sold: keep(d.insp_sold), door_span: keep(d.door_span), active_hrs: keep(d.active_hrs), places: keep(d.places), places_day: keep(d.places_day), team: members })
+        return json(200, { ...d, reps: keep(d.reps), doors: keep(d.doors), training: keep(d.training), map_first: keep(d.map_first), appts: keep(d.appts), insp_sold: keep(d.insp_sold), own_appts: keep(d.own_appts), door_span: keep(d.door_span), active_hrs: keep(d.active_hrs), places: keep(d.places), places_day: keep(d.places_day), team: members })
       }
       const qs = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? `?date=${body.date}` : ''
       const r = await fetch(`${CCG_BOARD_URL}/.netlify/functions/presentation-activity${qs}`)
