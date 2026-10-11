@@ -622,9 +622,9 @@ function ApptConversion({ zone, autoOpen = false }) {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (z, r) => [z, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Cancelled', 'Cancel %', 'Cancelled $', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
+    const repRow = (z, r) => [z, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.appts, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.cxl || 0, r.cxlPct || 0, r.cxlAmt || 0, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.appts, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.cxl || 0, t.cxlPct || 0, t.cxlAmt || 0, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
     const rows = [cols]
     for (const r of data.reps) rows.push(repRow(data.zone, r))
     rows.push(totRow(data.zone + ' TOTAL', data.totals))
@@ -649,7 +649,7 @@ function ApptConversion({ zone, autoOpen = false }) {
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const money = (n) => '$' + (Math.round(Number(n) || 0)).toLocaleString()
     const pc = (apt, v) => apt ? v + '%' : '—'
-    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Avg $/Sale', 'RB', 'Insul']
+    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Cancel', 'Avg $/Sale', 'RB', 'Insul']
     const greenSold = new Set([2, 4, 6, 8]), greenMoney = new Set([9, 10, 11, 12])
     const colgroup = '<colgroup>' + HEAD.map((_, i) => `<col${greenSold.has(i) ? ' class="g"' : greenMoney.has(i) ? ' class="g2"' : ''}/>`).join('') + '</colgroup>'
     const headRow = '<tr>' + HEAD.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr>'
@@ -660,7 +660,7 @@ function ApptConversion({ zone, autoOpen = false }) {
       pc(r.harvAp, r.harvPct), pc(r.compAp, r.compPct), pc(r.btrAp, r.btrPct), `<b>${pc(r.appts, r.pct)}</b>`,
       pc(r.appts, r.grossPct),
       r.resitAp ? `${r.resitSl}/${r.resitAp} (${r.resitPct}%)` : '—',
-      `${r.pendAp || 0} (${r.pendPct || 0}%)`,
+      `${r.pendAp || 0} (${r.pendPct || 0}%)`, `${r.cxl || 0} (${r.cxlPct || 0}%)`,
       money(r.avg), `${r.rb} (${r.rb_pct}%)`, `${r.ins} (${r.ins_pct}%)`,
     ]
     const rowHtml = (r, cls = '') => `<tr class="${cls}">` + cells(r).map((c, i) => `<td${i === 0 ? ' class="l"' : ''}>${c}</td>`).join('') + '</tr>'
@@ -813,6 +813,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                     <col className="bg-emerald-50" />{/* Gross % */}
                     <col className="bg-amber-50" />{/* NSR */}
                     <col className="bg-sky-50" />{/* Pending */}
+                        <col className="bg-rose-50" />{/* Cancel */}
                     <col />{/* Avg $/Sale */}
                     <col />{/* RB */}
                     <col />{/* Insul */}
@@ -839,6 +840,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       <th className="px-2 py-1.5 text-right" title="Gross closing % — funded sales + credit denials ÷ appointments. A credit denial is a sale they couldn't finance.">Gross %</th>
                       <th className="px-2 py-1.5 text-right" title="No-sit recovery: of re-booked sits (a &quot;No Sit — Need to Reschedule&quot; that got back on the calendar), how many closed. Shown as sold / re-sat · %.">NSR</th>
                       <th className="px-2 py-1.5 text-right" title="Open deals still being worked (status Sit - Pending), with pending % of appointments. High pending % = slow to close.">Pending</th>
+                          <th className="px-2 py-1.5 text-right" title="Sold in this period, since CANCELLED (now Lost in JobNimbus) — count, with cancellation % of everything sold in the period. Free inspections are not counted.">Cancel</th>
                       <th className="px-2 py-1.5 text-right">Avg $/Sale</th>
                       <th className="px-2 py-1.5 text-right">RB</th>
                       <th className="px-2 py-1.5 text-right">Insul</th>
@@ -870,12 +872,13 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         <td className="px-2 py-1.5 text-right font-semibold text-emerald-700" title="funded sales + credit denials ÷ appts">{r.appts ? r.grossPct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-amber-700" title={r.resitAp ? `${r.resitSl} of ${r.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{r.resitAp ? <>{r.resitSl}/{r.resitAp}<span className="text-[10px] text-amber-500"> ({r.resitPct}%)</span></> : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-sky-700 font-semibold">{r.pendAp || 0}<span className="text-[10px] text-sky-500"> ({r.pendPct || 0}%)</span></td>
+                            <td className="px-2 py-1.5 text-right text-rose-700 font-semibold" title={`${r.cxl || 0} cancelled · $${(r.cxlAmt || 0).toLocaleString()}`}>{r.cxl || 0}<span className="text-[10px] text-rose-500"> ({r.cxlPct || 0}%)</span></td>
                         <td className="px-2 py-1.5 text-right">${(r.avg || 0).toLocaleString()}</td>
                         <td className="px-2 py-1.5 text-right text-slate-600">{r.rb}<span className="text-[10px] text-slate-400"> ({r.rb_pct}%)</span></td>
                         <td className="px-2 py-1.5 text-right text-slate-600">{r.ins}<span className="text-[10px] text-slate-400"> ({r.ins_pct}%)</span></td>
                       </tr>
                       {open && (
-                        <tr><td colSpan={23} className="bg-slate-50 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
+                        <tr><td colSpan={24} className="bg-slate-50 px-4 py-2"><ApptDetail details={r.details} /></td></tr>
                       )}
                       </Fragment>
                       )
@@ -902,6 +905,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                         <td className="px-2 py-1.5 text-right text-emerald-700">{zt.appts ? zt.grossPct + '%' : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-amber-700" title={zt.resitAp ? `${zt.resitSl} of ${zt.resitAp} re-booked sits closed` : 'no re-booked sits this period'}>{zt.resitAp ? <>{zt.resitSl}/{zt.resitAp}<span className="text-[10px] text-amber-500"> ({zt.resitPct}%)</span></> : '—'}</td>
                         <td className="px-2 py-1.5 text-right text-sky-700">{zt.pendAp || 0}<span className="text-[10px] text-sky-500"> ({zt.pendPct || 0}%)</span></td>
+                          <td className="px-2 py-1.5 text-right text-rose-700 font-semibold" title={`${zt.cxl || 0} cancelled · $${(zt.cxlAmt || 0).toLocaleString()}`}>{zt.cxl || 0}<span className="text-[10px] text-rose-500"> ({zt.cxlPct || 0}%)</span></td>
                         <td className="px-2 py-1.5 text-right">${(zt.avg || 0).toLocaleString()}</td>
                         <td className="px-2 py-1.5 text-right">{zt.rb}<span className="text-[10px] text-slate-400"> ({zt.rb_pct}%)</span></td>
                         <td className="px-2 py-1.5 text-right">{zt.ins}<span className="text-[10px] text-slate-400"> ({zt.ins_pct}%)</span></td>
