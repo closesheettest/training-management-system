@@ -9,6 +9,7 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
+import TodayAppts from '../components/TodayAppts.jsx'
 import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
 import { lazy, Suspense } from 'react'
 // The trainer's report card, reused as-is; loaded only when a manager opens one.
@@ -190,6 +191,8 @@ export default function RegionalManager() {
       {/* Today's special meeting (Managers Meeting, company, invite) or anything live — flashing,
           as the header of Your tools, under the leaderboard (Neal, 2026-10-05). */}
       <YourMeetings token={token} banner />
+      {/* 📅 Today's appointments by rep, stacked times flagged (Neal, 2026-10-12). */}
+      <TodayAppts token={token} />
 
       <TileBoard
         counts={todo}
