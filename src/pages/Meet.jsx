@@ -719,12 +719,23 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   useEffect(() => {
     const say = (t) => { setKbNote(t); clearTimeout(say.t); say.t = setTimeout(() => setKbNote(''), 1800) }
     const onKey = async (e) => {
-      if (!(e.ctrlKey && e.altKey) || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return
+      if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable) return
       const k = kbRef.current, lp = k.localParticipant, code = e.code
       const step = (d) => {
         if (k.sc && k.isHost && k.sc.mode !== 'all') { k.setScripture({ ...k.sc, idx: Math.max(0, Math.min(k.sc.verses.length - 1, (k.sc.idx || 0) + d)) }); return say(d > 0 ? 'Next verse' : 'Previous verse') }
         if (k.iPresent) { d > 0 ? deckApi.current?.next() : deckApi.current?.prev(); return say(d > 0 ? 'Next slide' : 'Back a slide') }
       }
+      // ⌨️ PLAIN KEYS WHILE PRESENTING (Neal, 2026-10-12: "the scripture full screen … click either the space bar or an arrow
+      // on his keyboard, and it will go to the next scripture"). Only for the host showing scripture or a deck — no
+      // Ctrl+Alt needed. Space / → / ↓ / Page Down = next · ← / ↑ / Page Up = back.
+      if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+        const presenting = (k.sc && k.isHost && k.sc.showing !== false && k.sc.mode !== 'all' && (k.sc.verses || []).length > 1) || k.iPresent
+        if (!presenting) return
+        const NEXT = ['Space', 'ArrowRight', 'ArrowDown', 'PageDown'], BACK = ['ArrowLeft', 'ArrowUp', 'PageUp']
+        if (NEXT.includes(code)) { e.preventDefault(); step(1) } else if (BACK.includes(code)) { e.preventDefault(); step(-1) }
+        return
+      }
+      if (!(e.ctrlKey && e.altKey)) return
       const host = async (action, label) => { if (!k.isHost) return say('Host only'); const j = await call({ action, room: k.room.slug, ...k.auth }).catch(() => ({})); say(j.ok ? label : (j.error || 'Did not work')) }
       const map = {
         ArrowRight: () => step(1), ArrowLeft: () => step(-1),
@@ -1433,7 +1444,7 @@ export default function Meet() {
 
 // The ⌨ list — what to put on each Stream Deck "Hotkey" button.
 const SHORTCUTS = [
-  ['→', 'Next slide / next verse', false], ['←', 'Back a slide / previous verse', false], ['S', 'Stop presenting / scripture off', true],
+  ['→', 'Next slide / next verse (while presenting: Space, → or ↓ alone works too)', false], ['←', 'Back a slide / previous verse (← or ↑ alone works too)', false], ['S', 'Stop presenting / scripture off', true],
   ['M', 'Mute / unmute me', false], ['V', 'Camera on / off', false], ['E', 'Mute everyone', true], ['U', 'Unmute everyone', true],
   ['R', 'Start / stop recording', true], ['G', 'Gallery view', false], ['K', 'Speaker view', false], ['P', 'Leave podcast mode', true],
   ['1', 'Background: white, logo right', false], ['2', 'Background: white, logo top', false], ['3', 'Background: navy', false], ['9', 'Background: blur', false], ['0', 'Background: none', false],
