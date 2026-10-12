@@ -76,7 +76,7 @@ function KeepDevices({ choices }) {
 // looking at it, not having to click it"). LiveKit's ControlBar, rebuilt from its own parts so each button
 // shows the device in use under its name ("Camera · FaceTime HD Camera"); the ⌄ menu still switches it.
 const cleanDevice = (l) => String(l || '').replace(/^Default\s*-\s*/i, '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim()
-function MeetControls({ mic, screenShare, reactions }) {
+function MeetControls({ mic, screenShare, reactions, guardLeave }) {
   const room = useRoomContext()
   const [names, setNames] = useState({})
   useEffect(() => {
@@ -123,7 +123,11 @@ function MeetControls({ mic, screenShare, reactions }) {
         : <button className="lk-button meet-noshare" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
       {reactions && <ReactButton choices={reactions} />}
       <ChatToggle><ChatIcon />Chat</ChatToggle>
-      <DisconnectButton><LeaveIcon />Leave</DisconnectButton>
+      {/* ⏺ RECORDING? SAVE FIRST (Neal, 2026-10-12 — the devotional recording that never saved): Leave asks the
+          meeting screen first; while this person is recording it opens "save your recording" instead of leaving. */}
+      {guardLeave
+        ? <button type="button" className="lk-button lk-disconnect-button" onClick={() => { if (!guardLeave()) room?.disconnect() }}><LeaveIcon />Leave</button>
+        : <DisconnectButton><LeaveIcon />Leave</DisconnectButton>}
       <StartMediaButton />
     </div>
   )
@@ -504,6 +508,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const noBg = /^(de\s*wayne|dwayne)\b/i.test(String(localParticipant?.name || '').trim())
   useEffect(() => { if (noBg && bg.choice && bg.choice !== 'none') bg.pick('none') }, [noBg, bg.choice]) // eslint-disable-line react-hooks/exhaustive-deps
   const [sharePanel, setSharePanel] = useState(false)
+  const [leaveAsk, setLeaveAsk] = useState(false) // ⏺ "save your recording before leaving" (Neal, 2026-10-12)
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
   const speakers = useSpeakingParticipants()
   // ⏺ RECORD: when the host starts recording, EVERYONE switches to speaker view on that host
@@ -577,6 +582,21 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     setRecBusy(false)
     if (!j.ok) { setRecNote(j.error || 'Did not work'); if (starting && localRec.current) { localRec.current.onStopped = null; localRec.current.stop(); localRec.current = null } }
     // (No "recording to your computer · muted 1 person" note on success — the flashing ● REC says it; Neal, 2026-10-07.)
+  }
+  // ⏺ NO LEAVING MID-RECORDING (Neal, 2026-10-12: "if you're recording it and you press leave without hitting stop
+  // recording, it prevents you from leaving … you must save your recording before leaving"). True = blocked.
+  const recordingHere = () => !!localRec.current || (isHost && !!rmeta.recording && !rmeta.recording_local)
+  const guardLeave = () => { if (!recordingHere()) return false; setLeaveAsk(true); return true }
+  // Closing the tab / window while recording → Chrome's own "Leave site?" warning.
+  useEffect(() => {
+    const onUnload = (e) => { if (!recordingHere()) return undefined; e.preventDefault(); e.returnValue = ''; return '' }
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }) // every render: reads the live recording state
+  const stopSaveAndLeave = async () => {
+    try { await toggleRec(!!localRec.current) } catch { /* the save box reports its own problems */ }
+    setLeaveAsk(false)
+    setTimeout(() => { try { roomCtx?.disconnect() } catch { /* already gone */ } }, 800)
   }
   // Another host stopped the recording → finish and save ours too.
   useEffect(() => { if (!rmeta.recording && localRec.current) localRec.current.stop() }, [rmeta.recording])
@@ -947,7 +967,21 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
-        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} />
+        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
+        {leaveAsk && (
+          <div onClick={(e) => { if (e.target === e.currentTarget) setLeaveAsk(false) }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,23,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ width: '100%', maxWidth: 420, background: '#111827', border: '2px solid #dc2626', borderRadius: 14, padding: 20, color: '#e5e7eb', textAlign: 'center' }}>
+              <div style={{ fontSize: 34 }}>⏺</div>
+              <div style={{ fontSize: 19, fontWeight: 900, marginTop: 4 }}>You must save your recording before leaving</div>
+              <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 6, lineHeight: 1.45 }}>You're still recording this meeting. Stop the recording and save it first — if you leave now, the recording could be lost.</div>
+              <button type="button" disabled={recBusy} onClick={stopSaveAndLeave}
+                style={{ width: '100%', marginTop: 16, padding: '12px', borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', fontWeight: 900, fontSize: 16, cursor: 'pointer' }}>
+                {recBusy ? 'Saving…' : '⏹ Stop & save recording, then leave'}</button>
+              <button type="button" onClick={() => setLeaveAsk(false)}
+                style={{ width: '100%', marginTop: 8, padding: '10px', borderRadius: 10, border: '1px solid #475569', background: 'transparent', color: '#e5e7eb', fontWeight: 800, cursor: 'pointer' }}>Keep recording</button>
+            </div>
+          </div>
+        )}
         <ReactionsOverlay />
       </div>
       <RoomAudioRenderer />
