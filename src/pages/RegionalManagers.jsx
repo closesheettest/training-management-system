@@ -10,7 +10,7 @@ import PresentationActivity from '../components/PresentationActivity.jsx'
 import RepAttendance from '../components/RepAttendance.jsx'
 import NealPayCard from '../components/NealPayCard.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
-import ContestReport from '../components/ContestReport.jsx'
+import CompanyCalendar from '../components/CompanyCalendar.jsx'
 import MailResponseReport from '../components/MailResponseReport.jsx'
 import CompAgreementAudit from '../components/CompAgreementAudit.jsx'
 
@@ -156,12 +156,13 @@ export default function RegionalManagers() {
       <InspSigningsAverage />
       <PresentationActivity />
       <RepAttendance />
+      <CompanyCalendar />
 
       <CompAgreementAudit />
 
       <MailResponseReport />
 
-      <ContestReport />
+      {/* Contest Report (points audit) hidden from this page (Neal, 2026-10-12). Still on each manager's dashboard. */}
 
       <ResultsFollowups />
 
