@@ -191,8 +191,6 @@ export default function RegionalManager() {
       {/* Today's special meeting (Managers Meeting, company, invite) or anything live — flashing,
           as the header of Your tools, under the leaderboard (Neal, 2026-10-05). */}
       <YourMeetings token={token} banner />
-      {/* 📅 Today's appointments by rep, stacked times flagged (Neal, 2026-10-12). */}
-      <TodayAppts token={token} />
 
       <TileBoard
         counts={todo}
@@ -1564,6 +1562,14 @@ function AssignAppointments({ token, onCount }) {
     setLoading(false)
   }, [token])
   useEffect(() => { load(view) }, [load, view])
+  // TODAY = the whole picture (Neal, 2026-10-12: "when you hit today, it'll show you today's appointments and … the ones
+  // that need to be assigned"): the by-rep summary + what's still waiting for a rep, above today's list.
+  const [needD, setNeedD] = useState(null)
+  useEffect(() => {
+    if (view !== 'today') return
+    fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list-appointments', token, view: 'needs' }) })
+      .then((r) => r.json()).then((j) => setNeedD(j.ok ? j : null)).catch(() => setNeedD(null))
+  }, [view, token])
   // Today's work hides this when nothing is waiting to be assigned (Neal, 2026-09-30).
   useEffect(() => {
     if (!onCount || view !== 'needs') return
@@ -1719,8 +1725,27 @@ function AssignAppointments({ token, onCount }) {
 
         {!loading && (view === 'today' || view === 'tomorrow') && d && (() => {
           const items = d.items || []
-          if (items.length === 0) return <div className="mt-3 text-sm text-slate-500">No appointments {view} for your team.</div>
-          return <div className="mt-3">{items.map((it) => (
+          const waiting = view === 'today' && needD ? [...(needD.unassigned || []).map((a) => ({ k: 'u' + a.id, who: a.homeowner_name, at: a.appt_at, addr: a.address })), ...(needD.backlog || needD.viviana || []).map((it) => ({ k: 'b' + it.key, who: it.homeowner, at: it.appt_at, addr: it.address }))] : []
+          const head = view === 'today' && (
+            <>
+              <TodayAppts items={items} light />
+              {waiting.length > 0 && (
+                <div className="mt-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-extrabold text-amber-800">⚠ Still waiting for a rep · {waiting.length}</div>
+                    <button type="button" onClick={() => setView('needs')} className="rounded-md bg-amber-600 px-3 py-1 text-xs font-bold text-white">Assign →</button>
+                  </div>
+                  <ul className="mt-1.5 space-y-0.5 text-[12.5px] text-slate-700">
+                    {waiting.map((w) => <li key={w.k}><b>{w.who || 'Appointment'}</b> · {w.at ? fmt(w.at) : '—'}{w.addr ? ` · ${w.addr}` : ''}</li>)}
+                  </ul>
+                </div>
+              )}
+              {needD && !waiting.length && <div className="mt-2 text-sm font-semibold text-emerald-700">✓ Nothing waiting to be assigned.</div>}
+              <div className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">Today's appointments</div>
+            </>
+          )
+          if (items.length === 0) return <div className="mt-3">{head}<div className="mt-2 text-sm text-slate-500">No appointments {view} for your team.</div></div>
+          return <div className="mt-3">{head}{items.map((it) => (
             <div key={it.key} className={`mt-2 rounded-lg border p-3 ${it.needs_assignment ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className="font-bold text-slate-800">{it.homeowner || 'Appointment'}</div>
