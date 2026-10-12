@@ -1721,12 +1721,12 @@ export const handler = async (event) => {
           // always get back). Week A Day 1 → "call Brent to reschedule"; any other day → being on time.
           // Same one-day switch lifts the late lock too (Neal, 2026-10-05: "let them in" — a link bug
           // kept the class out until after start).
-          const lock = (await getSetting(`onboarding_gate_off_${etDay()}`, false)) ? null : await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null)
-          // The clock starts at whichever is LATER — the trainer arriving or the scheduled start — so
-          // a trainer who logs on early doesn't shut people out before class even begins.
-          const sched = hasSchedule(room) ? nextMeeting(room) : null
-          const lockBase = lock?.at ? Math.max(Date.parse(lock.at), sched && sched.start.getTime() <= Date.now() + 864e5 && etDay(sched.start.getTime()) === etDay() ? sched.start.getTime() : 0) : null
-          if (lockBase && Date.now() > lockBase + 120000) {
+          // LOCKED = DOORS CLOSED (Neal, 2026-10-12: "get rid of the two minutes after … I have a lock meeting button now"):
+          // the doors no longer close by themselves 2 minutes after start. They close when the host presses 🔒 Lock, and
+          // a trainee who isn't already in today then gets the training message below instead of the generic one.
+          // Today's onboarding switch still lets everyone in.
+          const hostLock = (await getSetting(`onboarding_gate_off_${etDay()}`, false)) ? null : await getSetting(`meet_lock_${room.slug}_${etDay()}`, null)
+          if (hostLock?.on) {
             const { data: inToday } = await sb.from('attendance').select('id').eq('trainee_id', t.id).eq('attendance_date', etDay()).limit(1)
             if (!inToday?.length) {
               const { data: cl } = await sb.from('classes').select('week_start_date').eq('id', me?.class_id || '').maybeSingle()

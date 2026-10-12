@@ -1141,7 +1141,7 @@ export default function Meet() {
     )
   }
 
-  // LATE: the doors closed 2 minutes after the trainer arrived (Neal, 2026-10-04).
+  // LOCKED: the host pressed 🔒 Lock and this trainee wasn't in yet (Neal, 2026-10-12; was an automatic 2-minute close).
   if (!join && locked) {
     return (
       <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 20%, #3b0a0a 0%, #0b0b0f 70%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
