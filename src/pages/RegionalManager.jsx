@@ -1520,7 +1520,9 @@ function AssignMap({ srReps, items, zoneName }) {
 }
 
 function AssignAppointments({ token, onCount }) {
-  const [view, setView] = useState('needs') // 'needs' | 'today' | 'tomorrow'
+  // Opens on TODAY (Neal, 2026-10-12: "the appointments still are not showing up") — Today now carries the waiting
+  // ones too, so it's the whole picture at a glance; "Deals to assign" is one tap away.
+  const [view, setView] = useState('today') // 'needs' | 'today' | 'tomorrow'
   const [d, setD] = useState(null)
   const [sel, setSel] = useState({})
   const [busy, setBusy] = useState(null)
@@ -1572,10 +1574,11 @@ function AssignAppointments({ token, onCount }) {
   }, [view, token])
   // Today's work hides this when nothing is waiting to be assigned (Neal, 2026-09-30).
   useEffect(() => {
-    if (!onCount || view !== 'needs') return
-    if (err) onCount(-1)
-    else if (d) onCount((d.unassigned || []).length + (d.backlog || d.viviana || []).length)
-  }, [d, err, view]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!onCount) return
+    const src = view === 'needs' ? d : view === 'today' ? needD : null
+    if (!src) { if (err && view === 'needs') onCount(-1); return }
+    onCount((src.unassigned || []).length + (src.backlog || src.viviana || []).length)
+  }, [d, err, view, needD]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pick = (key, f, v) => setSel((p) => ({ ...p, [key]: { ...(p[key] || {}), [f]: v } }))
 
