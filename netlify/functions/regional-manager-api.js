@@ -453,6 +453,12 @@ export const handler = async (event) => {
     return json(200, { ok: true, session: data })
   }
 
+  // 📅 Set a sale's JobNimbus Start Date to its Sold Date (Appointments → Sales, Neal 2026-10-12) — proxied to CCG.
+  if (action === 'fix-start-date') {
+    const { status, body: out } = await ccgRecordsApi(region, { action: 'fix-start-date', jnid: body.jnid })
+    return json(status, out)
+  }
+
   // Setter appointments awaiting a rep + this zone's reps (proxied to CCG).
   // view: 'needs' (default) | 'today' | 'tomorrow'.
   if (action === 'list-appointments') {

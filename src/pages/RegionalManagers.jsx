@@ -666,6 +666,7 @@ function mergeDeals(details) {
     const e = byDeal.get(k) || { customer: d.customer, address: d.address, cat: d.cat, status: d.status, source: d.source, result: d.result, location: d.location, apptDate: d.apptDate, sold: d.sold, start: d.start, pitch: d.pitch, roofrStatus: d.roofrStatus, rb: d.rb, ins: d.ins, fromAssigned: d.fromAssigned, isReset: d.isReset, jnids: new Set(), appt: false, sale: false, unstatused: false, amt: 0 }
     e.apptDate = d.apptDate || e.apptDate; e.sold = d.sold || e.sold; e.start = d.start || e.start; e.pitch = d.pitch || e.pitch; e.roofrStatus = d.roofrStatus || e.roofrStatus; e.rb = e.rb || d.rb; e.ins = e.ins || d.ins; e.source = d.source || e.source; e.result = d.result || e.result; e.location = (d.location != null ? d.location : e.location); e.fromAssigned = e.fromAssigned || d.fromAssigned; e.isReset = e.isReset || d.isReset
     if (d.jnid) e.jnids.add(d.jnid)
+    if (d.jnid && (d.kind === 'sale' || !e.jnid)) e.jnid = d.jnid   // the job the JN link + Start Date fix act on (the sale's, when there is one)
     if (d.kind === 'sale') { e.sale = true; e.amt = d.amt || 0; e.status = d.status; e.cat = d.cat }
     // 'unstatused' = the appointment date passed with nobody recording what
     // happened. It IS an appointment and shows as one here — it just doesn't
@@ -700,6 +701,22 @@ const fixReasonsFor = (e) => [e.fromAssigned && 'no Sales Rep set (only Assigned
 function repFixCount(details) { return mergeDeals(details).filter((e) => fixReasonsFor(e).length).length }
 function ApptDetail({ details }) {
   const [openFix, setOpenFix] = useState(null) // row whose fix-reasons are expanded (tap the ⚠ — works on iPad/touch)
+  // 📅 FIX THE START DATE HERE (Neal, 2026-10-12): a red Start Date gets a button that sets it to the Sold Date in
+  // JobNimbus (admin PIN); every row links to the job in JobNimbus.
+  const [fixed, setFixed] = useState({})   // jnid → 'saving' | 'M/D/YYYY' (done) | { error }
+  const callFixStart = (jnid) => {
+    let pin = ''
+    try { pin = sessionStorage.getItem('rm_admin_ok_pin') || '' } catch { /* */ }
+    if (!pin) { pin = window.prompt('Admin PIN to change the Start Date in JobNimbus:') || ''; if (pin) { try { sessionStorage.setItem('rm_admin_ok_pin', pin) } catch { /* */ } } }
+    return fetch('https://free-roof-inspections.netlify.app/.netlify/functions/manager-records-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'fix-start-date', pin, jnid }) }).then((r) => r.json())
+  }
+  const fixStart = async (e) => {
+    setFixed((f) => ({ ...f, [e.jnid]: 'saving' }))
+    let d
+    try { d = await callFixStart(e.jnid) } catch { d = { ok: false, error: 'Network error' } }
+    if (d && /PIN/i.test(d.error || '')) { try { sessionStorage.removeItem('rm_admin_ok_pin') } catch { /* */ } }
+    setFixed((f) => ({ ...f, [e.jnid]: d && d.ok ? (e.sold || 'fixed') : { error: (d && d.error) || 'Could not save' } }))
+  }
   const list = mergeDeals(details)
   if (!list.length) return <div className="text-[11px] text-slate-400">No detail for this period.</div>
   const c = (kind, cat) => list.filter((e) => e[kind] && e.cat === cat).length
@@ -731,13 +748,27 @@ function ApptDetail({ details }) {
                 <tr className={'border-t border-slate-100 ' + (reasons.length ? 'bg-amber-100' : '')}>
                   <td className={TD}>{e.appt && <span className="mr-1 rounded bg-slate-200 px-1 font-bold text-slate-600">APPT</span>}{e.sale && <span className="rounded bg-emerald-100 px-1 font-bold text-emerald-700">SALE</span>}</td>
                   <td className={TD + ' text-slate-500'}>{e.cat === 'comp' ? 'IQ' : (e.cat || '').toUpperCase()}</td>
-                  <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
+                  <td className={TD + ' font-medium text-slate-700'}>{e.customer}{e.jnid && <a href={`https://app.jobnimbus.com/job/${e.jnid}`} target="_blank" rel="noreferrer" title="Open this job in JobNimbus" className="ml-1 rounded bg-sky-100 px-1 text-[9px] font-bold text-sky-700 hover:bg-sky-200">JN ↗</a>}{e.dupCount > 1 && <span title="More than one JN job on this contact — merge them in JobNimbus" className="ml-1 rounded bg-red-100 px-1 text-[9px] font-bold text-red-700">{e.dupCount} jobs</span>}</td>
                   <td className="px-2 py-1 align-top text-slate-500">{e.address || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.source || '—'}</td>
                   <td className={TD + ((fixNotStatused(e) || fixStuckSitSold(e)) ? ' bg-red-100 font-semibold text-red-700' : ' text-slate-500')}>{e.status || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.apptDate || '—'}</td>
                   <td className={TD + ' text-slate-500'}>{e.sale ? (e.sold || '—') : ''}</td>
-                  <td className={TD + (fixStartBad(e) ? ' bg-red-100 font-semibold text-red-700' : ' text-slate-500')}>{e.start || '—'}</td>
+                  {(() => {
+                    const fx = fixed[e.jnid], done = typeof fx === 'string' && fx !== 'saving'
+                    const bad = fixStartBad(e) && !done
+                    return (
+                      <td className={TD + (bad ? ' bg-red-100 font-semibold text-red-700' : done ? ' bg-emerald-50 font-semibold text-emerald-700' : ' text-slate-500')}>
+                        {done ? `${fx} ✓` : (e.start || '—')}
+                        {bad && e.sale && e.sold && e.jnid && (
+                          <button type="button" disabled={fx === 'saving'} onClick={() => fixStart(e)} title={`Set the JobNimbus Start Date to the Sold Date (${e.sold})`}
+                            className="ml-1 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-red-700 disabled:opacity-60">
+                            {fx === 'saving' ? 'Saving…' : `Set to ${e.sold}`}</button>
+                        )}
+                        {fx && typeof fx === 'object' && <div className="text-[10px] font-semibold text-red-700">{fx.error}</div>}
+                      </td>
+                    )
+                  })()}
                   <td className={TD + ' text-right font-medium text-slate-700'}>{e.sale ? '$' + (e.amt || 0).toLocaleString() : ''}</td>
                   <td className={TD}>{e.sale ? (e.pitch ? <span className="font-semibold text-slate-700">{e.pitch}</span> : (e.roofrStatus === 'no_pdf' ? <span className="font-semibold text-amber-600">NO ROOFR</span> : '—')) : ''}</td>
                   <td className={TD + ' text-center'}>{e.sale && e.rb ? <span className="font-bold text-sky-600">✓</span> : ''}</td>
