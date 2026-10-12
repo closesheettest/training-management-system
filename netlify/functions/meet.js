@@ -765,6 +765,9 @@ export const handler = async (event) => {
     const mine = (await loadRooms()).filter((r) => !r.call).filter((r) =>
       (INVITE_KINDS.includes(r.kind) && (r.invitees || []).some((x) => x.id === t.id || (!x.id && String(x.name || '').trim().toLowerCase().split(' ')[0] === String(t.first_name || '').toLowerCase() && String(x.phone || '').replace(/\D/g, '').slice(-10) === String(t.phone || '').replace(/\D/g, '').slice(-10))) && (r.kind !== 'oneoff' || nextMeeting(r))) ||
       alsoIds(r).includes(t.id) ||
+      // Hosting it counts too (Neal, 2026-10-12: the Five Star "Flow For PA Deals" room named him host but his
+      // dashboard only looked at invitees / tags, so it showed on My Tools and not here).
+      isRoomHost(r, t) ||
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
       ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
