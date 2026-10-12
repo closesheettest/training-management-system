@@ -4,6 +4,19 @@
 // everything in JobNimbus for the team), via regional-manager-api list-appointments.
 import { useEffect, useState } from 'react'
 
+// 🧭 Where an appointment came from — lead source, harvested, re-run (Neal, 2026-10-12). Shared with the Assign board.
+const SRC = { 'instant quote': '📞 IQ call-in', harvesting: '🌾 Harvested', 'self generated': '🙋 Self-gen', referral: '⭐ Referral', inspection: '🏠 Inspection', facebook: '📘 Facebook', 'ai bot': '🤖 AI Bot', ihfb: '📘 IHFB' }
+export function HistoryChips({ h, dark = false }) {
+  if (!h) return null
+  const chip = (t, cls) => <span key={t} className={`mr-1 inline-block rounded px-1.5 py-0.5 text-[10.5px] font-bold ${cls}`}>{t}</span>
+  const out = []
+  if (h.rescheduled) out.push(chip(`🔁 Rescheduled${h.why ? ` · ${h.why}` : ''}`, dark ? 'bg-orange-500/30 text-orange-200' : 'bg-orange-100 text-orange-800'))
+  const src = h.source ? (SRC[String(h.source).toLowerCase()] || h.source) : null
+  if (src) out.push(chip(src, dark ? 'bg-sky-500/25 text-sky-200' : 'bg-sky-100 text-sky-800'))
+  if (h.harvested && !/harvest/i.test(src || '')) out.push(chip('🌾 Rep harvested', dark ? 'bg-emerald-500/25 text-emerald-200' : 'bg-emerald-100 text-emerald-800'))
+  return out.length ? <span>{out}</span> : null
+}
+
 const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })
 
 // items: pass the Assign board's already-loaded Today list (no second fetch); light: white card styling.
@@ -63,7 +76,7 @@ export default function TodayAppts({ token, items: given, light = false }) {
                 {open === rep && (
                   <ul className={`mt-1.5 space-y-0.5 pl-1 text-xs ${L ? 'text-slate-600' : 'text-slate-300'}`}>
                     {list.map((a, i) => (
-                      <li key={i}><b className={L ? 'text-slate-800' : 'text-slate-100'}>{timeOf(a.appt_at)}</b> · {a.homeowner || 'Appointment'}{a.address ? ` · ${a.address}` : ''}{a.src ? <span className="text-slate-500"> · {a.src}</span> : null}</li>
+                      <li key={i}><b className={L ? 'text-slate-800' : 'text-slate-100'}>{timeOf(a.appt_at)}</b> · {a.homeowner || 'Appointment'}{a.address ? ` · ${a.address}` : ''} <HistoryChips h={a.history} dark={!L} /></li>
                     ))}
                   </ul>
                 )}

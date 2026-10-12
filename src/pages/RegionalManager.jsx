@@ -9,7 +9,7 @@ import { teamLabel, ZONE_COLORS } from '../lib/zones.js'
 import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import ContestReport from '../components/ContestReport.jsx'
-import TodayAppts from '../components/TodayAppts.jsx'
+import TodayAppts, { HistoryChips } from '../components/TodayAppts.jsx'
 import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
 import { lazy, Suspense } from 'react'
 // The trainer's report card, reused as-is; loaded only when a manager opens one.
@@ -1756,6 +1756,7 @@ function AssignAppointments({ token, onCount }) {
               </div>
               {it.address && <div className="text-[13px] text-slate-600">📍 {it.address}</div>}
               <div className="text-[12.5px] font-bold text-amber-700">🕒 {timeOnly(it.appt_at)}</div>
+              {it.history && <div className="mt-0.5"><HistoryChips h={it.history} /></div>}
               <div className="text-[12px] text-slate-600">Owner: <b>{it.owner_name || '—'}</b> · Sales Rep: <b>{it.sales_rep_name || (it.needs_assignment ? '⚠️ none' : '—')}</b></div>
               {editRow(it, 'Save')}
             </div>
