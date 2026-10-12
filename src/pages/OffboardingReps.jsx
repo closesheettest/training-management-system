@@ -11,13 +11,12 @@ import { supabase } from '../lib/supabase.js'
 // When ALL boxes are checked, the rep auto-completes (cleanup_done_at gets
 // stamped) and drops to the "cleanup done" history below.
 
+// RepCard + RoofR taken off (Jen, 2026-10-12): no longer used, nothing to remove there.
 const SYSTEMS = [
   { name: 'GoHighLevel', note: 'open contact, tag as inactive or delete' },
   { name: 'Google Workspace', note: 'convert the address to a free Google Group forwarding to their manager, then DELETE the paid user (a suspended account still costs a full license)' },
-  { name: 'RepCard', note: 'remove user' },
   { name: 'JobNimbus', note: 'deactivate user' },
   { name: 'WhatsApp Groups', note: 'remove from all team/region WhatsApp groups' },
-  { name: 'RoofR', note: 'remove user' },
 ]
 const SYSTEM_NAMES = SYSTEMS.map((s) => s.name)
 const allChecked = (sys) => SYSTEM_NAMES.every((n) => sys && sys[n])
