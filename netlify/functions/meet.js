@@ -1655,7 +1655,10 @@ export const handler = async (event) => {
     const asAttendee = !!admin && !!b.attendee
     if (admin) { name = admin; identity = asAttendee ? `a:${slugify(admin)}:${seat()}` : `host:${admin}:${seat()}`; host = !asAttendee; if (!asAttendee) busyAs = admin }
     // The trainer's first arrival today starts the 2-minute door (training rooms).
-    if (admin && !asAttendee && room.kind === 'training' && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
+    // Retraining too (Neal, 2026-10-12: "Master the presentation is done … let everybody in to DoorDispatcher") — the
+    // class lock only lifts early once it sees the host was in today; retraining never wrote this, so reps stayed
+    // locked out of DoorDispatcher until the scheduled end even after class finished.
+    if (admin && !asAttendee && (room.kind === 'training' || room.kind === 'retraining') && !(await getSetting(`meet_hostin_${room.slug}_${etDay()}`, null))) await putSetting(`meet_hostin_${room.slug}_${etDay()}`, { at: new Date().toISOString(), by: admin })
     else if (room.host_code && sameCode(b.host_code, room.host_code)) {
       name = String(b.name || '').trim().slice(0, 60) || 'Host'; identity = `host:${slugify(name)}:${seat()}`; host = true; busyAs = name
     } else if (room.public && b.guest) {
