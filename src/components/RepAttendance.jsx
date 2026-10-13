@@ -259,12 +259,6 @@ export default function RepAttendance({ managerToken } = {}) {
             </div>
           ) : (
             <>
-              <p className="mb-2 text-sm text-slate-600">
-                A rep is <b>checked in</b> when they open their personal dashboard <b>or DoorDispatcher</b> that day (🗺️ = DoorDispatcher). It takes effect for each rep the first time they sign in after it began (days before that aren&rsquo;t counted; orange = hasn&rsquo;t signed in yet).
-                {' '}A weekday they missed after that has to be given a reason the next time they sign in —
-                {' '}<b>sick, personal, vacation or other</b> — so those days aren&rsquo;t held against their daily pins. A day William took them out shows <b>🎓 Training</b> and is never asked about.
-                {' '}<b>Pin days:</b> only normal working days count toward the daily door goal — training, sick, personal, vacation, other and holidays say <i>not counted</i>. <b>📅 Appts</b> = sales appointments on their JobNimbus calendar that day. <b>⏱ Hrs</b> = active time knocking on DoorDispatcher (the time between doors, leaving out any gap over 30 minutes — an appointment, lunch, the drive). <b>🚪 Doors</b> = houses they knocked and statused on DoorDispatcher that day (each house counts once a day). <b>🌧 rained 4 of 7 hrs</b> (on each team's row) = it ACTUALLY rained in 4 of the 7 knocking hours (1 PM–8 PM) where that team knocked — measured rain, not a chance-of-rain forecast; today counts only the hours so far.
-              </p>
               {notStarted && <div className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">Tracking starts {dayLabel(data.start)}. Days before that aren&rsquo;t counted.</div>}
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                 {[['all', 'Everyone'], ['problems', 'Missed or excused days']].map(([k, l]) => (
