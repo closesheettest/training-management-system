@@ -708,7 +708,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     : call({ action: 'set_deck', room: room.slug, deck: next, identity: localParticipant?.identity, ...auth }).catch(() => {}))
   useEffect(() => {
     if (!iPresent) return
-    const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
+    const onKey = (e) => { if (/INPUT|TEXTAREA/.test(e.target.tagName)) return; if (e.ctrlKey || e.altKey || e.metaKey) return; { const k = kbRef.current; if (k.sc && k.isHost && k.sc.showing !== false && k.sc.mode !== 'all' && (k.sc.verses || []).length > 1) return } if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); deckApi.current?.next() } if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); deckApi.current?.prev() } }
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
   }, [iPresent])
   // (The ⌨ and ❓ toolbar buttons were removed 2026-10-08 — the keys below still work.)
@@ -734,7 +734,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
       // on his keyboard, and it will go to the next scripture"). Only for the host showing scripture or a deck — no
       // Ctrl+Alt needed. Space / → / ↓ / Page Down = next · ← / ↑ / Page Up = back.
       if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-        const presenting = (k.sc && k.isHost && k.sc.showing !== false && k.sc.mode !== 'all' && (k.sc.verses || []).length > 1) || k.iPresent
+        // SCRIPTURE ONLY: slides already have their own plain keys (the iPresent listener above) — answering them here too
+        // moved every slide TWICE per click (Neal, 2026-10-12 Week A Day 1 slideshow "doing two clicks at once").
+        const presenting = k.sc && k.isHost && k.sc.showing !== false && k.sc.mode !== 'all' && (k.sc.verses || []).length > 1
         if (!presenting) return
         const NEXT = ['Space', 'ArrowRight', 'ArrowDown', 'PageDown'], BACK = ['ArrowLeft', 'ArrowUp', 'PageUp']
         if (NEXT.includes(code)) { e.preventDefault(); step(1) } else if (BACK.includes(code)) { e.preventDefault(); step(-1) }
