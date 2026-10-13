@@ -777,6 +777,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             share button are hidden there to save room. */}
         <style>{'/* 🔴 Leave: solid red so nobody misses it (Neal, 2026-10-08 — DeWayne couldn\'t find it; one Leave, bottom bar) */.lk-disconnect-button{background:#dc2626!important;color:#fff!important;font-weight:800!important;border:none!important}@media (max-width: 760px){.meet-topbar{flex-wrap:wrap;row-gap:6px;padding:6px 8px!important}.meet-topbar button{padding:5px 9px!important;font-size:12px!important}.lk-control-bar{flex-wrap:wrap;justify-content:center;gap:6px;padding:6px!important;height:auto!important}.lk-control-bar .lk-button{padding:7px 10px;font-size:13px}.meet-devname,.meet-noshare{display:none!important}}'}</style>
         <div className="meet-topbar" style={{ display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center', background: lookOf(room).bg }}>
+          {/* 🚪 LEAVE AT THE TOP ON A PHONE (DeWayne, 2026-10-13: "there is no leave button" — on an iPhone the bottom bar
+              can sit under Safari's toolbar). Same Leave as the bottom bar, recording check included. */}
+          {narrow && <button type="button" className="lk-disconnect-button" onClick={() => { if (!guardLeave()) roomCtx?.disconnect() }} style={{ padding: '5px 12px', borderRadius: 8, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>🚪 Leave</button>}
           {isHost && <TitleBar room={room} auth={auth} isHost compact />}
           {/* ⛶ FULL SCREEN (Neal, 2026-10-07: tabs, address bar, bookmarks and "sharing this tab" ate half the screen).
               Chrome only hides its own bars in full screen; Esc comes back out. */}
