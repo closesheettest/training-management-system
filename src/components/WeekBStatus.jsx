@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '')
 
-export default function WeekBStatus({ classId }) {
+export default function WeekBStatus({ classId, onDropout }) {
   const [d, setD] = useState(null)
   const load = () => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'class_week_b', class_id: classId }) }).then((r) => r.json()).then(setD).catch(() => setD({ ok: false }))
   useEffect(() => { load() }, [classId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -29,7 +29,7 @@ export default function WeekBStatus({ classId }) {
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="text-left text-slate-500"><tr><th className="py-1 pr-3">Trainee</th><th className="pr-3">Week A doors/day</th><th className="pr-3">Status</th><th className="pr-3">Week B link</th><th className="pr-3">Committed</th><th>This week so far</th></tr></thead>
+          <thead className="text-left text-slate-500"><tr><th className="py-1 pr-3">Trainee</th><th className="pr-3">Week A doors/day</th><th className="pr-3">Status</th><th className="pr-3">Week B link</th><th className="pr-3">Committed</th><th>This week so far</th>{onDropout && <th />}</tr></thead>
           <tbody>{P.map((x) => (
             <tr key={x.name} className="border-t border-slate-100">
               <td className="py-1.5 pr-3 font-semibold">{x.name}</td>
@@ -38,6 +38,9 @@ export default function WeekBStatus({ classId }) {
               <td className="pr-3 text-xs">{x.link_sent ? `sent ${when(x.link_sent)}` : <span className="text-slate-400">not sent</span>}{x.opened ? <div className="text-emerald-700">👀 opened {when(x.opened)}</div> : x.link_sent ? <div className="text-slate-400">not opened yet</div> : null}</td>
               <td className="pr-3 text-xs">{x.committed ? <span className="font-bold text-orange-700">🔥 {when(x.committed)}</span> : x.declined ? <span className="text-slate-500">✋ said no {when(x.declined)}</span> : x.opened ? <span className="font-semibold text-amber-700">saw it, didn't answer</span> : x.qualified || x.missed_last_day ? '' : <span className="text-slate-400">not yet</span>}</td>
               <td className="text-xs">{x.so_far != null ? <span className={x.so_far >= d.needed ? 'font-bold text-emerald-700' : 'font-bold text-amber-700'}>{x.so_far}/day {x.so_far >= d.needed ? '✓ on track' : `(needs ${d.needed})`}</span> : ''}</td>
+              {/* ❌ QUIT / FIRED (Neal, 2026-10-13: Sam didn't show) — the class page's Dropout: off the class, the roster, the
+                  manager dashboard and the map; logged as a dropout; Re-enroll in the Dropped-out section undoes it. */}
+              {onDropout && <td className="pl-2 text-right"><button onClick={async () => { await onDropout(x); load() }} className="whitespace-nowrap rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700 hover:bg-red-100">❌ Quit / Fired</button></td>}
             </tr>
           ))}</tbody>
         </table>

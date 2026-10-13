@@ -1298,7 +1298,7 @@ export default function ClassDetail() {
 
       <RosterSummary summary={virtualClass ? { ...summary, needsHotel: 0 } : summary} />
 
-      {viewWeek === 'B' && !cls.attendance_only && <WeekBStatus classId={id} />}
+      {viewWeek === 'B' && !cls.attendance_only && <WeekBStatus classId={id} onDropout={dropoutTrainee} />}
       {!cls.attendance_only && <PaperworkGate classId={id} week={viewWeek} />}
 
       {!cls.attendance_only && <ZoneAssignments trainees={trainees} cls={cls} onSaved={load} />}

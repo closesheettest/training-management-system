@@ -583,7 +583,7 @@ export const handler = async (event) => {
       const pr = prob[t.id] || null
       let soFar = null
       if (pr?.committed_at && !pr.result) { const days = [0, 1, 2, 3, 4].map((k) => addDays(pr.week_monday, k)).filter((d) => d <= etDay()); if (days.length) soFar = (await doorsFor(t, days)).average }
-      people.push({ name: fullName(t), missed_last_day: missed, override: !!t.week_b_force, week_a_avg: e.average, week_a_perDay: e.perDay, william_days: e.rideDays, map: e.linked,
+      people.push({ id: t.id, first_name: t.first_name, last_name: t.last_name, name: fullName(t), missed_last_day: missed, override: !!t.week_b_force, week_a_avg: e.average, week_a_perDay: e.perDay, william_days: e.rideDays, map: e.linked,
         qualified: !missed && (t.week_b_force || e.average === null || e.average >= EFFORT_DOORS), link_sent: sentAt[t.id] || null, opened: pr?.seen_at || null, committed: pr?.committed_at || null, declined: pr?.declined_at || null, so_far: soFar, result: pr?.result || null })
     }
     return json(200, { ok: true, last_class_day: lastDay, needed: EFFORT_DOORS, room: wkB ? { slug: wkB.slug, title: wkB.title, effort_gate: !!wkB.effort_gate } : null, people })
