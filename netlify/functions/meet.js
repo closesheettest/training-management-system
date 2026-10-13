@@ -1664,8 +1664,11 @@ export const handler = async (event) => {
     } else if (room.public && b.guest) {
       // Outside guest: name + email, kept as the room's email list.
       const gName = String(b.guest.name || '').trim().slice(0, 60), email = String(b.guest.email || '').trim().toLowerCase().slice(0, 120)
-      if (!gName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { ok: false, error: 'Please enter your name and a real email.' })
-      const h = crypto.createHash('sha256').update(email).digest('hex').slice(0, 16)
+      // EMAIL IS OPTIONAL (DeWayne via Neal, 2026-10-13): a name gets you in. An email, if given, must look real; without
+      // one the visit is kept under the name and the "email me" box means nothing (the mailer skips guests with no email).
+      if (!gName) return json(400, { ok: false, error: 'Please enter your name.' })
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { ok: false, error: "That email doesn't look right — fix it or leave it blank." })
+      const h = crypto.createHash('sha256').update(email || `name:${gName.toLowerCase()}`).digest('hex').slice(0, 16)
       const gKey = `meet_guest_${room.slug}_${h}`
       const prev = await getSetting(gKey, null)
       const now = new Date().toISOString()

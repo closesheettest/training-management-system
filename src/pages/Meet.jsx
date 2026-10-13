@@ -1373,11 +1373,11 @@ export default function Meet() {
             <>
               <p style={{ color: L.muted, marginBottom: 12 }}>Welcome! Tell us who you are to join.</p>
               <input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} placeholder="Your name" autoComplete="name" style={input} />
-              <input type="email" value={guest.email} onChange={(e) => setGuest({ ...guest, email: e.target.value })} placeholder="Your email" autoComplete="email" style={input} />
-              <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left', fontSize: 13.5, color: L.text, margin: '2px 0 12px' }}>
+              <input type="email" value={guest.email} onChange={(e) => setGuest({ ...guest, email: e.target.value })} placeholder="Your email (optional)" autoComplete="email" style={input} />
+              {String(guest.email || '').trim() ? <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', textAlign: 'left', fontSize: 13.5, color: L.text, margin: '2px 0 12px' }}>
                 <input type="checkbox" checked={!!guest.opt_in} onChange={(e) => setGuest({ ...guest, opt_in: e.target.checked })} style={{ marginTop: 3 }} />
                 Email me the {door.title} link and updates. I can unsubscribe any time.
-              </label>
+              </label> : <div style={{ height: 10 }} />}
               <button disabled={busy} onClick={() => { setS(GUEST_KEY, JSON.stringify(guest), localStorage); doJoin({ guest }) }} style={big}>Join</button>
               <button onClick={() => { setErr(''); setHostMode(true) }} style={{ marginTop: 14, background: 'none', border: 'none', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>I'm the host</button>
             </>
