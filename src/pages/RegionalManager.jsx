@@ -1567,11 +1567,12 @@ function AssignAppointments({ token, onCount }) {
   // TODAY = the whole picture (Neal, 2026-10-12: "when you hit today, it'll show you today's appointments and … the ones
   // that need to be assigned"): the by-rep summary + what's still waiting for a rep, above today's list.
   const [needD, setNeedD] = useState(null)
+  const [needTick, setNeedTick] = useState(0) // bumped after every save so "Still waiting" never shows a just-assigned one
   useEffect(() => {
     if (view !== 'today') return
     fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list-appointments', token, view: 'needs' }) })
       .then((r) => r.json()).then((j) => setNeedD(j.ok ? j : null)).catch(() => setNeedD(null))
-  }, [view, token])
+  }, [view, token, needTick])
   // Today's work hides this when nothing is waiting to be assigned (Neal, 2026-09-30).
   useEffect(() => {
     if (!onCount) return
@@ -1602,6 +1603,7 @@ function AssignAppointments({ token, onCount }) {
       const j = await res.json().catch(() => ({}))
       if (!j.ok) { alert(j.error || 'Assign failed.'); setBusy(null); return }
       await load(view)
+      setNeedTick((t) => t + 1)
     } catch { alert('Network error.') }
     setBusy(null)
   }
