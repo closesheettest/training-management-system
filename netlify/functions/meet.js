@@ -444,7 +444,9 @@ export const handler = async (event) => {
       // …or a host pressed "Let everyone in" today. Before that, arrivals (any time) wait in the LOBBY
       // (their own room — they can talk), and come through together (Neal, 2026-10-08: "like a breakaway room that comes together").
       const letIn = !!(await getSetting(`meet_lobby_open_${r.slug}_${etDay()}`, null))
-      const open = letIn || !!(nm && Date.now() >= nm.start.getTime() - 20000)
+      // "Let everyone in" only holds while a HOST is in the main room (DeWayne via Neal, 2026-10-13: both left, Neal came
+      // back first and walked straight in). Host gone before the start → the lobby is back on for whoever arrives.
+      const open = (letIn && live) || !!(nm && Date.now() >= nm.start.getTime() - 20000)
       // Straight to the lobby whenever they arrive before the start — no "opens at 9:00" screen (DeWayne via Neal, 2026-10-08).
       return { live, open, on_time: true, lobby: !open && !!nm, starts_at: nm ? nm.start.toISOString() : null }
     }
