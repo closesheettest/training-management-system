@@ -1057,8 +1057,11 @@ export default function Meet() {
   // join screen (moving), and the new one keeps their camera + mic choices.
   const moving = useRef(false)
   const moveTo = useRef(null)
+  // How they got in the first time (a guest's name + email, a host code…) — the lobby's move into the main room needs it
+  // too: a guest has no saved `auth`, so moving them sent nothing and failed (Neal, 2026-10-13 lobby test).
+  const joinedWith = useRef(null)
   moveTo.current = async (n) => {
-    const j = await call({ action: 'join', ...(auth || {}), ...(asAttendee ? { attendee: true } : {}), room: slug, ...(n ? { breakout: n } : { main: true }) }).catch(() => null)
+    const j = await call({ action: 'join', ...(joinedWith.current || {}), ...(auth || {}), ...(asAttendee ? { attendee: true } : {}), room: slug, ...(n ? { breakout: n } : { main: true }) }).catch(() => null)
     if (!j?.ok) return false
     moving.current = true
     setJoin(j)
@@ -1091,7 +1094,7 @@ export default function Meet() {
     setBusy(true); setErr('')
     const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), ...(sp.get('lobby') === 'test' ? { test_lobby: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
-    if (j.ok) { setJoin(j); setNotOpen(null); setGate(null); return true }
+    if (j.ok) { joinedWith.current = body; setJoin(j); setNotOpen(null); setGate(null); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
     if (j.locked) { setLocked(j); return false }
     if (j.effort) { setEffort(j); return false }
