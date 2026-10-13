@@ -208,6 +208,10 @@ export class LocalRecorder {
         else download(blob, this.fileName)
         if (camBlob) download(camBlob, this.camName)
       }
+      // SAVED = NOT A LEFTOVER (Neal, 2026-10-13: DeWayne saved, came back, got "a recording from earlier wasn't saved").
+      // The private copy is removed a minute after saving — leave the meeting inside that minute and it stayed behind,
+      // looking unsaved. Its name is remembered as saved now, so the next visit just clears it.
+      markSaved(this.handle?.name); markSaved(this.camHandle?.name)
       if (this.camHandle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.camHandle.name) } catch { /* fine */ } }, 60000)
       // Downloaded → remove the private copy a minute later (the download has its own file by then).
       if (this.handle) setTimeout(async () => { try { const dir = await opfsDir(); await dir.removeEntry(this.handle.name) } catch { /* fine */ } }, 60000)
@@ -225,17 +229,27 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 120000)
 }
 
-// Recordings left behind by a crash / closed tab (still in the private disk, never downloaded).
+const SAVED_KEY = 'meet_rec_saved'
+const savedNames = () => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]') } catch { return [] } }
+function markSaved(name) { if (!name) return; try { const l = savedNames().filter((x) => x !== name); l.push(name); localStorage.setItem(SAVED_KEY, JSON.stringify(l.slice(-50))) } catch { /* private */ } }
+
+// Recordings left behind by a crash / closed tab (still in the private disk, never downloaded). Ones already saved are
+// just cleared away here, never offered.
 export async function leftoverRecordings() {
   const dir = await opfsDir(); if (!dir) return []
-  const out = []
-  try { for await (const [name, h] of dir.entries()) { if (h.kind === 'file') { const f = await h.getFile(); if (f.size > 0 && Date.now() - Number(name.split('__')[0]) > 90000) out.push({ name, size: f.size }) } } } catch { /* none */ }
+  const out = [], saved = new Set(savedNames())
+  try { for await (const [name, h] of dir.entries()) {
+    if (h.kind !== 'file') continue
+    if (saved.has(name)) { try { await dir.removeEntry(name) } catch { /* in use */ } continue }
+    const f = await h.getFile(); if (f.size > 0 && Date.now() - Number(name.split('__')[0]) > 90000) out.push({ name, size: f.size })
+  } } catch { /* none */ }
   return out
 }
 export async function saveLeftover(name) {
   const dir = await opfsDir(); if (!dir) return
   const h = await dir.getFileHandle(name); const f = await h.getFile()
   download(f, name.split('__').slice(1).join('__') || 'recording.webm')
+  markSaved(name)
   setTimeout(async () => { try { await dir.removeEntry(name) } catch { /* fine */ } }, 60000)
 }
 export async function dropLeftover(name) { const dir = await opfsDir(); try { await dir.removeEntry(name) } catch { /* fine */ } }

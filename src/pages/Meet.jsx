@@ -941,9 +941,12 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
             {leftovers.length > 0 && (
               <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 75, background: '#7c2d12', color: '#fff', padding: '10px 14px', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.5)', fontSize: 14, fontWeight: 700 }}>
-                💾 A recording from earlier wasn't saved ({Math.round(leftovers[0].size / 1048576)} MB).
-                <button onClick={async () => { await saveLeftover(leftovers[0].name); setLeftovers(leftovers.slice(1)) }} style={{ marginLeft: 8, padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>⬇ Save it</button>
-                <button onClick={async () => { if (!window.confirm('Delete that unsaved recording?')) return; await dropLeftover(leftovers[0].name); setLeftovers(leftovers.slice(1)) }} style={{ marginLeft: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5', background: 'transparent', color: '#fecaca', fontWeight: 700, cursor: 'pointer' }}>Delete</button>
+                {/* Each recording is TWO files (the meeting + the host's camera) and there can be several, so Delete clears
+                    them ALL — deleting one only showed the next and looked like Delete did nothing (DeWayne, 2026-10-13). */}
+                💾 {leftovers.length === 1 ? `A recording from earlier wasn't saved (${Math.round(leftovers[0].size / 1048576)} MB).` : `${leftovers.length} recording files from earlier weren't saved (${Math.round(leftovers.reduce((n, x) => n + x.size, 0) / 1048576)} MB).`}
+                <button onClick={async () => { await saveLeftover(leftovers[0].name); setLeftovers(leftovers.slice(1)) }} style={{ marginLeft: 8, padding: '5px 10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>⬇ Save{leftovers.length > 1 ? ' next' : ' it'}</button>
+                <button onClick={async () => { if (!window.confirm(leftovers.length === 1 ? 'Delete that unsaved recording?' : `Delete all ${leftovers.length} unsaved recording files?`)) return; for (const x of leftovers) await dropLeftover(x.name); setLeftovers([]) }} style={{ marginLeft: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid #fca5a5', background: 'transparent', color: '#fecaca', fontWeight: 700, cursor: 'pointer' }}>{leftovers.length === 1 ? 'Delete' : 'Delete all'}</button>
+                <button onClick={() => setLeftovers([])} style={{ marginLeft: 6, padding: '5px 8px', borderRadius: 8, border: 'none', background: 'transparent', color: '#fed7aa', fontWeight: 700, cursor: 'pointer' }}>✕</button>
               </div>
             )}
             {unmuteAsk && (
