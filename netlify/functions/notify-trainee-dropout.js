@@ -273,7 +273,7 @@ export const handler = async (event) => {
   let query = supabase
     .from('trainees')
     .select(`
-      id, first_name, last_name, company_email, class_id,
+      id, first_name, last_name, company_email, class_id, week_b_force,
       classes!class_id(id, region, week_start_date, week_end_date, locations(name)),
       attendance(attendance_date, confirmed)
     `)
@@ -317,6 +317,10 @@ export const handler = async (event) => {
     if (!c) return false
     if (today < c.week_start_date || today > c.week_end_date) return false
     if (virtualIds.has(c.id)) return false   // on Zoom: attendance is taken by hand
+    // THE ADMIN OVERRIDE (week_b_force) MEANS "KEEP THEM" (Neal, 2026-10-13: Austin Wood got the time wrong, is still
+    // in, rescheduled for the next morning). The sign-in and the class lists already honour it; this job didn't, so a
+    // missed day would have unenrolled him and told IT/HR to delete his accounts.
+    if (t.week_b_force) return false
     // Only police actual CLASSROOM days, and only once that day's class has
     // started (+30 min grace) — see _schedule.js. Week A's Thu–Sat field days,
     // the middle weekend and Week B's Friday have no kiosk sign-in at all, so
