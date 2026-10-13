@@ -1827,16 +1827,13 @@ export const handler = async (event) => {
         else if (!want && !b.main && !host && mine) boN = mine.n
       }
     }
-    // 🔁 THE LOBBY RESETS WHEN THE HOST COMES BACK (DeWayne via Neal, 2026-10-13): a host walking into an EMPTY main
-    // room before the start time switches today's "Let everyone in" back off, so arrivals wait in the lobby again.
-    // Only when no ATTENDEE is in the main room (other hosts / a lingering copy of this host don't count) — else new
-    // arrivals would be split from the people already inside.
+    // 🔁 THE LOBBY RESETS WHEN THE HOST COMES BACK (DeWayne via Neal, 2026-10-13): a host coming into the main room before
+    // the start time switches today's "Let everyone in" back off, so new arrivals wait in the lobby again (the host sees
+    // "N waiting" and lets them in). Anyone already inside stays. First version only reset an EMPTY room — a phone still
+    // connected in the background counted as "in", so it never reset in the test.
     if (host && !boN && room.lobby === true && (room.kind === 'prayer' || room.look === 'devotional')) {
       const lobbyKey = `meet_lobby_open_${room.slug}_${etDay()}`
-      if (await getSetting(lobbyKey, null)) {
-        let others = 1; try { others = (await svc().listParticipants(room.slug)).filter((p) => { if (/^egress/i.test(String(p.identity || ''))) return false; try { return !JSON.parse(p.metadata || '{}').host } catch { return true } }).length } catch { others = 0 } // no room yet = empty
-        if (!others) await putSetting(lobbyKey, null)
-      }
+      if (await getSetting(lobbyKey, null)) await putSetting(lobbyKey, null)
     }
     const lkRoom = inLobby ? `${room.slug}__lobby` : boN ? `${room.slug}__br${boN}` : room.slug
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host, ...(busyAs ? { busy: busyAs } : {}) }) })
