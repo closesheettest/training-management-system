@@ -12,8 +12,10 @@ export default function WeekBStatus({ classId, onDropout }) {
   if (!d) return <section className="mt-6 rounded-lg border border-indigo-200 bg-white p-5 text-sm text-slate-500">Loading Week B status…</section>
   if (!d.ok) return null
   // People who didn't finish Week A aren't part of Week B — leave them off (Neal, 2026-10-04).
-  const P = d.people.filter((x) => !x.missed_last_day)
-  const outN = d.people.length - P.length
+  // Turned away (under the door average, no override) aren't in Week B either (Neal, 2026-10-13) — only who's IN shows.
+  const P = d.people.filter((x) => !x.missed_last_day && x.qualified)
+  const outN = d.people.filter((x) => x.missed_last_day).length
+  const awayN = d.people.filter((x) => !x.missed_last_day && !x.qualified).length
   return (
     <section className="mt-6 rounded-lg border-2 border-indigo-300 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -25,7 +27,7 @@ export default function WeekBStatus({ classId, onDropout }) {
       <p className="mt-1 text-sm text-slate-600">
         Week B needs an average of <b>{d.needed} doors a day</b> on DoorDispatcher over Week A Thu–Sat (days with William don't count).
         {d.room && !d.room.effort_gate && <b className="text-amber-700"> The effort rule is OFF on the Week B room.</b>}
-        {' '}<b>{P.filter((x) => x.qualified).length}</b> qualified · <b>{P.filter((x) => !x.qualified && !x.missed_last_day).length}</b> on the second chance · <b>{P.filter((x) => x.committed).length}</b> 🔥 committed · {outN ? <span className="text-slate-400">({outN} who didn't finish Week A not shown)</span> : null}
+        {' '}<b>{P.length}</b> in Week B{(outN || awayN) ? <span className="text-slate-400"> (not shown: {[awayN ? `${awayN} turned away for doors` : '', outN ? `${outN} who didn't finish Week A` : ''].filter(Boolean).join(', ')})</span> : null}
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full text-sm">
