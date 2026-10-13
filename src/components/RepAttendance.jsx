@@ -286,11 +286,12 @@ export default function RepAttendance({ managerToken } = {}) {
               </div>
               {err && <div className="mb-2 text-sm font-semibold text-red-700">{err}</div>}
               {data && (
-                <div className="overflow-x-auto">
+                // FROZEN HEADER (Neal, 2026-10-13): the table scrolls inside its own box so the column names stay put.
+                <div className="max-h-[75vh] overflow-auto">
                   <table className="min-w-full text-xs">
-                    <thead>
+                    <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-slate-100 [&_th]:shadow-[0_1px_0_#cbd5e1]">
                       <tr className="bg-slate-100 text-slate-700">
-                        <th className="sticky left-0 z-10 bg-slate-100 px-2 py-1.5 text-left">Rep</th>
+                        <th className="sticky left-0 !z-30 bg-slate-100 px-2 py-1.5 text-left">Rep</th>
                         <th className="px-2 py-1.5 text-center" title="Checked in / excused / missed with no reason">In · Exc · Miss</th>
                         <th className="px-2 py-1.5 text-center" title="Appointments the rep booked on DoorDispatcher for these days. Setter bookings and ones typed into JobNimbus are not counted; come-backs not counted; a rescheduled house counts once.">📅 DD appts</th>
                         <th className="px-2 py-1.5 text-center" title="The rep's OWN leads (referral, self-generated, their harvested lead) that they booked by typing into JobNimbus instead of DoorDispatcher — counted, but they should use DoorDispatcher's ⭐ Referral / self-gen pin.">⭐ Own (JN)</th>
