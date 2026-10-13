@@ -1647,11 +1647,11 @@ function AssignAppointments({ token, onCount }) {
         </label>
         <button onClick={() => submit(target)} disabled={busy === item.key || !ready} className="ml-auto whitespace-nowrap rounded bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{busy === item.key ? 'Saving…' : (saveLabel || 'Save')}</button>
       </div>
-      {repVal && day && (
-        <div className={`mt-1 rounded px-2 py-1 text-xs ${picked.some(clash) ? 'bg-red-50 text-red-800' : 'bg-slate-50 text-slate-600'}`}>
-          {picked.length
-            ? <>📅 {(reps.find((r) => r.jobnimbus_id === repVal) || {}).name || 'This rep'} already has that day: {picked.map((x, i) => <span key={i} className={clash(x) ? 'font-bold' : ''}>{i ? ' · ' : ''}{t12(x.at)} {x.homeowner}{clash(x) ? ' ⚠️ same time' : ''}</span>)}</>
-            : <>📅 Nothing else on their calendar that day.</>}
+      {/* Only a SAME-TIME clash shows here (Neal, 2026-10-13: the rep's other times are already in "Today by rep" up top —
+          repeating them under every card was confusing). */}
+      {repVal && day && picked.some(clash) && (
+        <div className="mt-1 rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-800">
+          ⚠️ {(reps.find((r) => r.jobnimbus_id === repVal) || {}).name || 'This rep'} already has an appointment at this time: {picked.filter(clash).map((x) => `${t12(x.at)} ${x.homeowner}`).join(' · ')}
         </div>
       )}
       </>
