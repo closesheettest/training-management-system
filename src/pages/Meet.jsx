@@ -623,6 +623,11 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     : view === 'speaker' && !share ? ((rmeta.recording && cams.find((t) => t.participant.identity === rmeta.spotlight)) || cams.find((t) => t.participant.identity === lastSpeaker) || cams.find((t) => !t.participant.isLocal) || cams[0])
     : null
   const gridTracks = share ? [share, ...cams] : cams
+  // 📱 A phone in Gallery (DeWayne, 2026-10-13 lobby test): LiveKit's grid fits only 1–2 tiles on a portrait phone, so
+  // 3 people became 2 pages and page 1 kept swapping to whoever talked — it looked like Speaker view. Narrow screens
+  // get every tile on one scrolling page instead.
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640)
+  useEffect(() => { const f = () => setNarrow(window.innerWidth < 640); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
   // Presenter circle: the sharer's own camera in the corner of their shared screen — for a host
   // who has it on and whose camera is on.
   const sharerCam = share ? cams.find((t) => t.participant.identity === share.participant.identity && isTrackReference(t) && !t.publication?.isMuted) : null
@@ -860,7 +865,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                 return audience.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={audience}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{stageView}</div></FocusLayoutContainer> : stageView
               })()
             ) : !focus ? (
-              <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
+              narrow && gridTracks.length <= 12 ? <PhoneGallery tracks={gridTracks} /> : <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
             ) : (
               (() => {
                 const main = shareCamOk ? (
@@ -1032,6 +1037,20 @@ function Rsvp({ door, slug, who, nextAt, L, big, hTitle, onJoin }) {
         ? <button onClick={onJoin} style={{ ...big, width: '100%', marginTop: 14, background: '#2563eb', fontSize: 20 }}>▶ Join the meeting</button>
         : <button disabled style={{ ...big, width: '100%', marginTop: 14, background: '#334155', color: '#cbd5e1', cursor: 'default' }}>▶ Join opens at {opensTxt}</button>}
       <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>{isOpen ? 'Tap Join to go in.' : `Keep this page open (the Join button turns on at ${opensTxt}), or open the link from your text again then.`}</div>
+    </div>
+  )
+}
+
+// 📱 Gallery on a phone: everyone on ONE scrolling page, no paging, no reshuffling when someone talks.
+function PhoneGallery({ tracks }) {
+  const cols = tracks.length <= 2 ? 1 : 2
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6, padding: 6, alignContent: tracks.length <= 2 ? 'stretch' : 'start' }}>
+      {tracks.map((t) => (
+        <div key={`${t.participant.identity}:${t.source}`} style={{ position: 'relative', aspectRatio: cols === 1 ? undefined : '3 / 4', minHeight: cols === 1 ? 0 : undefined, borderRadius: 8, overflow: 'hidden' }}>
+          <ParticipantTile trackRef={t} style={{ height: '100%', width: '100%' }} />
+        </div>
+      ))}
     </div>
   )
 }
