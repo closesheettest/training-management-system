@@ -838,7 +838,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                 shared screen is fitted inside the window, never cropped, and anyone can go full screen. */}
             {/* LiveKit's own two-arrow "focus" button on each video looked like full screen and did nothing here — hidden. */}
             <style>{'.lk-focus-toggle-button{display:none!important}'}</style>
-            <style>{'.lk-participant-tile[data-lk-source="screen_share"] video, .lk-focus-layout video[data-lk-source="screen_share"] { object-fit: contain !important; background: #000; }'}</style>
+            {/* 📱 NEVER CROP A CAMERA (Neal, 2026-10-13: DeWayne on his iPhone showed only his ceiling fan until the window was
+                stretched) — a tile whose shape doesn't match the video used to zoom in and cut the person off; now the whole
+                picture always shows, with dark bars where the shapes differ. */}
+            <style>{'.lk-participant-tile[data-lk-source="screen_share"] video, .lk-focus-layout video[data-lk-source="screen_share"] { object-fit: contain !important; background: #000; } .lk-participant-tile video.lk-participant-media-video { object-fit: contain !important; background: #000; }'}</style>
             {share && !dk && !sc && !pr && (
               <button onClick={() => { const el = document.querySelector('.lk-focus-layout') || document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el) }}
                 style={{ position: 'absolute', top: 8, right: 8, zIndex: 30, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.4)', background: 'rgba(15,23,42,.8)', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>⛶ Full screen</button>
