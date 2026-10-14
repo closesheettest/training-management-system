@@ -1625,8 +1625,11 @@ export const handler = async (event) => {
     if (!room) return json(404, { ok: false })
     const key = `meet_consent_${room.slug}_${etDay()}`
     const list = (await getSetting(key, [])) || []
-    list.push({ at: new Date().toISOString(), kind: b.kind === 'transcript' ? 'transcript' : 'recording', answer: b.answer === 'decline' ? 'declined — left the meeting' : 'agreed',
-      name: String(b.name || '').slice(0, 80), identity: String(b.identity || '').slice(0, 120), session: String(b.session || '').slice(0, 40) })
+    // kind 'join' = the "I agree — meetings may be recorded and transcribed" box before joining (every room).
+    let name = String(b.name || '').slice(0, 80)
+    if (!name && b.t) { const tr = await traineeByToken(b.t).catch(() => null); if (tr) name = fullName(tr) }
+    list.push({ at: new Date().toISOString(), kind: b.kind === 'join' ? 'join (recorded + transcribed)' : b.kind === 'transcript' ? 'transcript' : 'recording', answer: b.answer === 'decline' ? 'declined — left the meeting' : 'agreed',
+      name, identity: String(b.identity || '').slice(0, 120), session: String(b.session || '').slice(0, 40) })
     await putSetting(key, list.slice(-500))
     return json(200, { ok: true })
   }

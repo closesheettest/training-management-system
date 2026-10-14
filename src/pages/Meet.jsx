@@ -589,7 +589,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   // who isn't a host must press "OK, I agree" or "Decline & leave". Asked once per recording; the answer is logged.
   const recSession = rmeta.recording ? String(rmeta.recording_at || 'on') : ''
   const [consented, setConsented] = useState(() => { try { return sessionStorage.getItem('meet_rec_consent') || '' } catch { return '' } })
-  const needConsent = !!recSession && !isHost && consented !== `${room.slug}|${recSession}`
+  const needConsent = false && !!recSession && !isHost && consented !== `${room.slug}|${recSession}` // replaced by the sign-in agreement
   const answerConsent = async (agree) => {
     try { await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'consent', room: room.slug, kind: 'recording', answer: agree ? 'agree' : 'decline', name: localParticipant?.name || '', identity: localParticipant?.identity || '', session: recSession }) }) } catch { /* the choice still stands */ }
     if (agree) { const v = `${room.slug}|${recSession}`; setConsented(v); try { sessionStorage.setItem('meet_rec_consent', v) } catch { /* private */ } }
@@ -1005,17 +1005,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
         <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
-        {needConsent && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(2,6,23,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div style={{ background: '#fff', color: '#0f172a', borderRadius: 18, padding: 26, maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,.5)' }}>
-              <div style={{ fontSize: 44 }}>⏺</div>
-              <div style={{ fontSize: 22, fontWeight: 900, margin: '6px 0 8px' }}>This meeting is being recorded</div>
-              <div style={{ fontSize: 15.5, color: '#475569', lineHeight: 1.5, marginBottom: 18 }}>To stay in the meeting, you agree to being recorded. If you'd rather not, you can leave.</div>
-              <button onClick={() => answerConsent(true)} style={{ width: '100%', padding: '13px 16px', borderRadius: 12, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 900, fontSize: 17, cursor: 'pointer', marginBottom: 10 }}>OK, I agree</button>
-              <button onClick={() => answerConsent(false)} style={{ width: '100%', padding: '11px 16px', borderRadius: 12, border: '2px solid #e2e8f0', background: '#fff', color: '#b91c1c', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>Decline & leave the meeting</button>
-            </div>
-          </div>
-        )}
+        {/* (The mid-meeting agree-or-leave pop-up was replaced by agreeing at sign-in, Neal 2026-10-14.) */}
         {leaveAsk && (
           <div onClick={(e) => { if (e.target === e.currentTarget) setLeaveAsk(false) }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,23,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ width: '100%', maxWidth: 420, background: '#111827', border: '2px solid #dc2626', borderRadius: 14, padding: 20, color: '#e5e7eb', textAlign: 'center' }}>
@@ -1141,7 +1131,24 @@ export default function Meet() {
   // Combined with another team today → go straight to that room, keeping their own link (?t=…).
   useEffect(() => { call({ action: 'info', room: slug }).then((j) => { if (j.ok && j.room?.merged_into) { const q = new URLSearchParams(window.location.search); if (!q.get('via')) q.set('via', slug); window.location.replace(`/meet/${j.room.merged_into}?${q.toString()}`); return } if (j.ok) setDoor({ ...j.room, host_code: j.host_code }); else setErr(j.error || 'No such room') }).catch(() => {}) }, [slug])
 
+  // ☑ AGREE BEFORE YOU JOIN (Neal, 2026-10-14: "a radio button they have to hit, I agree, to join the room … meetings may be
+  // recorded, they may be transcribed" — "less intrusive" than a pop-up mid-meeting). Every room, once per device; each
+  // agreement is logged (meet.js consent). Previews skip it.
+  const CONSENT_V = 'v1'
+  const agreedRef = useRef((() => { try { return localStorage.getItem('meet_consent') === CONSENT_V } catch { return false } })() || !!sp.get('preview'))
+  const pendingJoin = useRef(null)
+  const [needAgree, setNeedAgree] = useState(false)
+  const [agreeTick, setAgreeTick] = useState(false)
+  const agreeAndGo = async () => {
+    try { localStorage.setItem('meet_consent', CONSENT_V) } catch { /* private */ }
+    agreedRef.current = true
+    call({ action: 'consent', room: slug, kind: 'join', answer: 'agree', t, name: pendingJoin.current?.guest?.name || '', identity: '' }).catch(() => {})
+    setNeedAgree(false)
+    const p = pendingJoin.current; pendingJoin.current = null
+    if (p?.fn) p.fn(); else if (p) doJoin(p)
+  }
   const doJoin = async (body) => {
+    if (!agreedRef.current) { pendingJoin.current = body; setNeedAgree(true); return false }
     setBusy(true); setErr('')
     const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), ...(sp.get('lobby') === 'test' ? { test_lobby: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
@@ -1198,6 +1205,20 @@ export default function Meet() {
   const schedLine = (r) => r?.schedule ? <div style={{ color: L.accent || L.muted, fontSize: 13, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', marginTop: 4 }}>{r.schedule}</div> : null
 
   // DIDN'T SHOW THE EFFORT for Week B — with the way back (Neal, 2026-10-04).
+  if (!join && needAgree) {
+    return shell(
+      <div style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
+        {bannerImg(door)}{welcome(door)}
+        {!door || door.kind !== 'training' ? <h1 style={hTitle}>{door?.title || 'Meeting'}</h1> : null}
+        <label style={{ display: 'flex', gap: 12, alignItems: 'flex-start', textAlign: 'left', margin: '18px 0 16px', padding: '14px 16px', borderRadius: 12, background: L.light ? '#f8fafc' : 'rgba(255,255,255,.06)', border: `2px solid ${agreeTick ? '#16a34a' : (L.fieldBorder || '#cbd5e1')}`, cursor: 'pointer', fontSize: 16, lineHeight: 1.45, color: L.text }}>
+          <input type="checkbox" checked={agreeTick} onChange={(e) => setAgreeTick(e.target.checked)} style={{ width: 22, height: 22, marginTop: 2, flexShrink: 0 }} />
+          <span><b>I agree</b> that meetings may be <b>recorded</b> and <b>transcribed</b>, and I consent to that by joining.</span>
+        </label>
+        <button disabled={!agreeTick} onClick={agreeAndGo} style={{ ...big, opacity: agreeTick ? 1 : 0.45, cursor: agreeTick ? 'pointer' : 'default', fontSize: 17, padding: '13px 12px' }}>Join</button>
+        <div style={{ fontSize: 12.5, color: L.muted, marginTop: 10 }}>You'll only be asked once on this device.</div>
+      </div>
+    )
+  }
   if (!join && effort) {
     const friday = new Date(Date.parse(`${effort.week_monday}T12:00:00Z`) + 4 * 864e5).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' })
     return (
@@ -1394,6 +1415,7 @@ export default function Meet() {
       </div>
     )
     const hostJoin = async () => {
+      if (!agreedRef.current) { pendingJoin.current = { fn: hostJoin }; setNeedAgree(true); return }
       const c = codeInput.trim(); if (!c) { setErr(door?.host_code ? 'Type your host code or admin PIN first.' : 'Type your admin PIN first.'); return }
       // Try it as an admin PIN first, then as this room's own host code.
       setBusy(true); setErr('')
