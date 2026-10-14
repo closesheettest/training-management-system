@@ -24,6 +24,11 @@ export const DECKS = [
   // The in-home SALES PRESENTATION (the rep dashboard deck, public/practice-slides) — what reps practice slide by slide.
   // Also what a 🚪 breakout room shows when the host gives the rooms slides to work on (Neal, 2026-10-08).
   { key: 'pres', week: 'B', label: 'Sales presentation (the in-home deck)', type: 'images', base: '/practice-slides/s-', count: 31, start: 1 },
+  // The PRODUCTS and FINANCING decks to go over with the class alongside the presentation (Neal, 2026-10-14: "I didn't
+  // see the finance slideshow, the product slideshow … to be able to go over it with them"). They existed as pages
+  // (public/products-slides, public/finance-slides) but were never on the Present list.
+  { key: 'prod', week: 'B', label: 'Sales presentation · Products', type: 'reveal', url: '/products-slides/' },
+  { key: 'fin', week: 'B', label: 'Sales presentation · Financing', type: 'reveal', url: '/finance-slides/' },
   // 🆕 NEW FLOW — Week A DoorDispatcher intro (Neal, 2026-10-06, final): 1) play the "Why we use it" video
   // to the room (synced), 2) present the how-to slides, whose last slide has the presenter's 📲 Send
   // DoorDispatcher access button, 3) on their link they watch the HOW-TO video, then take the test.
