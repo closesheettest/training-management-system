@@ -298,6 +298,9 @@ const LEADERS = [
   { key: 'neal', name: 'Neal', id: '78c97338-b102-4d7c-92d2-5829cb241536' },
   { key: 'dewayne', name: 'DeWayne', id: 'd1770dd6-bea9-419e-a6a1-98bbe5bfae03' },
 ]
+// A retraining nobody was picked for doesn't show on anyone's meeting list (Neal, 2026-10-14: "nobody signed up
+// for Master the Presentation … if nobody signed up, it doesn't show up"). The room itself is untouched.
+const notEmptyRetraining = (r) => r.kind !== 'retraining' || (r.invitees || []).length > 0
 // Rooms whose people are an invite list (picked by hand, or by managers for retraining).
 const INVITE_KINDS = ['oneoff', 'custom', 'retraining']
 const alsoIds = (room) => LEADERS.filter((l) => (room.also || []).includes(l.key)).map((l) => l.id)
@@ -773,6 +776,7 @@ export const handler = async (event) => {
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
       ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
+      .filter(notEmptyRetraining)
     const openOf = Object.fromEntries(await Promise.all(mine.map(async (r) => [r.slug, await openState(r)])))
     // COMPANY MEETING DAY (Neal, 2026-10-04): on a day with a company meeting, the rep's regular
     // meetings that day are greyed out ("Company Meeting today instead") and the company one
@@ -820,7 +824,7 @@ export const handler = async (event) => {
       if (r.kind === 'managers') return !!t.managed_region
       if (['everyone', 'prayer', 'company'].includes(r.kind)) return active || !!t.managed_region
       return false
-    }).filter((r) => (r.kind !== 'oneoff' && r.kind !== 'retraining') || nextMeeting(r))
+    }).filter((r) => (r.kind !== 'oneoff' && r.kind !== 'retraining') || nextMeeting(r)).filter(notEmptyRetraining)
     const today = etDay()
     const rows = await Promise.all(mine.map(async (r) => {
       const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextAfterDone(r, st.live) : null
