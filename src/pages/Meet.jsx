@@ -76,7 +76,7 @@ function KeepDevices({ choices }) {
 // looking at it, not having to click it"). LiveKit's ControlBar, rebuilt from its own parts so each button
 // shows the device in use under its name ("Camera · FaceTime HD Camera"); the ⌄ menu still switches it.
 const cleanDevice = (l) => String(l || '').replace(/^Default\s*-\s*/i, '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim()
-function MeetControls({ mic, screenShare, reactions, guardLeave }) {
+function MeetControls({ mic, screenShare, reactions, guardLeave, canRaise = false }) {
   const room = useRoomContext()
   const [names, setNames] = useState({})
   useEffect(() => {
@@ -122,6 +122,7 @@ function MeetControls({ mic, screenShare, reactions, guardLeave }) {
         ? <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: 'include' }} showIcon>Share screen</TrackToggle>
         : <button className="lk-button meet-noshare" disabled title="Phones and tablets can't share their screen from a browser. Use a computer (Chrome or Edge)." onClick={() => window.alert("Screen sharing needs a computer (Chrome or Edge). iPhones and iPads don't let a website share the screen.")} style={{ opacity: 0.6 }}>Share screen (computer only)</button>)}
       {reactions && <ReactButton choices={reactions} />}
+      {canRaise && <RaiseHand />}
       <ChatToggle><ChatIcon />Chat</ChatToggle>
       {/* ⏺ RECORDING? SAVE FIRST (Neal, 2026-10-12 — the devotional recording that never saved): Leave asks the
           meeting screen first; while this person is recording it opens "save your recording" instead of leaving. */}
@@ -130,6 +131,27 @@ function MeetControls({ mic, screenShare, reactions, guardLeave }) {
         : <DisconnectButton><LeaveIcon />Leave</DisconnectButton>}
       <StartMediaButton />
     </div>
+  )
+}
+
+// ✋ RAISE HAND (Neal + DeWayne, 2026-10-14: trainees are muted and can't unmute — "have a question, raise your hand; they
+// click it and I see a hand"). Tells the hosts over the data channel; a host's Unmute (or Lower) puts it back down.
+function RaiseHand() {
+  const room = useRoomContext()
+  const [up, setUp] = useState(false)
+  const send = (v) => room?.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify({ type: 'hand', up: v, name: room.localParticipant.name || 'Someone' })), { reliable: true, topic: 'hand' }).catch(() => {})
+  useEffect(() => {
+    if (!room) return undefined
+    const onData = (payload, _p, _k, topic) => { if (topic !== 'hand') return; try { const m = JSON.parse(new TextDecoder().decode(payload)); if (m.type === 'lower') setUp(false) } catch { /* */ } }
+    room.on(RoomEvent.DataReceived, onData)
+    // a host who joins later asks who's up
+    const onJoin = () => { if (up) send(true) }
+    room.on(RoomEvent.ParticipantConnected, onJoin)
+    return () => { room.off(RoomEvent.DataReceived, onData); room.off(RoomEvent.ParticipantConnected, onJoin) }
+  }, [room, up]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <button type="button" className="lk-button" onClick={() => { const v = !up; setUp(v); send(v) }}
+      style={up ? { background: '#f59e0b', color: '#111', fontWeight: 900 } : undefined}>{up ? '✋ Hand raised — lower' : '✋ Raise hand'}</button>
   )
 }
 
@@ -648,6 +670,21 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     return () => { stop = true; clearInterval(iv); localParticipant.off(ParticipantEvent.IsSpeakingChanged, onSpeak); try { rec.stop() } catch { /* done */ } }
   }, [txOn, txSession, localParticipant]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggleTranscript = async () => { await call({ action: 'transcript', room: room.slug, on: !txOn, ...auth }).catch(() => {}) }
+  // ✋ Hands up (hosts see them; Unmute gives that person the mic and lowers the hand).
+  const [hands, setHands] = useState({}) // identity → name
+  useEffect(() => {
+    if (!roomCtx || !isHost) return undefined
+    const onData = (payload, p, _k, topic) => { if (topic !== 'hand' || !p) return; try { const m = JSON.parse(new TextDecoder().decode(payload)); if (m.type !== 'hand') return; setHands((h) => { const n = { ...h }; if (m.up) n[p.identity] = m.name || p.name || 'Someone'; else delete n[p.identity]; return n }) } catch { /* */ } }
+    const onLeft = (p) => setHands((h) => { if (!h[p.identity]) return h; const n = { ...h }; delete n[p.identity]; return n })
+    roomCtx.on(RoomEvent.DataReceived, onData); roomCtx.on(RoomEvent.ParticipantDisconnected, onLeft)
+    return () => { roomCtx.off(RoomEvent.DataReceived, onData); roomCtx.off(RoomEvent.ParticipantDisconnected, onLeft) }
+  }, [roomCtx, isHost])
+  const lowerHand = (id) => { setHands((h) => { const n = { ...h }; delete n[id]; return n }); roomCtx?.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify({ type: 'lower' })), { reliable: true, topic: 'hand', destinationIdentities: [id] }).catch(() => {}) }
+  const unmuteHand = async (id) => {
+    if (room.mic_lock) await call({ action: 'allow_mic', room: room.slug, identities: [id], ...auth }).catch(() => {})
+    roomCtx?.localParticipant?.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', destinationIdentities: [id] }).catch(() => {})
+    lowerHand(id)
+  }
   const recordingHere = () => !!localRec.current || (isHost && !!rmeta.recording && !rmeta.recording_local)
   const guardLeave = () => { if (!recordingHere()) return false; setLeaveAsk(true); return true }
   // Closing the tab / window while recording → Chrome's own "Leave site?" warning.
@@ -1061,7 +1098,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           <Chat style={{ display: showChat ? 'grid' : 'none', width: 320 }} />
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
-        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
+        <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} canRaise={!isHost} />
         {/* (The mid-meeting agree-or-leave pop-up was replaced by agreeing at sign-in, Neal 2026-10-14.) */}
         {/* Captions + the transcript are for HOSTS only (Neal, 2026-10-14: "attendees should not see the transcription");
             an attendee's browser still captions their own voice so it's in the record, and they see the small badge. */}
@@ -1086,6 +1123,18 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
               {!txLines.length && <div style={{ color: '#6b7280' }}>Listening… lines show up here as people talk.</div>}
               {txLines.map((l, i) => <div key={i} style={{ marginBottom: 6 }}><span style={{ color: '#6b7280', fontSize: 12 }}>{new Date(l.at).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })} </span><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text}</div>)}
             </div>
+          </div>
+        )}
+        {isHost && Object.keys(hands).length > 0 && (
+          <div style={{ position: 'absolute', top: 8, left: 10, zIndex: 62, background: '#f59e0b', color: '#111', borderRadius: 12, padding: '6px 10px', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', maxWidth: '70vw', boxShadow: '0 6px 18px rgba(0,0,0,.35)' }}>
+            <b>✋ Hands up:</b>
+            {Object.entries(hands).map(([id, nm]) => (
+              <span key={id} style={{ background: '#fff7e6', borderRadius: 8, padding: '3px 6px', display: 'inline-flex', gap: 6, alignItems: 'center', fontWeight: 800 }}>
+                {nm}
+                <button onClick={() => unmuteHand(id)} style={{ border: 'none', borderRadius: 6, background: '#16a34a', color: '#fff', fontWeight: 900, padding: '3px 8px', cursor: 'pointer' }}>🎙 Unmute</button>
+                <button onClick={() => lowerHand(id)} title="Lower their hand" style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: 900 }}>✕</button>
+              </span>
+            ))}
           </div>
         )}
         {leaveAsk && (
