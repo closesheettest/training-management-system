@@ -930,8 +930,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                   <PresenterFrame layout={layout} cam={sharerCam} isHost={isHost} onLayout={pickLayout}>
                     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
                       <FocusLayout trackRef={focus} style={{ height: '100%' }} />
+                      {/* TOP right (Neal + DeWayne, 2026-10-14): at the bottom it fell below a short window and scrolled out of view. */}
                       {layout === 'circle' && showCircle && (
-                        <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
+                        <div style={{ position: 'absolute', right: '2.5%', top: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
                           <VideoTrack trackRef={sharerCam} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                       )}
@@ -947,7 +948,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                 <div style={{ position: 'relative', height: '100%', width: '100%' }}>
                   <FocusLayout trackRef={focus} style={{ height: '100%' }} />
                   {showCircle && (
-                    <div style={{ position: 'absolute', right: '2.5%', bottom: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
+                    <div style={{ position: 'absolute', right: '2.5%', top: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
                       <VideoTrack trackRef={sharerCam} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
