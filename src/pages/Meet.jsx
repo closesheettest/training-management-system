@@ -1059,8 +1059,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         {/* Captions + the transcript are for HOSTS only (Neal, 2026-10-14: "attendees should not see the transcription");
             an attendee's browser still captions their own voice so it's in the record, and they see the small badge. */}
         {isHost && txOn && !txPanel && txLines.length > 0 && (
-          <div style={{ position: 'absolute', left: '50%', bottom: 86, transform: 'translateX(-50%)', zIndex: 60, maxWidth: 'min(900px, 92vw)', background: 'rgba(0,0,0,.72)', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 17, lineHeight: 1.4, pointerEvents: 'none' }}>
-            {txLines.slice(-2).map((l, i) => <div key={i}><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text}</div>)}
+          // CAPPED (DeWayne, 2026-10-14: "eventually it throws it up over the entire screen") — speech recognition hands
+          // back whole paragraphs; the strip shows only the tail of the last two lines, one row each.
+          <div style={{ position: 'absolute', left: '50%', bottom: 86, transform: 'translateX(-50%)', zIndex: 60, maxWidth: 'min(820px, 90vw)', maxHeight: 64, overflow: 'hidden', background: 'rgba(0,0,0,.65)', color: '#fff', borderRadius: 10, padding: '6px 12px', fontSize: 15, lineHeight: 1.35, pointerEvents: 'none' }}>
+            {txLines.slice(-2).map((l, i) => <div key={i} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', direction: 'rtl', textAlign: 'left' }}><bdi><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text.length > 140 ? '…' + l.text.slice(-140) : l.text}</bdi></div>)}
           </div>
         )}
         {txOn && (
