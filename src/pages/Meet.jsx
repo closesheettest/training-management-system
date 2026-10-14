@@ -383,6 +383,13 @@ function TitleBar({ room, auth, isHost, compact = false }) {
           {topic}
         </div>
       )}
+      {/* 📧 QUESTIONS IN WRITING (Neal + DeWayne, 2026-10-14: a trainee's end-of-class "questions" turned into blowing up the
+          room — "you all have my email; put it in an email and I'll answer in writing, so it's documented"). Training rooms. */}
+      {room.kind === 'training' && (
+        <div style={{ background: L.light ? '#f1f5f9' : '#0f172a', color: L.light ? '#334155' : '#cbd5e1', textAlign: 'center', padding: '6px 12px', fontSize: 'clamp(13px, 1.6vw, 16px)', fontWeight: 700 }}>
+          📧 Questions? Email Neal: <a href="mailto:neals@shingleusa.com" style={{ color: L.light ? '#1d4ed8' : '#93c5fd' }}>neals@shingleusa.com</a> — you'll get the answer in writing.
+        </div>
+      )}
     </div>
   )
 }
