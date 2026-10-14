@@ -615,12 +615,20 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) { setTxNote("Your browser can't caption your voice — use Chrome, Edge or Safari."); return undefined }
     let stop = false
+    // ECHO GUARD (Neal, 2026-10-14: lines of Neal's were labelled DeWayne). Speech recognition hears the RAW mic, so the
+    // other person's voice coming out of your speakers gets captioned as you. The meeting's own "is speaking" uses the
+    // echo-cancelled audio — so a line only counts if the meeting heard YOU talking around then.
+    let lastSpoke = 0
+    const onSpeak = (sp) => { if (sp) lastSpoke = Date.now() }
+    localParticipant.on(ParticipantEvent.IsSpeakingChanged, onSpeak)
+    const iv = setInterval(() => { if (localParticipant.isSpeaking) lastSpoke = Date.now() }, 300)
     const rec = new SR(); rec.continuous = true; rec.interimResults = false; rec.lang = 'en-US'
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue
         const text = String(e.results[i][0].transcript || '').trim()
         if (!text || !localParticipant.isMicrophoneEnabled) continue
+        if (Date.now() - lastSpoke > 2500) continue // not you — the other person through your speakers
         const line = { name: localParticipant.name || 'Someone', text, at: new Date().toISOString() }
         setTxLines((l) => [...l, line].slice(-400))
         localParticipant.publishData(new TextEncoder().encode(JSON.stringify(line)), { reliable: true, topic: 'tx' }).catch(() => {})
@@ -630,7 +638,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     rec.onerror = (e) => { if (e.error === 'not-allowed') { stop = true; setTxNote('Captions need microphone permission.') } }
     rec.onend = () => { if (!stop) { try { rec.start() } catch { /* already running */ } } }
     try { rec.start(); setTxNote('') } catch { /* started */ }
-    return () => { stop = true; try { rec.stop() } catch { /* done */ } }
+    return () => { stop = true; clearInterval(iv); localParticipant.off(ParticipantEvent.IsSpeakingChanged, onSpeak); try { rec.stop() } catch { /* done */ } }
   }, [txOn, txSession, localParticipant]) // eslint-disable-line react-hooks/exhaustive-deps
   const toggleTranscript = async () => { await call({ action: 'transcript', room: room.slug, on: !txOn, ...auth }).catch(() => {}) }
   const recordingHere = () => !!localRec.current || (isHost && !!rmeta.recording && !rmeta.recording_local)
