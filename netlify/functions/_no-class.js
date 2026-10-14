@@ -21,10 +21,15 @@
 //
 // `_`-prefixed helper module — not a Netlify endpoint.
 
-export function isNoClassDate(today) {
+//   "2026-10-14:A"              → no classroom for WEEK A cohorts only (Neal, 2026-10-14: Week A ended Tuesday
+//                                  while a Week B class ran Wednesday — a bare date would have stopped policing it too)
+export function isNoClassDate(today, phase = null) {
   return String(process.env.NO_CLASS_DATES || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
-    .some((d) => d === today)
+    .some((d) => {
+      const [date, only] = d.split(':')
+      return date === today && (!only || only.toUpperCase() === phase)
+    })
 }

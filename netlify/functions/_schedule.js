@@ -75,8 +75,8 @@ export function classStartHourET(weekStartDate, today, startHours = FALLBACK_STA
   // A date the office has called off. Checked before the timetable, because the
   // timetable describes the standing week and cannot know that THIS cohort
   // finished early. No class day → no policing at all, same as a field day.
-  if (isNoClassDate(today)) return null
   const phase = phaseForDate(weekStartDate, today)
+  if (isNoClassDate(today, phase)) return null
   if (!phase) return null
   const dow = new Date(`${today}T12:00:00Z`).getUTCDay()
   const hour = (startHours[phase] || {})[dow]
