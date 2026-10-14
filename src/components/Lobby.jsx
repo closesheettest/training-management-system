@@ -15,6 +15,7 @@ export function LobbyLayer({ slug, auth, isHost, onTime, lobby, onMove }) {
   const roomCtx = useRoomContext()
   const [now, setNow] = useState(Date.now())
   const [st, setSt] = useState(null)
+  const [small, setSmall] = useState(false)
   const moved = useRef(false)
   useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(iv) }, [])
   const go = () => { if (moved.current) return; moved.current = true; onMove(0); setTimeout(() => { moved.current = false }, 8000) }
@@ -46,11 +47,15 @@ export function LobbyLayer({ slug, auth, isHost, onTime, lobby, onMove }) {
     </div>
   )
   // The host in the main room, before the start: who's waiting, and the button to bring them in now.
+  // Bottom-left and small (DeWayne, 2026-10-14: the top-centre pill covered every host tool) — and it folds to a badge.
   if (isHost && onTime && st && !st.open && st.waiting > 0) return (
-    <div style={{ ...pill, background: '#1e3a8a' }}>
-      <span>👥 {st.waiting} waiting in the lobby{left ? ` · starts in ${clock(left)}` : ''}</span>
-      <button onClick={async () => { await call({ action: 'lobby_open', room: slug, ...auth }).catch(() => {}); setSt({ ...st, open: true }) }}
-        style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 999, padding: '5px 14px', fontWeight: 900, cursor: 'pointer' }}>Let everyone in now</button>
+    <div style={{ position: 'fixed', left: 8, bottom: 88, zIndex: 60, display: 'flex', alignItems: 'center', gap: 8, background: '#1e3a8a', color: '#fff', padding: small ? '6px 10px' : '6px 8px 6px 12px', borderRadius: 999, fontWeight: 800, fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,.35)', maxWidth: 'calc(100vw - 16px)' }}>
+      {small ? <button onClick={() => setSmall(false)} title="Show the lobby" style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 900, fontSize: 14, cursor: 'pointer', padding: 0 }}>👥 {st.waiting}</button> : (<>
+        <span>👥 {st.waiting} waiting{left ? ` · ${clock(left)}` : ''}</span>
+        <button onClick={async () => { await call({ action: 'lobby_open', room: slug, ...auth }).catch(() => {}); setSt({ ...st, open: true }) }}
+          style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 999, padding: '5px 12px', fontWeight: 900, cursor: 'pointer', whiteSpace: 'nowrap' }}>Let everyone in</button>
+        <button onClick={() => setSmall(true)} title="Make this smaller" style={{ background: 'rgba(255,255,255,.15)', color: '#fff', border: 'none', borderRadius: 999, width: 24, height: 24, fontWeight: 900, cursor: 'pointer', lineHeight: 1 }}>–</button>
+      </>)}
     </div>
   )
   return null
