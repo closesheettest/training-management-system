@@ -867,7 +867,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#fff', background: '#1e293b', padding: '3px 10px', borderRadius: 999, marginRight: 6, fontWeight: 800 }}>💾 Saving… {saveState.pct ?? 0}%
                 <span style={{ width: 80, height: 6, background: '#334155', borderRadius: 3, overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${saveState.pct ?? 0}%`, background: '#22c55e' }} /></span></span>)}
           {isHost && <button onClick={toggleTranscript} title="Live captions + a saved transcript of this meeting" style={{ ...btn(txOn), background: txOn ? '#0f766e' : '#134e4a', border: 'none', color: '#fff' }}>{txOn ? '📝 Stop transcript' : '📝 Transcribe'}</button>}
-          {txOn && <button onClick={() => setTxPanel((x) => !x)} style={btn(txPanel)}>📝 {txPanel ? 'Hide' : 'Show'} transcript</button>}
+          {isHost && txOn && <button onClick={() => setTxPanel((x) => !x)} style={btn(txPanel)}>📝 {txPanel ? 'Hide' : 'Show'} transcript</button>}
           {isHost && room.recording_enabled && !(rmeta.recording && localRec.current) && <button disabled={recBusy} onClick={() => toggleRec(false)} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
           {isHost && (localRec.current || (room.rec_where !== 'host' && !rmeta.recording)) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
@@ -1046,7 +1046,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
         <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
         {/* (The mid-meeting agree-or-leave pop-up was replaced by agreeing at sign-in, Neal 2026-10-14.) */}
-        {txOn && !txPanel && txLines.length > 0 && (
+        {/* Captions + the transcript are for HOSTS only (Neal, 2026-10-14: "attendees should not see the transcription");
+            an attendee's browser still captions their own voice so it's in the record, and they see the small badge. */}
+        {isHost && txOn && !txPanel && txLines.length > 0 && (
           <div style={{ position: 'absolute', left: '50%', bottom: 86, transform: 'translateX(-50%)', zIndex: 60, maxWidth: 'min(900px, 92vw)', background: 'rgba(0,0,0,.72)', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 17, lineHeight: 1.4, pointerEvents: 'none' }}>
             {txLines.slice(-2).map((l, i) => <div key={i}><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text}</div>)}
           </div>
@@ -1054,7 +1056,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         {txOn && (
           <div style={{ position: 'absolute', top: 8, right: 10, zIndex: 61, background: '#0f766e', color: '#fff', borderRadius: 999, padding: '4px 12px', fontSize: 13, fontWeight: 800 }}>📝 Transcribing{txNote ? ` · ${txNote}` : ''}</div>
         )}
-        {txOn && txPanel && (
+        {isHost && txOn && txPanel && (
           <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'min(420px, 92vw)', zIndex: 70, background: '#0b1220', color: '#e5e7eb', borderLeft: '1px solid #1f2937', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #1f2937' }}>
               <b style={{ flex: 1 }}>📝 Transcript</b>
