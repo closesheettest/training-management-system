@@ -293,9 +293,17 @@ export const handler = async (event) => {
         .is('cancelled_at', null)
       const runIds = (running || []).map((c) => c.id)
       if (runIds.length) {
-        const { data: att } = await supabase.from('attendance').select('trainee_id').in('class_id', runIds)
+        const { data: att } = await supabase.from('attendance').select('trainee_id, class_id, attendance_date, confirmed').in('class_id', runIds)
         const have = new Set(stillWithUs.map((r) => r.id))
-        const ids = [...new Set((att || []).map((a) => a.trainee_id))].filter((id) => id && !have.has(id))
+        // ON THE ROSTER = SIGNED IN ON THE CLASS'S LATEST TRAINING DAY, not "ever signed in" (Neal, 2026-10-14: Catherine
+        // Beeman came Monday only, missed Tuesday — Week A's last day — and still showed on Anthony's page as Week A
+        // training with "No map link yet"). The latest day with any sign-in is the class's most recent classroom day.
+        const latest = {}
+        for (const a of att || []) if (a.confirmed && (!latest[a.class_id] || a.attendance_date > latest[a.class_id])) latest[a.class_id] = a.attendance_date
+        const ids = [...new Set((att || []).filter((a) => a.confirmed && a.attendance_date === latest[a.class_id]).map((a) => a.trainee_id))].filter((id) => id && !have.has(id))
+        // …plus anyone the office kept in on purpose (week_b_force — e.g. Austin Wood got the time wrong).
+        const { data: kept } = await supabase.from('trainees').select('id').in('class_id', runIds).eq('week_b_force', true)
+        for (const k of kept || []) if (!have.has(k.id) && !ids.includes(k.id)) ids.push(k.id)
         if (ids.length) {
           const { data: more } = await supabase.from('trainees')
             .select('id, jobnimbus_id, first_name, last_name, phone, email, company_email, company_number, region, rep_level, rep_level_confirmed_at, info_updated_at, became_active_rep_at, is_active_sales_rep, is_field_trainee, street_address, city, state, zip, latitude, longitude, geocoded_at, dropped_out_at, declined_at, enrolled, class_id')
