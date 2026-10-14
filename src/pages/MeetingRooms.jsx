@@ -703,7 +703,8 @@ export default function MeetingRooms() {
           // 📞 "Call someone" rooms (call: true) are person-to-person calls, not meetings — they never list
           // here (Neal, 2026-10-06: "only real scheduled meetings should show up there").
           ['upcoming', '📅 Upcoming meetings', rooms.filter((r) => !r.call && !r.template && isOneTime(r) && (r.next_at || !(r.once || []).filter(Boolean).length))],
-          ['past', '🗂️ Past meetings', rooms.filter((r) => !r.call && !r.template && isOneTime(r) && !r.next_at && (r.once || []).filter(Boolean).length)],
+          // PAST MEETINGS ARE GONE (Neal, 2026-10-14: "there's really no need for past meetings. Maybe past transcripts").
+          // A one-time meeting that's over just stops listing; its room is untouched.
         ].map(([key, label, list]) => (
           <section key={key}>
             <button onClick={() => toggleGroup(key)} className="flex w-full items-center gap-2 rounded-lg bg-brand-navy px-4 py-2.5 text-left text-white">
