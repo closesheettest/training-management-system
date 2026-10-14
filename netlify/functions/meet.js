@@ -2050,7 +2050,7 @@ export const handler = async (event) => {
       return json(200, { ok: true, locked: on })
     }
     if (b.action === 'set_layout') {
-      const layout = ['circle', 'split', 'stack_top', 'stack_bottom'].includes(b.layout) ? b.layout : 'circle'
+      const layout = ['circle', 'split', 'stack_top', 'stack_bottom', 'none'].includes(b.layout) ? b.layout : 'circle'
       await setMeta({ layout })
       return json(200, { ok: true, layout })
     }

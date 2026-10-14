@@ -690,7 +690,9 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   // A host sharing their screen: their camera is shown WITH the share (circle / split / stacked,
   // same choices as slides), so it isn't repeated in the strip down the side (Neal, 2026-10-05).
   const shareCamOk = !!(focus && focus === share && sharerCam && metaOf(share.participant).host)
-  const others = focus ? cams.filter((t) => t !== focus && !(shareCamOk && t.participant.identity === share.participant.identity)) : cams
+  const layout = { side: 'split', stack: 'stack_top' }[rmeta.layout] || (['circle', 'split', 'stack_top', 'stack_bottom', 'none'].includes(rmeta.layout) ? rmeta.layout : 'circle')
+  const others = focus ? cams.filter((t) => t !== focus && !(shareCamOk && layout !== 'none' && t.participant.identity === share.participant.identity))
+    .sort((a, b) => (share && layout === 'none' ? (b.participant.identity === share.participant.identity) - (a.participant.identity === share.participant.identity) : 0)) : cams
   const circleOn = share ? (share.participant.isLocal ? circle : share.participant.attributes?.circle !== 'off') : false
   const showCircle = !!(focus && focus === share && sharerCam && circleOn && metaOf(share.participant).host)
 
@@ -706,7 +708,6 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     call({ action: 'set_stage', room: room.slug, stage: [], no_mute: true, ...auth }).catch(() => {})
   }, [room.auto_stage, isHost, rmeta.stage_auto, stageIds.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
   // Presenter-camera layout for slides / scripture, picked by a host, the same on every screen.
-  const layout = { side: 'split', stack: 'stack_top' }[rmeta.layout] || (['circle', 'split', 'stack_top', 'stack_bottom'].includes(rmeta.layout) ? rmeta.layout : 'circle')
   const pickLayout = (l) => call({ action: 'set_layout', room: room.slug, layout: l, ...auth }).catch(() => {})
   // 🎙 AUTOMATIC PODCAST VIEW (Neal, 2026-10-04: "two hosts so it focuses on those, almost like a
   // podcast"). Rooms with auto_stage: once 2+ hosts are in, they go side by side on stage for
@@ -940,7 +941,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                       <FocusLayout trackRef={focus} style={{ height: '100%' }} />
                       {/* TOP right (Neal + DeWayne, 2026-10-14): at the bottom it fell below a short window and scrolled out of view. */}
                       {layout === 'circle' && showCircle && (
-                        <div style={{ position: 'absolute', right: '2.5%', top: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
+                        <div style={{ position: 'absolute', right: '2.5%', top: 52, width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
                           <VideoTrack trackRef={sharerCam} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                       )}
@@ -956,7 +957,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                 <div style={{ position: 'relative', height: '100%', width: '100%' }}>
                   <FocusLayout trackRef={focus} style={{ height: '100%' }} />
                   {showCircle && (
-                    <div style={{ position: 'absolute', right: '2.5%', top: '4%', width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
+                    <div style={{ position: 'absolute', right: '2.5%', top: 52, width: 'min(22%, 230px)', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,.85)', boxShadow: '0 6px 20px rgba(0,0,0,.5)', zIndex: 5, background: '#000' }}>
                       <VideoTrack trackRef={sharerCam} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
@@ -1617,9 +1618,10 @@ function ShortcutHelp({ isHost, onClose }) {
 // 🖼 PRESENTER LAYOUTS (Neal, 2026-10-05: "he can be a small circle, or split screen, or one on top
 // of the other, or side by side" — for every room). Wraps the slides / scripture; in 'circle' the
 // content draws its own corner circle. Hosts get a small picker in the top-right corner.
-const LAYOUTS = [['circle', '◉ Circle'], ['split', '◧ Split'], ['stack_top', '⬒ Stacked: you on top'], ['stack_bottom', '⬓ Stacked: you underneath']]
+// 'none' (Neal + DeWayne, 2026-10-14): nothing over the shared screen — the presenter's camera goes FIRST in the side column instead.
+const LAYOUTS = [['circle', '◉ Circle'], ['split', '◧ Split'], ['stack_top', '⬒ Stacked: you on top'], ['stack_bottom', '⬓ Stacked: you underneath'], ['none', '▭ Face in the side column']]
 function PresenterFrame({ layout, cam, isHost, onLayout, children }) {
-  const camBox = cam && layout !== 'circle' ? (
+  const camBox = cam && ['split', 'stack_top', 'stack_bottom'].includes(layout) ? (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 14, background: '#000', minWidth: 0, minHeight: 0, ...(layout === 'split' ? { flex: '1 1 50%' } : { flex: '0 0 34%' }) }}>
       <VideoTrack trackRef={cam} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
     </div>
