@@ -585,6 +585,16 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   }
   // ⏺ NO LEAVING MID-RECORDING (Neal, 2026-10-12: "if you're recording it and you press leave without hitting stop
   // recording, it prevents you from leaving … you must save your recording before leaving"). True = blocked.
+  // ✅ AGREE OR LEAVE (Neal, 2026-10-14): when the host starts recording — or someone joins while it's on — everyone
+  // who isn't a host must press "OK, I agree" or "Decline & leave". Asked once per recording; the answer is logged.
+  const recSession = rmeta.recording ? String(rmeta.recording_at || 'on') : ''
+  const [consented, setConsented] = useState(() => { try { return sessionStorage.getItem('meet_rec_consent') || '' } catch { return '' } })
+  const needConsent = !!recSession && !isHost && consented !== `${room.slug}|${recSession}`
+  const answerConsent = async (agree) => {
+    try { await fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'consent', room: room.slug, kind: 'recording', answer: agree ? 'agree' : 'decline', name: localParticipant?.name || '', identity: localParticipant?.identity || '', session: recSession }) }) } catch { /* the choice still stands */ }
+    if (agree) { const v = `${room.slug}|${recSession}`; setConsented(v); try { sessionStorage.setItem('meet_rec_consent', v) } catch { /* private */ } }
+    else roomCtx?.disconnect()
+  }
   const recordingHere = () => !!localRec.current || (isHost && !!rmeta.recording && !rmeta.recording_local)
   const guardLeave = () => { if (!recordingHere()) return false; setLeaveAsk(true); return true }
   // Closing the tab / window while recording → Chrome's own "Leave site?" warning.
@@ -995,6 +1005,17 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         </div>
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
         <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
+        {needConsent && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(2,6,23,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: '#fff', color: '#0f172a', borderRadius: 18, padding: 26, maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,.5)' }}>
+              <div style={{ fontSize: 44 }}>⏺</div>
+              <div style={{ fontSize: 22, fontWeight: 900, margin: '6px 0 8px' }}>This meeting is being recorded</div>
+              <div style={{ fontSize: 15.5, color: '#475569', lineHeight: 1.5, marginBottom: 18 }}>To stay in the meeting, you agree to being recorded. If you'd rather not, you can leave.</div>
+              <button onClick={() => answerConsent(true)} style={{ width: '100%', padding: '13px 16px', borderRadius: 12, border: 'none', background: '#16a34a', color: '#fff', fontWeight: 900, fontSize: 17, cursor: 'pointer', marginBottom: 10 }}>OK, I agree</button>
+              <button onClick={() => answerConsent(false)} style={{ width: '100%', padding: '11px 16px', borderRadius: 12, border: '2px solid #e2e8f0', background: '#fff', color: '#b91c1c', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>Decline & leave the meeting</button>
+            </div>
+          </div>
+        )}
         {leaveAsk && (
           <div onClick={(e) => { if (e.target === e.currentTarget) setLeaveAsk(false) }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,23,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ width: '100%', maxWidth: 420, background: '#111827', border: '2px solid #dc2626', borderRadius: 14, padding: 20, color: '#e5e7eb', textAlign: 'center' }}>

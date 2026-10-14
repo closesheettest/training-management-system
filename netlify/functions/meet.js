@@ -1618,6 +1618,18 @@ export const handler = async (event) => {
   // 🚪 BREAKOUT STATUS (public): whether breakouts are running, when they end, who is in which room. Polled by people in a
   // breakout room (that room's metadata doesn't carry it) so they come back when the host ends it.
   // ⏰ LOBBY STATUS (public): is the room open yet, when it starts, how many are waiting — polled by the lobby and by hosts.
+  // ✅ CONSENT TO BE RECORDED / TRANSCRIBED (Neal, 2026-10-14: "a button comes up for everybody … click OK to agree,
+  // or decline and you will leave the room"). Each answer is kept as proof: app_settings meet_consent_<room>_<day>.
+  if (b.action === 'consent') {
+    const room = await findRoom(b.room)
+    if (!room) return json(404, { ok: false })
+    const key = `meet_consent_${room.slug}_${etDay()}`
+    const list = (await getSetting(key, [])) || []
+    list.push({ at: new Date().toISOString(), kind: b.kind === 'transcript' ? 'transcript' : 'recording', answer: b.answer === 'decline' ? 'declined — left the meeting' : 'agreed',
+      name: String(b.name || '').slice(0, 80), identity: String(b.identity || '').slice(0, 120), session: String(b.session || '').slice(0, 40) })
+    await putSetting(key, list.slice(-500))
+    return json(200, { ok: true })
+  }
   if (b.action === 'lobby_status') {
     const st = await openState(room)
     let waiting = 0; try { waiting = (await svc().listParticipants(`${room.slug}__lobby`)).filter((p) => !/^egress/.test(p.identity)).length } catch { /* empty */ }
