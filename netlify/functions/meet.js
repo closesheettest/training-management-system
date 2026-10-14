@@ -1618,6 +1618,32 @@ export const handler = async (event) => {
   // 🚪 BREAKOUT STATUS (public): whether breakouts are running, when they end, who is in which room. Polled by people in a
   // breakout room (that room's metadata doesn't carry it) so they come back when the host ends it.
   // ⏰ LOBBY STATUS (public): is the room open yet, when it starts, how many are waiting — polled by the lobby and by hosts.
+  // 📝 LIVE TRANSCRIPT (Neal, 2026-10-14: "why not build it now"). Each person's own browser hears their own mic and
+  // posts its finished lines here — one key per speaker per session (meet_tx_<room>_<session>_<speaker>), so two people
+  // talking at once never overwrite each other. transcript_get merges them in time order.
+  if (b.action === 'transcript_line') {
+    const room = await findRoom(b.room)
+    if (!room) return json(404, { ok: false })
+    const sess = String(b.session || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 20)
+    const spk = String(b.identity || 'x').replace(/[^0-9a-zA-Z]/g, '').slice(-24) || 'x'
+    const text = String(b.text || '').trim().slice(0, 1000)
+    if (!sess || !text) return json(400, { ok: false })
+    const key = `meet_tx_${room.slug}_${sess}_${spk}`
+    const list = (await getSetting(key, [])) || []
+    list.push({ at: String(b.at || new Date().toISOString()).slice(0, 30), name: String(b.name || '').slice(0, 60), text })
+    await putSetting(key, list.slice(-3000))
+    return json(200, { ok: true })
+  }
+  if (b.action === 'transcript_get') {
+    const room = await findRoom(b.room)
+    if (!room) return json(404, { ok: false })
+    const sess = String(b.session || '').replace(/[^0-9a-zA-Z]/g, '').slice(0, 20)
+    const { data } = await sb.from('app_settings').select('key, value').like('key', `meet_tx_${room.slug}_${sess}%`)
+    const lines = []
+    for (const r of data || []) { try { const v = typeof r.value === 'string' ? JSON.parse(r.value) : r.value; for (const x of v || []) lines.push({ ...x, session: r.key.split('_').slice(-2, -1)[0] }) } catch { /* skip */ } }
+    lines.sort((a, c) => String(a.at).localeCompare(String(c.at)))
+    return json(200, { ok: true, lines })
+  }
   // ✅ CONSENT TO BE RECORDED / TRANSCRIBED (Neal, 2026-10-14: "a button comes up for everybody … click OK to agree,
   // or decline and you will leave the room"). Each answer is kept as proof: app_settings meet_consent_<room>_<day>.
   if (b.action === 'consent') {
@@ -1894,6 +1920,12 @@ export const handler = async (event) => {
   if (!hostOk && b.g) { const x = (room.invitees || []).find((y) => y.key && y.key === String(b.g)); hostOk = !!(x && x.host) }
   if (!hostOk) return json(401, { ok: false, error: 'Only the host can do that.' })
   try {
+    // 📝 Transcribe on/off for the room — every browser in it starts / stops captioning its own voice.
+    if (b.action === 'transcript') {
+      const on = !!b.on
+      await setMeta(on ? { transcript: true, transcript_session: new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14) } : { transcript: false })
+      return json(200, { ok: true, on })
+    }
     // 📖 Scripture on screen: { ref, version, verses:[{n,text}], idx, mode, showing, by } or null.
     if (b.action === 'set_scripture') {
       const sc = b.scripture && Array.isArray(b.scripture.verses) ? {

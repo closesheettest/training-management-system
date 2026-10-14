@@ -595,6 +595,44 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
     if (agree) { const v = `${room.slug}|${recSession}`; setConsented(v); try { sessionStorage.setItem('meet_rec_consent', v) } catch { /* private */ } }
     else roomCtx?.disconnect()
   }
+  // 📝 LIVE TRANSCRIPT (Neal, 2026-10-14). The host turns it on for the room; then each person's own browser listens to
+  // their own mic (Chrome / Edge / Safari speech recognition), shows their words to everyone as captions over the data
+  // channel, and saves each finished line (meet.js transcript_line). Muted = nothing sent. Everyone agreed at sign-in.
+  const txOn = !!rmeta.transcript, txSession = String(rmeta.transcript_session || '')
+  const [txLines, setTxLines] = useState([])          // { name, text, at }
+  const [txPanel, setTxPanel] = useState(false)
+  const [txNote, setTxNote] = useState('')
+  const txSupported = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+  useEffect(() => { if (txOn && txSession) call({ action: 'transcript_get', room: room.slug, session: txSession }).then((j) => { if (j.ok) setTxLines(j.lines || []) }).catch(() => {}) }, [txOn, txSession]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!roomCtx) return undefined
+    const onData = (payload, _p, _k, topic) => { if (topic !== 'tx') return; try { const m = JSON.parse(new TextDecoder().decode(payload)); if (m.text) setTxLines((l) => [...l, m].slice(-400)) } catch { /* not ours */ } }
+    roomCtx.on(RoomEvent.DataReceived, onData)
+    return () => { roomCtx.off(RoomEvent.DataReceived, onData) }
+  }, [roomCtx])
+  useEffect(() => {
+    if (!txOn || !txSession || !localParticipant) return undefined
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { setTxNote("Your browser can't caption your voice — use Chrome, Edge or Safari."); return undefined }
+    let stop = false
+    const rec = new SR(); rec.continuous = true; rec.interimResults = false; rec.lang = 'en-US'
+    rec.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) continue
+        const text = String(e.results[i][0].transcript || '').trim()
+        if (!text || !localParticipant.isMicrophoneEnabled) continue
+        const line = { name: localParticipant.name || 'Someone', text, at: new Date().toISOString() }
+        setTxLines((l) => [...l, line].slice(-400))
+        localParticipant.publishData(new TextEncoder().encode(JSON.stringify(line)), { reliable: true, topic: 'tx' }).catch(() => {})
+        call({ action: 'transcript_line', room: room.slug, session: txSession, identity: localParticipant.identity, ...line }).catch(() => {})
+      }
+    }
+    rec.onerror = (e) => { if (e.error === 'not-allowed') { stop = true; setTxNote('Captions need microphone permission.') } }
+    rec.onend = () => { if (!stop) { try { rec.start() } catch { /* already running */ } } }
+    try { rec.start(); setTxNote('') } catch { /* started */ }
+    return () => { stop = true; try { rec.stop() } catch { /* done */ } }
+  }, [txOn, txSession, localParticipant]) // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleTranscript = async () => { await call({ action: 'transcript', room: room.slug, on: !txOn, ...auth }).catch(() => {}) }
   const recordingHere = () => !!localRec.current || (isHost && !!rmeta.recording && !rmeta.recording_local)
   const guardLeave = () => { if (!recordingHere()) return false; setLeaveAsk(true); return true }
   // Closing the tab / window while recording → Chrome's own "Leave site?" warning.
@@ -828,6 +866,8 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
             ? <span title={(saveState.files || []).join('\n')} style={{ fontSize: 12.5, color: '#bbf7d0', background: '#14532d', padding: '3px 10px', borderRadius: 999, marginRight: 6, fontWeight: 800 }}>✅ Saved — {(saveState.files || []).length} file{(saveState.files || []).length === 1 ? '' : 's'} in {saveState.where}</span>
             : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#fff', background: '#1e293b', padding: '3px 10px', borderRadius: 999, marginRight: 6, fontWeight: 800 }}>💾 Saving… {saveState.pct ?? 0}%
                 <span style={{ width: 80, height: 6, background: '#334155', borderRadius: 3, overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${saveState.pct ?? 0}%`, background: '#22c55e' }} /></span></span>)}
+          {isHost && <button onClick={toggleTranscript} title="Live captions + a saved transcript of this meeting" style={{ ...btn(txOn), background: txOn ? '#0f766e' : '#134e4a', border: 'none', color: '#fff' }}>{txOn ? '📝 Stop transcript' : '📝 Transcribe'}</button>}
+          {txOn && <button onClick={() => setTxPanel((x) => !x)} style={btn(txPanel)}>📝 {txPanel ? 'Hide' : 'Show'} transcript</button>}
           {isHost && room.recording_enabled && !(rmeta.recording && localRec.current) && <button disabled={recBusy} onClick={() => toggleRec(false)} style={{ ...btn(false), background: rmeta.recording ? '#7f1d1d' : '#dc2626', border: 'none', marginRight: 6 }}>{recBusy ? '…' : rmeta.recording ? '⏹ Stop recording' : '⏺ Record'}</button>}
           {/* 💻 Every host, every room: record to their own computer (rooms already set to "host's computer" use ⏺ Record above). */}
           {isHost && (localRec.current || (room.rec_where !== 'host' && !rmeta.recording)) && <button disabled={recBusy} title="Records this meeting on your computer — when you stop, a Save box lets you pick the folder" onClick={() => toggleRec(true)} style={{ ...btn(false), background: localRec.current ? '#7f1d1d' : '#334155', border: 'none', marginRight: 6 }}>{recBusy ? '…' : localRec.current ? '⏹ Stop & save' : '💻 Record to my computer'}</button>}
@@ -1006,6 +1046,27 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
         {micLocked && !micAllowed && <div style={{ textAlign: 'center', padding: '6px 10px', background: '#1e293b', color: '#cbd5e1', fontSize: 13.5, fontWeight: 700 }}>🔇 Your mic is off. The trainer will unmute you when it's your turn.</div>}
         <MeetControls mic={micAllowed} screenShare={!micLocked || isHost} reactions={reactionsFor(room)} guardLeave={guardLeave} />
         {/* (The mid-meeting agree-or-leave pop-up was replaced by agreeing at sign-in, Neal 2026-10-14.) */}
+        {txOn && !txPanel && txLines.length > 0 && (
+          <div style={{ position: 'absolute', left: '50%', bottom: 86, transform: 'translateX(-50%)', zIndex: 60, maxWidth: 'min(900px, 92vw)', background: 'rgba(0,0,0,.72)', color: '#fff', borderRadius: 10, padding: '8px 14px', fontSize: 17, lineHeight: 1.4, pointerEvents: 'none' }}>
+            {txLines.slice(-2).map((l, i) => <div key={i}><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text}</div>)}
+          </div>
+        )}
+        {txOn && (
+          <div style={{ position: 'absolute', top: 8, right: 10, zIndex: 61, background: '#0f766e', color: '#fff', borderRadius: 999, padding: '4px 12px', fontSize: 13, fontWeight: 800 }}>📝 Transcribing{txNote ? ` · ${txNote}` : ''}</div>
+        )}
+        {txOn && txPanel && (
+          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'min(420px, 92vw)', zIndex: 70, background: '#0b1220', color: '#e5e7eb', borderLeft: '1px solid #1f2937', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid #1f2937' }}>
+              <b style={{ flex: 1 }}>📝 Transcript</b>
+              <button onClick={() => { try { navigator.clipboard.writeText(txLines.map((l) => `${l.name}: ${l.text}`).join('\n')) } catch { /* no clipboard */ } }} style={{ ...btn(false), padding: '4px 10px', fontSize: 12 }}>Copy</button>
+              <button onClick={() => setTxPanel(false)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 22, cursor: 'pointer', marginLeft: 6 }}>×</button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', fontSize: 15, lineHeight: 1.5 }}>
+              {!txLines.length && <div style={{ color: '#6b7280' }}>Listening… lines show up here as people talk.</div>}
+              {txLines.map((l, i) => <div key={i} style={{ marginBottom: 6 }}><span style={{ color: '#6b7280', fontSize: 12 }}>{new Date(l.at).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' })} </span><b style={{ color: '#5eead4' }}>{l.name}:</b> {l.text}</div>)}
+            </div>
+          </div>
+        )}
         {leaveAsk && (
           <div onClick={(e) => { if (e.target === e.currentTarget) setLeaveAsk(false) }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,23,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ width: '100%', maxWidth: 420, background: '#111827', border: '2px solid #dc2626', borderRadius: 14, padding: 20, color: '#e5e7eb', textAlign: 'center' }}>
