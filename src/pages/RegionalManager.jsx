@@ -12,6 +12,7 @@ import ContestReport from '../components/ContestReport.jsx'
 import TodayAppts, { HistoryChips } from '../components/TodayAppts.jsx'
 import { personaByKey, sectionByKey } from '../lib/salesPractice.js'
 import { lazy, Suspense } from 'react'
+import { addRadarControl } from '../lib/radar'
 // The trainer's report card, reused as-is; loaded only when a manager opens one.
 const PracticeReportCard = lazy(() => import('./SalesPractice.jsx').then((m) => ({ default: m.Report })))
 
@@ -1490,6 +1491,7 @@ function AssignMap({ srReps, items, zoneName }) {
       <div className="overflow-hidden rounded-md border border-slate-200" style={{ height: 460 }}>
         <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
           <AutoSize />
+          <RadarToggle />
           <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           {repPts.map((r) => (
             <Marker key={'r' + r.jobnimbus_id} position={[r.latitude, r.longitude]} icon={RED_PIN}>
@@ -3232,7 +3234,8 @@ function TeamHarvestMap({ zone, preview }) {
         <div className="overflow-hidden rounded-md border border-white/10" style={{ height: 440, flex: '1 1 60%', minWidth: 280 }}>
           <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
           <AutoSize />
-            <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <RadarToggle />
+          <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <FitBounds points={positions} />
             {reps.map((rep, i) => {
               const color = hRepColor(i)
@@ -3630,7 +3633,8 @@ function EnhancedPlannedDay({ zone, token, preview }) {
               <div className="overflow-hidden rounded-md border border-white/10" style={{ height: fullscreen ? 'calc(100vh - 210px)' : 420, flex: fullscreen ? '1 1 68%' : '1 1 55%', minWidth: 280 }}>
                 <MapContainer key={fullscreen ? 'plan-fs' : 'plan-sm'} center={center} zoom={9} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
           <AutoSize />
-                  <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <RadarToggle />
+          <TileLayer attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Resizer dep={fullscreen} />
                   <PlanFit points={manual ? allPins.map((p) => [p.lat, p.lng]) : (hi != null ? (clusters[hi]?.pts || []) : clusters.flatMap((c) => c.pts || []))} dep={manual ? 'manual' : hi} />
                   {manual ? (
@@ -3780,6 +3784,7 @@ function ZoneMap({ reps, zoneName, token }) {
       <div className="mt-3 overflow-hidden rounded-md border border-white/10" style={{ height: 420 }}>
         <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
           <AutoSize />
+          <RadarToggle />
           <TileLayer
             attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -4695,4 +4700,13 @@ function whyText(st) {
   if (st === 'training') return 'who is still in training.'
   if (st === 'not_field') return "who isn't a field rep."
   return 'who has left.'
+}
+
+
+// 🌧 Live rain radar toggle on a react-leaflet map (DeWayne, 2026-10-15: managers checking where a rep is can see
+// whether that spot is actually under rain). Same control as CCG's DoorDispatcher maps (src/lib/radar.js).
+function RadarToggle() {
+  const map = useMap()
+  useEffect(() => addRadarControl(L, map), [map])
+  return null
 }
