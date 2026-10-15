@@ -1,16 +1,15 @@
 // 🌧 RAIN RADAR on a map (DeWayne, 2026-10-15: "an overlay on the map with the radar" — managers checking where a rep
-// is can see at a glance whether that spot is actually under rain; reps see it before they drive). A "🌧 Radar" button
-// under the zoom buttons turns a see-through live radar layer on/off (remembered on this device). Free RainViewer
-// tiles — the newest radar frame, refreshed every 10 minutes while it's on. Their tiles stop at zoom 10; zoomed in
-// further, Leaflet stretches them (rain is blocks-wide anyway).
+// is can see at a glance whether that spot is actually under rain; reps see it before they drive; inspectors see it before
+// they climb a roof). A "🌧 Radar" button under the zoom buttons turns a see-through live radar layer on/off
+// (remembered on this device). National Weather Service NEXRAD radar via Iowa State's free tile service — works down
+// to street zoom (RainViewer's free tiles stopped at zoom 7: "Zoom Level Not Supported"). Updated every ~5 minutes at
+// the source; the layer reloads every 5 minutes while it's on.
 const KEY = "map_radar_on";
-let frame = null, frameAt = 0;
+const IEM = "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png";
 async function latestFrame() {
-  if (frame && Date.now() - frameAt < 9 * 60000) return frame;
-  const d = await fetch("https://api.rainviewer.com/public/weather-maps.json").then((r) => r.json());
-  const p = (d.radar?.past || []).slice(-1)[0];
-  frame = p ? { url: `${d.host}${p.path}/256/{z}/{x}/{y}/2/1_1.png`, time: p.time } : null; frameAt = Date.now();
-  return frame;
+  // A fresh query string each reload so the browser doesn't keep showing an old picture.
+  const t = Math.floor(Date.now() / 300000) * 300;   // 5-minute buckets
+  return { url: `${IEM}?_=${t}`, time: t };
 }
 
 export function addRadarControl(L, map) {
@@ -19,14 +18,14 @@ export function addRadarControl(L, map) {
   const draw = async () => {
     try {
       const f = await latestFrame(); if (!f || !on) return;
-      const next = L.tileLayer(f.url, { opacity: 0.6, maxNativeZoom: 10, maxZoom: 20, zIndex: 400, attribution: "Radar © RainViewer" });
+      const next = L.tileLayer(f.url, { opacity: 0.6, maxZoom: 20, zIndex: 400, attribution: "Radar: NWS NEXRAD via Iowa Env. Mesonet" });
       next.addTo(map); if (layer) map.removeLayer(layer); layer = next; label(f.time);
     } catch { /* radar unavailable — leave the map alone */ }
   };
   const set = (v) => {
     on = v; try { localStorage.setItem(KEY, v ? "1" : ""); } catch { /* private */ }
     clearInterval(timer);
-    if (on) { draw(); timer = setInterval(draw, 10 * 60000); } else { if (layer) map.removeLayer(layer); layer = null; }
+    if (on) { draw(); timer = setInterval(draw, 5 * 60000); } else { if (layer) map.removeLayer(layer); layer = null; }
     label();
   };
   const Ctl = L.Control.extend({
