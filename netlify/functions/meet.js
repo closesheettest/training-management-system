@@ -306,6 +306,11 @@ const INVITE_KINDS = ['oneoff', 'custom', 'retraining']
 const alsoIds = (room) => LEADERS.filter((l) => (room.also || []).includes(l.key)).map((l) => l.id)
 // The reminder job asks this same file for a room's people (no PIN in a scheduled job).
 let INTERNAL = false
+// 🚫 REMOVE vs REMOVE PERMANENTLY (Neal, 2026-10-15: "it should be remove or remove permanently" — he'd kicked someone
+// out of training who mustn't come back, and needed DeWayne to be able to). A ban is kept per room in
+// app_settings meet_bans_<slug> = [{ k, name, at }], keyed by the STABLE part of the identity (a device's seat suffix
+// dropped), so a fresh join from the same person is still caught. Hosts can "Let back in" from the host panel.
+const banKeyOf = (identity) => { const p = String(identity || '').split(':'); return ['host', 'a', 'g'].includes(p[0]) && p.length >= 3 ? p.slice(0, -1).join(':') : String(identity || '') }
 
 // FINISHED EARLY = DONE (Neal, 2026-10-05: "once the 8:30 managers' meeting is over, it should
 // disappear"). A meeting that started more than 15 minutes ago and has no host in it any more is
@@ -1925,6 +1930,11 @@ export const handler = async (event) => {
       if (await getSetting(lobbyKey, null)) await putSetting(lobbyKey, null)
     }
     const lkRoom = inLobby ? `${room.slug}__lobby` : boN ? `${room.slug}__br${boN}` : room.slug
+    // Removed permanently by a host → not let back in (a PIN-holding admin always can).
+    if (!admin && identity) {
+      const bans = (await getSetting(`meet_bans_${room.slug}`, [])) || []
+      if (bans.some((x) => x.k === banKeyOf(identity))) return json(200, { ok: false, banned: true, error: 'The host removed you from this meeting.' })
+    }
     const at = new AccessToken(key, secret, { identity, name, ttl: '6h', metadata: JSON.stringify({ host, ...(busyAs ? { busy: busyAs } : {}) }) })
     // 🔇 LOCKED MICS (Neal, 2026-10-05: "when people show up for training their microphones are
     // muted and they cannot unmute. I am the only one that can unmute"). Non-hosts may publish
@@ -2171,8 +2181,21 @@ export const handler = async (event) => {
     if (b.action === 'mute' || b.action === 'remove') {
       const identity = String(b.identity || '')
       if (!identity) return json(400, { ok: false, error: 'Who?' })
-      if (b.action === 'remove') await svc().removeParticipant(room.slug, identity)
+      if (b.action === 'remove') {
+        if (b.permanent) {
+          const bans = (await getSetting(`meet_bans_${room.slug}`, [])) || []
+          const k = banKeyOf(identity)
+          if (!bans.some((x) => x.k === k)) await putSetting(`meet_bans_${room.slug}`, [...bans, { k, name: String(b.name || '').slice(0, 60), at: new Date().toISOString() }])
+        }
+        await svc().removeParticipant(room.slug, identity)
+      }
       else { const p = await svc().getParticipant(room.slug, identity); await muteMic(p); if (room.mic_lock && !isHostP(p)) await svc().updateParticipant(room.slug, identity, undefined, micPerm(false)).catch(() => {}) }
+      return json(200, { ok: true })
+    }
+    if (b.action === 'bans') return json(200, { ok: true, bans: (await getSetting(`meet_bans_${room.slug}`, [])) || [] })
+    if (b.action === 'unban') {
+      const bans = (await getSetting(`meet_bans_${room.slug}`, [])) || []
+      await putSetting(`meet_bans_${room.slug}`, bans.filter((x) => x.k !== String(b.k || '')))
       return json(200, { ok: true })
     }
     if (b.action === 'mute_all') {

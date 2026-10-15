@@ -19,7 +19,7 @@ import {
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
 import { ReactionsOverlay, ReactButton, reactionsFor } from '../components/Reactions.jsx'
-import { Track, RoomEvent, ParticipantEvent, VideoPresets } from 'livekit-client'
+import { Track, RoomEvent, ParticipantEvent, VideoPresets, DisconnectReason } from 'livekit-client'
 import '@livekit/components-styles'
 import MeetPractice from '../components/MeetPractice.jsx'
 import ScripturePanel from '../components/ScripturePanel.jsx'
@@ -447,9 +447,13 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
       }, 4000)
     } catch { setMsg('Did not work') }
   }
-  const act = async (action, identity, label) => {
+  const [removing, setRemoving] = useState(null)   // identity whose Remove / Permanently choice is showing
+  const [bans, setBans] = useState([])
+  const loadBans = () => call({ action: 'bans', room: room.slug, ...auth }).then((j) => j.ok && setBans(j.bans || [])).catch(() => {})
+  useEffect(() => { loadBans() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const act = async (action, identity, label, extra = {}) => {
     setMsg('')
-    const j = await call({ action, room: room.slug, identity, ...auth }).catch(() => ({}))
+    const j = await call({ action, room: room.slug, identity, ...extra, ...auth }).catch(() => ({}))
     setMsg(j.ok ? `${label} ✓` : (j.error || 'Did not work'))
   }
   return (
@@ -486,10 +490,25 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
             {!me && (p.isMicrophoneEnabled
               ? <button onClick={() => act('mute', p.identity, `${p.name} muted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #4b5563', background: '#1f2937', color: '#fff', cursor: 'pointer' }}>Mute</button>
               : <button onClick={() => unmute([p.identity], `${p.name} unmuted`)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #15803d', background: '#14532d', color: '#fff', cursor: 'pointer' }}>Unmute</button>)}
-            {!me && <button onClick={() => { if (window.confirm(`Remove ${p.name} from the meeting?`)) act('remove', p.identity, `${p.name} removed`) }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #7f1d1d', background: '#450a0a', color: '#fecaca', cursor: 'pointer' }}>Remove</button>}
+            {!me && removing === p.identity ? (<>
+              <button onClick={() => { setRemoving(null); act('remove', p.identity, `${p.name} removed — they can come back in`) }} title="Out of the meeting now; they can rejoin" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #7f1d1d', background: '#450a0a', color: '#fecaca', cursor: 'pointer' }}>Remove</button>
+              <button onClick={() => { setRemoving(null); act('remove', p.identity, `${p.name} removed permanently`, { permanent: true, name: p.name }).then(loadBans) }} title="Out, and can't come back into this room until a host lets them back in" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Permanently</button>
+              <button onClick={() => setRemoving(null)} style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #4b5563', background: 'transparent', color: '#cbd5e1', cursor: 'pointer' }}>✕</button>
+            </>) : !me && <button onClick={() => setRemoving(p.identity)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #7f1d1d', background: '#450a0a', color: '#fecaca', cursor: 'pointer' }}>Remove</button>}
           </div>
         )
       })}
+      {bans.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #374151' }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#fca5a5', marginBottom: 4 }}>🚫 Removed permanently</div>
+          {bans.map((x) => (
+            <div key={x.k} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0' }}>
+              <span style={{ flex: 1, fontSize: 13 }}>{x.name || x.k}</span>
+              <button onClick={async () => { await call({ action: 'unban', room: room.slug, k: x.k, ...auth }).catch(() => {}); setMsg(`${x.name || 'They'} can come back in ✓`); loadBans() }} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #15803d', background: '#14532d', color: '#fff', cursor: 'pointer' }}>Let back in</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1639,7 +1658,12 @@ export default function Meet() {
         }}
         video={choices.videoEnabled ? { deviceId: choices.videoDeviceId } : false}
         audio={(choices.audioEnabled || join.breakout) && !join.mic_locked ? { deviceId: choices.audioDeviceId } : false}
-        onDisconnected={() => { if (!moving.current) setChoices(null) }} style={{ height: '100%' }}>
+        onDisconnected={(reason) => {
+          if (moving.current) return
+          // Removed by a host: start over with a FRESH join (a new seat), never the old ticket — and say why.
+          if (reason === DisconnectReason.PARTICIPANT_REMOVED) { setJoin(null); setChoices(null); setErr('The host removed you from the meeting. Tap Join to come back in, if you were meant to.'); return }
+          setChoices(null)
+        }} style={{ height: '100%' }}>
         <KeepDevices choices={choices} />
         <BreakoutLayer slug={slug} auth={auth || {}} isHost={!!join.host} breakout={join.breakout || null} me={join.me || ''} onMove={onMove} />
         <LobbyLayer slug={slug} auth={auth || {}} isHost={!!join.host} onTime={(join.room || door)?.kind === 'prayer' || (join.room || door)?.look === 'devotional'} lobby={join.lobby || null} onMove={onMove} />
