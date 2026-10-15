@@ -967,6 +967,47 @@ export const handler = async (event) => {
     } finally { INTERNAL = false }
   }
 
+  // 🎥 CALL-CENTER INTERVIEWS (Neal, 2026-10-15: Jeff Mann "wanted to do video interviews … he could schedule video
+  // times"). Called server-to-server from CCG's Outbound Dispatch (Jeff's PIN-checked page) with a shared secret.
+  // Each interview = a one-time room: Jeff + the candidate (an outside invitee with their own ?g= link). The candidate
+  // gets their link by text + email now, and the usual 5-minute reminder (remind_5).
+  //   { action:'outbound_interview', secret, op:'create', name, phone, email, when:'YYYY-MM-DDTHH:MM', minutes }
+  //   { …, op:'list' }  → upcoming interviews     { …, op:'cancel', slug }
+  if (b.action === 'outbound_interview') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const JEFF = { id: 'b7cd1d6d-acee-4a1d-8ad1-63f61bd16428', name: 'Jeff Mann' }
+    const mine = (r) => r.kind === 'oneoff' && String(r.slug).startsWith('interview') && (r.invitees || []).some((x) => x.id === JEFF.id)
+    if (b.op === 'list') {
+      const rooms = (await loadRooms()).filter(mine)
+      const { data: j } = await sb.from('trainees').select('registration_token').eq('id', JEFF.id).maybeSingle()
+      const out = rooms.map((r) => { const c = (r.invitees || []).find((x) => x.key) || {}; const at = (r.once || [])[0] || ''
+        return { slug: r.slug, title: r.title, when: at, start: at ? etWall(at.slice(0, 10), at.slice(11, 16)).toISOString() : null, minutes: r.minutes, candidate: { name: c.name, phone: c.phone, email: c.email, link: c.key ? `${SITE}/meet/${r.slug}?g=${c.key}` : '' }, jeff_link: j?.registration_token ? `${SITE}/meet/${r.slug}?t=${j.registration_token}` : `${SITE}/meet/${r.slug}` } })
+        .filter((x) => !x.start || Date.parse(x.start) > Date.now() - 3 * 3600e3).sort((x, z) => String(x.start).localeCompare(String(z.start)))
+      return json(200, { ok: true, interviews: out })
+    }
+    if (b.op === 'cancel') {
+      const rooms = await loadRooms(), r = rooms.find((x) => x.slug === String(b.slug || '') && mine(x))
+      if (!r) return json(404, { ok: false, error: 'No such interview.' })
+      await putSetting('meet_rooms', rooms.filter((x) => x.slug !== r.slug))
+      return json(200, { ok: true })
+    }
+    const name = String(b.name || '').trim().slice(0, 60), phone = String(b.phone || '').trim().slice(0, 20), email = String(b.email || '').trim().toLowerCase().slice(0, 120)
+    const when = String(b.when || '')
+    if (!name) return json(400, { ok: false, error: "Type the candidate's name." })
+    if (!phone && !email) return json(400, { ok: false, error: 'Add their cell or email so they get the link.' })
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when) || etWall(when.slice(0, 10), when.slice(11, 16)).getTime() < Date.now() - 5 * 60000) return json(400, { ok: false, error: "Pick a date and time that hasn't passed." })
+    const room = { title: `Interview: ${name}`, kind: 'oneoff', look: 'company', topic: 'Call-center interview with Jeff Mann', cameras_required: true, once: [when], minutes: Math.min(120, Math.max(10, Number(b.minutes) || 20)),
+      invitees: [{ id: JEFF.id }, { key: crypto.randomBytes(6).toString('base64url'), name, phone, email }], hosts: [JEFF.name], remind_5: true, no_host: true, schedule: '' }
+    INTERNAL = true
+    try {
+      const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room: { ...room, slug: `interview-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}` } }) })).body)
+      if (!saved.ok) return json(400, saved)
+      const msg = `Hi {first}, this is U.S. Shingle & Metal. Your video interview with Jeff Mann is on {when} (Eastern). At that time, tap your link to join — it works on your phone or computer: {link}`
+      const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: 'Your video interview — U.S. Shingle & Metal', only: [`x:${room.invitees[1].key}`] }) })).body)
+      return json(200, { ok: true, slug: saved.room.slug, sent: (sent.sent || []).filter((x) => x.sms || x.email).length })
+    } finally { INTERNAL = false }
+  }
+
   if (b.action === 'mgr_create_meeting') {
     const tok = String(b.token || '').trim()
     const { data: m } = tok ? await sb.from('trainees').select('id, first_name, last_name, managed_region').eq('manager_access_token', tok).maybeSingle() : { data: null }
@@ -1431,7 +1472,8 @@ export const handler = async (event) => {
       if (b.action === 'audience') return json(200, { ok: true, people: rows, effort_needed: EFFORT_DOORS })
       // Every message goes by text AND email (texts alone miss people on Do Not Disturb).
       const results = []
-      for (const p of rows) {
+      // b.only (internal callers): just these rows — e.g. an interview texts the CANDIDATE, not Jeff too.
+      for (const p of (Array.isArray(b.only) && INTERNAL ? rows.filter((r) => b.only.includes(r.id)) : rows)) {
         const first = p.name.split(' ')[0] || 'there'
         // A custom message from the Send box ({first} and {link} filled in per person), or the default.
         const when = room.kind === 'oneoff' && (room.once || [])[0] ? new Date(etWall(room.once[0].slice(0, 10), room.once[0].slice(11, 16))).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
