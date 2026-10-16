@@ -192,6 +192,9 @@ export default function RepAttendance({ managerToken } = {}) {
       return { kind: 'in', x: { ...(x || {}), first, last: x?.last || mapAt }, via: x?.first && mapAt ? 'both' : x?.first ? 'dash' : 'map', doors, appts, hrs, span, trained }
     }
     if (trained) return { kind: 'training', doors, appts, hrs, span }
+    // OFF UNLESS IN (Neal, 2026-10-16: Rob Sexton): a rep on attendance_settings.off_unless_in is off by default —
+    // a day he didn't check in is just "off", never missed.
+    if ((data.off_unless_in || []).includes(r.jnid)) return { kind: 'weekend', doors, appts, hrs, span }
     // Saturday / Sunday they didn't work: just off — not missed, nothing to explain (Neal, 2026-10-05).
     if ((data.weekend_days || []).includes(ds)) return { kind: 'weekend', doors, appts, hrs, span }
     if (x?.reason) return { kind: 'reason', x, doors, appts, hrs, span }
