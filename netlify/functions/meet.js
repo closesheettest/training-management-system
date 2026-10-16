@@ -980,7 +980,13 @@ export const handler = async (event) => {
   //   { …, op:'list' }  → upcoming interviews     { …, op:'cancel', slug }
   if (b.action === 'outbound_interview') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
-    const JEFF = { id: 'b7cd1d6d-acee-4a1d-8ad1-63f61bd16428', name: 'Jeff Mann' }
+    // WHO'S INTERVIEWING (Neal, 2026-10-16: Brent Davidson, "our hiring person" — "schedule an interview through the
+    // video meeting, like we did for Jeff Mann"). b.host = the interviewer's name (their TMS non_field row); Jeff Mann
+    // is the default so the call-center page keeps working unchanged.
+    const HOSTS = { 'jeff mann': { id: 'b7cd1d6d-acee-4a1d-8ad1-63f61bd16428', name: 'Jeff Mann', what: 'Call-center interview' },
+      'brent davidson': { id: '9f42abc1-fdbe-462b-9353-314059eab0f3', name: 'Brent Davidson', what: 'Hiring interview' } }
+    const JEFF = HOSTS[String(b.host || 'Jeff Mann').trim().toLowerCase()]
+    if (!JEFF) return json(400, { ok: false, error: 'Interviews aren\'t set up for you yet.' })
     const mine = (r) => r.kind === 'oneoff' && String(r.slug).startsWith('interview') && (r.invitees || []).some((x) => x.id === JEFF.id)
     if (b.op === 'list') {
       const rooms = (await loadRooms()).filter(mine)
@@ -1001,13 +1007,13 @@ export const handler = async (event) => {
     if (!name) return json(400, { ok: false, error: "Type the candidate's name." })
     if (!phone && !email) return json(400, { ok: false, error: 'Add their cell or email so they get the link.' })
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when) || etWall(when.slice(0, 10), when.slice(11, 16)).getTime() < Date.now() - 5 * 60000) return json(400, { ok: false, error: "Pick a date and time that hasn't passed." })
-    const room = { title: `Interview: ${name}`, kind: 'oneoff', look: 'company', topic: 'Call-center interview with Jeff Mann', cameras_required: true, once: [when], minutes: Math.min(120, Math.max(10, Number(b.minutes) || 20)),
+    const room = { title: `Interview: ${name}`, kind: 'oneoff', look: 'company', topic: `${JEFF.what} with ${JEFF.name}`, cameras_required: true, once: [when], minutes: Math.min(120, Math.max(10, Number(b.minutes) || 20)),
       invitees: [{ id: JEFF.id }, { key: crypto.randomBytes(6).toString('base64url'), name, phone, email }], hosts: [JEFF.name], remind_5: true, no_host: true, schedule: '' }
     INTERNAL = true
     try {
       const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room: { ...room, slug: `interview-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}` } }) })).body)
       if (!saved.ok) return json(400, saved)
-      const msg = `Hi {first}, this is U.S. Shingle & Metal. Your video interview with Jeff Mann is on {when} (Eastern). At that time, tap your link to join — it works on your phone or computer: {link}`
+      const msg = `Hi {first}, this is U.S. Shingle & Metal. Your video interview with ${JEFF.name} is on {when} (Eastern). At that time, tap your link to join — it works on your phone or computer: {link}`
       const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: 'Your video interview — U.S. Shingle & Metal', only: [`x:${room.invitees[1].key}`] }) })).body)
       return json(200, { ok: true, slug: saved.room.slug, sent: (sent.sent || []).filter((x) => x.sms || x.email).length })
     } finally { INTERNAL = false }
