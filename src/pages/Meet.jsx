@@ -42,6 +42,8 @@ const call = async (body) => (await fetch(FN, { method: 'POST', headers: { 'Cont
 const getS = (k, s) => { try { return (s || sessionStorage).getItem(k) || '' } catch { return '' } }
 const setS = (k, v, s) => { try { (s || sessionStorage).setItem(k, v) } catch { /* private mode */ } }
 const metaOf = (p) => { try { return JSON.parse(p?.metadata || '{}') } catch { return {} } }
+// 👂🗣 Coach seats (listen-in / whisper on an interview) never show on anyone's screen.
+const isCoach = (p) => !!metaOf(p).coach || /^coach:/.test(p?.identity || '')
 
 // The bar across the top: badge, team, title, and the topic line (host can edit it live).
 // 🎥 REMEMBER MY CAMERA + MIC (Neal, 2026-10-06: "once you pick your camera in the meeting, it remembers
@@ -418,7 +420,7 @@ function TitleBar({ room, auth, isHost, compact = false }) {
 
 // Host-only panel: everyone in the room, with Mute and Remove, plus Mute everyone.
 function HostPanel({ room, auth, onClose, circle, setCircle }) {
-  const people = useParticipants()
+  const people = useParticipants().filter((p) => !isCoach(p))
   const ctx = useRoomContext()
   const info = useRoomInfo()
   const stage = useMemo(() => { try { return JSON.parse(info.metadata || '{}').stage || [] } catch { return [] } }, [info.metadata])
@@ -544,7 +546,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const bg = useBackground(localParticipant)
   const [bgPanel, setBgPanel] = useState(false)
   // 👥 HOW MANY ARE HERE (Neal, 2026-10-08: "a button that says number of attendees … I'll know whether there's 10 or 15")
-  const everyone = useParticipants()
+  const everyone = useParticipants().filter((p) => !isCoach(p))
   const humans = everyone.filter((p) => !/^(egress|homeowner)/.test(p.identity))
   const hereCount = humans.length
   // …and tap it for a plain list of NAMES down the right side — no pictures — that stays up in presentation mode,
@@ -557,7 +559,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   useEffect(() => { if (noBg && bg.choice && bg.choice !== 'none') bg.pick('none') }, [noBg, bg.choice]) // eslint-disable-line react-hooks/exhaustive-deps
   const [sharePanel, setSharePanel] = useState(false)
   const [leaveAsk, setLeaveAsk] = useState(false) // ⏺ "save your recording before leaving" (Neal, 2026-10-12)
-  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false })
+  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }], { onlySubscribed: false }).filter((t) => !isCoach(t.participant))
   const speakers = useSpeakingParticipants()
   // ⏺ RECORD: when the host starts recording, EVERYONE switches to speaker view on that host
   // (they can switch back themselves); everyone else is muted by the server.
@@ -1234,8 +1236,9 @@ export default function Meet() {
   // ?as=attendee: an admin's PIN joins without host controls (Meeting Room Setup → Join as attendee).
   const asAttendee = sp.get('as') === 'attendee'
   const g = sp.get('g') || '' // an outside invitee's key (one-off meetings)
+  const coach = sp.get('coach') || '' // 👂🗣 a signed listen-in / whisper pass (Brent's interviews)
   const [door, setDoor] = useState(null) // the room's public info, before signing in
-  const [auth, setAuth] = useState(() => (getS(PIN_KEY) ? { pin: getS(PIN_KEY) } : t ? { t } : g ? { g } : null))
+  const [auth, setAuth] = useState(() => (coach ? { coach } : getS(PIN_KEY) ? { pin: getS(PIN_KEY) } : t ? { t } : g ? { g } : null))
   const [guest, setGuest] = useState(() => { try { return JSON.parse(getS(GUEST_KEY, localStorage) || 'null') || { name: '', email: '', opt_in: false } } catch { return { name: '', email: '', opt_in: false } } })
   const [hostMode, setHostMode] = useState(asAttendee)
   const [codeInput, setCodeInput] = useState('')
@@ -1302,7 +1305,7 @@ export default function Meet() {
     setBusy(true); setErr('')
     const j = await call({ action: 'join', ...body, ...(asAttendee ? { attendee: true } : {}), ...(sp.get('lobby') === 'test' ? { test_lobby: true } : {}), room: slug }).catch(() => ({ error: 'Network error — try again.' }))
     setBusy(false)
-    if (j.ok) { joinedWith.current = body; setJoin(j); setNotOpen(null); setGate(null); return true }
+    if (j.ok) { joinedWith.current = body; setJoin(j); setNotOpen(null); setGate(null); if (j.coach) setChoices({ videoEnabled: false, audioEnabled: false }); return true }
     if (j.removed) { setRemoved(j.message || ''); return false }
     if (j.locked) { setLocked(j); return false }
     if (j.effort) { setEffort(j); return false }
@@ -1328,7 +1331,8 @@ export default function Meet() {
   // Their own link, or a PIN already entered this session → straight in.
   useEffect(() => {
     if (sp.get('confirm') === '1' && t) return // the confirm card comes first
-    if (auth?.pin) doJoin({ pin: auth.pin })
+    if (auth?.coach) doJoin({ coach: auth.coach })
+    else if (auth?.pin) doJoin({ pin: auth.pin })
     else if (auth?.t) doJoin({ t: auth.t })
     else if (auth?.g) doJoin({ g: auth.g })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1665,6 +1669,7 @@ export default function Meet() {
           setChoices(null)
         }} style={{ height: '100%' }}>
         <KeepDevices choices={choices} />
+        <CoachLayer join={join} />
         <BreakoutLayer slug={slug} auth={auth || {}} isHost={!!join.host} breakout={join.breakout || null} me={join.me || ''} onMove={onMove} />
         <LobbyLayer slug={slug} auth={auth || {}} isHost={!!join.host} onTime={(join.room || door)?.kind === 'prayer' || (join.room || door)?.look === 'devotional'} lobby={join.lobby || null} onMove={onMove} />
         <MeetErrorBoundary slug={slug}><Stage room={join.room || { slug, title: join.title }} auth={auth || {}} isHost={join.host} micLocked={!!join.mic_locked} breakoutN={join.breakout?.n || 0} /></MeetErrorBoundary>
@@ -1820,4 +1825,44 @@ class MeetErrorBoundary extends Component {
       </div>
     )
   }
+}
+
+// 👂🗣 LISTEN IN / WHISPER (Neal, 2026-10-16: Neal + DeWayne on Brent's interviews). The coach's bar, and for the
+// interviewer a small "can whisper to you" note. A whisperer's mic is limited to the interviewer BEFORE it turns on
+// (LiveKit track subscription permissions are enforced by the server, so the candidate can't receive it).
+function CoachLayer({ join }) {
+  const roomCtx = useRoomContext()
+  const { localParticipant } = useLocalParticipant()
+  const everyone = useParticipants()
+  const [talking, setTalking] = useState(false)
+  const [note, setNote] = useState('')
+  const to = join.whisper_to || []
+  const lock = async () => { await localParticipant.setTrackSubscriptionPermissions(false, to.map((id) => ({ participantIdentity: id, allowAll: true }))) }
+  useEffect(() => { if (join.coach === 'whisper' && localParticipant) lock().catch(() => {}) }, [localParticipant]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!join.coach) {
+    const me = localParticipant?.identity || ''
+    const coaches = everyone.filter((p) => metaOf(p).coach === 'whisper' && (metaOf(p).whisper_to || []).includes(me))
+    if (!coaches.length) return null
+    return <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 120, background: '#4c1d95', color: '#fff', borderRadius: 999, padding: '6px 12px', fontSize: 13, fontWeight: 800, boxShadow: '0 4px 14px rgba(0,0,0,.35)' }}>🗣 {coaches.map((p) => p.name).join(', ')} can whisper to you — only you hear them</div>
+  }
+  const interviewer = join.interviewer || 'the interviewer'
+  const here = everyone.some((p) => to.includes(p.identity))
+  const toggle = async () => {
+    try {
+      if (!talking) { await lock(); await localParticipant.setMicrophoneEnabled(true); setTalking(true); setNote('') }
+      else { await localParticipant.setMicrophoneEnabled(false); setTalking(false) }
+    } catch { setNote('Your browser blocked the microphone — allow it and try again.') }
+  }
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 120, background: join.coach === 'whisper' ? '#4c1d95' : '#0f172a', color: '#fff', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontWeight: 800, fontSize: 14, boxShadow: '0 4px 14px rgba(0,0,0,.35)' }}>
+      {join.coach === 'whisper'
+        ? <>
+          <span>🗣 Whisper mode — only {interviewer} hears you. The candidate can't see or hear you.</span>
+          <button onClick={toggle} disabled={!here} style={{ padding: '7px 14px', borderRadius: 999, border: 'none', fontWeight: 900, cursor: here ? 'pointer' : 'default', background: talking ? '#dc2626' : '#a78bfa', color: '#fff' }}>{!here ? `Waiting for ${interviewer}…` : talking ? '🔴 Talking — tap to stop' : '🎙 Tap to whisper'}</button>
+        </>
+        : <span>👂 Listening in — nobody can see or hear you.</span>}
+      {note && <span style={{ color: '#fecaca' }}>{note}</span>}
+      <button onClick={() => roomCtx.disconnect()} style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid #94a3b8', background: 'transparent', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Leave</button>
+    </div>
+  )
 }

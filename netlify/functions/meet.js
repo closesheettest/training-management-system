@@ -59,6 +59,15 @@ const stableId = (id) => (/^(host|g|a):/.test(String(id)) ? String(id).replace(/
 // 📇 MY CONTACTS, one list per person, keyed by FIRST NAME so the meetings page (admin PIN → "Neal") and Call from
 // My Tools ("Neal S") share it (Neal, 2026-10-08). Neal's oldest list (meet_contacts) is read as his if his is empty.
 const contactsKey = (who) => `meet_contacts_${String(who || '').trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]+/g, '')}`
+// Signed coach passes (listen-in / whisper links) — HMAC with OUTBOUND_MEET_SECRET, so nobody can make their own.
+const coachSign = (o) => { const p = Buffer.from(JSON.stringify(o)).toString('base64url'); return `${p}.${crypto.createHmac('sha256', process.env.OUTBOUND_MEET_SECRET || 'x').update(p).digest('base64url')}` }
+const coachVerify = (tok) => {
+  const [p, sig] = String(tok || '').split('.')
+  if (!p || !sig || !process.env.OUTBOUND_MEET_SECRET) return null
+  const want = crypto.createHmac('sha256', process.env.OUTBOUND_MEET_SECRET).update(p).digest('base64url')
+  if (want.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(want), Buffer.from(sig))) return null
+  try { const o = JSON.parse(Buffer.from(p, 'base64url').toString('utf8')); return o.exp > Date.now() ? o : null } catch { return null }
+}
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 // The "when" line people see on the link, written from the room's own schedule (Neal, 2026-10-05:
 // Nikki typed "Tues 10am" AND set the schedule — "why have it twice"). Weekly: "Tue 10 AM" or
@@ -996,6 +1005,17 @@ export const handler = async (event) => {
         .filter((x) => !x.start || Date.parse(x.start) > Date.now() - 3 * 3600e3).sort((x, z) => String(x.start).localeCompare(String(z.start)))
       return json(200, { ok: true, interviews: out })
     }
+    // 👂 LISTEN IN / 🗣 WHISPER (Neal, 2026-10-16: "for DeWayne and I … a Brent's interviews button … the ability to
+    // whisper in or eavesdrop … on the video meetings"). A 4-hour signed pass for one interview: listen = an invisible
+    // seat that can only hear; whisper = a mic whose audio ONLY the interviewer is allowed to receive.
+    if (b.op === 'coach') {
+      const rooms = await loadRooms(), r = rooms.find((x) => x.slug === String(b.slug || '') && mine(x))
+      if (!r) return json(404, { ok: false, error: 'No such interview.' })
+      const mode = b.mode === 'whisper' ? 'whisper' : 'listen'
+      const coachName = String(b.coach_name || '').trim().slice(0, 60) || 'Coach'
+      const pass = coachSign({ slug: r.slug, name: coachName, mode, to: [`t:${JEFF.id}`], host: JEFF.name, exp: Date.now() + 4 * 3600e3 })
+      return json(200, { ok: true, link: `${SITE}/meet/${r.slug}?coach=${pass}` })
+    }
     if (b.op === 'cancel') {
       const rooms = await loadRooms(), r = rooms.find((x) => x.slug === String(b.slug || '') && mine(x))
       if (!r) return json(404, { ok: false, error: 'No such interview.' })
@@ -1742,6 +1762,20 @@ export const handler = async (event) => {
   if (b.action === 'info') return json(200, { ok: true, room: { ...publicRoom(room), training_week: room.training_week || null, merged_into: mergedInto, ...(await openState(room)) }, host_code: !!room.host_code })
 
   if (b.action === 'join') {
+    // 👂🗣 A COACH SEAT (see outbound_interview op 'coach'). Listen = hidden from everyone, can't publish anything.
+    // Whisper = a mic only; the coach's browser limits who may receive it to the interviewer (whisper_to) before the mic
+    // turns on, and every page hides "coach" seats from the screen.
+    if (b.coach) {
+      const c = coachVerify(b.coach)
+      if (!c || c.slug !== room.slug) return json(200, { ok: false, error: 'This listen-in link has expired. Open it again from Brent\'s interviews.' })
+      const identity = `coach:${slugify(c.name)}:${Math.random().toString(36).slice(2, 7)}`
+      const at = new AccessToken(key, secret, { identity, name: c.name, ttl: '4h', metadata: JSON.stringify({ coach: c.mode, whisper_to: c.to || [] }) })
+      at.addGrant(c.mode === 'whisper'
+        ? { room: room.slug, roomJoin: true, canSubscribe: true, canPublish: true, canPublishSources: [TrackSource.MICROPHONE], canPublishData: false }
+        : { room: room.slug, roomJoin: true, canSubscribe: true, canPublish: false, canPublishData: false, hidden: true })
+      try { await svc().createRoom({ name: room.slug, emptyTimeout: 600 }) } catch { /* already open */ }
+      return json(200, { ok: true, url, token: await at.toJwt(), name: c.name, host: false, coach: c.mode, whisper_to: c.to || [], interviewer: c.host || '', title: room.title, room: publicRoom(room), me: identity })
+    }
     // WHERE EVERYONE IS (Neal, 2026-10-05: "I can see that they're in the room, doing their onboarding
     // paperwork, paperwork's complete, they're in the lobby"). Each trainee's latest step on this room
     // today, for the People panel: meet_seen_<room>_<trainee id> = { state, step, at }.
