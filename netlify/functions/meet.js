@@ -1767,7 +1767,7 @@ export const handler = async (event) => {
     // turns on, and every page hides "coach" seats from the screen.
     if (b.coach) {
       const c = coachVerify(b.coach)
-      if (!c || c.slug !== room.slug) return json(200, { ok: false, error: 'This listen-in link has expired. Open it again from Brent\'s interviews.' })
+      if (!c || c.slug !== room.slug) return json(200, { ok: false, error: 'This listen-in link has expired. Open it again from Hiring Manager Interviews.' })
       const identity = `coach:${slugify(c.name)}:${Math.random().toString(36).slice(2, 7)}`
       const at = new AccessToken(key, secret, { identity, name: c.name, ttl: '4h', metadata: JSON.stringify({ coach: c.mode, whisper_to: c.to || [] }) })
       at.addGrant(c.mode === 'whisper'
