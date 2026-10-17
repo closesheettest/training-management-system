@@ -490,6 +490,7 @@ export const handler = async (event) => {
       appt_id: body.appt_id, jn_job_id: body.jn_job_id,
       owner_jn_id: body.owner_jn_id, owner_name: body.owner_name,
       sales_rep_jn_id: body.sales_rep_jn_id, sales_rep_name: body.sales_rep_name,
+      ...(body.override ? { override: true } : {}),   // manager chose "Assign anyway" on a busy warning
     })
     return json(status, out)
   }

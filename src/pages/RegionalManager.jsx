@@ -1601,8 +1601,14 @@ function AssignAppointments({ token, onCount }) {
     else { alert('This row has no linked JobNimbus job.'); return }
     setBusy(target.key)
     try {
-      const res = await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      const j = await res.json().catch(() => ({}))
+      let res = await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      let j = await res.json().catch(() => ({}))
+      // MANAGER OVERRIDE (Neal, 2026-10-17): a busy warning can be wrong (a no-sit still sitting on the calendar) — the
+      // manager can assign anyway.
+      if (!j.ok && j.conflict && window.confirm(`${j.error}\n\nAssign anyway? (manager override)`)) {
+        res = await fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, override: true }) })
+        j = await res.json().catch(() => ({}))
+      }
       if (!j.ok) { alert(j.error || 'Assign failed.'); setBusy(null); return }
       await load(view)
       setNeedTick((t) => t + 1)
