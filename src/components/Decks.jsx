@@ -40,6 +40,7 @@ export const DECKS = [
   { key: 'paw', lib: true, label: 'The PA Workflow', type: 'reveal', url: '/pa-workflow/' },
   { key: 'oba', lib: true, label: 'Outbound Dispatch · Your admin page (Jeff)', type: 'reveal', url: '/outbound-admin/' },
   { key: 'obc', lib: true, label: 'Outbound Dispatch · The calling page (callers)', type: 'reveal', url: '/outbound-calling/' },
+  { key: 'raise', lib: true, label: 'Everybody Gets a Raise · new pay + metal pricing (company meeting)', type: 'reveal', url: '/raise/' },
   { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · 2. Slides: How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/', endAction: '📲 Send DoorDispatcher access to everyone in this meeting' },
 ]
 // Decks belong to the training rooms only (Neal, 2026-10-06: on the 8 AM meeting "none of these need
