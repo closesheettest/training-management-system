@@ -1028,7 +1028,8 @@ export const handler = async (event) => {
     if (!name) return json(400, { ok: false, error: "Type the candidate's name." })
     if (!phone && !email) return json(400, { ok: false, error: 'Add their cell or email so they get the link.' })
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when) || etWall(when.slice(0, 10), when.slice(11, 16)).getTime() < Date.now() - 5 * 60000) return json(400, { ok: false, error: "Pick a date and time that hasn't passed." })
-    const room = { title: `Interview: ${name}`, kind: 'oneoff', look: 'company', topic: `${JEFF.what} with ${JEFF.name}`, cameras_required: true, once: [when], minutes: Math.min(120, Math.max(10, Number(b.minutes) || 20)),
+    // Mics locked (Neal + Jeff, 2026-10-18): candidates come in muted; only the interviewer can unmute them.
+    const room = { title: `Interview: ${name}`, kind: 'oneoff', look: 'company', topic: `${JEFF.what} with ${JEFF.name}`, cameras_required: true, mic_lock: true, once: [when], minutes: Math.min(120, Math.max(10, Number(b.minutes) || 20)),
       invitees: [{ id: JEFF.id }, { key: crypto.randomBytes(6).toString('base64url'), name, phone, email }], hosts: [JEFF.name], remind_5: true, no_host: true, schedule: '' }
     INTERNAL = true
     try {
