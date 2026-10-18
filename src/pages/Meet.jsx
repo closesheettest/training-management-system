@@ -980,6 +980,12 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
               hostFaces(<PracticeStage pr={pr} camTrack={prCam} me={localParticipant?.identity === pr.presenter} homeownerTalking={speakers.some((x) => /^homeowner/.test(x.identity))} presenterTalked={prTalked} />)
             ) : sc ? (
               hostFaces(<PresenterFrame layout={layout} cam={scCam} isHost={isHost} onLayout={pickLayout}><ScriptureSlide sc={sc} look={lookOf(room)} camTrack={layout === 'circle' ? scCam : null} /></PresenterFrame>)
+            ) : !dk && rmeta.deck && rmeta.deck.showing && !deckOf(rmeta.deck.key) ? (
+              // 🔄 The host is showing a deck this page doesn't know yet — it was added after this tab loaded (Neal +
+              // DeWayne, 2026-10-18: the second host saw nothing). Say so instead of a blank stage.
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={() => window.location.reload()} style={{ padding: '18px 28px', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 900, fontSize: 20, cursor: 'pointer' }}>🔄 A new presentation is showing — tap to refresh</button>
+              </div>
             ) : dk ? (
               (() => {
                 // 👀 FACES WHILE PRESENTING (Neal, 2026-10-05: "on the left-hand side the gallery … I want to
