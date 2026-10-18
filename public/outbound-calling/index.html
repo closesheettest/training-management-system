@@ -34,6 +34,17 @@
   .two p, .two li { font-size: .92em; line-height: 1.4; }
   .two ul { padding-left: 1.1em; margin: 0; }
 
+  .split { display: grid; grid-template-columns: 410px 1fr; gap: 34px; align-items: center; text-align: left; max-width: 1220px; margin: 0 auto; }
+  .split.wide-text { grid-template-columns: 470px 1fr; }
+  .split ul, .split ol { margin: 0; max-width: none; padding-left: 0; }
+  .split ul { padding-left: 1em; }
+  .split li { font-size: .78em; margin: .35em 0; }
+  .split .card { padding: 18px 24px; font-size: .78em; }
+  .split .card p { margin: 0 0 .6em; }
+  .split .steps li { padding-left: 54px; }
+  .split .steps li::before { width: 38px; height: 38px; font-size: .95em; }
+  img.ui { display: block; margin: 0 auto; max-width: 100%; max-height: 540px; width: auto; height: auto; border-radius: 14px; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 14px 40px rgba(0,0,0,.5); }
+
 </style>
 </head>
 <body>
@@ -56,41 +67,68 @@
 
 <section>
   <h2>One homeowner at a time</h2>
-  <div class="card">
-    <p>The page shows the homeowner's name, address and number — and if they were called before, what happened.</p>
-    <p>Tap <em>📞 Call</em>. The homeowner sees our company number. During the call: <em>Mute</em>, <em>Hang up</em>, and a timer.</p>
-    <p style="margin-bottom:0">The script sits beside it with your name and their number already filled in.</p>
+  <div class="split">
+    <div class="card">
+      <p>The page shows the homeowner's name, address and number — and if they were called before, what happened.</p>
+      <p>Tap <em>📞 Call</em>. The homeowner sees our company number. During the call: <em>Mute</em>, <em>Hang up</em>, and a timer.</p>
+      <p style="margin-bottom:0">The script sits beside it with your name and their number already filled in.</p>
+    </div>
+    <img class="ui" src="img/calling-page.png" alt="The calling page with a homeowner loaded, the Call button, the YES button and the outcome buttons">
   </div>
 </section>
 
 <section>
   <h2>When they say yes</h2>
-  <ol class="steps">
-    <li>Tap <em>👍 They said YES — text them the link</em>.</li>
-    <li><b>Stay on the line.</b> Ask them to open the text and tap <em>I approve</em>.</li>
-    <li>The page tells you live: <em>⏳ Waiting for them to open it</em> → <em>👀 They opened it</em>.</li>
-    <li><em>🎉 They tapped I approve!</em> — the free inspection is booked. Thank them → <em>Next home →</em></li>
-  </ol>
+  <div class="split">
+    <ol class="steps">
+      <li>Tap <em>👍 They said YES — text them the link</em>.</li>
+      <li><b>Stay on the line.</b> Ask them to open the text and tap <em>I approve</em>.</li>
+      <li>The page tells you live: <em>⏳ Waiting for them to open it</em> → <em>👀 They opened it</em>.</li>
+      <li><em>🎉 They tapped I approve!</em> — the free inspection is booked. Thank them → <em>Next home →</em></li>
+    </ol>
+    <img class="ui" src="img/yes-link-sent.png" alt="Link texted — waiting for them to open it">
+  </div>
+</section>
+
+<section>
+  <div class="two">
+    <img class="shot" src="img/homeowner-phone.png" alt="The homeowner's phone: the agreement and the green I approve button">
+    <div>
+      <h2>What the homeowner sees</h2>
+      <ul>
+        <li>The text opens this page on their phone — their name and address at the top.</li>
+        <li>A sample of the <em>free roof certificate</em> they'll get.</li>
+        <li>One short agreement, then the big green <em>I approve</em> button.</li>
+        <li>Below it: our company info and <em>Florida license number</em> — what the script promised.</li>
+      </ul>
+    </div>
+  </div>
 </section>
 
 <section>
   <h2>📅 Wants an appointment instead</h2>
   <p style="font-size:.85em;color:#cbd5e1;margin:0 0 .8em">Some homeowners don't want the free inspection — they just want a rep to come out and give them a price.</p>
-  <ol class="steps">
-    <li>Tap <em>📅 Wants an appointment instead</em>.</li>
-    <li><b>Confirm the address</b> with them.</li>
-    <li>The page shows the <em>open times</em>.</li>
-    <li>Book it right there. It's credited to <em>Jeff Mann's team</em>.</li>
-  </ol>
+  <div class="split">
+    <ol class="steps">
+      <li>Tap <em>📅 Wants an appointment instead</em>.</li>
+      <li><b>Confirm the address</b> with them.</li>
+      <li>The page shows the <em>open times</em>.</li>
+      <li>Book it right there. It's credited to <em>Jeff Mann's team</em>.</li>
+    </ol>
+    <img class="ui" src="img/appt-booked.png" alt="Appointment booked — credited to Jeff Mann's team">
+  </div>
 </section>
 
 <section>
   <h2>Two choices, every time</h2>
-  <div class="card">
-    <p>"I have <em>tomorrow or Wednesday</em> — which is better?"</p>
-    <p>"<em>Morning or evening?</em>"</p>
-    <p>"I have <em>a 5 and a 7</em> — which is better?"</p>
-    <p style="margin-bottom:0;color:#cbd5e1">Always give two choices. Never ask "when works for you?"</p>
+  <div class="split">
+    <div class="card">
+      <p>"I have <em>tomorrow or Wednesday</em> — which is better?"</p>
+      <p>"<em>Morning or evening?</em>"</p>
+      <p>"I have <em>a 5 and a 7</em> — which is better?"</p>
+      <p style="margin-bottom:0;color:#cbd5e1">Always give two choices. Never ask "when works for you?" The page writes each line for you.</p>
+    </div>
+    <img class="ui" src="img/appt-booker.png" alt="The appointment booker: two days, then morning or evening, then a 5 PM and a 7 PM">
   </div>
 </section>
 
@@ -139,9 +177,12 @@
 
 <section>
   <h2>What counts</h2>
-  <div class="card" style="font-size:1.05em">
-    <p>You're paid on homeowners who <em>tap I approve</em>.</p>
-    <p style="margin-bottom:0">So the call isn't done when they say yes — it's done when the page says <em>🎉 They tapped I approve!</em> Stay on the line until it does.</p>
+  <div class="split">
+    <div class="card" style="font-size:.9em">
+      <p>You're paid on homeowners who <em>tap I approve</em>.</p>
+      <p style="margin-bottom:0">So the call isn't done when they say yes — it's done when the page says <em>🎉 They tapped I approve!</em> Stay on the line until it does.</p>
+    </div>
+    <img class="ui" src="img/tapped-approve.png" alt="They tapped I approve — the free inspection is booked">
   </div>
 </section>
 

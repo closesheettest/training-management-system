@@ -34,6 +34,17 @@
   .two p, .two li { font-size: .92em; line-height: 1.4; }
   .two ul { padding-left: 1.1em; margin: 0; }
 
+  .split { display: grid; grid-template-columns: 410px 1fr; gap: 34px; align-items: center; text-align: left; max-width: 1220px; margin: 0 auto; }
+  .split.wide-text { grid-template-columns: 470px 1fr; }
+  .split ul, .split ol { margin: 0; max-width: none; padding-left: 0; }
+  .split ul { padding-left: 1em; }
+  .split li { font-size: .78em; margin: .35em 0; }
+  .split .card { padding: 18px 24px; font-size: .78em; }
+  .split .card p { margin: 0 0 .6em; }
+  .split .steps li { padding-left: 54px; }
+  .split .steps li::before { width: 38px; height: 38px; font-size: .95em; }
+  img.ui { display: block; margin: 0 auto; max-width: 100%; max-height: 540px; width: auto; height: auto; border-radius: 14px; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 14px 40px rgba(0,0,0,.5); }
+
 </style>
 </head>
 <body>
@@ -56,12 +67,15 @@
 
 <section>
   <h2>🎧 Your callers</h2>
-  <ol class="steps">
-    <li><em>+ Add a caller</em> — name, cell, email.</li>
-    <li><em>📍 Calling today</em> — tap the county each caller works today.</li>
-    <li><em>📲 Send them their link</em> — they get their calling page by text and email (or <em>📋 Copy link</em>).</li>
-    <li><em>✏️ Edit</em> to change details or turn a caller off.</li>
-  </ol>
+  <div class="split">
+    <ol class="steps">
+      <li><em>+ Add a caller</em> — name, cell, email.</li>
+      <li><em>📍 Calling today</em> — tap the county each caller works today.</li>
+      <li><em>📲 Send them their link</em> — they get their calling page by text and email (or <em>📋 Copy link</em>).</li>
+      <li><em>✏️ Edit</em> to change details or turn a caller off.</li>
+    </ol>
+    <img class="ui" src="img/admin-callers.png" alt="The Callers list: each caller's county for today, Copy link, Send them their link, Edit">
+  </div>
 </section>
 
 <section>
@@ -85,12 +99,17 @@
 
 <section>
   <h2>📅 Book an appointment</h2>
-  <ol class="steps">
-    <li>Tap <em>📅 Book an appointment</em> on your page.</li>
-    <li>Confirm the address — the open times show up.</li>
-    <li>Pick one and book it. Same rules as your callers. It counts for <em>your team</em>.</li>
-  </ol>
-  <p style="font-size:.8em;color:#cbd5e1;margin-top:14px">You get a <em>text</em> every time an appointment is booked for your team.</p>
+  <div class="split">
+    <div>
+      <ol class="steps">
+        <li>Tap <em>📅 Book an appointment</em> on your page.</li>
+        <li>Confirm the address — the open times show up.</li>
+        <li>Pick one and book it. Same rules as your callers. It counts for <em>your team</em>.</li>
+      </ol>
+      <p style="font-size:.7em;color:#cbd5e1;margin-top:14px">You get a <em>text</em> every time an appointment is booked for your team.</p>
+    </div>
+    <img class="ui" src="img/admin-booker.png" alt="Booking a rep appointment from the admin page: day, then morning or evening, then a time">
+  </div>
 </section>
 
 <section>
@@ -106,22 +125,30 @@
 
 <section>
   <h2>🤖 From Zilla</h2>
-  <div class="grid">
-    <div class="card"><b>Booked by Zilla</b> — appointments she booked for your team</div>
-    <div class="card"><b>Couldn't book</b> — people she couldn't set up (for example, no rep covers that area)</div>
+  <div class="split">
+    <div>
+      <div class="card" style="margin-bottom:14px"><b style="color:#fde68a">✅ Booked</b> — appointments she booked for your team</div>
+      <div class="card"><b style="color:#fde68a">📞 Couldn't book — call them</b> — people she couldn't set up (for example, no rep covers that area)</div>
+      <p style="font-size:.7em;color:#cbd5e1;margin-top:14px">It's in the <em>📅 Rep appointments</em> card near the top of your page. Follow up on every "Couldn't book."</p>
+    </div>
+    <img class="ui" src="img/admin-top.png" alt="The top of the admin page: Call Someone, Schedule Interviews, and the Rep appointments card with the From Zilla list">
   </div>
-  <p style="font-size:.8em;color:#cbd5e1;margin-top:16px">Check the "Couldn't book" list and follow up with those homeowners.</p>
 </section>
 
 <section>
   <h2>📊 This week (since Monday)</h2>
-  <div class="grid">
-    <div class="card"><b>Calls</b> — every outcome logged<br><b>Links sent</b> — Yes links texted</div>
-    <div class="card"><b>Approved on the call</b> — tapped I approve while on the phone<br><b>Said they'd do it later</b></div>
-    <div class="card"><b>Approved (paid)</b> — what pay counts</div>
-    <div class="card"><b>Actually inspected</b> — an inspector went out and recorded a result</div>
+  <div class="split">
+    <div>
+      <ul>
+        <li><em>Calls</em> — every outcome logged · <em>Links sent</em> — Yes links texted</li>
+        <li><em>Approved on the call</em> — tapped I approve while on the phone · <em>Said they'd do it later</em></li>
+        <li><em>Approved (paid)</em> — what pay counts</li>
+        <li><em>Actually inspected</em> — an inspector went out and recorded a result</li>
+      </ul>
+      <p style="font-size:.7em;color:#cbd5e1;margin-top:14px">A big gap between Approved and Actually inspected is worth a look.</p>
+    </div>
+    <img class="ui" src="img/admin-this-week.png" alt="This week: totals and each caller's calls, links, approvals, inspections and pay">
   </div>
-  <p style="font-size:.75em;color:#cbd5e1;margin-top:16px">A big gap between Approved and Actually inspected is worth a look.</p>
 </section>
 
 <section>
