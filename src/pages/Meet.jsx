@@ -519,7 +519,9 @@ function HostPanel({ room, auth, onClose, circle, setCircle }) {
 //   Gallery — everyone in tiles (pages when the class is big); a shared screen joins the grid
 //   Speaker — whoever is talking big (or the shared screen), everyone else in a strip
 function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
-  const [view, setView] = useState(() => getS('meet_view', localStorage) || 'gallery')
+  // Company meetings open on SPEAKER view — whoever is talking is center stage (Neal, 2026-10-18: "I want him to be
+  // center stage, and when I'm talking I can be center stage — not like the podcast setup"). Each person can still switch.
+  const [view, setView] = useState(() => getS(`meet_view_${room.slug}`, localStorage) || (room.kind === 'company' ? 'speaker' : getS('meet_view', localStorage) || 'gallery'))
   const [panel, setPanel] = useState(false)
   const [scripturePanel, setScripturePanel] = useState(false)
   const [myScripture, setMyScripture] = useState(null) // 📖 the passage kept on the HOST's screen after "back to me"
@@ -731,7 +733,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   // A screen share TAKES OVER for everyone, people in a strip beside it, like Zoom (Neal,
   // 2026-10-04). Someone who presses Gallery during a share gets faces back until it ends.
   const [galleryDuringShare, setGalleryDuringShare] = useState(false)
-  const pickView = (v) => { setView(v); setS('meet_view', v, localStorage); setGalleryDuringShare(v === 'gallery' && !!shareRef.current) }
+  const pickView = (v) => { setView(v); setS('meet_view', v, localStorage); setS(`meet_view_${room.slug}`, v, localStorage); setGalleryDuringShare(v === 'gallery' && !!shareRef.current) }
   const shareRef = useRef(null)
   // Everyone's screen has to agree on the sharer's circle, so it rides on their attributes.
   useEffect(() => { localParticipant?.setAttributes?.({ circle: circle ? 'on' : 'off' })?.catch?.(() => {}) }, [circle, localParticipant])
