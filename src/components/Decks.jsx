@@ -34,19 +34,35 @@ export const DECKS = [
   // DoorDispatcher access button, 3) on their link they watch the HOW-TO video, then take the test.
   // Kept apart from the older flows so the old ones can be deleted later.
   { key: 'ddv', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · 1. Video: Why we use DoorDispatcher', type: 'video', url: 'https://ddtajhfsnlzgsejtvoaz.supabase.co/storage/v1/object/public/harvest-training/why_jr.mp4' },
+  // 📚 THE PRESENTATION LIBRARY (Neal, 2026-10-18: "some one-off presentation section … certain presentations already
+  // attached to these calls … then I can just attach which one I want to present"). lib: true = offered in EVERY room's
+  // 📊 Present menu; a room's own `decks` (Meeting Room Setup → Attached presentations) are listed first.
+  { key: 'paw', lib: true, label: 'The PA Workflow', type: 'reveal', url: '/pa-workflow/' },
+  { key: 'oba', lib: true, label: 'Outbound Dispatch · Your admin page (Jeff)', type: 'reveal', url: '/outbound-admin/' },
+  { key: 'obc', lib: true, label: 'Outbound Dispatch · The calling page (callers)', type: 'reveal', url: '/outbound-calling/' },
   { key: 'ddd', week: 'A', flow: 'new', label: '🆕 New flow (Oct 6) · 2. Slides: How to use DoorDispatcher', type: 'reveal', url: '/doordispatcher-intro/', endAction: '📲 Send DoorDispatcher access to everyone in this meeting' },
 ]
 // Decks belong to the training rooms only (Neal, 2026-10-06: on the 8 AM meeting "none of these need
 // to show up"). Week A's room shows Week A decks, Week B's shows Week B's, a 'both' training room both.
 // The walkthrough ('vf', no week) only shows in the managers meeting. Every other room: nothing, and
 // the 📊 Present button is hidden there.
-export const decksFor = (room) => {
-  if (room?.kind === 'managers') return DECKS.filter((d) => !d.week)
+const roomOwn = (room) => {
+  if (room?.kind === 'managers') return DECKS.filter((d) => !d.week && !d.lib)
   if (room?.kind !== 'training') return []
   const w = room.training_week
   const list = w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS.filter((d) => d.week)
   return [...list.filter((d) => d.flow === 'new'), ...list.filter((d) => d.flow !== 'new')] // 🆕 new flow on top
 }
+// What 📊 Present lists: the presentations ATTACHED to this meeting before it started (Neal, 2026-10-18: "before the meeting
+// starts you click on which ones you're going to present" — not a long list of everything), then the room's own
+// (training week / managers). The rest of the library is behind "📚 Something else…" (libraryExtra).
+export const decksFor = (room) => {
+  const attached = (Array.isArray(room?.decks) ? room.decks : []).map(deckOf).filter(Boolean)
+  const seen = new Set(attached.map((d) => d.key))
+  return [...attached.map((d) => ({ ...d, attached: true })), ...roomOwn(room).filter((d) => !seen.has(d.key))]
+}
+export const libraryExtra = (room) => { const have = new Set(decksFor(room).map((d) => d.key)); return DECKS.filter((d) => d.lib && !have.has(d.key)) }
+export const LIBRARY = DECKS.filter((d) => d.lib)
 export const deckOf = (k) => DECKS.find((d) => d.key === k) || null
 const img = (d, n) => `${d.base}${String(n).padStart(2, '0')}.jpg`
 

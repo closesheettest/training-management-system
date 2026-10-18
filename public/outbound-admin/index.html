@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outbound Dispatch — Your Admin Page — U.S. Shingle &amp; Metal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  html, body { background: #0b1426; }
+  .reveal { font-family: 'Inter', sans-serif; color: #fff; font-size: 30px; }
+  .reveal .backgrounds { background: radial-gradient(circle at 30% 15%, #16305c 0%, #0b1426 60%, #060b16 100%); }
+  .reveal h1 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 3.4rem; margin: .4em 0 .1em; color: #fff; }
+  .reveal h2 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 2.3rem; margin: 0 0 .5em; color: #fff; }
+  .kick { font-family: 'Oswald'; letter-spacing: .28em; text-transform: uppercase; color: #f87171; font-size: 1.05rem; }
+  .logo { background: #fff; border-radius: 16px; padding: 14px 26px; display: inline-block; box-shadow: 0 16px 50px rgba(0,0,0,.45); }
+  .big { font-size: 5rem; line-height: 1; margin-bottom: .2em; }
+  .when { display: inline-block; background: rgba(248,113,113,.15); border: 1px solid #f87171; color: #fecaca; border-radius: 999px; padding: 6px 18px; font-size: .8em; font-weight: 700; margin-bottom: .8em; }
+  .reveal ul { display: block; text-align: left; margin: 0 auto; max-width: 1050px; }
+  .reveal li { margin: .45em 0; line-height: 1.35; }
+  .card { text-align: left; max-width: 1050px; margin: 0 auto; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15); border-radius: 18px; padding: 26px 34px; line-height: 1.4; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 1100px; margin: 0 auto; text-align: left; }
+  .grid .card { margin: 0; padding: 18px 24px; font-size: .82em; }
+  .grid b { color: #fde68a; }
+  .steps { counter-reset: s; list-style: none; padding: 0; }
+  .steps li { counter-increment: s; padding-left: 64px; position: relative; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 46px; height: 46px; border-radius: 50%; background: #c8102e; color: #fff; font-family: 'Oswald'; font-size: 1.1em; display: flex; align-items: center; justify-content: center; }
+  em { color: #fde68a; font-style: normal; font-weight: 800; }
+  .two { display: grid; grid-template-columns: 340px 1fr; gap: 44px; align-items: center; text-align: left; max-width: 1160px; margin: 0 auto; }
+  .two img.shot { height: 600px; width: auto; border-radius: 26px; border: 6px solid #1f2937; box-shadow: 0 18px 50px rgba(0,0,0,.55); margin: 0; display: block; }
+  .two h2 { text-align: left; margin-bottom: .35em; }
+  .two .when { margin-bottom: .6em; }
+  .two p, .two li { font-size: .92em; line-height: 1.4; }
+  .two ul { padding-left: 1.1em; margin: 0; }
+
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+<section style="padding-top:110px">
+  <div class="logo"><img src="/uss-logo.png" alt="U.S. Shingle &amp; Metal" style="height:110px;display:block;margin:0"></div>
+  <h1>Outbound Dispatch</h1>
+  <div class="kick">Your admin page — running the call center</div>
+</section>
+
+<section>
+  <h2>Getting in</h2>
+  <ul>
+    <li>You have <em>your own link</em> to this page — bookmark it. Best on a computer.</li>
+    <li>The first time, you make a <em>PIN</em> (4–6 numbers). It asks every time after that.</li>
+    <li>Forgot it? The office can reset it for you.</li>
+    <li>At the top: <em>📞 Call Someone</em> (a quick video call) and <em>📅 Schedule Interviews</em> — and a banner when you have a meeting today.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>🎧 Your callers</h2>
+  <ol class="steps">
+    <li><em>+ Add a caller</em> — name, cell, email.</li>
+    <li><em>📍 Calling today</em> — tap the county each caller works today.</li>
+    <li><em>📲 Send them their link</em> — they get their calling page by text and email (or <em>📋 Copy link</em>).</li>
+    <li><em>✏️ Edit</em> to change details or turn a caller off.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>📝 The call script</h2>
+  <div class="card">
+    <p>Paste the script here and <em>Save script</em>. It shows beside every call on the callers' page.</p>
+    <p style="margin-bottom:0">The blanks fill themselves: the first ____ becomes the caller's first name, the next one the homeowner's mobile number.</p>
+  </div>
+</section>
+
+<section>
+  <h2>📊 This week (since Monday)</h2>
+  <div class="grid">
+    <div class="card"><b>Calls</b> — every outcome logged<br><b>Links sent</b> — Yes links texted</div>
+    <div class="card"><b>Approved on the call</b> — tapped I approve while on the phone<br><b>Said they'd do it later</b></div>
+    <div class="card"><b>Approved (paid)</b> — what pay counts</div>
+    <div class="card"><b>Actually inspected</b> — an inspector went out and recorded a result</div>
+  </div>
+  <p style="font-size:.75em;color:#cbd5e1;margin-top:16px">A big gap between Approved and Actually inspected is worth a look.</p>
+</section>
+
+<section>
+  <h2>🧾 Weekly invoice</h2>
+  <ul>
+    <li>What you bill U.S. Shingle &amp; Metal each week, Monday–Sunday — figured from the results.</li>
+    <li>Two rates: <em>per inspection signed</em> (homeowner tapped I approve) and <em>per inspection completed</em> (an inspector went out). The office sets them.</li>
+    <li><em>📈 Inspections signed</em> — this week, last week, this month, all time.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>🎥 Video interviews</h2>
+  <ol class="steps">
+    <li>Tap <em>📅 Schedule Interviews</em>.</li>
+    <li>Candidate's name, cell or email, date and time → <em>📅 Schedule it</em>.</li>
+    <li>They get their own video link by text and email, and a reminder 5 minutes before.</li>
+    <li>You join with <em>🎥 Join</em> from the list.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Good to know</h2>
+  <ul>
+    <li><em>Calling hours</em> are 9 AM–8 PM Eastern, Mon–Sat. Outside them the callers' page says "no calls right now."</li>
+    <li><em>🧪 Test homes</em> are for practice — nothing real gets booked.</li>
+    <li>Calls come from our Jacksonville number, <em>(904) 667-0500</em>, once browser calling is on.</li>
+  </ul>
+</section>
+
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+<script>Reveal.initialize({ hash: true, controls: true, progress: true, center: true, width: 1280, height: 720, transition: 'slide' });</script>
+</body>
+</html>

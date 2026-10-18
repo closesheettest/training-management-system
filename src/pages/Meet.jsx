@@ -30,7 +30,7 @@ import CompanyLobby, { READY } from '../components/CompanyLobby.jsx'
 import { PracticeStage } from '../components/PracticeStage.jsx'
 import { BreakoutLayer } from '../components/Breakouts.jsx'
 import { LobbyLayer } from '../components/Lobby.jsx'
-import { decksFor, DeckView, deckOf } from '../components/Decks.jsx'
+import { decksFor, libraryExtra, DeckView, deckOf } from '../components/Decks.jsx'
 import { LocalRecorder, localRecordSupported, leftoverRecordings, saveLeftover, dropLeftover, activeRecorder } from '../lib/localRecorder.js'
 import { useBackground, BackgroundPanel } from '../components/BackgroundPicker.jsx'
 import { LOOKS, lookOf, FontsFor } from '../lib/meetLooks.jsx'
@@ -524,6 +524,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const [scripturePanel, setScripturePanel] = useState(false)
   const [myScripture, setMyScripture] = useState(null) // 📖 the passage kept on the HOST's screen after "back to me"
   const [deckPanel, setDeckPanel] = useState(false)
+  const [showLib, setShowLib] = useState(false)   // 📚 the rest of the library, behind "Something else…"
   const deckApi = useRef(null)
   const stageRef = useRef(null) // the meeting picture — what "Record to my computer" keeps (no toolbars)
   const viewRef = useRef(null)  // the meeting view alone (no panels on top) — Element Capture records this
@@ -924,7 +925,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
           <button onClick={() => setSharePanel((x) => !x)} style={btn(sharePanel)}>🔗 Share meeting</button>
           {isHost && <button title="Your private notes / teleprompter — only you see it" onClick={() => setNotesOpen((x) => !x)} style={{ ...btn(notesOpen), ...(notesOpen ? {} : { borderColor: '#f59e0b' }) }}>📝 My notes</button>}
           <span style={{ flex: 1 }} />
-          {isHost && !scriptureRoom && (decksFor(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
+          {isHost && !scriptureRoom && (decksFor(room).length > 0 || libraryExtra(room).length > 0 || !!dk) && <button onClick={() => setDeckPanel((x) => !x)} style={{ ...btn(deckPanel), background: dk ? '#1e40af' : '#2563eb', border: 'none', marginRight: 6 }}>📊 {dk ? 'Presenting' : 'Present'}</button>}
           {isHost && scriptureRoom && <button onClick={() => setScripturePanel((x) => !x)} style={{ ...btn(scripturePanel), background: sc ? '#92400e' : '#B8893D', border: 'none', marginRight: 6 }}>📖 {sc ? 'Scripture on' : 'Scripture'}</button>}
           {/* ONE-CLICK ON / OFF (Neal, 2026-10-06: "scripture on, scripture off … right now I have two clicks").
               Off hides the passage and you're straight back in your view (split / circle / stacked — that
@@ -1054,7 +1055,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                   </button>
                 )}
                 <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 6 }}>{dk ? 'Switch to:' : 'Pick what to show everyone:'}</div>
-                {decksFor(room).map((d) => (
+                {[...decksFor(room), ...(showLib ? libraryExtra(room) : [])].map((d) => (
                   <button key={d.key} onClick={() => {
                     // RESUME (Neal, 2026-10-05: stop presenting on slide 37, start again → back on 37). The room
                     // keeps the last position after Stop; this device remembers it too. VIDEOS always start from the
@@ -1062,8 +1063,10 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                     let last = rmeta.deck && rmeta.deck.key === d.key && rmeta.deck.pos ? rmeta.deck.pos : null
                     if (!last) { try { last = JSON.parse(localStorage.getItem(`deck_pos_${room.slug}_${d.key}`) || 'null') } catch { /* none */ } }
                     setDeck({ key: d.key, pos: d.type === 'video' ? { t: 0, play: false } : last || (d.type === 'images' ? { n: d.start } : { h: 0, v: 0, f: -1 }), showing: true })
-                  }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.label}</button>
+                  }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 6, borderRadius: 8, border: '1px solid #374151', background: dk?.key === d.key ? '#1e3a8a' : '#0b1220', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{d.attached ? '📌 ' : d.lib ? '📚 ' : ''}{d.label}</button>
                 ))}
+                {!showLib && libraryExtra(room).length > 0 && <button onClick={() => setShowLib(true)} style={{ background: 'none', border: 'none', color: '#93c5fd', fontWeight: 700, cursor: 'pointer', padding: '4px 2px' }}>📚 Something else…</button>}
+                {!decksFor(room).length && !showLib && <div style={{ fontSize: 12.5, color: '#9ca3af', margin: '2px 0 6px' }}>Nothing attached to this meeting. Attach presentations in Meeting Room Setup, or pick one below.</div>}
               </div>
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}

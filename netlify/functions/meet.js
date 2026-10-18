@@ -114,6 +114,7 @@ const publicRoom = (r) => ({
   // 2026-10-06: "week B is a different meeting room… shouldn't be having week B presentations in week A").
   training_week: r.kind === 'training' ? (r.training_week || 'A') : null,
   auto_stage: !!r.auto_stage,
+  decks: Array.isArray(r.decks) ? r.decks : [],
   // 👤 HOST (Neal, 2026-10-05: "an area where we can say who the host is… the 9:15 devotional,
   // DeWayne is always the host"). Shown on every card, dashboard and the join screen.
   host_names: Array.isArray(r.host_names) ? r.host_names : [],
@@ -1263,6 +1264,8 @@ export const handler = async (event) => {
         visible_from: r.visible_from || (rooms.find((x) => x.slug === r.original_slug) || {}).visible_from || null,
         auto_stage: !!r.auto_stage,
         call: !!r.call,
+        // 📚 Presentations attached to this room — listed first in its 📊 Present menu (deck keys from Decks.jsx).
+        decks: (Array.isArray(r.decks) ? r.decks : []).map((k) => String(k).slice(0, 20)).filter(Boolean).slice(0, 20),
         // Neal is the corporate trainer: every training room carries him (Neal, 2026-10-05).
         also: [...new Set([...(Array.isArray(r.also) ? r.also : []), ...(kind === 'training' || kind === 'retraining' ? ['neal'] : [])])].filter((k) => LEADERS.some((l) => l.key === k)),
         // ONE-OFF MEETING (Neal, 2026-10-04): invite certain people — TMS people by id, anyone else by

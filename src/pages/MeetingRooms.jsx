@@ -6,6 +6,7 @@
 // Per room: People & links (from the TMS roster), Send links (text + email), Attendance by day
 // (from LiveKit's join/leave webhook), and the guest email list (CSV).
 import { useEffect, useState } from 'react'
+import { LIBRARY } from '../components/Decks.jsx'
 
 const FN = '/.netlify/functions/meet'
 const ZONES = { 'Zone 1': 'SQUAD', 'Zone 2': 'SitSold', 'Zone 3': 'SHARKS', 'Zone 4': 'HURRICANE' }
@@ -668,6 +669,19 @@ export default function MeetingRooms() {
                   </div>
                 </div>
               )}
+            </div>
+            {/* 📚 ATTACHED PRESENTATIONS (Neal, 2026-10-18) — listed first (📌) in this room's 📊 Present menu. Every room can
+                still present anything from the library. */}
+            <div className="rounded-lg border border-slate-200 p-3">
+              <div className="text-sm font-bold">📚 Attached presentations</div>
+              <div className="mb-2 text-xs text-slate-500">These show first when you tap 📊 Present in this meeting. Anything else in the library is still there below them.</div>
+              <div className="flex flex-wrap gap-2">
+                {LIBRARY.map((d) => {
+                  const on = (form.decks || []).includes(d.key)
+                  return <label key={d.key} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${on ? 'border-blue-500 bg-blue-50' : 'border-slate-300'}`}>
+                    <input type="checkbox" checked={on} onChange={() => setForm({ ...form, decks: on ? (form.decks || []).filter((k) => k !== d.key) : [...(form.decks || []), d.key] })} />{d.label}</label>
+                })}
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.cameras_required} onChange={(e) => setForm({ ...form, cameras_required: e.target.checked })} /> Cameras on</label>
             <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.public} onChange={(e) => setForm({ ...form, public: e.target.checked })} /> Open to the public (guests sign in with name + email)</label>
