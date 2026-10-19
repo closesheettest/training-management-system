@@ -127,12 +127,24 @@ export class LiveHomeowner {
     this.outCtx = new AudioContext({ sampleRate: 24000 })
     if (this.routeOut) { this.outDest = this.outCtx.createMediaStreamDestination(); this.outStream = this.outDest.stream }
     await this.inCtx.audioWorklet.addModule('/practice-mic-worklet.js')
-    const src = this.inCtx.createMediaStreamSource(this.stream)
+    this.src = this.inCtx.createMediaStreamSource(this.stream)
     this.tap = new AudioWorkletNode(this.inCtx, 'mic-tap')
     this.tap.port.onmessage = (e) => this.onMic(e.data)
-    src.connect(this.tap)
+    this.src.connect(this.tap)
     this.watchdog = setInterval(() => this.checkStall(), 1000)
     await this.connect()
+  }
+
+  // SWAP THE EARS (Neal, 2026-10-19: in a meeting the homeowner sat on "Listening" while Joanie talked; her connection had
+  // dropped and come back, so the mic feed captured at Start was dead). Point the homeowner at the presenter's new mic.
+  setInputTrack(track) {
+    if (!track || !this.inCtx || !this.tap) return false
+    if (this.stream?.getAudioTracks()[0] === track) return false
+    try { this.src?.disconnect() } catch { /* gone */ }
+    this.stream = new MediaStream([track])
+    this.src = this.inCtx.createMediaStreamSource(this.stream)
+    this.src.connect(this.tap)
+    return true
   }
 
   // Rep finished, nobody answered. First nudge: audioStreamEnd, which tells Google

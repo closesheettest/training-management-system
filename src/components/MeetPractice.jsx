@@ -59,6 +59,21 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
     try { audioEl.current?.pause() } catch { /* gone */ }
   }
   useEffect(() => () => { try { live.current?.stop() } catch { /* gone */ } cleanup() }, [])
+  // FOLLOW THE PRESENTER'S MIC (Neal, 2026-10-19): if they drop and rejoin, or turn the mic off and on, their mic feed
+  // changes. Every 2 s, find their CURRENT mic and re-attach the homeowner to it, so it never listens to a dead feed.
+  const presenterId = useRef(null)
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const h = live.current, id = presenterId.current
+      if (!h || !id || !ctx) return
+      const p = ctx.remoteParticipants?.get?.(id) || (ctx.localParticipant?.identity === id ? ctx.localParticipant : null)
+      const t = p?.getTrackPublication?.(Track.Source.Microphone)?.track?.mediaStreamTrack
+      if (t && t.readyState === 'live' && h.setInputTrack?.(t)) {
+        try { if (audioEl.current) { audioEl.current.srcObject = new MediaStream([t]); audioEl.current.play().catch(() => {}) } } catch { /* fine */ }
+      }
+    }, 2000)
+    return () => clearInterval(iv)
+  }, [ctx])
 
   const start = async () => {
     setErr('')
@@ -79,6 +94,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
         on: { status: setStatus, transcript: setEntries, error: setErr },
       })
       live.current = h
+      presenterId.current = presenter.identity
       // The homeowner's own seat in the meeting, so everyone sees a tile and hears the voice.
       const tok = await post('meet', { action: 'homeowner_token', room: roomSlug, pin, name: persona.speaker })
       if (!tok.ok) throw new Error(tok.error || 'No seat for the homeowner')
