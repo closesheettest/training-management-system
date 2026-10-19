@@ -14,7 +14,7 @@
 import { Component, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
-  LiveKitRoom, PreJoin, GridLayout, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
+  LiveKitRoom, PreJoin, CarouselLayout, FocusLayout, FocusLayoutContainer, ParticipantTile,
   ControlBar, Chat, RoomAudioRenderer, TrackToggle, MediaDeviceMenu, ChatToggle, DisconnectButton, StartMediaButton, ChatIcon, LeaveIcon, LayoutContextProvider, ConnectionStateToast, VideoTrack,
   useTracks, useRoomInfo, useSpeakingParticipants, useParticipants, useLocalParticipant, useCreateLayoutContext, isTrackReference, useRoomContext,
 } from '@livekit/components-react'
@@ -1006,7 +1006,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
                 return audience.length ? <FocusLayoutContainer style={{ height: '100%' }}><CarouselLayout tracks={audience}><ParticipantTile /></CarouselLayout><div style={{ position: 'relative', height: '100%', width: '100%' }}>{stageView}</div></FocusLayoutContainer> : stageView
               })()
             ) : !focus ? (
-              narrow && gridTracks.length <= 12 ? <PhoneGallery tracks={gridTracks} /> : <GridLayout tracks={gridTracks} style={{ height: '100%' }}><ParticipantTile /></GridLayout>
+              narrow && gridTracks.length <= 12 ? <PhoneGallery tracks={gridTracks} /> : <OneScreenGallery tracks={gridTracks} />
             ) : (
               (() => {
                 const main = shareCamOk ? (
@@ -1222,6 +1222,37 @@ function Rsvp({ door, slug, who, nextAt, L, big, hTitle, onJoin }) {
         ? <button onClick={onJoin} style={{ ...big, width: '100%', marginTop: 14, background: '#2563eb', fontSize: 20 }}>▶ Join the meeting</button>
         : <button disabled style={{ ...big, width: '100%', marginTop: 14, background: '#334155', color: '#cbd5e1', cursor: 'default' }}>▶ Join opens at {opensTxt}</button>}
       <div style={{ marginTop: 10, fontSize: 13, color: L.muted }}>{isOpen ? 'Tap Join to go in.' : `Keep this page open (the Join button turns on at ${opensTxt}), or open the link from your text again then.`}</div>
+    </div>
+  )
+}
+
+// ▦ GALLERY = EVERYONE ON ONE SCREEN (Neal, 2026-10-19: "in gallery mode everyone should show up in one screen").
+// LiveKit's GridLayout pages once a meeting passes ~16 people. This fits every tile into the space: it tries each
+// column count and keeps the one that gives the biggest 16:9 tiles. No pages, no arrows; tiles just get smaller.
+function OneScreenGallery({ tracks }) {
+  const box = useRef(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const el = box.current; if (!el) return
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el); return () => ro.disconnect()
+  }, [])
+  const n = Math.max(1, tracks.length), gap = 6
+  let best = { cols: 1, w: 0, h: 0 }
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols)
+    let w = (size.w - gap * (cols + 1)) / cols, h = w * 9 / 16
+    const maxH = (size.h - gap * (rows + 1)) / rows
+    if (h > maxH) { h = maxH; w = h * 16 / 9 }
+    if (w > best.w) best = { cols, w, h }
+  }
+  return (
+    <div ref={box} style={{ height: '100%', width: '100%', display: 'flex', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center', gap, padding: gap, boxSizing: 'border-box', overflow: 'hidden' }}>
+      {size.w > 0 && tracks.map((t) => (
+        <div key={`${t.participant.identity}:${t.source}`} style={{ width: Math.floor(best.w), height: Math.floor(best.h), position: 'relative', borderRadius: 8, overflow: 'hidden' }}>
+          <ParticipantTile trackRef={t} style={{ height: '100%', width: '100%' }} />
+        </div>
+      ))}
     </div>
   )
 }
