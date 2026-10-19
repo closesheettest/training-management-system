@@ -764,7 +764,13 @@ export const handler = async (event) => {
         tracks: (p.tracks || []).map((t) => ({ source: t.source, type: t.type, muted: t.muted, w: t.width, h: t.height })) }))
     } catch (e) { return json(200, { ok: false, error: e.message }) }
     const errs = ((await getSetting('meet_client_errors', [])) || []).filter((e) => !b.slug || e.room === b.slug).slice(0, 10)
-    return json(200, { ok: true, count: people.length, people, errors: errs })
+    // How a given person came in on given days (b.who = text in the seat id, b.days = ['YYYY-MM-DD']).
+    let joins = []
+    if (b.who && Array.isArray(b.days)) for (const d of b.days.slice(0, 7)) {
+      const { data } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${d}_%`).ilike('key', `%${String(b.who).replace(/[^a-z0-9]/gi, '')}%`).limit(50)
+      joins.push(...(data || []).map((r) => ({ key: r.key, value: typeof r.value === 'string' ? (() => { try { return JSON.parse(r.value) } catch { return r.value } })() : r.value })))
+    }
+    return json(200, { ok: true, count: people.length, people, errors: errs, joins })
   }
   if (b.action === 'client_error') {
     const list = (await getSetting('meet_client_errors', [])) || []
