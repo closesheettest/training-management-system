@@ -439,7 +439,9 @@ export const handler = async (event) => {
     }
     return [...new Set(names.filter(Boolean))]
   }
-  const isRoomHost = (room, t) => (room.host_ids || []).includes(t.id) || !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
+  // Neal and DeWayne always host the company meeting (Neal, 2026-10-19: DeWayne couldn't present: a name typed as host
+  // only counts if it matches his record exactly).
+  const isRoomHost = (room, t) => (room.kind === 'company' && LEADERS.some((l) => l.id === t.id)) || (room.host_ids || []).includes(t.id) || !!(room.zone && t.managed_region === room.zone) || alsoIds(room).includes(t.id) || (room.hosts || []).some((h) => h.toLowerCase() === fullName(t).toLowerCase())
 
   // Is a host in the room right now, and may non-hosts come in?
   // 👥 NO-HOST ROOM (Neal, 2026-10-06: "the 8 a.m. meeting, it's always just DeWayne and I … no host"):
@@ -785,7 +787,17 @@ export const handler = async (event) => {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
     if (!who.ok || !who.jnid) return json(401, { ok: false, error: 'Signed out' })
-    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('jobnimbus_id', who.jnid).maybeSingle()
+    const COLS = 'id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level'
+    let { data: t } = await sb.from('trainees').select(COLS).eq('jobnimbus_id', who.jnid).maybeSingle()
+    // No record under this JobNimbus id (Neal, 2026-10-19: William's dashboard showed no meetings, so the only Join he
+    // had was the general link, which can't let him in): find them by their sign-in name instead.
+    if (!t?.registration_token && who.name) {
+      const parts = String(who.name).trim().split(/\s+/)
+      if (parts.length > 1) {
+        const { data: byName } = await sb.from('trainees').select(COLS).ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`).not('registration_token', 'is', null).limit(5)
+        t = (byName || []).find((x) => x.managed_region) || (byName || []).find((x) => x.is_active_sales_rep) || (byName || [])[0] || t
+      }
+    }
     if (!t || !t.registration_token) return json(200, { ok: true, rooms: [] })
     const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
     const seeAll = await allAccess(t)
