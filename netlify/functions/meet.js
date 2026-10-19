@@ -1026,11 +1026,18 @@ export const handler = async (event) => {
   //   { action:'outbound_interview', secret, op:'create', name, phone, email, when:'YYYY-MM-DDTHH:MM', minutes }
   //   { …, op:'list' }  → upcoming interviews     { …, op:'cancel', slug }
   // 📨 SEND ONE PERSON THEIR OWN LINK (Neal, 2026-10-19: "send a company link to meeting to Joanie"). Claude, server-side:
-  //   { action:'send_one_link', secret, slug, trainee_id } → texts + emails that person their personal join link.
+  //   { action:'send_one_link', secret, slug, trainee_id | name } → texts + emails that person their personal join link.
   if (b.action === 'send_one_link') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
     const room = await findRoom(b.slug)
-    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(b.trainee_id || '')).maybeSingle()
+    const SEL = 'id, first_name, last_name, phone, email, company_email, registration_token, managed_region, is_active_sales_rep, created_at'
+    let t = null
+    if (b.trainee_id) t = (await sb.from('trainees').select(SEL).eq('id', String(b.trainee_id)).maybeSingle()).data
+    else if (b.name) {   // or by full name: the newest record that has a link
+      const parts = String(b.name).trim().split(/\s+/)
+      const { data } = await sb.from('trainees').select(SEL).ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`).not('registration_token', 'is', null).order('created_at', { ascending: false }).limit(5)
+      t = (data || [])[0] || null
+    }
     if (!room || !t?.registration_token) return json(404, { ok: false, error: !room ? 'no room' : 'no link for that person' })
     const link = `${SITE}/meet/${room.joins_room || room.slug}?t=${t.registration_token}`
     const msg = `Hi ${t.first_name || ''}, here's your link to join the ${room.title} now: ${link}`
