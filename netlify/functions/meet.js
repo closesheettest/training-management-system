@@ -1055,6 +1055,14 @@ export const handler = async (event) => {
   //   { …, op:'list' }  → upcoming interviews     { …, op:'cancel', slug }
   // 📨 SEND ONE PERSON THEIR OWN LINK (Neal, 2026-10-19: "send a company link to meeting to Joanie"). Claude, server-side:
   //   { action:'send_one_link', secret, slug, trainee_id | name } → texts + emails that person their personal join link.
+  // ✅ LET IN (Neal, 2026-10-19: "let them in"): Week B override for named trainees (week_b_force, the existing admin
+  // switch), so the effort / missed-day gates don't stop them. Claude, server-side: { action:'let_in', secret, trainee_ids }.
+  if (b.action === 'let_in') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const ids = (Array.isArray(b.trainee_ids) ? b.trainee_ids : []).map(String).slice(0, 20)
+    const { data, error } = await sb.from('trainees').update({ week_b_force: true }).in('id', ids).select('id, first_name, last_name')
+    return json(error ? 500 : 200, { ok: !error, error: error?.message, people: (data || []).map(fullName) })
+  }
   if (b.action === 'send_one_link') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
     const room = await findRoom(b.slug)
@@ -1068,7 +1076,7 @@ export const handler = async (event) => {
     }
     if (!room || !t?.registration_token) return json(404, { ok: false, error: !room ? 'no room' : 'no link for that person' })
     const link = `${SITE}/meet/${room.joins_room || room.slug}?t=${t.registration_token}`
-    const msg = `Hi ${t.first_name || ''}, here's your link to join the ${room.title} now: ${link}`
+    const msg = b.text ? `${String(b.text).replace('{first}', t.first_name || '').replace('{link}', link)}` : `Hi ${t.first_name || ''}, here's your link to join the ${room.title} now: ${link}`
     const [sms, email] = await Promise.all([
       t.phone ? sendSmsViaGhl(t.phone, msg, { firstName: t.first_name || 'Meeting', lastName: t.last_name || '' }) : { ok: false, error: 'no phone' },
       (t.company_email || t.email) ? sendEmail(t.company_email || t.email, `Join the ${room.title}`, msg) : { ok: false, error: 'no email' },
