@@ -770,7 +770,8 @@ export const handler = async (event) => {
       const { data } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${d}_%`).ilike('key', `%${String(b.who).replace(/[^a-z0-9]/gi, '')}%`).limit(50)
       joins.push(...(data || []).map((r) => ({ key: r.key, value: typeof r.value === 'string' ? (() => { try { return JSON.parse(r.value) } catch { return r.value } })() : r.value })))
     }
-    return json(200, { ok: true, count: people.length, people, errors: errs, joins })
+    let meta = null; try { const rs = await svc().listRooms([String(b.slug || '')]); meta = rs[0]?.metadata ? JSON.parse(rs[0].metadata) : null } catch { /* closed */ }
+    return json(200, { ok: true, count: people.length, people, errors: errs, joins, meta })
   }
   if (b.action === 'client_error') {
     const list = (await getSetting('meet_client_errors', [])) || []
