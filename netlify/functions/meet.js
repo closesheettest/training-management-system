@@ -1924,7 +1924,9 @@ export const handler = async (event) => {
         // room come in alongside the trainees — none of the trainee-only checks apply to them.
         const retrainee = room.kind === 'training' && (await loadRooms()).some((r) => r.kind === 'retraining' && r.joins_room === room.slug && (r.invitees || []).some((x) => x.id === t.id))
         isRetrainee = retrainee
-        if (room.kind === 'training' && !host && !retrainee) {
+        // William (field trainer) and anyone on meet_all_access walk into any class, so none of the trainee checks
+        // (missed day, effort, paperwork, lock) apply to him (Neal, 2026-10-19: "please let William in").
+        if (room.kind === 'training' && !host && !retrainee && !(await allAccess(t))) {
           // MISSED A DAY = OUT (Neal, 2026-10-04): if the class met on its last day before today
           // (someone in the class signed in) and this trainee didn't, their link stops working.
           // Their own week_b_force flag (the existing admin override) lets them back in.
