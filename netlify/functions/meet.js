@@ -770,8 +770,17 @@ export const handler = async (event) => {
       const { data } = await sb.from('app_settings').select('key, value').like('key', `meet_att_${d}_%`).ilike('key', `%${String(b.who).replace(/[^a-z0-9]/gi, '')}%`).limit(50)
       joins.push(...(data || []).map((r) => ({ key: r.key, value: typeof r.value === 'string' ? (() => { try { return JSON.parse(r.value) } catch { return r.value } })() : r.value })))
     }
+    // What a join would answer for one person, without handing out the token: { as_trainee_id, join_slug }.
+    let as = null
+    if (b.as_trainee_id && b.join_slug) {
+      const { data: tt } = await sb.from('trainees').select('registration_token').eq('id', String(b.as_trainee_id)).maybeSingle()
+      if (tt?.registration_token) {
+        const r = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'join', room: String(b.join_slug), slug: String(b.join_slug), t: tt.registration_token, _direct: true }) })).body || '{}')
+        delete r.token; delete r.url; as = r
+      }
+    }
     let meta = null; try { const rs = await svc().listRooms([String(b.slug || '')]); meta = rs[0]?.metadata ? JSON.parse(rs[0].metadata) : null } catch { /* closed */ }
-    return json(200, { ok: true, count: people.length, people, errors: errs, joins, meta })
+    return json(200, { ok: true, count: people.length, people, errors: errs, joins, meta, as })
   }
   if (b.action === 'client_error') {
     const list = (await getSetting('meet_client_errors', [])) || []
