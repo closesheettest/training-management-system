@@ -38,13 +38,15 @@ export const DRAW_PROGRAM = [
   { p: 'Resign or released from the company and 100% of commissions are held until all draws are repaid.' },
 ]
 
+// "roofs inspected", not "inspections" (Neal, 2026-10-19: "it's roofs inspected, 10, not sign-ups"). Same pay. Only
+// people who sign from now on see this wording; earlier signers keep the PDF they signed.
 export const INSPECTION_COMP = [
   { h: 'Inspection Compensation Plan' },
   { p: 'The dollar amounts are based on inspections that were completed in any given work week (Monday through Sunday) and not on inspections written.' },
-  { li: '0 to 4 Inspections = Zero Commission' },
-  { li: '5 to 9 Inspections = $50 per inspection' },
-  { li: '10 inspections = $1000' },
-  { li: 'No additional commissions after 10' },
+  { li: '0 to 4 roofs inspected = Zero Commission' },
+  { li: '5 to 9 roofs inspected = $50 per inspection' },
+  { li: '10 roofs inspected = $1000' },
+  { li: 'No additional commissions after 10 roofs inspected' },
   { p: 'You should write more than 10 in case you lose some to people who change their minds.' },
   { h2: 'Back To-Public Adjuster (BT-PA)' },
   { p: 'Each Storm Damaged roof that is setup with the Public Adjuster and a claim is filed receives $50' },
