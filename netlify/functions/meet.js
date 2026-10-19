@@ -762,7 +762,7 @@ export const handler = async (event) => {
     try {
       people = (await svc().listParticipants(String(b.slug || ''))).map((p) => ({ name: p.name, identity: p.identity, joined: Number(p.joinedAt) ? new Date(Number(p.joinedAt) * 1000).toISOString() : null,
         tracks: (p.tracks || []).map((t) => ({ source: t.source, type: t.type, muted: t.muted, w: t.width, h: t.height })) }))
-    } catch (e) { return json(200, { ok: false, error: e.message }) }
+    } catch { people = [] }   // room not open right now
     const errs = ((await getSetting('meet_client_errors', [])) || []).filter((e) => !b.slug || e.room === b.slug).slice(0, 10)
     // How a given person came in on given days (b.who = text in the seat id, b.days = ['YYYY-MM-DD']).
     let joins = []
