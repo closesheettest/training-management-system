@@ -779,8 +779,11 @@ export const handler = async (event) => {
         delete r.token; delete r.url; as = r
       }
     }
+    // Who's on a room's list (as "Send links" sees them), without their links: { audience_slug }.
+    let audience = null
+    if (b.audience_slug) audience = (await audienceFor(String(b.audience_slug))).map((p) => ({ id: p.id, name: p.name, phone: p.phone ? String(p.phone).replace(/\D/g, '').slice(-4) : null, host: !!p.host }))
     let meta = null; try { const rs = await svc().listRooms([String(b.slug || '')]); meta = rs[0]?.metadata ? JSON.parse(rs[0].metadata) : null } catch { /* closed */ }
-    return json(200, { ok: true, count: people.length, people, errors: errs, joins, meta, as })
+    return json(200, { ok: true, count: people.length, people, errors: errs, joins, meta, as, audience })
   }
   if (b.action === 'client_error') {
     const list = (await getSetting('meet_client_errors', [])) || []
