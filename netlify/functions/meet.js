@@ -754,6 +754,18 @@ export const handler = async (event) => {
   }
 
   // A meeting screen crashed (MeetErrorBoundary): keep the last 30 so the cause can be found.
+  // 🩺 LIVE CHECK (Neal, 2026-10-19: "check why DeWayne's camera went out, we are in the middle of the meeting"). Claude:
+  //   { action:'live_diag', secret, slug } → everyone in the room, their camera/mic/screen tracks, + recent page errors.
+  if (b.action === 'live_diag') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    let people = []
+    try {
+      people = (await svc().listParticipants(String(b.slug || ''))).map((p) => ({ name: p.name, identity: p.identity, joined: Number(p.joinedAt) ? new Date(Number(p.joinedAt) * 1000).toISOString() : null,
+        tracks: (p.tracks || []).map((t) => ({ source: t.source, type: t.type, muted: t.muted, w: t.width, h: t.height })) }))
+    } catch (e) { return json(200, { ok: false, error: e.message }) }
+    const errs = ((await getSetting('meet_client_errors', [])) || []).filter((e) => !b.slug || e.room === b.slug).slice(0, 10)
+    return json(200, { ok: true, count: people.length, people, errors: errs })
+  }
   if (b.action === 'client_error') {
     const list = (await getSetting('meet_client_errors', [])) || []
     list.unshift({ at: new Date().toISOString(), room: String(b.room || '').slice(0, 60), message: String(b.message || '').slice(0, 500), stack: String(b.stack || '').slice(0, 1500), where: String(b.where || '').slice(0, 1500), ua: String(b.ua || '').slice(0, 200) })
