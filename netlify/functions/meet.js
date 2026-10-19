@@ -1076,6 +1076,8 @@ export const handler = async (event) => {
     }
     if (!room || !t?.registration_token) return json(404, { ok: false, error: !room ? 'no room' : 'no link for that person' })
     const link = `${SITE}/meet/${room.joins_room || room.slug}?t=${t.registration_token}`
+    // just_link: hand the link back for Neal to send from his own phone (a text that never arrives, 2026-10-19).
+    if (b.just_link) return json(200, { ok: true, name: fullName(t), link, phone: t.phone || null, email: t.company_email || t.email || null })
     const msg = b.text ? `${String(b.text).replace('{first}', t.first_name || '').replace('{link}', link)}` : `Hi ${t.first_name || ''}, here's your link to join the ${room.title} now: ${link}`
     const [sms, email] = await Promise.all([
       t.phone ? sendSmsViaGhl(t.phone, msg, { firstName: t.first_name || 'Meeting', lastName: t.last_name || '' }) : { ok: false, error: 'no phone' },
