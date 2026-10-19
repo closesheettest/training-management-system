@@ -1059,8 +1059,9 @@ export const handler = async (event) => {
   // switch), so the effort / missed-day gates don't stop them. Claude, server-side: { action:'let_in', secret, trainee_ids }.
   if (b.action === 'let_in') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    if (b.day_pass_slug) { await putSetting(`meet_daypass_${String(b.day_pass_slug)}_${etDay()}`, true); return json(200, { ok: true, day_pass: String(b.day_pass_slug), day: etDay() }) }
     const ids = (Array.isArray(b.trainee_ids) ? b.trainee_ids : []).map(String).slice(0, 20)
-    const { data, error } = await sb.from('trainees').update({ week_b_force: true }).in('id', ids).select('id, first_name, last_name')
+    const { data, error } = await sb.from('trainees').update({ week_b_force: b.undo ? false : true }).in('id', ids).select('id, first_name, last_name')
     return json(error ? 500 : 200, { ok: !error, error: error?.message, people: (data || []).map(fullName) })
   }
   if (b.action === 'send_one_link') {
@@ -1930,7 +1931,11 @@ export const handler = async (event) => {
           const { data: me } = await sb.from('trainees').select('class_id, enrolled, dropped_out_at, declined_at, week_b_force').eq('id', t.id).maybeSingle()
           const outMsg = "We wish you the best, but attendance is important for success. You didn't show up yesterday. So good luck in your future endeavors."
           if (me && (me.enrolled === false || me.dropped_out_at || me.declined_at) && !me.week_b_force) return json(200, { ok: false, removed: true, message: outMsg })
-          if (me?.class_id && !me.week_b_force) {
+          // TODAY-ONLY PASS (Neal, 2026-10-19: "all the people from Week A … I need them to be able to get in" for an 11 AM
+          // talk; no Week B this week, they get this week to show the effort). app_settings meet_daypass_<room>_<day> = true
+          // lets everyone in that class in TODAY, skipping the missed-day and effort gates. Back to normal tomorrow by itself.
+          const dayPass = !!(await getSetting(`meet_daypass_${room.slug}_${etDay()}`, false))
+          if (me?.class_id && !me.week_b_force && !dayPass) {
             const { data: last } = await sb.from('attendance').select('attendance_date').eq('class_id', me.class_id).lt('attendance_date', etDay()).order('attendance_date', { ascending: false }).limit(1)
             const lastDay = last?.[0]?.attendance_date
             if (lastDay) {
@@ -1941,7 +1946,7 @@ export const handler = async (event) => {
           // SHOW THE EFFORT (Neal, 2026-10-04): Week B only for trainees who averaged 30 doors a day on
           // DoorDispatcher over Week A's field days (Thu–Sat). Short of it → a second chance: average
           // 30 a day Mon–Fri this week and the Saturday job enrolls them in next week's Week B.
-          if (room.effort_gate && room.training_week === 'B' && me?.class_id && !me.week_b_force) {
+          if (room.effort_gate && room.training_week === 'B' && me?.class_id && !me.week_b_force && !dayPass) {
             const { data: cl } = await sb.from('classes').select('week_start_date').eq('id', me.class_id).maybeSingle()
             const { data: full } = await sb.from('trainees').select('id, first_name, last_name, phone').eq('id', t.id).maybeSingle()
             if (cl?.week_start_date && full) {
