@@ -802,9 +802,14 @@ export const handler = async (event) => {
     // Managers Meeting, a company meeting, a one-off or invite meeting. Daily rooms don't.
     for (const r of mine) if (['managers', 'company', 'oneoff', 'custom', 'retraining'].includes(r.kind) && dayOf(r) === today) openOf[r.slug] = { ...openOf[r.slug], today: true }
     const company = mine.find((r) => r.kind === 'company' && dayOf(r) === today)
+    // Only meetings that OVERLAP the company meeting's time are greyed (Neal, 2026-10-19: the 8 AM morning meeting
+    // was greyed out though it ends before the 9:30 company meeting).
+    const span = (r) => { const nm = hasSchedule(r) ? nextAfterDone(r, openOf[r.slug]?.live) : null; if (!nm) return null; const st = nm.start.getTime(); return [st, st + (Number(r.minutes) || 60) * 60e3] }
+    const cSpan = company ? span(company) : null
+    const clashes = (r) => { const x = span(r); return !!(x && cSpan && x[0] < cSpan[1] && cSpan[0] < x[1]) }
     if (company) for (const r of mine) {
       if (r === company) openOf[r.slug] = { ...openOf[r.slug], today: true }
-      else if (r.kind !== 'prayer' && dayOf(r) === today && !openOf[r.slug].live) openOf[r.slug] = { ...openOf[r.slug], instead: company.title }
+      else if (r.kind !== 'prayer' && dayOf(r) === today && !openOf[r.slug].live && clashes(r)) openOf[r.slug] = { ...openOf[r.slug], instead: company.title, today: false }
     }
     return json(200, {
       ok: true,
@@ -845,6 +850,14 @@ export const handler = async (event) => {
       const pr = publicRoom(r), st = await openState(r), nm = hasSchedule(r) ? nextAfterDone(r, st.live) : null
       return { ...pr, ...st, next_at: nm ? nm.start.toISOString() : null, today: !!nm && etDay(nm.start.getTime()) === today, badge: pr.badge ? `${SITE}${pr.badge}` : null, link: linkFor({ ...r, slug: r.joins_room || r.slug }, t) }
     }))
+    // COMPANY MEETING DAY on the hosts' / managers' lists too (Neal, 2026-10-19: My Tools still flashed the 9:30 Morning
+    // Sales Trainings): a zone meeting that overlaps today's company meeting is greyed ("Company Meeting today instead").
+    // Training classes, devotionals and anything not clashing in time stay as they are.
+    const comp = rows.find((x) => x.kind === 'company' && x.today && x.next_at)
+    if (comp) {
+      const cS = Date.parse(comp.next_at), cE = cS + (Number(comp.minutes) || 60) * 60e3
+      for (const x of rows) if (x !== comp && x.kind === 'zone' && x.today && !x.live && x.next_at) { const s0 = Date.parse(x.next_at), e0 = s0 + (Number(x.minutes) || 60) * 60e3; if (s0 < cE && cS < e0) { x.today = false; x.instead = comp.title } }
+    }
     rows.sort((a, c) => (c.live - a.live) || ((a.next_at ? Date.parse(a.next_at) : 9e15) - (c.next_at ? Date.parse(c.next_at) : 9e15)))
     return rows
   }
@@ -867,7 +880,7 @@ export const handler = async (event) => {
     if (parts.length < 2) return json(200, { ok: true, rooms: [] })
     const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', `${parts[parts.length - 1]}%`)
     const rows = await roomsForPerson(ts, name, (r) => `${SITE}/meet/${r.slug}`)
-    return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today).map(({ slug, title, live, open, today, next_at, topic, badge, kind, host_names }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, link: `${SITE}/meet/${slug}` })) })
+    return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today || r.instead).map(({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, instead }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, instead: instead || null, link: `${SITE}/meet/${slug}` })) })
   }
   if (b.action === 'mine_by_mgr_token') {
     const tok = String(b.token || '').trim()
