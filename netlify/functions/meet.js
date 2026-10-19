@@ -773,6 +773,14 @@ export const handler = async (event) => {
     return json(200, { ok: true, busy: names.sort() })
   }
 
+  // ALL-MEETINGS PEOPLE (Neal, 2026-10-19): William (field trainer) rides with reps in every area and joins that team's
+  // meeting to plan, plus the company meeting, but he has no zone, so his dashboard showed nothing to join. People named
+  // in app_settings meet_all_access (default: William Hernandez) see every team, company, everyone and prayer room.
+  const allAccess = async (t) => {
+    const names = (await getSetting('meet_all_access', null)) || ['William Hernandez']
+    const me = fullName(t).trim().toLowerCase()
+    return !!me && names.some((n) => String(n).trim().toLowerCase() === me)
+  }
   if (b.action === 'my_rooms') {
     const who = await fetch(REP_PIN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'whoami', session: String(b.session || '') }) })
       .then((r) => r.json()).catch(() => ({}))
@@ -780,6 +788,7 @@ export const handler = async (event) => {
     const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('jobnimbus_id', who.jnid).maybeSingle()
     if (!t || !t.registration_token) return json(200, { ok: true, rooms: [] })
     const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
+    const seeAll = await allAccess(t)
     // 📞 Calls never show on dashboards (Neal, 2026-10-05: the Nikki call kept flashing after it ended) —
     // they happen through the texted link.
     const mine = (await loadRooms()).filter((r) => !r.call).filter((r) =>
@@ -790,7 +799,8 @@ export const handler = async (event) => {
       isRoomHost(r, t) ||
       (r.kind === 'zone' && (t.region === r.zone || t.managed_region === r.zone) && (active || t.managed_region)) ||
       (r.kind === 'managers' && t.managed_region) ||
-      ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)))
+      ((r.kind === 'everyone' || r.kind === 'prayer' || r.kind === 'company') && (active || t.managed_region)) ||
+      (seeAll && ['zone', 'everyone', 'prayer', 'company'].includes(r.kind)))
       .filter(notEmptyRetraining)
     const openOf = Object.fromEntries(await Promise.all(mine.map(async (r) => [r.slug, await openState(r)])))
     // COMPANY MEETING DAY (Neal, 2026-10-04): on a day with a company meeting, the rep's regular
@@ -833,12 +843,14 @@ export const handler = async (event) => {
     const ids = new Set((ts || []).map((x) => x.id))
     const t = (ts || []).find((x) => x.managed_region) || (ts || []).find((x) => x.is_active_sales_rep) || (ts || [])[0] || null
     const nm0 = String(name || '').trim().toLowerCase()
+    const seeAll = t ? await allAccess(t) : false
     const named = (r) => !!nm0 && (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
     const mine = (await loadRooms()).filter((r) => !r.call).filter((r) => {
       if (alsoIds(r).some((id) => ids.has(id))) return true
       if (INVITE_KINDS.includes(r.kind)) return (r.invitees || []).some((x) => (x.id && ids.has(x.id)) || (!x.id && nm0 && String(x.name || '').trim().toLowerCase() === nm0)) || named(r)
       if (named(r)) return true
       if (!t) return false
+      if (seeAll && ['zone', 'everyone', 'prayer', 'company'].includes(r.kind)) return true
       const active = t.is_active_sales_rep === true && t.rep_level !== 'non_field'
       if (r.kind === 'zone') return (t.region === r.zone || t.managed_region === r.zone) && (active || !!t.managed_region)
       if (r.kind === 'managers') return !!t.managed_region
