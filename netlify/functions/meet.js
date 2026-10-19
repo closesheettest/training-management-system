@@ -1025,6 +1025,21 @@ export const handler = async (event) => {
   // gets their link by text + email now, and the usual 5-minute reminder (remind_5).
   //   { action:'outbound_interview', secret, op:'create', name, phone, email, when:'YYYY-MM-DDTHH:MM', minutes }
   //   { …, op:'list' }  → upcoming interviews     { …, op:'cancel', slug }
+  // 📨 SEND ONE PERSON THEIR OWN LINK (Neal, 2026-10-19: "send a company link to meeting to Joanie"). Claude, server-side:
+  //   { action:'send_one_link', secret, slug, trainee_id } → texts + emails that person their personal join link.
+  if (b.action === 'send_one_link') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const room = await findRoom(b.slug)
+    const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(b.trainee_id || '')).maybeSingle()
+    if (!room || !t?.registration_token) return json(404, { ok: false, error: !room ? 'no room' : 'no link for that person' })
+    const link = `${SITE}/meet/${room.joins_room || room.slug}?t=${t.registration_token}`
+    const msg = `Hi ${t.first_name || ''}, here's your link to join the ${room.title} now: ${link}`
+    const [sms, email] = await Promise.all([
+      t.phone ? sendSmsViaGhl(t.phone, msg, { firstName: t.first_name || 'Meeting', lastName: t.last_name || '' }) : { ok: false, error: 'no phone' },
+      (t.company_email || t.email) ? sendEmail(t.company_email || t.email, `Join the ${room.title}`, msg) : { ok: false, error: 'no email' },
+    ])
+    return json(200, { ok: true, name: fullName(t), sms: !!sms?.ok, email: !!email?.ok, sms_error: sms?.ok ? null : sms?.error, email_error: email?.ok ? null : email?.error })
+  }
   if (b.action === 'outbound_interview') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
     // WHO'S INTERVIEWING (Neal, 2026-10-16: Brent Davidson, "our hiring person" — "schedule an interview through the
