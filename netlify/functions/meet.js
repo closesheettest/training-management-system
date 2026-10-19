@@ -1060,6 +1060,15 @@ export const handler = async (event) => {
   //   { action:'send_one_link', secret, slug, trainee_id | name } → texts + emails that person their personal join link.
   // ✅ LET IN (Neal, 2026-10-19: "let them in"): Week B override for named trainees (week_b_force, the existing admin
   // switch), so the effort / missed-day gates don't stop them. Claude, server-side: { action:'let_in', secret, trainee_ids }.
+  // 🚪 DROPOUT (Neal, 2026-10-19: "deactivate everyone else from last week"). Exactly what ClassDetail's "Mark as dropout"
+  // writes (reversible there with Re-enroll). Claude, server-side: { action:'dropout', secret, trainee_ids, reason }.
+  if (b.action === 'dropout') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const ids = (Array.isArray(b.trainee_ids) ? b.trainee_ids : []).map(String).slice(0, 20), now = new Date().toISOString(), reason = String(b.reason || '').trim() || null
+    const { data, error } = await sb.from('trainees').update({ dropped_out_at: now, dropped_out_reason: reason, enrolled: false, unenrolled_at: now,
+      unenrolled_reason: reason ? `Dropout: ${reason}` : 'Dropout', is_active_sales_rep: false, is_field_trainee: false }).in('id', ids).select('id, first_name, last_name')
+    return json(error ? 500 : 200, { ok: !error, error: error?.message, people: (data || []).map(fullName) })
+  }
   if (b.action === 'let_in') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
     if (b.day_pass_slug) { await putSetting(`meet_daypass_${String(b.day_pass_slug)}_${etDay()}`, true); return json(200, { ok: true, day_pass: String(b.day_pass_slug), day: etDay() }) }
