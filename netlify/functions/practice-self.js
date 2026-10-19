@@ -11,6 +11,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import { json } from './_practice-auth.js'
+import { capAlert } from './_practice-cap-alert.js'
 import { PERSONAS } from '../../src/lib/salesPractice.js'
 
 const CCG = 'https://free-roof-inspections.netlify.app/.netlify/functions'
@@ -65,6 +66,7 @@ export const handler = async (event) => {
     .gte('created_at', weekStartIso()).filter('report->invite->>self', 'eq', 'true')
   const spent = Math.round((wk || []).reduce((n, r) => n + (Number(r.report?.cost) || 0), 0) * 100) / 100
   const open = spent < WEEK_CAP
+  if (!open) await capAlert(sb, { spent, cap: WEEK_CAP, weekStart: weekStartIso() }).catch(() => {})   // tells Neal once a week
 
   const SLIDES = await slideList(sb)
   if (body.action === 'status') return json(200, { ok: true, name: name || null, open, spent, cap: WEEK_CAP, slides: SLIDES, levels: LEVELS })
