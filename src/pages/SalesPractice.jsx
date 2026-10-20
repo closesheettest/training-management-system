@@ -716,7 +716,21 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
           <h1 className="text-2xl font-bold text-brand-navy">{s.trainee_name} → {p.tagline}</h1>
           {s.trainer_name && <div className="text-xs text-slate-500">Run by {s.trainer_name}{r.cost != null ? ` · cost $${Number(r.cost).toFixed(2)}` : ''}</div>}
         </div>
-        {s.grade_status === 'done' && <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>}
+        {/* TWO GRADES (Neal, 2026-10-20): Presentation decides pass/fail; Skills is what to practice. Older runs keep one score. */}
+        {s.grade_status === 'done' && (r.points_score != null ? (
+          <div className="flex items-end gap-5">
+            <div className="text-center">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Presentation</div>
+              <div className={`text-5xl font-black ${scoreColor(r.points_score)}`}>{r.points_score}%</div>
+              <div className={`text-xs font-black ${r.passed ? 'text-emerald-600' : 'text-rose-600'}`}>{r.passed ? `✓ PASS (${r.pass_line}%+)` : `Not yet (needs ${r.pass_line}%)`}</div>
+            </div>
+            {r.skills_score != null && <div className="text-center">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Skills to practice</div>
+              <div className={`text-3xl font-black ${scoreColor(r.skills_score)}`}>{r.skills_score}%</div>
+              <div className="text-xs text-slate-500">control · objections</div>
+            </div>}
+          </div>
+        ) : <div className={`text-6xl font-black ${scoreColor(s.score)}`}>{s.score}</div>)}
       </div>
       {s.grade_status === 'done' && audioLoad && (
         <PracticeAudio key={`au-${id}-${nonce}`} tone="navy" fileName={`${String(s.trainee_name || "Practice").replace(/[^A-Za-z0-9]+/g, "-")}-coaching-plan`} title="Listen: the coaching plan" sub="About a minute — the one thing to work on, what to assign, what to watch on a ride-along."

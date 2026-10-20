@@ -466,6 +466,19 @@ Score = roughly HALF how well the points landed, HALF who controlled the convers
     const score = Math.max(0, Math.min(100, Math.round(Number(report.score) || 0)))
     if (notReached) report.not_reached = notReached
     report.questions = questions
+    // TWO GRADES (Neal, 2026-10-20: "if they know the points, if they're putting the points out on the slides, then they
+    // pass. The other stuff they learn, they have to practice"). PRESENTATION = the slide points, plain math from each
+    // part's 0–10 (only parts the rep actually spoke on). SKILLS = control of the conversation (0–10 → %), shown as
+    // practice, never blocks. Passing line: app_settings practice_pass_grade (default 80).
+    {
+      const parts = (report.parts || []).filter((x) => Number.isFinite(Number(x.score)))
+      report.points_score = parts.length ? Math.round((parts.reduce((n, x) => n + Number(x.score), 0) / (parts.length * 10)) * 100) : null
+      report.skills_score = Number.isFinite(Number(report.control?.score)) ? Math.round(Number(report.control.score) * 10) : null
+      const { data: pg } = await sb.from('app_settings').select('value').eq('key', 'practice_pass_grade').maybeSingle()
+      const line = Number(typeof pg?.value === 'string' ? JSON.parse(pg.value) : pg?.value) || 80
+      report.pass_line = line
+      report.passed = report.points_score != null ? report.points_score >= line : null
+    }
     await sb.from('sales_practice_sessions').update({ grade_status: 'done', grade_error: null, score, report: withCost(report, row.report) }).eq('id', body.id)
     await makeAudio(body.id)
   } catch (e) {
