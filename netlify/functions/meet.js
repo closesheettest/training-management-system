@@ -1069,6 +1069,22 @@ export const handler = async (event) => {
       unenrolled_reason: reason ? `Dropout: ${reason}` : 'Dropout', is_active_sales_rep: false, is_field_trainee: false }).in('id', ids).select('id, first_name, last_name')
     return json(error ? 500 : 200, { ok: !error, error: error?.message, people: (data || []).map(fullName) })
   }
+  // 📇 WHO IS THIS? (Neal, 2026-10-20: Zilla's interview names someone the CCG directory doesn't have, "or in our system,
+  // TMS, we have areas where the telephone numbers are"). Claude/CCG, server-side: { action:'staff_lookup', secret, name }
+  // → people in TMS with that name who are still with us (reps, managers, office notification list), phone/email presence.
+  if (b.action === 'staff_lookup') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const parts = String(b.name || '').trim().split(/\s+/).filter(Boolean)
+    if (!parts.length) return json(200, { ok: true, people: [] })
+    let q = sb.from('trainees').select('first_name, last_name, phone, email, company_email, is_active_sales_rep, managed_region, dropped_out_at, left_company_at, enrolled').ilike('first_name', `${parts[0]}%`)
+    if (parts.length > 1) q = q.ilike('last_name', `${parts[parts.length - 1]}%`)
+    const { data: ts } = await q.limit(20)
+    const { data: nr } = await sb.from('notification_recipients').select('name, phone, email, role, active').eq('active', true).ilike('name', `${parts[0]}%`).limit(20)
+    const out = new Map()
+    for (const t of (ts || []).filter((t) => !t.dropped_out_at && !t.left_company_at && (t.is_active_sales_rep || t.managed_region))) out.set(fullName(t).toLowerCase(), { name: fullName(t), phone: t.phone || null, email: t.company_email || t.email || null, role: t.managed_region ? 'manager' : 'rep' })
+    for (const r of (nr || []).filter((r) => parts.length < 2 || String(r.name || '').toLowerCase().includes(parts[parts.length - 1].toLowerCase()))) { const k = String(r.name || '').toLowerCase(); if (!out.has(k)) out.set(k, { name: r.name, phone: r.phone || null, email: r.email || null, role: r.role || 'office' }) }
+    return json(200, { ok: true, people: [...out.values()] })
+  }
   if (b.action === 'let_in') {
     if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
     if (b.day_pass_slug) { await putSetting(`meet_daypass_${String(b.day_pass_slug)}_${etDay()}`, true); return json(200, { ok: true, day_pass: String(b.day_pass_slug), day: etDay() }) }
