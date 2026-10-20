@@ -372,13 +372,20 @@ export const handler = async (event) => {
     const { data } = await sb.from('trainees').select('id, first_name, last_name, managed_region, region, class_id').eq('registration_token', String(t).trim()).maybeSingle()
     return data || null
   }
-  // Trainees in a class running now (or starting within 3 days), still enrolled.
+  // Trainees in a class running now, still enrolled, who have SIGNED IN to at least one training day of it
+  // (Neal, 2026-10-20: Gilles Marier got the Company Meeting link before his first class, then used that link for
+  // Monday's 2 PM training and sat in an empty room. "Why is somebody that hasn't even gone to training getting a
+  // link to a sales meeting?"). Enrolled isn't enough: only someone who has actually shown up counts.
   const traineeIdsNow = async () => {
     const today = etDay(), soon = etDay(Date.now() + 3 * 864e5)
-    const { data } = await sb.from('classes').select('id, attendance_only, cancelled_at, trainees!class_id(id, enrolled, dropped_out_at, declined_at)')
+    const { data } = await sb.from('classes').select('id, week_start_date, attendance_only, cancelled_at, trainees!class_id(id, enrolled, dropped_out_at, declined_at)')
       .lte('week_start_date', soon).gte('week_end_date', today)
-    const ids = new Set()
-    for (const c of data || []) if (!c.cancelled_at) for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) ids.add(t.id)
+    const startOf = {}
+    for (const c of data || []) if (!c.cancelled_at) for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) startOf[t.id] = c.week_start_date
+    const ids = new Set(), cand = Object.keys(startOf)
+    if (!cand.length) return ids
+    const { data: att } = await sb.from('attendance').select('trainee_id, attendance_date').in('trainee_id', cand)
+    for (const a of att || []) if (a.attendance_date >= startOf[a.trainee_id]) ids.add(a.trainee_id)
     return ids
   }
   // TRAINING CLASS rooms (Neal, 2026-10-04 — virtual Week A): the trainees of the class that is in
@@ -2053,7 +2060,17 @@ export const handler = async (event) => {
     // Not a host and no meeting on: say when the next one is instead of an empty room.
     let inLobby = null // ⏰ the devotional before it starts: early arrivals go to the lobby room instead of "not open"
     // test_lobby (?lobby=test on a link): straight into the lobby any time, to try it out (Neal, 2026-10-08).
-    if (!host) { const st = await openState(room); if (!st.open) { if (st.lobby || (st.on_time && b.test_lobby && st.starts_at)) inLobby = { starts_at: st.starts_at }; else { await mark('lobby'); return json(200, { ok: false, not_open: true, room: publicRoom(room) }) } } }
+    if (!host) { const st = await openState(room); if (!st.open) { if (st.lobby || (st.on_time && b.test_lobby && st.starts_at)) inLobby = { starts_at: st.starts_at }; else {
+      await mark('lobby')
+      // WRONG LINK FOR TRAINING (Neal, 2026-10-20, Gilles): a trainee who opens some other meeting's link when it's
+      // over gets a button straight into their own training room instead of an empty "no meeting" screen.
+      let training = null
+      if (identity.startsWith('t:') && room.kind !== 'training' && b.t) {
+        const tid = identity.slice(2), trs = (await loadRooms()).filter((r) => r.kind === 'training')
+        for (const w of ['A', 'B']) if (!training && (await trainingIds(w)).has(tid)) { const tr = trs.find((r) => r.training_week === w) || trs.find((r) => r.training_week === 'both'); if (tr) training = { title: tr.title, link: `/meet/${tr.slug}?t=${encodeURIComponent(String(b.t).trim())}` } }
+      }
+      return json(200, { ok: false, not_open: true, room: publicRoom(room), training })
+    } } }
     // 🔒 LOCKED BY THE HOST (Neal, 2026-10-07: "a button for the host that says do not allow anyone else in … if I'm the
     // host, I don't want anybody else coming in. The only way another host can come in is if I do it in the setup saying
     // there's more than one host"). Nobody new gets in — not even another manager or an admin with the PIN — except the

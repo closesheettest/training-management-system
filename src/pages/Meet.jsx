@@ -1352,7 +1352,7 @@ export default function Meet() {
     if (j.locked) { setLocked(j); return false }
     if (j.effort) { setEffort(j); return false }
     if (j.onboarding) { setLastBody(body); setGate({ first: j.first || '', url: j.onboarding_url || null, banking: !!j.banking }); return false }
-    if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null }); return false }
+    if (j.not_open) { setLastBody(body); setNotOpen({ next_at: j.room?.next_at || null, training: j.training || null }); return false }
     setErr(j.error || 'Could not join')
     if (body.pin) { try { sessionStorage.removeItem(PIN_KEY) } catch { /* ignore */ } setAuth(null) }
     return false
@@ -1586,6 +1586,7 @@ export default function Meet() {
           {(door?.host_names || []).length > 0 && <p style={{ color: L.text, marginTop: 4, fontSize: 15, fontWeight: 700 }}>👤 Hosted by {door.host_names.join(' & ')}</p>}
           {schedLine(door)}
         </>}
+        {notOpen.training && <a href={notOpen.training.link} style={{ display: 'block', marginTop: 14, padding: '16px 14px', borderRadius: 12, background: '#16a34a', color: '#fff', fontWeight: 800, fontSize: 18, textDecoration: 'none' }}>Here for training? Join {notOpen.training.title} →</a>}
         <div style={{ marginTop: 14, padding: '16px 14px', borderRadius: 12, background: L.card, border: `1px solid ${L.border}` }}>
           <div style={{ fontSize: L.light ? 22 : 17, fontWeight: L.light ? 600 : 800, fontFamily: L.light ? L.fontHead : 'inherit', color: L.head }}>There's no {door?.kind === 'company' ? 'company meeting' : door?.kind === 'prayer' ? 'live devotional' : 'meeting'} right now.</div>
           {when ? <div style={{ marginTop: 6, color: L.text, fontSize: 15.5 }}>The next one is <b style={{ color: L.head }}>{when}</b> (Eastern).<br />You can come in 15 minutes early.</div>
