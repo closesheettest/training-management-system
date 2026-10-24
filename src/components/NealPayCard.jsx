@@ -230,7 +230,7 @@ export default function NealPayCard() {
         try {
           const r2 = await fetch(LB_ORIGIN + 'all-manager-pay?weeks_back=' + weeksBackFor(latestMon))
           const d2 = await r2.json()
-          const g = Number(d2?.totals?.contract) || 0
+          const g = Number(d2?.company_totals?.contract ?? d2?.totals?.contract) || 0   // ALL company sales (Neal, 2026-10-24)
           if (g > 0) rows.push(rowFor(latestIso, g, { preliminary: true }))
         } catch { /* live fetch failed — just show the frozen weeks */ }
       }
@@ -275,7 +275,8 @@ export default function NealPayCard() {
   // and what the override was paid on; recomputing it today just re-reads JobNimbus
   // as it stands now, which drops every deal that has gone Lost since.
   const frozenRow = frozen[weekStart] || null
-  const liveGross = Number(data?.totals?.contract) || 0
+  // Neal's pay is on EVERY company sale, Internal Reps (office) included, not just the zones (Neal, 2026-10-24).
+  const liveGross = Number(data?.company_totals?.contract ?? data?.totals?.contract) || 0
   // A week that has ALREADY BEEN PAID keeps the figure it was paid on — you cannot
   // retroactively re-price a cheque that cleared, and the drift is surfaced below
   // instead. A week NOT yet paid values at CURRENT status, so a job that has gone
