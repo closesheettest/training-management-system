@@ -7,6 +7,7 @@
 // host pastes the verses from their Bible app, and the slide carries that translation's
 // required copyright line.
 import { VideoTrack } from '@livekit/components-react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 export const VERSIONS = [
   { key: 'NIV', label: 'NIV', auto: false, credit: 'Scripture quotations taken from The Holy Bible, New International Version® NIV®. Copyright © 1973, 1978, 1984, 2011 by Biblica, Inc.™ Used by permission. All rights reserved worldwide.' },
@@ -56,12 +57,32 @@ export function ScriptureSlide({ sc, look: L, camTrack }) {
   const shown = all ? sc.verses : [sc.verses[Math.min(sc.idx || 0, sc.verses.length - 1)]].filter(Boolean)
   const long = shown.reduce((t, x) => t + x.text.length, 0)
   const size = all ? (long > 900 ? 'clamp(16px, 2.1vw, 26px)' : long > 450 ? 'clamp(18px, 2.6vw, 32px)' : 'clamp(22px, 3.2vw, 40px)') : (long > 260 ? 'clamp(24px, 3.4vw, 44px)' : 'clamp(28px, 4.4vw, 58px)')
+  // SHRINK TO FIT (Neal + DeWayne, 2026-10-26: DeWayne couldn't read the devotional passage, it was cut off, and had to read
+  // from his Bible). A long passage on a short screen used to spill off the top and bottom with no way to scroll. Now the
+  // text steps down until the whole passage fits, and re-checks when the window changes size.
+  const box = useRef(null)
+  const [fit, setFit] = useState(1)
+  const key = `${sc.ref}|${sc.mode}|${sc.idx}|${long}`
+  useLayoutEffect(() => { setFit(1) }, [key])
+  useLayoutEffect(() => {
+    const el = box.current
+    if (el && el.scrollHeight > el.clientHeight + 1 && fit > 0.35) setFit((f) => Math.max(0.35, f * 0.9))
+  }, [fit, key])
+  // Window resized → start over from full size (only on a real size change, not the observer's first report).
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    let last = `${el.clientWidth}x${el.clientHeight}`
+    const ro = new ResizeObserver(() => { const now = `${el.clientWidth}x${el.clientHeight}`; if (now !== last) { last = now; setFit(1) } })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   return (
-    <div style={{ position: 'relative', height: '100%', width: '100%', background: '#000', color: '#fff', /* ALWAYS BLACK (Neal, 2026-10-07): the light look lit his face up like a key light */ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4% 22% 6% 7%', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div ref={box} style={{ position: 'relative', height: '100%', width: '100%', background: '#000', color: '#fff', /* ALWAYS BLACK (Neal, 2026-10-07): the light look lit his face up like a key light */ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4% 22% 6% 7%', boxSizing: 'border-box', overflow: 'hidden' }}>
       <div style={{ color: L.accent || '#fbbf24', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', fontSize: 'clamp(13px, 1.5vw, 20px)', marginBottom: '2.5%' }}>
         {sc.ref}{!all && sc.verses.length > 1 ? ` · verse ${shown[0]?.n ?? (sc.idx || 0) + 1}` : ''} · {v.key}
       </div>
-      <div style={{ fontFamily: L.fontHead && L.fontHead !== 'inherit' ? L.fontHead : "'Cormorant Garamond', Georgia, serif", fontSize: size, lineHeight: 1.35, fontWeight: 500, color: '#fff' }}>
+      <div style={{ fontFamily: L.fontHead && L.fontHead !== 'inherit' ? L.fontHead : "'Cormorant Garamond', Georgia, serif", fontSize: fit < 1 ? `calc(${size} * ${fit.toFixed(3)})` : size, lineHeight: 1.35, fontWeight: 500, color: '#fff' }}>
         {shown.map((x, i) => (
           <span key={i}>{x.n != null && (all || sc.verses.length > 1) ? <sup style={{ fontSize: '.5em', color: L.accent || '#fbbf24', marginRight: 4, fontWeight: 700 }}>{x.n}</sup> : null}{x.text}{' '}</span>
         ))}
