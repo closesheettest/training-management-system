@@ -320,7 +320,7 @@ export const DECK = [
   { page: 6, script: 'Slide 6', seen: 'Why replace your roof with us today: insurance savings, electric savings, material & labor price increases, supplier incentives.' },
   { page: 7, script: 'Slide 7', seen: 'Low Bid Price Match Guarantee: match a lower bid and refund 10% of the difference.' },
   { page: 8, script: 'Slide 8', seen: 'What can we offer: asphalt shingle, tile, metal (exposed fastener and standing seam) and more.' },
-  { page: 9, script: 'Slide 9', seen: 'Our installation process: permits, photos, jobsite foreman, dump trailers, full tear-off, peel-and-stick underlayment, rotted wood, cleanup, final walk-through.' },
+  { page: 9, script: 'Slide 9', seen: 'Our installation process: permits, photos, jobsite foreman, dump trailer or dumpster, full tear-off, peel-and-stick underlayment, rotted wood, cleanup, final walk-through.' },
   { page: 10, script: 'Slide 10', seen: 'Shingle color charts (GAF Timberline HDZ).' },
   { page: 11, script: 'Slide 11', seen: '“Wide variety of colors to choose from.”' },
   { page: 12, script: 'Slide 11', seen: 'Metal roof color chart with emissivity ratings.' },

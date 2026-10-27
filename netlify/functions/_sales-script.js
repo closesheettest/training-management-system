@@ -242,9 +242,9 @@ We will assign a Jobsite foreman to you and your home. He is there for EVERYTHIN
 install related. You will get his cell phone, and you can’t possibly call him to much. If you
 need anything at all, please call them 24/7 7 days a week. Their single job responsibility
 is to make sure you have the best possible experience!
-Unlike other companies we do not use dumpsters. They can seriously damage your
-driveway. We only use dump trailers which roll in on tires and roll away on tires leaving
-no chance of damaging your driveway.
+Based on your location and house we will either order a dump trailer or a dumpster.
+What’s important to know in either case to make sure you pull your cars out of the
+garage so they don’t get blocked in.
 We always strip the old shingles off. Yes, a roof over is permitted once by the building
 department but it voids the manufacture warranty, and it cuts the life of the shingle in
 half. We just will not do that kind of work for our customers. Do you want a warranty?
