@@ -1078,7 +1078,7 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
               </div>
             )}
             {bgPanel && <BackgroundPanel bg={bg} onClose={() => setBgPanel(false)} />}
-            {sharePanel && <SharePanel room={room} auth={isHost ? auth : null} onClose={() => setSharePanel(false)} />}
+            {sharePanel && <SharePanel room={room} auth={isHost ? auth : null} me={auth} onClose={() => setSharePanel(false)} />}
             {isHost && notesOpen && <NotesPrompter room={room} auth={auth} me={localParticipant?.name || ''} onClose={() => setNotesOpen(false)} />}
             {leftovers.length > 0 && (
               <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 75, background: '#7c2d12', color: '#fff', padding: '10px 14px', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.5)', fontSize: 14, fontWeight: 700 }}>
@@ -1812,7 +1812,7 @@ function LayoutPick({ layout, onLayout }) {
 // 🔗 SHARE MEETING (Neal, 2026-10-05: "just like Zoom has"): the room's link to copy and paste,
 // or send by text / email. A public room (the devotional) — anyone with it can join. A private room
 // — it's the door; team members still sign in with their own link or name.
-function SharePanel({ room, onClose, auth }) {
+function SharePanel({ room, onClose, auth, me }) {
   const link = `https://trainingmanagementsys.netlify.app/meet/${room.slug}`
   const [copied, setCopied] = useState(false)
   // Invite / call rooms: each invited person's OWN link (no sign-in, no PIN) — the plain room link only
@@ -1820,6 +1820,28 @@ function SharePanel({ room, onClose, auth }) {
   const [people, setPeople] = useState(null)
   const [copiedWho, setCopiedWho] = useState('')
   useEffect(() => { if (!room.public && auth) call({ action: 'share_links', room: room.slug, ...auth }).then((j) => setPeople(j?.ok ? j.people || [] : [])).catch(() => setPeople([])) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // ➕ A GUEST LINK for one named person (Anthony, 2026-10-29): copying your own link let others in AS you.
+  const [gName, setGName] = useState('')
+  const [gLink, setGLink] = useState(null)
+  const [gMsg, setGMsg] = useState('')
+  const makeGuest = async () => {
+    setGMsg(''); setGLink(null)
+    const j = await call({ action: 'guest_link', room: room.slug, name: gName, ...(me || {}) }).catch(() => null)
+    if (j?.ok) { setGLink(j); try { await navigator.clipboard.writeText(j.link) } catch { /* shown below to copy by hand */ } setGMsg('✓ Copied. Send it to them; it only works for them.') }
+    else setGMsg(j?.error || "Couldn't make the link. Try again.")
+  }
+  const guestBox = (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #374151' }}>
+      <div style={{ fontWeight: 800, marginBottom: 6 }}>➕ Invite a guest</div>
+      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Don't send your own link: it lets them in as you. Make a guest link instead.</div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input value={gName} onChange={(e) => setGName(e.target.value)} placeholder="Guest's name" style={{ flex: 1, padding: '7px 9px', borderRadius: 8, border: '1px solid #374151', background: '#0b1220', color: '#e5e7eb' }} />
+        <button onClick={makeGuest} disabled={!gName.trim()} style={{ padding: '7px 10px', borderRadius: 8, border: 'none', background: gName.trim() ? '#16a34a' : '#374151', color: '#fff', fontWeight: 800, cursor: gName.trim() ? 'pointer' : 'default' }}>Make link</button>
+      </div>
+      {gLink && <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, wordBreak: 'break-all', color: '#cbd5e1', marginTop: 6 }}>{gLink.link}</div>}
+      {gMsg && <div style={{ fontSize: 12.5, marginTop: 4, color: gLink ? '#86efac' : '#fca5a5' }}>{gMsg}</div>}
+    </div>
+  )
   const copyText = async (t) => { try { await navigator.clipboard.writeText(t) } catch { const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove() } }
   if (people && people.length) {
     return (
@@ -1833,6 +1855,7 @@ function SharePanel({ room, onClose, auth }) {
             <button onClick={async () => { await copyText(p.link); setCopiedWho(p.link) }} style={{ width: '100%', padding: '7px', borderRadius: 8, border: 'none', background: copiedWho === p.link ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copiedWho === p.link ? '✓ Copied' : `Copy ${p.name.split(' ')[0]}'s link`}</button>
           </div>
         ))}
+        {!room.public && guestBox}
       </div>
     )
   }
@@ -1843,6 +1866,7 @@ function SharePanel({ room, onClose, auth }) {
       <div style={{ padding: '8px 10px', borderRadius: 8, background: '#0b1220', border: '1px solid #374151', fontFamily: 'ui-monospace, monospace', fontSize: 13, wordBreak: 'break-all' }}>{link}</div>
       <button onClick={copy} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: copied ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copied ? '✓ Copied. Paste it anywhere' : '📋 Copy link'}</button>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{room.public ? 'Anyone with this link can join (they put in their name and email).' : 'People from the company sign in with their own link; this link is the way in.'}</div>
+      {!room.public && guestBox}
     </div>
   )
 }

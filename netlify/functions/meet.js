@@ -1945,7 +1945,7 @@ export const handler = async (event) => {
       const now = new Date().toISOString()
       await putSetting(gKey, { name: gName, email, opt_in: !!b.guest.opt_in || !!prev?.opt_in, first: prev?.first || now, last: now, visits: (prev?.visits || 0) + 1 })
       name = gName; identity = `g:${h}:${seat()}`
-    } else if (INVITE_KINDS.includes(room.kind) && b.g && outsiderOf(b.g)) {
+    } else if (b.g && outsiderOf(b.g) && (INVITE_KINDS.includes(room.kind) || outsiderOf(b.g).guest_invite)) {   // + a guest link made from Share meeting
       const x = outsiderOf(b.g); name = x.name || 'Guest'; identity = `x:${x.key}`; host = !!x.host; if (x.host) busyAs = name // a My Tools caller's own seat — outside people never get host (so never the host notes), even in a no-host room
     } else {
       const t = await traineeByToken(b.t)
@@ -2160,6 +2160,24 @@ export const handler = async (event) => {
     const next = { ...cur, ...patch }
     await svc().updateRoomMetadata(room.slug, JSON.stringify(next))
     return next
+  }
+
+  // ➕ INVITE A GUEST (Anthony Alongi via Neal, 2026-10-29: "when I share the link it sends the host access link… if one of
+  // my guys shares it, it boots whoever shared it… I can't invite new people to my meeting myself"). Anyone signed in to
+  // this room (their own link, or an admin PIN) makes a guest link for ONE named person: an invitee key on the room
+  // (guest_invite:true), which joins as that name in any kind of room, never as a host.
+  if (b.action === 'guest_link') {
+    const t = String(b.t || '').trim() ? await traineeByToken(b.t) : null
+    if (!t && !(await verifyPin(b.pin))) return json(401, { ok: false, error: 'Open this from your own meeting link.' })
+    const gname = String(b.name || '').trim().replace(/\s+/g, ' ').slice(0, 60)
+    if (!gname) return json(400, { ok: false, error: "Type the guest's name." })
+    const key = crypto.randomBytes(9).toString('hex')
+    const rooms = (await getSetting('meet_rooms', [])) || []
+    const r = rooms.find((x) => x.slug === room.slug)
+    if (!r) return json(404, { ok: false, error: 'Room not found.' })
+    r.invitees = [...(r.invitees || []), { key, name: gname, guest_invite: true, by: t ? fullName(t) : 'admin', at: new Date().toISOString() }]
+    await putSetting('meet_rooms', rooms)
+    return json(200, { ok: true, name: gname, link: `${SITE}/meet/${room.slug}?g=${key}` })
   }
 
   // Host actions: an admin PIN, or the link of a room host (the zone's manager, a named host).
