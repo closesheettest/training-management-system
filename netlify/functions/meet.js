@@ -960,13 +960,19 @@ export const handler = async (event) => {
   // for a meeting the manager runs: add a guest (name, and a cell and/or email to send the link to), resend, or remove.
   // Each guest is a guest_invite key on the room, the same as Share meeting → Invite a guest: their own link works for
   // every meeting in that room until the manager removes them, and never as a host.
+  // Also from inside the meeting window (Neal, same day: managers run their meetings there, not from the dashboard):
+  // the host's own meeting link (t) or an admin PIN.
   if (b.action === 'mgr_guests') {
     const tok = String(b.token || '').trim()
-    const { data: m } = tok ? await sb.from('trainees').select('id, first_name, last_name, region, managed_region').eq('manager_access_token', tok).maybeSingle() : { data: null }
-    if (!m?.managed_region) return json(401, { ok: false, error: 'Open this from your own dashboard link.' })
+    let m = null
+    if (tok) m = (await sb.from('trainees').select('id, first_name, last_name, region, managed_region').eq('manager_access_token', tok).maybeSingle()).data
+    else if (String(b.t || '').trim()) m = await traineeByToken(b.t)
+    const admin = !m && !!(await verifyPin(b.pin))
+    if (!m && !admin) return json(401, { ok: false, error: 'Open this from your own link.' })
     const rooms = (await getSetting('meet_rooms', [])) || []
-    const r = rooms.find((x) => x.slug === String(b.slug || ''))
-    if (!r || r.joins_room || !isRoomHost(r, m)) return json(403, { ok: false, error: 'You can only add guests to meetings you run.' })
+    const r = rooms.find((x) => x.slug === String(b.slug || b.room || '').toLowerCase())
+    if (!r || r.joins_room || (!admin && !isRoomHost(r, m))) return json(403, { ok: false, error: 'Only the host can add guests to this meeting.' })
+    if (admin) m = { first_name: 'The office', last_name: '' }
     const linkOf = (x) => `${SITE}/meet/${r.slug}?g=${x.key}`
     const list = () => (r.invitees || []).filter((x) => x.guest_invite).map((x) => ({ key: x.key, name: x.name, phone: x.phone ? `***-***-${String(x.phone).slice(-4)}` : '', email: x.email || '', by: x.by || '', at: x.at || '', link: linkOf(x) }))
     const send = async (x) => {

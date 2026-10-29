@@ -1843,6 +1843,56 @@ function SharePanel({ room, onClose, auth, me }) {
     </div>
   )
   const copyText = async (t) => { try { await navigator.clipboard.writeText(t) } catch { const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove() } }
+  // 👥 THE HOST'S GUEST LIST (Neal, 2026-10-29: "the added guest should be inside their window"): the host adds a
+  // guest with a cell and/or email, their link is texted + emailed, and it works every meeting until removed.
+  // Same list as the manager dashboard's 👥 Guests (meet.js mgr_guests). Non-hosts keep the simple guest link above.
+  const [gl, setGl] = useState(null)
+  const [gf, setGf] = useState({ name: '', phone: '', email: '' })
+  const [gBusy, setGBusy] = useState('')
+  const [glMsg, setGlMsg] = useState('')
+  const gCall = (body) => call({ action: 'mgr_guests', room: room.slug, ...(auth || {}), ...body }).catch(() => ({ error: 'Network error' }))
+  useEffect(() => { if (auth && !room.public) gCall({}).then((j) => setGl(j?.ok ? j.guests : null)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const sentTxt = (x) => !x ? ' Copy their link and send it.' : x.sms && x.email ? ' Link texted and emailed.' : x.sms ? ' Link texted.' : x.email ? ' Link emailed.' : " Couldn't send it; copy the link instead."
+  const gAdd = async () => {
+    setGBusy('add'); setGlMsg('')
+    const j = await gCall({ op: 'add', ...gf }); setGBusy('')
+    if (!j?.ok) { setGlMsg(j?.error || 'Did not work.'); return }
+    setGl(j.guests); setGf({ name: '', phone: '', email: '' }); setGlMsg(`✓ Added.${sentTxt(j.sent)}`)
+  }
+  const gAct = async (op, g) => {
+    if (op === 'remove' && !window.confirm(`Remove ${g.name}? Their link stops working.`)) return
+    setGBusy(g.key); setGlMsg('')
+    const j = await gCall({ op, key: g.key }); setGBusy('')
+    if (!j?.ok) { setGlMsg(j?.error || 'Did not work.'); return }
+    setGl(j.guests); setGlMsg(op === 'remove' ? `✓ ${g.name} removed.` : `✓${sentTxt(j.sent)}`)
+  }
+  const gInp = { width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 8, border: '1px solid #374151', background: '#0b1220', color: '#e5e7eb', marginBottom: 6 }
+  const gBtn = (bg) => ({ padding: '3px 8px', borderRadius: 6, border: 'none', background: bg, color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer' })
+  const hostGuestBox = gl && (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #374151' }}>
+      <div style={{ fontWeight: 800, marginBottom: 4 }}>👥 Guests ({gl.length})</div>
+      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>People from outside the team. Each gets their own link that works every meeting, until you remove them.</div>
+      <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+        {gl.map((g) => (
+          <div key={g.key} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 0', borderBottom: '1px solid #1f2937' }}>
+            <span style={{ flex: 1, minWidth: 0 }}><b>{g.name}</b><span style={{ marginLeft: 6, fontSize: 11.5, color: '#94a3b8' }}>{[g.phone, g.email].filter(Boolean).join(' · ')}</span></span>
+            <button onClick={async () => { await copyText(g.link); setGlMsg(`✓ ${g.name}'s link copied.`) }} style={gBtn('#475569')}>Copy</button>
+            {(g.phone || g.email) && <button disabled={gBusy === g.key} onClick={() => gAct('resend', g)} style={gBtn('#0369a1')}>Resend</button>}
+            <button disabled={gBusy === g.key} onClick={() => gAct('remove', g)} style={gBtn('#9f1239')}>Remove</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <input value={gf.name} onChange={(e) => setGf({ ...gf, name: e.target.value })} placeholder="Guest's name" style={gInp} />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input value={gf.phone} onChange={(e) => setGf({ ...gf, phone: e.target.value })} placeholder="Cell (texts the link)" inputMode="tel" style={gInp} />
+          <input value={gf.email} onChange={(e) => setGf({ ...gf, email: e.target.value })} placeholder="Email (optional)" type="email" style={gInp} />
+        </div>
+        <button onClick={gAdd} disabled={!gf.name.trim() || gBusy === 'add'} style={{ width: '100%', padding: '8px', borderRadius: 8, border: 'none', background: gf.name.trim() ? '#16a34a' : '#374151', color: '#fff', fontWeight: 800, cursor: gf.name.trim() ? 'pointer' : 'default' }}>{gBusy === 'add' ? 'Adding…' : '➕ Add guest & send their link'}</button>
+      </div>
+      {glMsg && <div style={{ fontSize: 12.5, marginTop: 4, color: glMsg.startsWith('✓') ? '#86efac' : '#fca5a5' }}>{glMsg}</div>}
+    </div>
+  )
   if (people && people.length) {
     return (
       <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 60, width: 380, background: '#111827', border: '1px solid #2563eb', borderRadius: 12, padding: 14, color: '#e5e7eb', fontSize: 14 }}>
@@ -1855,7 +1905,7 @@ function SharePanel({ room, onClose, auth, me }) {
             <button onClick={async () => { await copyText(p.link); setCopiedWho(p.link) }} style={{ width: '100%', padding: '7px', borderRadius: 8, border: 'none', background: copiedWho === p.link ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copiedWho === p.link ? '✓ Copied' : `Copy ${p.name.split(' ')[0]}'s link`}</button>
           </div>
         ))}
-        {!room.public && guestBox}
+        {!room.public && (hostGuestBox || guestBox)}
       </div>
     )
   }
@@ -1866,7 +1916,7 @@ function SharePanel({ room, onClose, auth, me }) {
       <div style={{ padding: '8px 10px', borderRadius: 8, background: '#0b1220', border: '1px solid #374151', fontFamily: 'ui-monospace, monospace', fontSize: 13, wordBreak: 'break-all' }}>{link}</div>
       <button onClick={copy} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: copied ? '#16a34a' : '#2563eb', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>{copied ? '✓ Copied. Paste it anywhere' : '📋 Copy link'}</button>
       <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>{room.public ? 'Anyone with this link can join (they put in their name and email).' : 'People from the company sign in with their own link; this link is the way in.'}</div>
-      {!room.public && guestBox}
+      {!room.public && (hostGuestBox || guestBox)}
     </div>
   )
 }
