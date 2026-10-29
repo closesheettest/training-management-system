@@ -949,7 +949,59 @@ export const handler = async (event) => {
     if (!tok) return json(401, { ok: false })
     const { data: t } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').eq('manager_access_token', tok).maybeSingle()
     if (!t) return json(401, { ok: false })
-    return json(200, { ok: true, rooms: await roomsForPerson([t], fullName(t), (r) => (t.registration_token ? `${SITE}/meet/${r.slug}?t=${t.registration_token}` : `${SITE}/meet/${r.slug}`)) })
+    const rows = await roomsForPerson([t], fullName(t), (r) => (t.registration_token ? `${SITE}/meet/${r.slug}?t=${t.registration_token}` : `${SITE}/meet/${r.slug}`))
+    // 👥 Meetings this manager runs get a guest list (mgr_guests below).
+    const raw = await loadRooms()
+    return json(200, { ok: true, rooms: rows.map((x) => { const r = raw.find((y) => y.slug === x.slug); return r && !r.joins_room && isRoomHost(r, t) ? { ...x, guests_ok: true, guest_count: (r.invitees || []).filter((g) => g.guest_invite).length } : x }) })
+  }
+
+  // 👥 A MANAGER'S GUEST LIST (Neal, 2026-10-29: "each regional manager should be able to add a guest or create a guest
+  // list for their meetings, and allow them to always have access to the meeting"). From the dashboard's Your meetings,
+  // for a meeting the manager runs: add a guest (name, and a cell and/or email to send the link to), resend, or remove.
+  // Each guest is a guest_invite key on the room, the same as Share meeting → Invite a guest: their own link works for
+  // every meeting in that room until the manager removes them, and never as a host.
+  if (b.action === 'mgr_guests') {
+    const tok = String(b.token || '').trim()
+    const { data: m } = tok ? await sb.from('trainees').select('id, first_name, last_name, region, managed_region').eq('manager_access_token', tok).maybeSingle() : { data: null }
+    if (!m?.managed_region) return json(401, { ok: false, error: 'Open this from your own dashboard link.' })
+    const rooms = (await getSetting('meet_rooms', [])) || []
+    const r = rooms.find((x) => x.slug === String(b.slug || ''))
+    if (!r || r.joins_room || !isRoomHost(r, m)) return json(403, { ok: false, error: 'You can only add guests to meetings you run.' })
+    const linkOf = (x) => `${SITE}/meet/${r.slug}?g=${x.key}`
+    const list = () => (r.invitees || []).filter((x) => x.guest_invite).map((x) => ({ key: x.key, name: x.name, phone: x.phone ? `***-***-${String(x.phone).slice(-4)}` : '', email: x.email || '', by: x.by || '', at: x.at || '', link: linkOf(x) }))
+    const send = async (x) => {
+      const first = String(x.name).split(' ')[0]
+      const msg = `Hi ${first}, ${fullName(m)} invited you to ${r.title}${r.schedule ? ` (${r.schedule}, Eastern)` : ''}. This link is yours, and it works every time: ${linkOf(x)}`
+      const out = { sms: false, email: false }
+      if (x.phone) { try { const y = await sendSmsViaGhl(x.phone, msg, { firstName: first, lastName: String(x.name).split(' ').slice(1).join(' ') }); out.sms = !!(y && y.ok !== false) } catch { /* shown */ } }
+      if (x.email) { try { const y = await sendEmail(x.email, `You're invited: ${r.title}`, msg); out.email = !!(y && y.ok !== false) } catch { /* shown */ } }
+      return out
+    }
+    if (b.op === 'add') {
+      const name = String(b.name || '').trim().replace(/\s+/g, ' ').slice(0, 60)
+      const phone = String(b.phone || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1')
+      const email = String(b.email || '').trim().toLowerCase().slice(0, 120)
+      if (!name) return json(400, { ok: false, error: "Type the guest's name." })
+      if (phone && phone.length !== 10) return json(400, { ok: false, error: 'The cell number needs 10 digits.' })
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { ok: false, error: "That email doesn't look right." })
+      const x = { key: crypto.randomBytes(9).toString('hex'), name, phone, email, guest_invite: true, guest_list: true, by: fullName(m), at: new Date().toISOString() }
+      r.invitees = [...(r.invitees || []), x]
+      await putSetting('meet_rooms', rooms)
+      const sent = phone || email ? await send(x) : null
+      return json(200, { ok: true, guests: list(), sent, link: linkOf(x) })
+    }
+    if (b.op === 'resend' || b.op === 'remove') {
+      const x = (r.invitees || []).find((y) => y.guest_invite && y.key === String(b.key || ''))
+      if (!x) return json(404, { ok: false, error: 'That guest is not on the list.' })
+      if (b.op === 'resend') {
+        if (!x.phone && !x.email) return json(400, { ok: false, error: 'No cell or email for this guest. Copy the link instead.' })
+        return json(200, { ok: true, guests: list(), sent: await send(x) })
+      }
+      r.invitees = (r.invitees || []).filter((y) => y !== x)
+      await putSetting('meet_rooms', rooms)
+      return json(200, { ok: true, guests: list() })
+    }
+    return json(200, { ok: true, guests: list(), title: r.title })
   }
 
   // 📅 A MANAGER SETS UP A MEETING from their dashboard (Neal, 2026-10-05: "need to set up a

@@ -2756,7 +2756,8 @@ function YourMeetings({ token, banner = false }) {
   return (
     <div className="space-y-2">
       {rooms.map((r) => (
-        <a key={r.slug} href={r.link} target="_blank" rel="noreferrer" className={`flex items-center gap-3 rounded-lg border p-3 no-underline hover:bg-white/5 ${r.live ? 'border-emerald-400' : r.today ? 'border-amber-400' : 'border-white/15'}`}>
+        <div key={r.slug}>
+        <a href={r.link} target="_blank" rel="noreferrer" className={`flex items-center gap-3 rounded-lg border p-3 no-underline hover:bg-white/5 ${r.live ? 'border-emerald-400' : r.today ? 'border-amber-400' : 'border-white/15'}`}>
           {r.badge ? <img src={r.badge} alt="" className="h-9 w-14 rounded bg-white object-contain p-0.5" /> : r.banner_url ? <img src={r.banner_url} alt="" className="h-9 w-14 rounded object-cover" /> : <span className="text-2xl">🎥</span>}
           <span className="min-w-0 flex-1">
             <span className="block font-semibold text-white">{r.title}{(r.host_names || []).length > 0 && <span className="ml-2 text-xs font-normal text-slate-300">👤 {r.host_names.join(' & ')}</span>}</span>
@@ -2764,7 +2765,72 @@ function YourMeetings({ token, banner = false }) {
           </span>
           <span className={`rounded-md px-3 py-1 text-sm font-bold text-white ${r.live || (r.open && r.scheduled) ? 'bg-emerald-600' : 'bg-slate-600'}`}>{r.live || (r.open && r.scheduled) ? 'Join' : 'Open'}</span>
         </a>
+        {r.guests_ok && <GuestList token={token} room={r} />}
+        </div>
       ))}
+    </div>
+  )
+}
+
+// ── 👥 Guest list for a meeting the manager runs (Neal, 2026-10-29) ──
+// "Each regional manager should be able to add a guest or create a guest list for their meetings, and allow them to
+// always have access to the meeting." Each guest gets their own link by text and/or email; it works for every meeting
+// in that room until the manager removes them. Server: meet.js mgr_guests.
+function GuestList({ token, room }) {
+  const [open, setOpen] = useState(false)
+  const [list, setList] = useState(null)
+  const [f, setF] = useState({ name: '', phone: '', email: '' })
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState('')
+  const call = (body) => fetch('/.netlify/functions/meet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mgr_guests', token, slug: room.slug, ...body }) }).then((r) => r.json()).catch(() => ({ error: 'Network error' }))
+  const toggle = async () => { const o = !open; setOpen(o); setMsg(''); if (o && !list) { const j = await call({}); setList(j.ok ? j.guests : []); if (!j.ok) setMsg(j.error || 'Could not load.') } }
+  const sentTxt = (s) => !s ? '' : s.sms && s.email ? ' Link texted and emailed.' : s.sms ? ' Link texted.' : s.email ? ' Link emailed.' : " Couldn't send it; copy the link instead."
+  const add = async () => {
+    setBusy('add'); setMsg('')
+    const j = await call({ op: 'add', ...f })
+    setBusy('')
+    if (!j.ok) { setMsg(j.error || 'Did not work.'); return }
+    setList(j.guests); setF({ name: '', phone: '', email: '' })
+    setMsg(`✅ ${j.guests[j.guests.length - 1]?.name} added.${j.sent ? sentTxt(j.sent) : ' Copy their link below and send it.'}`)
+  }
+  const act = async (op, g) => {
+    if (op === 'remove' && !window.confirm(`Remove ${g.name}? Their link stops working.`)) return
+    setBusy(g.key); setMsg('')
+    const j = await call({ op, key: g.key })
+    setBusy('')
+    if (!j.ok) { setMsg(j.error || 'Did not work.'); return }
+    setList(j.guests); setMsg(op === 'remove' ? `✅ ${g.name} removed.` : `✅${sentTxt(j.sent)}`)
+  }
+  const copy = (g) => { navigator.clipboard?.writeText(g.link).then(() => setMsg(`✅ ${g.name}'s link copied.`)).catch(() => window.prompt('Copy this link:', g.link)) }
+  const n = list ? list.length : room.guest_count || 0
+  const inp = 'w-full rounded-md border border-white/20 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500'
+  return (
+    <div className="ml-3 border-l border-white/15 pl-3">
+      <button type="button" onClick={toggle} className="py-1 text-xs font-bold text-sky-300">👥 Guests{n ? ` (${n})` : ''} {open ? '▾' : '▸'}</button>
+      {open && (
+        <div className="mb-2 rounded-lg border border-white/15 bg-slate-950/30 p-3 text-sm text-slate-100">
+          <div className="mb-2 text-xs text-slate-300">People outside the team you want in this meeting. Each one gets their own link that works every time, until you remove them.</div>
+          {!list ? <div className="text-slate-400">Loading…</div> : list.length === 0 ? <div className="mb-2 text-slate-400">No guests yet.</div> : (
+            <div className="mb-3 space-y-1">
+              {list.map((g) => (
+                <div key={g.key} className="flex flex-wrap items-center gap-2 rounded-md border border-white/10 px-2 py-1.5">
+                  <span className="min-w-0 flex-1"><b className="text-white">{g.name}</b><span className="ml-2 text-xs text-slate-400">{[g.phone, g.email].filter(Boolean).join(' · ')}</span></span>
+                  <button type="button" onClick={() => copy(g)} className="rounded bg-slate-600 px-2 py-0.5 text-xs font-bold text-white">Copy link</button>
+                  {(g.phone || g.email) && <button type="button" disabled={busy === g.key} onClick={() => act('resend', g)} className="rounded bg-sky-700 px-2 py-0.5 text-xs font-bold text-white disabled:opacity-60">Resend</button>}
+                  <button type="button" disabled={busy === g.key} onClick={() => act('remove', g)} className="rounded bg-rose-800 px-2 py-0.5 text-xs font-bold text-white disabled:opacity-60">Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input className={inp} placeholder="Guest's name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+            <input className={inp} placeholder="Cell (to text the link)" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+            <input className={inp} placeholder="Email (optional)" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+          </div>
+          <button type="button" disabled={busy === 'add'} onClick={add} className="mt-2 w-full rounded-md bg-sky-600 px-4 py-2 font-extrabold text-white disabled:opacity-60">{busy === 'add' ? 'Adding…' : '➕ Add guest & send their link'}</button>
+          {msg && <p className={`mt-2 text-sm font-semibold ${msg.startsWith('✅') ? 'text-emerald-300' : 'text-amber-300'}`}>{msg}</p>}
+        </div>
+      )}
     </div>
   )
 }
