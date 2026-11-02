@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useRoomContext } from '@livekit/components-react'
 import { RoomEvent } from 'livekit-client'
 
-const FAITH = ['🙏', '❤️', 'AMEN', '🙌', '✝️', '🕊️', '😊', '🔥']
+// 🎤 MIC DROP (Neal, 2026-11-02): for when the devotional lands. Sent as 'MICDROP'; the mic DROPS down the screen and
+// bounces instead of floating up.
+const FAITH = ['🙏', '❤️', 'AMEN', '🙌', '✝️', '🕊️', '😊', '🔥', 'MICDROP']
 const EVERYDAY = ['👍', '❤️', '👏', '😂', '🔥', '🎉', '🙌', '💯']
 export const reactionsFor = (room) => (room?.kind === 'prayer' || /devotion|prayer/i.test(`${room?.slug || ''} ${room?.title || ''}`) ? FAITH : EVERYDAY)
 
@@ -21,7 +23,7 @@ export function ReactionsOverlay() {
       const id = ++n.current
       const item = { id, emoji, who, left: 4 + Math.random() * 12, sway: 18 + Math.random() * 22, swayDur: 0.9 + Math.random() * 0.5, dur: 4 + Math.random() * 1.2 }
       setItems((xs) => [...xs.slice(-40), item])
-      setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), item.dur * 1000 + 200)
+      setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== id)), (emoji === 'MICDROP' ? 2.6 : item.dur) * 1000 + 200)
     }
     const onData = (payload, from, _k, topic) => {
       if (topic !== 'react') return
@@ -34,11 +36,13 @@ export function ReactionsOverlay() {
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 60, overflow: 'hidden' }}>
       {/* WAVY BALLOON (Neal, 2026-10-06): the outer box rises, the inner one sways side to side. */}
-      <style>{'@keyframes rxUp{0%{transform:translateY(0) scale(.6);opacity:0}10%{opacity:1;transform:translateY(-6vh) scale(1.1)}80%{opacity:1}100%{transform:translateY(-78vh) scale(1);opacity:0}}@keyframes rxSway{0%{transform:translateX(calc(var(--sw) * -1))}100%{transform:translateX(var(--sw))}}'}</style>
+      <style>{'@keyframes rxDrop{0%{transform:translateY(-70vh) rotate(-25deg);opacity:0}8%{opacity:1}70%{transform:translateY(0) rotate(15deg)}80%{transform:translateY(-4vh) rotate(-8deg)}90%{transform:translateY(0) rotate(4deg)}100%{transform:translateY(0) rotate(0);opacity:0}}@keyframes rxUp{0%{transform:translateY(0) scale(.6);opacity:0}10%{opacity:1;transform:translateY(-6vh) scale(1.1)}80%{opacity:1}100%{transform:translateY(-78vh) scale(1);opacity:0}}@keyframes rxSway{0%{transform:translateX(calc(var(--sw) * -1))}100%{transform:translateX(var(--sw))}}'}</style>
       {items.map((x) => (
-        <div key={x.id} style={{ position: 'absolute', bottom: 70, right: `${x.left}%`, animation: `rxUp ${x.dur}s ease-out forwards` }}>
+        <div key={x.id} style={{ position: 'absolute', bottom: 70, right: `${x.left}%`, animation: x.emoji === 'MICDROP' ? `rxDrop 2.6s ease-in forwards` : `rxUp ${x.dur}s ease-out forwards` }}>
           <div style={{ '--sw': `${x.sway}px`, animation: `rxSway ${x.swayDur}s ease-in-out infinite alternate`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {x.emoji === 'AMEN'
+          {x.emoji === 'MICDROP'
+            ? <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}><span style={{ fontSize: 54, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.45))' }}>🎤</span><span style={{ fontSize: 15, fontWeight: 900, color: '#fff', background: 'linear-gradient(135deg,#0f172a,#475569)', padding: '2px 10px', borderRadius: 999, boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>MIC DROP</span></span>
+            : x.emoji === 'AMEN'
             ? <span style={{ fontSize: 30, fontWeight: 900, color: '#fff', background: 'linear-gradient(135deg,#7c3aed,#c026d3)', padding: '4px 14px', borderRadius: 999, boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>AMEN</span>
             : <span style={{ fontSize: 46, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,.45))' }}>{x.emoji}</span>}
           {x.who && <span style={{ marginTop: 2, fontSize: 12, fontWeight: 800, color: '#fff', background: 'rgba(15,23,42,.7)', padding: '1px 8px', borderRadius: 999 }}>{x.who}</span>}
@@ -65,8 +69,8 @@ export function ReactButton({ choices }) {
       {open && (
         <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, padding: 6, borderRadius: 14, background: 'rgba(15,23,42,.95)', boxShadow: '0 8px 24px rgba(0,0,0,.5)', zIndex: 70, whiteSpace: 'nowrap' }}>
           {choices.map((e) => (
-            <button key={e} type="button" onClick={() => send(e)} title={e}
-              style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: e === 'AMEN' ? 15 : 28, fontWeight: 900, color: '#fff', padding: e === 'AMEN' ? '6px 10px' : '2px 6px', borderRadius: 10, ...(e === 'AMEN' ? { background: 'linear-gradient(135deg,#7c3aed,#c026d3)' } : {}) }}>{e}</button>
+            <button key={e} type="button" onClick={() => send(e)} title={e === 'MICDROP' ? 'Mic drop' : e}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: e === 'AMEN' ? 15 : 28, fontWeight: 900, color: '#fff', padding: e === 'AMEN' ? '6px 10px' : '2px 6px', borderRadius: 10, ...(e === 'AMEN' ? { background: 'linear-gradient(135deg,#7c3aed,#c026d3)' } : {}) }}>{e === 'MICDROP' ? '🎤' : e}</button>
           ))}
         </div>
       )}
