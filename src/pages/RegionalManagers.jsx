@@ -2378,7 +2378,23 @@ function YearBars({ months, years, metric }) {
   const val = (y, mo) => { const r = ycRow(months[`${y}-${String(mo).padStart(2, '0')}`]); const v = r[metric]; return v != null && Number.isFinite(v) ? v : null }
   const all = years.flatMap((y) => YC_MONTHS.map((_, i) => val(y, i + 1))).filter((v) => v != null)
   const max = Math.max(1, ...all)
-  const W = 960, H = 300, L = 8, B = 26, T = 18, gw = (W - L * 2) / 12, bw = Math.min(22, (gw - 10) / years.length)
+  const W = 960, H = 300, L = 8, B = 26, T = 30, gw = (W - L * 2) / 12, bw = Math.min(30, (gw - 10) / years.length)
+  // Numbers ON the bars (Neal, 2026-11-02: "I gotta hover ... and wait for it to show up"). Short form so they fit.
+  const short = (v) => {
+    if (['gross'].includes(metric)) return v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : '$' + Math.round(v / 1e3) + 'k'
+    if (['ticket'].includes(metric)) return '$' + (v / 1e3).toFixed(1) + 'k'
+    if (/sq$/.test(metric) && metric !== 'sq') return '$' + Math.round(v)
+    if (metric === 'sq') return v.toFixed(1)
+    if (['close', 'sitpct'].includes(metric)) return Math.round(v) + '%'
+    return String(Math.round(v))
+  }
+  // YEAR TOTALS under the graph (Neal: "total number of sits for the year ... average square or ticket for the year").
+  // Counts add up; rates and averages are worked out over the whole year, not averaged month to month. The newest
+  // year's months so far are also shown for the older years, so "so far this year" is apples to apples.
+  const keyOf = (y, mo) => `${y}-${String(mo).padStart(2, '0')}`
+  const newest = years[years.length - 1]
+  const lastMo = Math.max(0, ...Object.keys(months).filter((k) => k.startsWith(String(newest)) && months[k].units > 0).map((k) => Number(k.slice(5))))
+  const yearVal = (y, upTo) => { const v = ycRow(ycSum(Array.from({ length: upTo }, (_, i) => months[keyOf(y, i + 1)])))[metric]; return v != null && Number.isFinite(v) ? v : null }
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'auto' }}>
@@ -2393,6 +2409,7 @@ function YearBars({ months, years, metric }) {
                 return (
                   <g key={y}>
                     <rect x={x + 1} y={yTop} width={bw - 2} height={h} rx="2" fill={YC_BAR_COLORS[k % YC_BAR_COLORS.length]}><title>{`${m} ${y}: ${col.fmt(v)}`}</title></rect>
+                    <text x={x + bw / 2} y={yTop - 4} textAnchor="middle" fontSize="11" fontWeight="700" fill="#334155">{short(v)}</text>
                   </g>
                 )
               })}
@@ -2402,9 +2419,18 @@ function YearBars({ months, years, metric }) {
         })}
         <text x={L} y={12} fontSize="11" fill="#64748b">top line = {col.fmt(max)}</text>
       </svg>
-      <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-600">
-        {years.map((y, k) => <span key={y} className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm" style={{ background: YC_BAR_COLORS[k % YC_BAR_COLORS.length] }} />{y}</span>)}
-        <span className="text-slate-400">Hover a bar for its number.</span>
+      <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-700">
+        {years.map((y, k) => {
+          const full = yearVal(y, 12), sameTo = y !== newest && lastMo > 0 && lastMo < 12 ? yearVal(y, lastMo) : null
+          return (
+            <span key={y} className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ background: YC_BAR_COLORS[k % YC_BAR_COLORS.length] }} />
+              <b>{y}</b>
+              <span>{full != null ? col.fmt(full) : '—'}{y === newest && lastMo < 12 ? ` (Jan–${YC_MONTHS[lastMo - 1] || ''} so far)` : ' for the year'}</span>
+              {sameTo != null && <span className="text-slate-500">· Jan–{YC_MONTHS[lastMo - 1]}: <b className="text-slate-700">{col.fmt(sameTo)}</b></span>}
+            </span>
+          )
+        })}
       </div>
     </div>
   )
@@ -2551,7 +2577,7 @@ function YearCompare() {
             <>
               {/* ALL THE GRAPHS AT ONCE (Neal, 2026-11-02): units, sits, sit %, closing %, average sale, $/square for
                   metal, shingle and both together, so one can be read against another. */}
-              <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="mb-4 grid grid-cols-1 gap-3">
                 {YC_GRAPHS.map((k) => (
                   <div key={k} className="rounded-lg border border-slate-200 p-3">
                     <div className="mb-1 text-sm font-bold text-slate-800">{YC_COLS.find((c) => c.key === k)?.label}</div>
