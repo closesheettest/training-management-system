@@ -153,6 +153,7 @@ export default function RegionalManagers() {
       <div className="mb-4"><InspectionLookup /></div>
 
       <PayReports />
+      <YearCompare />
       <InspSigningsAverage />
       <PresentationActivity />
       <RepAttendance />
@@ -2317,6 +2318,164 @@ function InspSigningsAverage() {
         <div className="p-2">
           <div className="mb-1 text-right"><a href={url.replace('&embed=1', '')} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-700 underline">Open full page ↗</a></div>
           <iframe title="Inspection Signings Average" src={url} className="w-full rounded-lg border border-slate-200" style={{ height: 1100 }} />
+        </div>
+      )}
+    </section>
+  )
+}
+
+// 📊 YEAR vs YEAR (Neal, 2026-11-02): "compare January of 25 to January of 26 ... how many sits, how many sold, closing
+// percentage, gross dollars ... how many were metal, exposed fastener and standing seam versus shingle, and another column
+// for other." To see whether the extra spend on recruiting, training and managers is paying off: fewer opportunities,
+// worse closing, or smaller roofs. Data: CCG year-compare (every sold deal tallied nightly by Sold Date month).
+// Sits / closing % only exist from July 2026 (JobNimbus had no appointment records before that).
+const YC_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const YC_COLS = [
+  { key: 'sits', label: 'Sits', fmt: (v) => v },
+  { key: 'units', label: 'Sold', fmt: (v) => v },
+  { key: 'close', label: 'Close %', fmt: (v) => v + '%' },
+  { key: 'gross', label: 'Gross $', fmt: (v) => fmtVal(v, 'dollars') },
+  { key: 'ticket', label: 'Avg ticket', fmt: (v) => '$' + Math.round(v).toLocaleString() },
+  { key: 'sq', label: 'Avg squares', fmt: (v) => v.toFixed(1) },
+  { key: 'persq', label: '$ / square', fmt: (v) => '$' + Math.round(v).toLocaleString() },
+  { key: 'ef', label: 'Exposed fastener', fmt: (v) => v },
+  { key: 'ss', label: 'Standing seam', fmt: (v) => v },
+  { key: 'shingle', label: 'Shingle', fmt: (v) => v },
+  { key: 'other', label: 'Other', fmt: (v) => v, title: 'Stone coated, tile, Permalock' },
+  { key: 'flat', label: 'Flat', fmt: (v) => v, title: 'Deals with a flat section (Mod bit / TPO)' },
+  { key: 'irbads', label: 'IRBADS', fmt: (v) => v },
+]
+function ycSum(ms) {
+  const t = { units: 0, gross: 0, sq_units: 0, squares: 0, sq_gross: 0, ef: 0, ss: 0, shingle: 0, other: 0, flat: 0, irbads: 0, sits: null, sit_sold: null }
+  for (const m of ms) {
+    if (!m) continue
+    for (const k of ['units', 'gross', 'sq_units', 'squares', 'sq_gross', 'ef', 'ss', 'shingle', 'other', 'flat', 'irbads']) t[k] += m[k] || 0
+    if (m.sits != null) { t.sits = (t.sits || 0) + m.sits; t.sit_sold = (t.sit_sold || 0) + (m.sit_sold || 0) }
+  }
+  return t
+}
+function ycRow(m) {
+  if (!m || !m.units) return m && m.sits != null ? { sits: m.sits } : {}
+  return {
+    sits: m.sits ?? null, units: m.units,
+    close: m.sits ? Math.round((100 * (m.sit_sold ?? 0)) / m.sits) : null,
+    gross: m.gross, ticket: m.gross / m.units,
+    sq: m.sq_units ? m.squares / m.sq_units : null, persq: m.squares ? m.sq_gross / m.squares : null,
+    ef: m.ef, ss: m.ss, shingle: m.shingle, other: m.other, flat: m.flat ?? null, irbads: m.irbads,
+  }
+}
+function YearCompare() {
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('year_compare_open') === '1' } catch { return false } })
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [ya, setYa] = useState(null)
+  const [yb, setYb] = useState(null)
+  const [month, setMonth] = useState('all') // 'all' or 1..12
+  const load = async (refresh = false) => {
+    setBusy(true); setErr('')
+    try {
+      const r = await fetch(LB_ORIGIN + 'year-compare' + (refresh ? '?refresh=1' : ''))
+      const d = await r.json()
+      if (d?.ok) { setData(d.data); if (refresh) setRefreshing(true) } else setErr(d?.error || 'Could not load.')
+    } catch { setErr('Network error.') }
+    setBusy(false)
+  }
+  const toggle = () => setOpen((o) => { try { localStorage.setItem('year_compare_open', o ? '0' : '1') } catch { /* private */ } if (!o && !data) load(); return !o })
+  useEffect(() => { if (open && !data) load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // After Refresh, check back every 30s until the new pull lands (takes a few minutes).
+  useEffect(() => {
+    if (!refreshing) return
+    const before = data?.at
+    const t = setInterval(async () => {
+      try { const d = await (await fetch(LB_ORIGIN + 'year-compare')).json(); if (d?.data?.at && d.data.at !== before) { setData(d.data); setRefreshing(false) } } catch { /* keep trying */ }
+    }, 30000)
+    return () => clearInterval(t)
+  }, [refreshing]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const months = data?.months || {}
+  const years = [...new Set(Object.keys(months).map((k) => Number(k.slice(0, 4))))].sort()
+  const A = ya ?? (years.length > 1 ? years[years.length - 2] : years[0])
+  const B = yb ?? years[years.length - 1]
+  const get = (y, mo) => months[`${y}-${String(mo).padStart(2, '0')}`]
+  // Year to date = the same months in both years, through the latest month the newer year has.
+  const lastB = Math.max(0, ...Object.keys(months).filter((k) => k.startsWith(String(B))).map((k) => Number(k.slice(5))))
+  const rowsFor = month === 'all' ? YC_MONTHS.map((_, i) => i + 1) : [Number(month)]
+  const ytdA = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(A, i + 1))))
+  const ytdB = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(B, i + 1))))
+  const fullA = ycRow(ycSum(Array.from({ length: 12 }, (_, i) => get(A, i + 1))))
+  const at = data?.at ? new Date(data.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET' : ''
+
+  const Cell = ({ a, b, col }) => {
+    const has = (v) => v != null && Number.isFinite(v)
+    const up = has(a) && has(b) ? b - a : null
+    const tone = up == null || Math.abs(up) < 1e-9 ? 'text-slate-500' : up > 0 ? 'text-emerald-700' : 'text-red-600'
+    return (
+      <td className="whitespace-nowrap px-2 py-1.5 text-right align-top">
+        <div className={`font-semibold ${has(b) ? tone : 'text-slate-300'}`}>{has(b) ? col.fmt(b) : '—'}</div>
+        <div className="text-[11px] text-slate-400">{has(a) ? col.fmt(a) : '—'}</div>
+      </td>
+    )
+  }
+  const Line = ({ label, a, b, bold }) => (
+    <tr className={bold ? 'border-t-2 border-slate-300 bg-slate-50 font-bold' : 'border-t border-slate-100'}>
+      <td className="whitespace-nowrap px-2 py-1.5 text-left font-semibold text-slate-700">{label}</td>
+      {YC_COLS.map((c) => <Cell key={c.key} a={a[c.key]} b={b[c.key]} col={c} />)}
+    </tr>
+  )
+  return (
+    <section className="mb-4 rounded-xl border-2 border-sky-800 bg-white">
+      <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-sky-800 px-4 py-3 text-left text-white">
+        <span className="text-lg font-bold">📊 Year vs Year</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ sits · sold · closing % · gross · ticket · squares · product mix'}</span>
+      </button>
+      {open && (
+        <div className="p-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+            <select value={A ?? ''} onChange={(e) => setYa(Number(e.target.value))} className="rounded-md border border-slate-300 px-2 py-1">{years.map((y) => <option key={y} value={y}>{y}</option>)}</select>
+            <span className="text-slate-500">vs</span>
+            <select value={B ?? ''} onChange={(e) => setYb(Number(e.target.value))} className="rounded-md border border-slate-300 px-2 py-1 font-semibold">{years.map((y) => <option key={y} value={y}>{y}</option>)}</select>
+            <select value={month} onChange={(e) => setMonth(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1">
+              <option value="all">Every month</option>
+              {YC_MONTHS.map((m, i) => <option key={m} value={i + 1}>{m} only</option>)}
+            </select>
+            <span className="flex-1" />
+            <span className="text-xs text-slate-500">{refreshing ? 'Pulling fresh numbers… (a few minutes)' : at ? `Updated ${at}` : ''}</span>
+            <button type="button" disabled={busy || refreshing} onClick={() => load(true)} className="rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">↻ Refresh</button>
+          </div>
+          {err && <div className="mb-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          {!data ? (
+            <p className="text-sm text-slate-500">{busy ? 'Loading…' : refreshing ? 'First pull is running. It takes a few minutes; this fills in on its own.' : 'No numbers yet. Tap ↻ Refresh.'}</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-300 text-[11px] uppercase tracking-wide text-slate-500">
+                      <th className="px-2 py-1 text-left">Month</th>
+                      {YC_COLS.map((c) => <th key={c.key} title={c.title || ''} className="whitespace-nowrap px-2 py-1 text-right">{c.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rowsFor.map((mo) => <Line key={mo} label={YC_MONTHS[mo - 1]} a={ycRow(get(A, mo))} b={ycRow(get(B, mo))} />)}
+                    {month === 'all' && lastB > 0 && <Line bold label={`Jan–${YC_MONTHS[lastB - 1]}`} a={ytdA} b={ytdB} />}
+                    {month === 'all' && lastB > 0 && lastB < 12 && (
+                      <tr className="border-t border-slate-100 text-slate-500">
+                        <td className="px-2 py-1.5 text-left text-xs">{A} full year</td>
+                        {YC_COLS.map((c) => <td key={c.key} className="whitespace-nowrap px-2 py-1.5 text-right text-xs">{fullA[c.key] != null && Number.isFinite(fullA[c.key]) ? c.fmt(fullA[c.key]) : '—'}</td>)}
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 space-y-1 text-xs text-slate-500">
+                <p>Big number = <b>{B}</b> (green up, red down), small grey = {A}. Months by Sold Date, Eastern. Every sold deal counts, including ones already installed, paid or in collections; cancelled (Lost) deals don't.</p>
+                <p><b>Sits and closing %</b> start July 2026. Before that, JobNimbus has no appointment records, so there's nothing to count.</p>
+                <p><b>Avg squares and $ / square</b> use only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
+              </div>
+            </>
+          )}
         </div>
       )}
     </section>
