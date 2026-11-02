@@ -959,7 +959,8 @@ function SalesToInstall() {
                             through the header as it scrolls. */}
                         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e2e8f0]">
                           <tr className="text-left text-slate-500">
-                            {[['name', 'Job', ''], ['status', 'Status', ''], ['product', 'Product', ''],
+                            {/* City + Hold reason added for Neal, 2026-11-02 */}
+                            {[['name', 'Job', ''], ['city', 'City', ''], ['status', 'Status', ''], ['hold_reason', 'Hold reason', ''], ['product', 'Product', ''],
                               ['rep', 'Rep', ''], ['sold_date', 'Sold', ''], ['scheduled_for', 'Install date', ''],
                               ['days_waiting', 'Waiting', 'text-right']].map(([k, label, cls]) => (
                               <th key={k} onClick={() => sortWait(k)}
@@ -991,6 +992,7 @@ function SalesToInstall() {
                               <td className="py-1 pr-2">
                                 <a href={w.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{w.name || w.address}</a>
                               </td>
+                              <td className="pr-2 text-slate-600">{w.city || '—'}</td>
                               {/* The status is the whole explanation for an old one:
                                   "Holds" or "In Funding" at 800 days is a parked deal,
                                   not a production backlog. Parked ones are called out
@@ -1005,6 +1007,8 @@ function SalesToInstall() {
                                   {w.status || '—'}
                                 </span>
                               </td>
+                              {/* Hold Reason only means something while the deal is on Holds; a leftover one on a moved-on job would mislead. */}
+                              <td className="pr-2 text-slate-600">{/hold/i.test(w.status || '') ? (w.hold_reason || <span className="text-slate-400">none given</span>) : ''}</td>
                               <td className="pr-2 text-slate-600">{w.product}</td>
                               <td className="pr-2 text-slate-600">{w.rep}</td>
                               <td className="pr-2 tabular-nums text-slate-500">{w.sold_date}</td>
