@@ -2373,12 +2373,14 @@ function YearCompare() {
   const [ya, setYa] = useState(null)
   const [yb, setYb] = useState(null)
   const [month, setMonth] = useState('all') // 'all' or 1..12
+  const [priceDate, setPriceDate] = useState('2026-10-05')
+  const [priceEdit, setPriceEdit] = useState(null)
   const load = async (refresh = false) => {
     setBusy(true); setErr('')
     try {
       const r = await fetch(LB_ORIGIN + 'year-compare' + (refresh ? '?refresh=1' : ''))
       const d = await r.json()
-      if (d?.ok) { setData(d.data); if (refresh) setRefreshing(true) } else setErr(d?.error || 'Could not load.')
+      if (d?.ok) { setData(d.data); if (d.price_increase_date) setPriceDate(d.price_increase_date); if (refresh) setRefreshing(true) } else setErr(d?.error || 'Could not load.')
     } catch { setErr('Network error.') }
     setBusy(false)
   }
@@ -2405,6 +2407,51 @@ function YearCompare() {
   const ytdA = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(A, i + 1))))
   const ytdB = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(B, i + 1))))
   const fullA = ycRow(ycSum(Array.from({ length: 12 }, (_, i) => get(A, i + 1))))
+  // 💲 PRICE INCREASE before / after (Neal, 2026-11-02: show a buyer the trend from when the new pricing started).
+  // Same number of days on each side, plus the same days a year earlier, from the per-deal rows.
+  const pr = (() => {
+    const rows = data?.rows
+    if (!Array.isArray(rows) || !rows.length || !/^\d{4}-\d{2}-\d{2}$/.test(priceDate)) return null
+    const etMidnight = (iso) => { const [y, m, d] = iso.split('-').map(Number); const probe = new Date(Date.UTC(y, m - 1, d, 12)); const edt = probe.toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'short' }).includes('EDT'); return Date.UTC(y, m - 1, d, edt ? 4 : 5) / 1000 }
+    const start = etMidnight(priceDate), end = Math.floor(Date.now() / 1000)
+    if (start >= end) return null
+    const span = end - start, days = Math.max(1, Math.round(span / 86400)), YR = 365 * 86400
+    const tally = (a, b) => {
+      const t = { n: 0, gross: 0, sqN: 0, sq: 0, sqGross: 0, ef: 0, ss: 0, sh: 0 }
+      for (const [sec, amt, sq, f] of rows) {
+        if (sec < a || sec >= b) continue
+        t.n++; t.gross += amt
+        if (sq > 0) { t.sqN++; t.sq += sq; t.sqGross += amt }
+        if (f & 1) t.ef++; if (f & 2) t.ss++; if (f & 4) t.sh++
+      }
+      const per30 = 30 / days
+      return { units: t.n, units30: t.n * per30, gross30: t.gross * per30, ticket: t.n ? t.gross / t.n : null, sq: t.sqN ? t.sq / t.sqN : null, persq: t.sq ? t.sqGross / t.sq : null,
+        ef: t.n ? (100 * t.ef) / t.n : null, ss: t.n ? (100 * t.ss) / t.n : null, sh: t.n ? (100 * t.sh) / t.n : null }
+    }
+    const fmtD = (sec) => new Date(sec * 1000).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
+    return { days, after: tally(start, end), before: tally(start - span, start), lastYr: tally(start - YR, end - YR),
+      labels: { after: `${fmtD(start)} – today`, before: `${fmtD(start - span)} – ${fmtD(start - 1)}`, lastYr: `${fmtD(start - YR)} – ${fmtD(end - YR)}` } }
+  })()
+  const priceMonthKey = priceDate.slice(0, 7)
+  const savePriceDate = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(priceEdit || '')) return
+    try {
+      const r = await fetch(LB_ORIGIN + 'year-compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price_increase_date: priceEdit }) })
+      const d = await r.json()
+      if (d?.ok) { setPriceDate(d.price_increase_date); setPriceEdit(null) } else setErr(d?.error || 'Could not save the date.')
+    } catch { setErr('Network error.') }
+  }
+  const PR_ROWS = [
+    { k: 'units30', l: 'Sold per 30 days', f: (v) => v.toFixed(1) },
+    { k: 'gross30', l: 'Gross per 30 days', f: (v) => fmtVal(v, 'dollars') },
+    { k: 'ticket', l: 'Avg ticket', f: (v) => '$' + Math.round(v).toLocaleString() },
+    { k: 'persq', l: '$ / square', f: (v) => '$' + Math.round(v).toLocaleString() },
+    { k: 'sq', l: 'Avg squares', f: (v) => v.toFixed(1) },
+    { k: 'ef', l: '% exposed fastener', f: (v) => Math.round(v) + '%' },
+    { k: 'ss', l: '% standing seam', f: (v) => Math.round(v) + '%' },
+    { k: 'sh', l: '% shingle', f: (v) => Math.round(v) + '%' },
+    { k: 'units', l: 'Sold (total in window)', f: (v) => v },
+  ]
   const at = data?.at ? new Date(data.at).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' ET' : ''
 
   const Cell = ({ a, b, col }) => {
@@ -2458,7 +2505,7 @@ function YearCompare() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rowsFor.map((mo) => <Line key={mo} label={YC_MONTHS[mo - 1]} a={ycRow(get(A, mo))} b={ycRow(get(B, mo))} />)}
+                    {rowsFor.map((mo) => <Line key={mo} label={YC_MONTHS[mo - 1] + (`${B}-${String(mo).padStart(2, '0')}` === priceMonthKey ? ' 💲' : '')} a={ycRow(get(A, mo))} b={ycRow(get(B, mo))} />)}
                     {month === 'all' && lastB > 0 && <Line bold label={`Jan–${YC_MONTHS[lastB - 1]}`} a={ytdA} b={ytdB} />}
                     {month === 'all' && lastB > 0 && lastB < 12 && (
                       <tr className="border-t border-slate-100 text-slate-500">
@@ -2473,6 +2520,54 @@ function YearCompare() {
                 <p>Big number = <b>{B}</b> (green up, red down), small grey = {A}. Months by Sold Date, Eastern. Every sold deal counts, including ones already installed, paid or in collections; cancelled (Lost) deals don't.</p>
                 <p><b>Sits and closing %</b> start July 2026. Before that, JobNimbus has no appointment records, so there's nothing to count.</p>
                 <p><b>Avg squares and $ / square</b> use only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
+              </div>
+              <div className="mt-4 rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="text-base font-bold text-amber-900">💲 Price increase: before vs after</span>
+                  <span className="flex-1" />
+                  {priceEdit == null ? (
+                    <button type="button" onClick={() => setPriceEdit(priceDate)} className="text-xs font-semibold text-amber-900 underline">New pricing started {new Date(priceDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · change</button>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs">
+                      <input type="date" value={priceEdit} onChange={(e) => setPriceEdit(e.target.value)} className="rounded border border-amber-400 px-1 py-0.5" />
+                      <button type="button" onClick={savePriceDate} className="rounded bg-amber-600 px-2 py-0.5 font-semibold text-white">Save</button>
+                      <button type="button" onClick={() => setPriceEdit(null)} className="px-1 text-amber-900">Cancel</button>
+                    </span>
+                  )}
+                </div>
+                {!pr ? (
+                  <p className="text-sm text-amber-900">{data?.rows ? 'The start date is in the future.' : 'Tap ↻ Refresh once to load the deal-level numbers this needs.'}</p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-amber-300 text-[11px] uppercase tracking-wide text-amber-900">
+                            <th className="px-2 py-1 text-left"></th>
+                            <th className="px-2 py-1 text-right">Same days last year<div className="font-normal normal-case">{pr.labels.lastYr}</div></th>
+                            <th className="px-2 py-1 text-right">Before<div className="font-normal normal-case">{pr.labels.before}</div></th>
+                            <th className="px-2 py-1 text-right">After<div className="font-normal normal-case">{pr.labels.after}</div></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {PR_ROWS.map((r) => {
+                            const b = pr.before[r.k], a = pr.after[r.k], ok = (v) => v != null && Number.isFinite(v)
+                            const tone = ok(a) && ok(b) && Math.abs(a - b) > 1e-9 ? (a > b ? 'text-emerald-700' : 'text-red-600') : 'text-slate-700'
+                            return (
+                              <tr key={r.k} className="border-t border-amber-200">
+                                <td className="px-2 py-1.5 font-semibold text-slate-700">{r.l}</td>
+                                <td className="px-2 py-1.5 text-right text-slate-500">{ok(pr.lastYr[r.k]) ? r.f(pr.lastYr[r.k]) : '—'}</td>
+                                <td className="px-2 py-1.5 text-right text-slate-700">{ok(b) ? r.f(b) : '—'}</td>
+                                <td className={`px-2 py-1.5 text-right font-bold ${tone}`}>{ok(a) ? r.f(a) : '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="mt-2 text-xs text-amber-900">After = the {pr.days} days since the new pricing started. Before = the {pr.days} days just before it. Last year = the same dates a year earlier. Per-30-day numbers make windows of different lengths comparable. Short windows swing a lot, so read this as a trend that firms up each week.</p>
+                  </>
+                )}
               </div>
             </>
           )}
