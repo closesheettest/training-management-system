@@ -815,7 +815,8 @@ function SalesToInstall() {
   const [openMonth, setOpenMonth] = useState(null)
   const [showWaiting, setShowWaiting] = useState(false)
   // Default = oldest first, which is the question the list exists to answer.
-  const [waitSort, setWaitSort] = useState({ key: 'days_waiting', dir: 'desc' })
+  // Default: by zone, oldest first inside each zone (Neal, 2026-11-02: "sort those by zone").
+  const [waitSort, setWaitSort] = useState({ key: 'zone', dir: 'asc' })
   const sortWait = (key) => setWaitSort((s0) => ({
     key,
     // A new column starts in the direction that is USEFUL for it: text A-Z,
@@ -960,7 +961,7 @@ function SalesToInstall() {
                         <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_#e2e8f0]">
                           <tr className="text-left text-slate-500">
                             {/* City + Hold reason added for Neal, 2026-11-02 */}
-                            {[['name', 'Job', ''], ['city', 'City', ''], ['status', 'Status', ''], ['hold_reason', 'Hold reason', ''], ['product', 'Product', ''],
+                            {[['zone', 'Zone', ''], ['name', 'Job', ''], ['city', 'City', ''], ['status', 'Status', ''], ['hold_reason', 'Hold reason', ''], ['product', 'Product', ''],
                               ['rep', 'Rep', ''], ['sold_date', 'Sold', ''], ['scheduled_for', 'Install date', ''],
                               ['days_waiting', 'Waiting', 'text-right']].map(([k, label, cls]) => (
                               <th key={k} onClick={() => sortWait(k)}
@@ -984,11 +985,17 @@ function SalesToInstall() {
                               if (!a.scheduled_for) return 1
                               if (!b.scheduled_for) return -1
                             }
+                            // Zone: no-zone deals last, and inside a zone the longest-waiting first.
+                            if (k === 'zone') {
+                              if (!a.zone !== !b.zone) return a.zone ? -1 : 1
+                              return String(a.zone || '').localeCompare(String(b.zone || '')) * s1 || (b.days_waiting - a.days_waiting)
+                            }
                             const av = a[k] ?? '', bv = b[k] ?? ''
                             if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * s1
                             return String(av).localeCompare(String(bv)) * s1
                           }).map((w) => (
                             <tr key={w.jnid} className="border-t border-slate-200">
+                              <td className="py-1 pr-2 whitespace-nowrap text-slate-600">{w.zone || '—'}</td>
                               <td className="py-1 pr-2">
                                 <a href={w.jn_url} target="_blank" rel="noreferrer" className="text-blue-700 underline">{w.name || w.address}</a>
                               </td>
