@@ -160,3 +160,6 @@
 # Mirrors export config.schedule in the function file.
 [functions."cron-week-b-probation"]
   schedule = "0 14 * * 6"
+
+[functions."cron-junior-promote"]
+  schedule = "30 1 * * *"

@@ -206,6 +206,7 @@ export default function RegionalManager() {
               // ALWAYS SHOWN (Anthony, 2026-10-07: "the section that let me assign appts as well as look at appts my team had
               // scheduled for today and tomorrow and had a map … is missing") — it's also the team's today/tomorrow view.
               ['📅 Assign appointments', <AssignAppointments token={token} onCount={counter('appts')} />, 'appts', true],
+              ['🎓 Juniors → Senior', <JuniorsToSenior token={token} onCount={counter('juniors')} />, 'juniors'],
               ['🗂️ Deals that need to be assigned', <DamageNeedsRep zone={manager.region} onCount={counter('deals')} />, 'deals'],
               ['🛠️ Deals to fix', <DealsToFix zone={manager.region} onCount={counter('fix')} />, 'fix'],
               ['🚫 Cancel reviews', <CancelReviews zone={manager.region} onCount={counter('cancel')} />, 'cancel'],
@@ -1531,6 +1532,13 @@ function AssignAppointments({ token, onCount }) {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
   const [allReps, setAllReps] = useState([])
+  // Juniors still working toward Senior → the "🎓 Junior rides along" picker on each appointment (Neal, 2026-11-02).
+  const [juniors, setJuniors] = useState([])
+  const loadJuniors = useCallback(() => {
+    fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'junior-progress', token }) })
+      .then((r) => r.json()).then((j) => setJuniors(j.juniors || [])).catch(() => {})
+  }, [token])
+  useEffect(() => { loadJuniors() }, [loadJuniors])
   useEffect(() => {
     fetch('/.netlify/functions/rep-zones?include_inactive=1').then((r) => r.json()).then((j) => setAllReps(j.reps || [])).catch(() => {})
   }, [])
@@ -1768,6 +1776,7 @@ function AssignAppointments({ token, onCount }) {
               <div className="text-[12.5px] font-bold text-amber-700">🕒 {timeOnly(it.appt_at)}</div>
               {it.history && <div className="mt-0.5"><HistoryChips h={it.history} /></div>}
               <div className="text-[12px] text-slate-600">Owner: <b>{it.owner_name || '—'}</b> · Sales Rep: <b>{it.sales_rep_name || (it.needs_assignment ? '⚠️ none' : '—')}</b></div>
+              {it.sales_rep_name && it.jn_job_id && <RideAlongPicker token={token} item={it} juniors={juniors} onChanged={loadJuniors} />}
               {editRow(it, 'Save')}
             </div>
           ))}</div>
@@ -1911,6 +1920,101 @@ function DamageRestore({ zone }) {
 // Managers Pay, so they can sit in Today's work without distorting any number.
 //
 // Placed first: a person waiting to hear from you outranks paperwork.
+// 🎓 JUNIOR → SENIOR (Neal, 2026-11-02: "auto-promote Junior to Senior when all three are met"; passing grade 80+).
+// Each junior on the team with the three checks: a passing practice grade (full presentation, 80+), 10 of their
+// signed inspections actually inspected, and 3 ride-alongs with a senior that sat. When all three are met they
+// become a Senior automatically (IQ leads turn on) and Neal + the manager get a text. Rules: _junior-promote.js.
+const juniorApi = (token, payload) => fetch('/.netlify/functions/regional-manager-api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, token }) }).then((r) => r.json())
+
+function JuniorsToSenior({ token, onCount }) {
+  const [list, setList] = useState(null)
+  const [err, setErr] = useState('')
+  const [open, setOpen] = useState('')
+  const load = useCallback(() => {
+    juniorApi(token, { action: 'junior-progress' }).then((j) => { if (j.ok) setList(j.juniors || []); else setErr(j.error || 'Could not load') }).catch((e) => setErr(e.message))
+  }, [token])
+  useEffect(() => { load() }, [load])
+  // Juniors who still need a ride-along = the "to do" count on the tile.
+  useEffect(() => { if (list && onCount) onCount(list.filter((j) => !j.promoted && !j.rides_ok).length) }, [list]) // eslint-disable-line react-hooks/exhaustive-deps
+  const chk = (ok, label) => <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold ${ok ? 'bg-emerald-500/25 text-emerald-200' : 'bg-white/10 text-slate-200'}`}>{ok ? '✓' : '○'} {label}</span>
+  const when = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return iso } }
+  async function remove(id) {
+    if (!window.confirm('Take this ride-along off?')) return
+    await juniorApi(token, { action: 'remove-ride-along', id }).catch(() => {})
+    load()
+  }
+  return (
+    <section className="mb-6">
+      <h2 className="mb-1 text-lg font-semibold text-white">🎓 Juniors → Senior</h2>
+      <div className="mb-2 text-[12.5px] text-slate-200/75">
+        A junior becomes a <b className="text-white">Senior automatically</b> (IQ leads turn on) once they have all three:
+        practice grade <b className="text-white">80 or higher</b>, <b className="text-white">10</b> of their inspections inspected, and
+        <b className="text-white"> 3 ride-alongs</b> with a senior that sat (no-sits don't count). You and Neal get a text.
+        To add a ride-along: <b className="text-white">📅 Assign appointments → Today</b>, then "🎓 Junior rides along" on the senior's appointment.
+      </div>
+      {err && <div className="text-sm text-rose-300">{err}</div>}
+      {!list && !err && <div className="text-sm text-slate-300">Loading…</div>}
+      {list && list.length === 0 && <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-[13px] text-slate-200/75">No juniors on your team right now.</div>}
+      {list && list.map((j) => (
+        <div key={j.id} className="mb-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2.5">
+          <button type="button" onClick={() => setOpen(open === j.id ? '' : j.id)} className="flex w-full flex-wrap items-center gap-2 text-left">
+            <span className="font-bold text-white">{j.name}</span>
+            {j.promoted && <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11.5px] font-black text-amber-950">🎉 Promoted to Senior</span>}
+            {chk(j.practice_ok, `Practice ${j.practice ?? '—'}`)}
+            {chk(j.inspected_ok, `Inspected ${j.inspected ?? '?'}/10`)}
+            {chk(j.rides_ok, `Ride-alongs ${j.rides_sat}/3`)}
+            <span className="ml-auto text-[11px] text-slate-300">{open === j.id ? '▴' : '▾'}</span>
+          </button>
+          {open === j.id && (
+            <div className="mt-2 space-y-1 text-[12.5px] text-slate-200">
+              {!j.jobnimbus_id && <div className="text-amber-200">No JobNimbus ID on file, so inspections can't be counted. Add it on their rep record.</div>}
+              {j.rides.length === 0 && <div className="text-slate-300">No ride-alongs added yet.</div>}
+              {j.rides.map((r) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${r.outcome === 'sat' ? 'bg-emerald-500/30 text-emerald-100' : r.outcome === 'no_sit' ? 'bg-rose-500/30 text-rose-100' : 'bg-white/10 text-slate-200'}`}>
+                    {r.outcome === 'sat' ? '✓ Sat' : r.outcome === 'no_sit' ? '✗ No sit' : '⏳ Waiting for status'}
+                  </span>
+                  <span>{when(r.appt_at)} · with <b>{r.senior_name || 'senior'}</b> · {r.homeowner || 'appointment'}{r.status ? ` (${r.status})` : ''}</span>
+                  {r.outcome === 'pending' && <button type="button" onClick={() => remove(r.id)} className="text-[11px] font-bold text-rose-300 underline">remove</button>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  )
+}
+
+// On a senior's appointment card: send a junior along. Counts toward their 3 only if the appointment sits.
+function RideAlongPicker({ token, item, juniors, onChanged }) {
+  const [pick, setPick] = useState('')
+  const [busy, setBusy] = useState(false)
+  const riding = juniors.filter((j) => j.rides.some((r) => r.jn_job_id === item.jn_job_id))
+  const choices = juniors.filter((j) => !j.rides_ok && !j.promoted && !riding.includes(j))
+  if (!riding.length && !choices.length) return null
+  async function add() {
+    if (!pick) return
+    setBusy(true)
+    const j = await juniorApi(token, { action: 'add-ride-along', junior_id: pick, jn_job_id: item.jn_job_id, appt_at: item.appt_at, senior_name: item.sales_rep_name, senior_jn_id: item.sales_rep_id || '', homeowner: item.homeowner || '', address: item.address || '' }).catch((e) => ({ error: e.message }))
+    setBusy(false)
+    if (!j.ok) { window.alert(j.error || 'Could not add the ride-along.'); return }
+    setPick(''); onChanged && onChanged()
+  }
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[12px] text-indigo-900">
+      {riding.length > 0 && <span>🎓 Riding along: <b>{riding.map((j) => j.name).join(', ')}</b></span>}
+      {choices.length > 0 && <>
+        <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-indigo-200 bg-white px-1.5 py-1 text-[12px]">
+          <option value="">🎓 Junior rides along…</option>
+          {choices.map((j) => <option key={j.id} value={j.id}>{j.name} ({j.rides_sat}/3)</option>)}
+        </select>
+        {pick && <button type="button" disabled={busy} onClick={add} className="rounded bg-indigo-600 px-2.5 py-1 font-bold text-white disabled:opacity-60">{busy ? 'Adding…' : 'Add'}</button>}
+      </>}
+    </div>
+  )
+}
+
 function NewTrainees({ reps, token, onChanged, onCount }) {
   const pregrads = (reps || []).filter((r) => r.pregrad)
   useEffect(() => { onCount && onCount(pregrads.length) }, [pregrads.length]) // eslint-disable-line react-hooks/exhaustive-deps

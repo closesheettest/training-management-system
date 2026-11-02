@@ -70,6 +70,7 @@ import { recipientPhonesForEvent } from './_recipients.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { notifyOffboarding } from './_offboard-notify.js'
 import { zoneForCounty } from '../../src/lib/zones.js'
+import { juniorProgress, promote, updateRides } from './_junior-promote.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -493,6 +494,42 @@ export const handler = async (event) => {
       ...(body.override ? { override: true } : {}),   // manager chose "Assign anyway" on a busy warning
     })
     return json(status, out)
+  }
+
+  // 🎓 Juniors on the way to Senior (Neal, 2026-11-02): each junior's 3 checks, and the ride-alongs the manager
+  // adds to a senior's appointment. Anyone who meets all three is promoted right here (and by the nightly check).
+  if (action === 'junior-progress') {
+    const ccg = (payload) => ccgRecordsApi(region, payload)
+    const list = await juniorProgress(supabase, region, ccg)
+    for (const j of list.filter((x) => x.ready)) {
+      if (await promote(supabase, j, ccg, (ph, m) => sendSmsViaGhl(ph, m)).catch(() => null)) j.promoted = true
+    }
+    return json(200, { ok: true, juniors: list })
+  }
+  if (action === 'add-ride-along') {
+    const jid = String(body.junior_id || '')
+    const { data: jr } = await supabase.from('trainees').select('id, first_name, last_name, region, rep_level').eq('id', jid).maybeSingle()
+    if (!jr || jr.region !== region || jr.rep_level !== 'junior') return json(400, { ok: false, error: 'That rep is not a junior on your team.' })
+    if (!body.jn_job_id || !body.appt_at) return json(400, { ok: false, error: 'This appointment has no JobNimbus job yet.' })
+    const item = {
+      id: crypto.randomUUID(), junior_id: jr.id, junior_name: `${jr.first_name || ''} ${jr.last_name || ''}`.trim(),
+      senior_name: String(body.senior_name || ''), senior_jn_id: String(body.senior_jn_id || ''),
+      jn_job_id: String(body.jn_job_id), appt_at: body.appt_at, homeowner: String(body.homeowner || ''), address: String(body.address || ''),
+      added_by: `${manager.first_name || ''} ${manager.last_name || ''}`.trim(), added_at: new Date().toISOString(), outcome: 'pending', status: null,
+    }
+    let dupe = false
+    await updateRides(supabase, (items) => {
+      dupe = items.some((x) => x.junior_id === item.junior_id && x.jn_job_id === item.jn_job_id)
+      return dupe ? items : [...items, item]
+    })
+    return json(200, { ok: true, dupe, item })
+  }
+  if (action === 'remove-ride-along') {
+    const id = String(body.id || '')
+    const { data: mine } = await supabase.from('trainees').select('id').eq('region', region)
+    const ok = new Set((mine || []).map((t) => t.id))
+    await updateRides(supabase, (items) => items.filter((x) => !(x.id === id && ok.has(x.junior_id))))
+    return json(200, { ok: true })
   }
 
   if (action === 'deactivate_rep') {
