@@ -2544,9 +2544,9 @@ function YearCompare() {
                         <thead>
                           <tr className="border-b border-amber-300 text-[11px] uppercase tracking-wide text-amber-900">
                             <th className="px-2 py-1 text-left"></th>
-                            <th className="px-2 py-1 text-right">Same days last year<div className="font-normal normal-case">{pr.labels.lastYr}</div></th>
-                            <th className="px-2 py-1 text-right">Before<div className="font-normal normal-case">{pr.labels.before}</div></th>
-                            <th className="px-2 py-1 text-right">After<div className="font-normal normal-case">{pr.labels.after}</div></th>
+                            <th className="px-2 py-1 text-right">Before the price increase<div className="font-normal normal-case">{pr.labels.before}</div></th>
+                            <th className="px-2 py-1 text-right">After the price increase<div className="font-normal normal-case">{pr.labels.after}</div></th>
+                            <th className="px-2 py-1 text-right">Same dates, one year earlier<div className="font-normal normal-case">{pr.labels.lastYr}</div></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2556,16 +2556,16 @@ function YearCompare() {
                             return (
                               <tr key={r.k} className="border-t border-amber-200">
                                 <td className="px-2 py-1.5 font-semibold text-slate-700">{r.l}</td>
-                                <td className="px-2 py-1.5 text-right text-slate-500">{ok(pr.lastYr[r.k]) ? r.f(pr.lastYr[r.k]) : '—'}</td>
                                 <td className="px-2 py-1.5 text-right text-slate-700">{ok(b) ? r.f(b) : '—'}</td>
                                 <td className={`px-2 py-1.5 text-right font-bold ${tone}`}>{ok(a) ? r.f(a) : '—'}</td>
+                                <td className="px-2 py-1.5 text-right text-slate-500">{ok(pr.lastYr[r.k]) ? r.f(pr.lastYr[r.k]) : '—'}</td>
                               </tr>
                             )
                           })}
                         </tbody>
                       </table>
                     </div>
-                    <p className="mt-2 text-xs text-amber-900">After = the {pr.days} days since the new pricing started. Before = the {pr.days} days just before it. Last year = the same dates a year earlier. Per-30-day numbers make windows of different lengths comparable. Short windows swing a lot, so read this as a trend that firms up each week.</p>
+                    <p className="mt-2 text-xs text-amber-900"><b>Before</b> = the {pr.days} days just before the new pricing. <b>After</b> = the {pr.days} days since it started (green = better than before, red = worse). <b>One year earlier</b> = the same calendar dates as After, a year back, for the season. Per-30-day numbers make windows of different lengths comparable. Short windows swing a lot, so read this as a trend that firms up each week.</p>
                   </>
                 )}
               </div>
