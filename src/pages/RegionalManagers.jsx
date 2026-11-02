@@ -2328,7 +2328,7 @@ function InspSigningsAverage() {
 // percentage, gross dollars ... how many were metal, exposed fastener and standing seam versus shingle, and another column
 // for other." To see whether the extra spend on recruiting, training and managers is paying off: fewer opportunities,
 // worse closing, or smaller roofs. Data: CCG year-compare (every sold deal tallied nightly by Sold Date month).
-// Sits / closing % only exist from July 2026 (JobNimbus had no appointment records before that).
+// Sits / closing % are counted month by month (Neal, 2026-11-02: the records go back; the old scan just ran out).
 const YC_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const YC_COLS = [
   { key: 'sits', label: 'Sits', fmt: (v) => v },
@@ -2404,7 +2404,7 @@ function YearBars({ months, years, metric }) {
       </svg>
       <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-600">
         {years.map((y, k) => <span key={y} className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm" style={{ background: YC_BAR_COLORS[k % YC_BAR_COLORS.length] }} />{y}</span>)}
-        <span className="text-slate-400">Hover a bar for its number.{['sits', 'sitpct', 'close'].includes(metric) ? ' Sits start July 2026 (no appointment records before).' : ' JobNimbus starts Sep 2024.'}</span>
+        <span className="text-slate-400">Hover a bar for its number.</span>
       </div>
     </div>
   )
@@ -2442,7 +2442,8 @@ function YearCompare() {
   }, [refreshing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const months = data?.months || {}
-  const years = [...new Set(Object.keys(months).map((k) => Number(k.slice(0, 4))))].sort()
+  // From 2025 on (Neal, 2026-11-02: "get rid of 2024").
+  const years = [...new Set(Object.keys(months).map((k) => Number(k.slice(0, 4))))].filter((y) => y >= 2025).sort()
   const A = ya ?? (years.length > 1 ? years[years.length - 2] : years[0])
   const B = yb ?? years[years.length - 1]
   const get = (y, mo) => months[`${y}-${String(mo).padStart(2, '0')}`]
@@ -2580,7 +2581,7 @@ function YearCompare() {
               </div>
               <div className="mt-3 space-y-1 text-xs text-slate-500">
                 <p>Big number = <b>{B}</b> (green up, red down), small grey = {A}. Months by Sold Date, Eastern. Every sold deal counts, including ones already installed, paid or in collections; cancelled (Lost) deals don't.</p>
-                <p><b>Sits and closing %</b> start July 2026. Before that, JobNimbus has no appointment records, so there's nothing to count.</p>
+                <p><b>Appointments and sits</b> come from JobNimbus appointment tasks, counted month by month with the same rules as Appointments → Sales: a sold deal is a sit in its Sold Date month; an unsold one counts in the month of its latest appointment; a No Sit is an appointment but not a sit; Lost deals are left out. <b>Closing %</b> = sold ÷ sits. <b>Sit %</b> = sits ÷ appointments.</p>
                 <p><b>Roof $ / sq</b> = the deal's JobNimbus "Roof Price ONLY" ÷ its squares; when the roof-only price is blank (early 2025), the contract price stands in. <b>Metal</b> = any deal with exposed fastener, standing seam, Permalock, stone coated or tile; <b>Shingle</b> = shingle-only deals. <b>Sit %</b> = sits ÷ appointments. Squares come from each deal's JobNimbus "# of Squares (Pitch)" + "(Flat)" as the rep typed them. <b>Contract $ / sq</b> = the whole contract (insulation, IRBADS, permit, adders included) ÷ squares, so it runs higher. Both, and Avg squares, use only deals with those fields filled in; months where reps left them blank are thin.</p>
                 <p><b>Avg squares</b> uses only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
               </div>
