@@ -865,7 +865,7 @@ function SalesToInstall() {
           {!o.jobs ? <p className="text-sm text-slate-500">No completed installs in this window.</p> : (
             <>
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {[['Median', o.median_days], ['Average', o.avg_days], ['90th pct', o.p90_days],
+                {[['Median', o.median_days], ['Average', o.avg_days], ['9 in 10 done by', o.p90_days],
                   ['Fastest', o.fastest_days], ['Slowest', o.slowest_days]].map(([l, v]) => (
                   <div key={l} className="rounded-md bg-slate-50 p-2 text-center">
                     <div className="text-lg font-bold text-slate-900">{v}<span className="text-xs font-normal text-slate-500">d</span></div>
@@ -876,7 +876,7 @@ function SalesToInstall() {
               {o.avg_days > o.median_days * 1.4 && (
                 <p className="mb-3 rounded-md bg-amber-50 p-2 text-xs text-amber-800">
                   Average ({o.avg_days}d) sits well above the median ({o.median_days}d) — a tail of stuck jobs is
-                  pulling it, not the typical install. The 90th percentile ({o.p90_days}d) is where that tail starts.
+                  pulling it, not the typical install. 9 in 10 are done by {o.p90_days}d; the rest are that slow tail.
                 </p>
               )}
 
@@ -1055,7 +1055,7 @@ function SalesToInstall() {
                         <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="py-1">Month</th><th className="py-1 text-right">Installs</th>
                           <th className="py-1 text-right">Median</th><th className="py-1 text-right">Avg</th>
-                          <th className="py-1 text-right">90th</th><th className="py-1 pl-3">Trend</th>
+                          <th className="py-1 text-right" title="9 out of 10 installs were done within this many days">9 in 10 by</th><th className="py-1 pl-3">Trend</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1115,7 +1115,7 @@ function SalesToInstall() {
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
                     <th className="py-1">Product</th><th className="py-1 text-right">Installs</th>
                     <th className="py-1 text-right">Median</th><th className="py-1 text-right">Avg</th>
-                    <th className="py-1 text-right">90th</th><th className="py-1 text-right">Slowest</th>
+                    <th className="py-1 text-right" title="9 out of 10 installs were done within this many days">9 in 10 by</th><th className="py-1 text-right">Slowest</th>
                   </tr>
                 </thead>
                 <tbody>
