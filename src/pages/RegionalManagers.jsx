@@ -2365,6 +2365,45 @@ function ycRow(m) {
     ef: m.ef, ss: m.ss, shingle: m.shingle, other: m.other, flat: m.flat ?? null, irbads: m.irbads,
   }
 }
+// 📊 Bars by month (Neal, 2026-11-02: "a column that says January, and above January three bars: 2024, 2025, 2026").
+// One metric at a time, every year side by side for each month. Hover a bar for its number.
+const YC_BAR_COLORS = ['#94a3b8', '#0ea5e9', '#0369a1', '#f59e0b']
+function YearBars({ months, years, metric }) {
+  const col = YC_COLS.find((c) => c.key === metric) || YC_COLS[1]
+  const val = (y, mo) => { const r = ycRow(months[`${y}-${String(mo).padStart(2, '0')}`]); const v = r[metric]; return v != null && Number.isFinite(v) ? v : null }
+  const all = years.flatMap((y) => YC_MONTHS.map((_, i) => val(y, i + 1))).filter((v) => v != null)
+  const max = Math.max(1, ...all)
+  const W = 960, H = 300, L = 8, B = 26, T = 18, gw = (W - L * 2) / 12, bw = Math.min(22, (gw - 10) / years.length)
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 'auto' }}>
+        {[0.25, 0.5, 0.75, 1].map((f) => <line key={f} x1={L} x2={W - L} y1={T + (H - T - B) * (1 - f)} y2={T + (H - T - B) * (1 - f)} stroke="#e2e8f0" />)}
+        {YC_MONTHS.map((m, i) => {
+          const gx = L + i * gw + (gw - bw * years.length) / 2
+          return (
+            <g key={m}>
+              {years.map((y, k) => {
+                const v = val(y, i + 1); if (v == null) return null
+                const h = ((H - T - B) * v) / max, x = gx + k * bw, yTop = H - B - h
+                return (
+                  <g key={y}>
+                    <rect x={x + 1} y={yTop} width={bw - 2} height={h} rx="2" fill={YC_BAR_COLORS[k % YC_BAR_COLORS.length]}><title>{`${m} ${y}: ${col.fmt(v)}`}</title></rect>
+                  </g>
+                )
+              })}
+              <text x={L + i * gw + gw / 2} y={H - 8} textAnchor="middle" fontSize="12" fill="#475569" fontWeight="600">{m}</text>
+            </g>
+          )
+        })}
+        <text x={L} y={12} fontSize="11" fill="#64748b">{col.label} · top line = {col.fmt(max)}</text>
+      </svg>
+      <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-600">
+        {years.map((y, k) => <span key={y} className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm" style={{ background: YC_BAR_COLORS[k % YC_BAR_COLORS.length] }} />{y}</span>)}
+        <span className="text-slate-400">Hover a bar for its number. A missing bar = no data that month (JobNimbus starts Sep 2024; sits start Jul 2026).</span>
+      </div>
+    </div>
+  )
+}
 function YearCompare() {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem('year_compare_open') === '1' } catch { return false } })
   const [data, setData] = useState(null)
@@ -2374,6 +2413,7 @@ function YearCompare() {
   const [ya, setYa] = useState(null)
   const [yb, setYb] = useState(null)
   const [month, setMonth] = useState('all') // 'all' or 1..12
+  const [barMetric, setBarMetric] = useState('units')
   const [priceDate, setPriceDate] = useState('2026-10-05')
   const [priceEdit, setPriceEdit] = useState(null)
   const load = async (refresh = false) => {
@@ -2499,6 +2539,15 @@ function YearCompare() {
             <p className="text-sm text-slate-500">{busy ? 'Loading…' : refreshing ? 'First pull is running. It takes a few minutes; this fills in on its own.' : 'No numbers yet. Tap ↻ Refresh.'}</p>
           ) : (
             <>
+              <div className="mb-4 rounded-lg border border-slate-200 p-3">
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {YC_COLS.map((c) => (
+                    <button type="button" key={c.key} onClick={() => setBarMetric(c.key)}
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${barMetric === c.key ? 'border-sky-800 bg-sky-800 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}>{c.label}</button>
+                  ))}
+                </div>
+                <YearBars months={months} years={years.slice(-3)} metric={barMetric} />
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
