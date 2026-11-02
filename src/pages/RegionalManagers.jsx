@@ -2393,7 +2393,8 @@ function YearBars({ months, years, metric }) {
   // year's months so far are also shown for the older years, so "so far this year" is apples to apples.
   const keyOf = (y, mo) => `${y}-${String(mo).padStart(2, '0')}`
   const newest = years[years.length - 1]
-  const lastMo = Math.max(0, ...Object.keys(months).filter((k) => k.startsWith(String(newest)) && months[k].units > 0).map((k) => Number(k.slice(5))))
+  const nowET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const lastMo = Number(nowET.slice(0, 4)) === newest ? Number(nowET.slice(5, 7)) - 1 : 12 // complete months only
   const yearVal = (y, upTo) => { const v = ycRow(ycSum(Array.from({ length: upTo }, (_, i) => months[keyOf(y, i + 1)])))[metric]; return v != null && Number.isFinite(v) ? v : null }
   return (
     <div>
@@ -2474,11 +2475,25 @@ function YearCompare() {
   const B = yb ?? years[years.length - 1]
   const get = (y, mo) => months[`${y}-${String(mo).padStart(2, '0')}`]
   // Year to date = the same months in both years, through the latest month the newer year has.
-  const lastB = Math.max(0, ...Object.keys(months).filter((k) => k.startsWith(String(B))).map((k) => Number(k.slice(5))))
+  // Complete months only: the month we're in isn't over, so it would compare 2 days against a whole month.
+  const nowET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const lastB = Number(nowET.slice(0, 4)) === B ? Number(nowET.slice(5, 7)) - 1 : 12
   const rowsFor = month === 'all' ? YC_MONTHS.map((_, i) => i + 1) : [Number(month)]
   const ytdA = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(A, i + 1))))
   const ytdB = ycRow(ycSum(Array.from({ length: lastB }, (_, i) => get(B, i + 1))))
   const fullA = ycRow(ycSum(Array.from({ length: 12 }, (_, i) => get(A, i + 1))))
+  // TOP LINE (Neal, 2026-11-02: "the machine is better, it doesn't have enough to eat"). Same months both years, and what
+  // the missing sits cost: each month's sit gap × that month's closing % in the newer year, at its average ticket.
+  const missed = (() => {
+    let sits = 0, sales = 0
+    for (let mo = 1; mo <= lastB; mo++) {
+      const a = get(A, mo), b = get(B, mo)
+      if (!a?.sits || !b?.sits) continue
+      const gap = a.sits - b.sits
+      sits += gap; sales += gap * ((b.units || 0) / b.sits)
+    }
+    return { sits, sales, dollars: ytdB.ticket ? sales * ytdB.ticket : null }
+  })()
   // 💲 PRICE INCREASE before / after (Neal, 2026-11-02: show a buyer the trend from when the new pricing started).
   // Same number of days on each side, plus the same days a year earlier, from the per-deal rows.
   const pr = (() => {
@@ -2575,6 +2590,40 @@ function YearCompare() {
             <p className="text-sm text-slate-500">{busy ? 'Loading…' : refreshing ? 'First pull is running. It takes a few minutes; this fills in on its own.' : 'No numbers yet. Tap ↻ Refresh.'}</p>
           ) : (
             <>
+              {lastB > 0 && (
+                <div className="mb-4 rounded-lg border-2 border-sky-800 bg-sky-50 p-3">
+                  <div className="mb-2 text-base font-bold text-sky-900">Top line · Jan–{YC_MONTHS[lastB - 1]}, {A} vs {B}</div>
+                  <div className="overflow-x-auto">
+                    <table className="text-sm">
+                      <thead><tr className="text-[11px] uppercase tracking-wide text-slate-500"><th className="px-2 py-1 text-left"></th><th className="px-3 py-1 text-right">{A}</th><th className="px-3 py-1 text-right">{B}</th><th className="px-3 py-1 text-right">Change</th></tr></thead>
+                      <tbody>
+                        {[['appts', 'Appointments', (v) => Math.round(v).toLocaleString()], ['sits', 'Sits', (v) => Math.round(v).toLocaleString()], ['sitpct', 'Sit %', (v) => Math.round(v) + '%'], ['units', 'Sold', (v) => Math.round(v).toLocaleString()], ['close', 'Closing %', (v) => Math.round(v) + '%'], ['gross', 'Gross $', (v) => fmtVal(v, 'dollars')], ['ticket', 'Avg ticket', (v) => '$' + Math.round(v).toLocaleString()], ['roofsq', 'Roof $ / sq', (v) => '$' + Math.round(v).toLocaleString()]].map(([k, l, f]) => {
+                          const a = k === 'appts' ? ycSum(Array.from({ length: lastB }, (_, i) => get(A, i + 1))).appts : ytdA[k]
+                          const b = k === 'appts' ? ycSum(Array.from({ length: lastB }, (_, i) => get(B, i + 1))).appts : ytdB[k]
+                          const ok = (v) => v != null && Number.isFinite(v)
+                          const d = ok(a) && ok(b) ? b - a : null
+                          const pctPt = ['sitpct', 'close'].includes(k)
+                          return (
+                            <tr key={k} className="border-t border-sky-100">
+                              <td className="px-2 py-1 font-semibold text-slate-700">{l}</td>
+                              <td className="px-3 py-1 text-right text-slate-600">{ok(a) ? f(a) : '—'}</td>
+                              <td className="px-3 py-1 text-right font-bold text-slate-900">{ok(b) ? f(b) : '—'}</td>
+                              <td className={`px-3 py-1 text-right font-semibold ${d == null || Math.round(d) === 0 ? 'text-slate-500' : d > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                                {d == null ? '—' : pctPt ? `${d > 0 ? '+' : ''}${Math.round(d)} pts` : `${d > 0 ? '+' : ''}${Math.round((100 * d) / (a || 1))}%`}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {missed.sits > 0 && (
+                    <p className="mt-2 text-sm text-sky-900">
+                      <b>{B} had {Math.round(missed.sits).toLocaleString()} fewer sits.</b> At {B}'s own closing % each month, those sits would have been about <b>{Math.round(missed.sales)} more sales</b>{missed.dollars ? <>, roughly <b>{fmtVal(missed.dollars, 'dollars')}</b> at {B}'s average ticket</> : null}.
+                    </p>
+                  )}
+                </div>
+              )}
               {/* ALL THE GRAPHS AT ONCE (Neal, 2026-11-02): units, sits, sit %, closing %, average sale, $/square for
                   metal, shingle and both together, so one can be read against another. */}
               <div className="mb-4 grid grid-cols-1 gap-3">
