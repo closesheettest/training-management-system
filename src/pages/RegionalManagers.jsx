@@ -2337,7 +2337,8 @@ const YC_COLS = [
   { key: 'gross', label: 'Gross $', fmt: (v) => fmtVal(v, 'dollars') },
   { key: 'ticket', label: 'Avg ticket', fmt: (v) => '$' + Math.round(v).toLocaleString() },
   { key: 'sq', label: 'Avg squares', fmt: (v) => v.toFixed(1) },
-  { key: 'persq', label: '$ / square', fmt: (v) => '$' + Math.round(v).toLocaleString() },
+  { key: 'roofsq', label: 'Roof-only $ / sq', fmt: (v) => '$' + Math.round(v).toLocaleString(), title: 'JobNimbus Roof Price ONLY ÷ squares' },
+  { key: 'persq', label: 'Contract $ / sq', fmt: (v) => '$' + Math.round(v).toLocaleString(), title: 'Whole contract (with insulation, IRBADS, permit, adders) ÷ squares' },
   { key: 'ef', label: 'Exposed fastener', fmt: (v) => v },
   { key: 'ss', label: 'Standing seam', fmt: (v) => v },
   { key: 'shingle', label: 'Shingle', fmt: (v) => v },
@@ -2346,10 +2347,10 @@ const YC_COLS = [
   { key: 'irbads', label: 'IRBADS', fmt: (v) => v },
 ]
 function ycSum(ms) {
-  const t = { units: 0, gross: 0, sq_units: 0, squares: 0, sq_gross: 0, ef: 0, ss: 0, shingle: 0, other: 0, flat: 0, irbads: 0, sits: null, sit_sold: null }
+  const t = { units: 0, gross: 0, sq_units: 0, squares: 0, sq_gross: 0, roof_sq: 0, roof_gross: 0, ef: 0, ss: 0, shingle: 0, other: 0, flat: 0, irbads: 0, sits: null, sit_sold: null }
   for (const m of ms) {
     if (!m) continue
-    for (const k of ['units', 'gross', 'sq_units', 'squares', 'sq_gross', 'ef', 'ss', 'shingle', 'other', 'flat', 'irbads']) t[k] += m[k] || 0
+    for (const k of ['units', 'gross', 'sq_units', 'squares', 'sq_gross', 'roof_sq', 'roof_gross', 'ef', 'ss', 'shingle', 'other', 'flat', 'irbads']) t[k] += m[k] || 0
     if (m.sits != null) { t.sits = (t.sits || 0) + m.sits; t.sit_sold = (t.sit_sold || 0) + (m.sit_sold || 0) }
   }
   return t
@@ -2360,7 +2361,7 @@ function ycRow(m) {
     sits: m.sits ?? null, units: m.units,
     close: m.sits ? Math.round((100 * (m.sit_sold ?? 0)) / m.sits) : null,
     gross: m.gross, ticket: m.gross / m.units,
-    sq: m.sq_units ? m.squares / m.sq_units : null, persq: m.squares ? m.sq_gross / m.squares : null,
+    sq: m.sq_units ? m.squares / m.sq_units : null, persq: m.squares ? m.sq_gross / m.squares : null, roofsq: m.roof_sq ? m.roof_gross / m.roof_sq : null,
     ef: m.ef, ss: m.ss, shingle: m.shingle, other: m.other, flat: m.flat ?? null, irbads: m.irbads,
   }
 }
@@ -2417,15 +2418,16 @@ function YearCompare() {
     if (start >= end) return null
     const span = end - start, days = Math.max(1, Math.round(span / 86400)), YR = 365 * 86400
     const tally = (a, b) => {
-      const t = { n: 0, gross: 0, sqN: 0, sq: 0, sqGross: 0, ef: 0, ss: 0, sh: 0 }
-      for (const [sec, amt, sq, f] of rows) {
+      const t = { n: 0, gross: 0, sqN: 0, sq: 0, sqGross: 0, rSq: 0, rGross: 0, ef: 0, ss: 0, sh: 0 }
+      for (const [sec, amt, sq, f, roof] of rows) {
         if (sec < a || sec >= b) continue
         t.n++; t.gross += amt
         if (sq > 0) { t.sqN++; t.sq += sq; t.sqGross += amt }
+        if (sq > 0 && roof > 0) { t.rSq += sq; t.rGross += roof }
         if (f & 1) t.ef++; if (f & 2) t.ss++; if (f & 4) t.sh++
       }
       const per30 = 30 / days
-      return { units: t.n, units30: t.n * per30, gross30: t.gross * per30, ticket: t.n ? t.gross / t.n : null, sq: t.sqN ? t.sq / t.sqN : null, persq: t.sq ? t.sqGross / t.sq : null,
+      return { units: t.n, units30: t.n * per30, gross30: t.gross * per30, ticket: t.n ? t.gross / t.n : null, sq: t.sqN ? t.sq / t.sqN : null, persq: t.sq ? t.sqGross / t.sq : null, roofsq: t.rSq ? t.rGross / t.rSq : null,
         ef: t.n ? (100 * t.ef) / t.n : null, ss: t.n ? (100 * t.ss) / t.n : null, sh: t.n ? (100 * t.sh) / t.n : null }
     }
     const fmtD = (sec) => new Date(sec * 1000).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
@@ -2445,7 +2447,8 @@ function YearCompare() {
     { k: 'units30', l: 'Sold per 30 days', f: (v) => v.toFixed(1) },
     { k: 'gross30', l: 'Gross per 30 days', f: (v) => fmtVal(v, 'dollars') },
     { k: 'ticket', l: 'Avg ticket', f: (v) => '$' + Math.round(v).toLocaleString() },
-    { k: 'persq', l: '$ / square', f: (v) => '$' + Math.round(v).toLocaleString() },
+    { k: 'roofsq', l: 'Roof-only $ / square', f: (v) => '$' + Math.round(v).toLocaleString() },
+    { k: 'persq', l: 'Contract $ / square', f: (v) => '$' + Math.round(v).toLocaleString() },
     { k: 'sq', l: 'Avg squares', f: (v) => v.toFixed(1) },
     { k: 'ef', l: '% exposed fastener', f: (v) => Math.round(v) + '%' },
     { k: 'ss', l: '% standing seam', f: (v) => Math.round(v) + '%' },
@@ -2519,7 +2522,8 @@ function YearCompare() {
               <div className="mt-3 space-y-1 text-xs text-slate-500">
                 <p>Big number = <b>{B}</b> (green up, red down), small grey = {A}. Months by Sold Date, Eastern. Every sold deal counts, including ones already installed, paid or in collections; cancelled (Lost) deals don't.</p>
                 <p><b>Sits and closing %</b> start July 2026. Before that, JobNimbus has no appointment records, so there's nothing to count.</p>
-                <p><b>Avg squares and $ / square</b> use only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
+                <p><b>Roof-only $ / sq</b> = the deal's JobNimbus "Roof Price ONLY" ÷ its squares: the roof alone. <b>Contract $ / sq</b> = the whole contract (insulation, IRBADS, permit, adders included) ÷ squares, so it runs higher. Both, and Avg squares, use only deals with those fields filled in; months where reps left them blank are thin.</p>
+                <p><b>Avg squares</b> uses only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
               </div>
               <div className="mt-4 rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
