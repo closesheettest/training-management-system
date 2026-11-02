@@ -2581,9 +2581,32 @@ function YearCompare() {
               <div className="mt-3 space-y-1 text-xs text-slate-500">
                 <p>Big number = <b>{B}</b> (green up, red down), small grey = {A}. Months by Sold Date, Eastern. Every sold deal counts, including ones already installed, paid or in collections; cancelled (Lost) deals don't.</p>
                 <p><b>Sits and closing %</b> start July 2026. Before that, JobNimbus has no appointment records, so there's nothing to count.</p>
-                <p><b>Roof $ / sq</b> = the deal's JobNimbus "Roof Price ONLY" ÷ its squares; when the roof-only price is blank (early 2025), the contract price stands in. <b>Metal</b> = any deal with exposed fastener, standing seam, Permalock, stone coated or tile; <b>Shingle</b> = shingle-only deals. <b>Sit %</b> = sits ÷ appointments. <b>Contract $ / sq</b> = the whole contract (insulation, IRBADS, permit, adders included) ÷ squares, so it runs higher. Both, and Avg squares, use only deals with those fields filled in; months where reps left them blank are thin.</p>
+                <p><b>Roof $ / sq</b> = the deal's JobNimbus "Roof Price ONLY" ÷ its squares; when the roof-only price is blank (early 2025), the contract price stands in. <b>Metal</b> = any deal with exposed fastener, standing seam, Permalock, stone coated or tile; <b>Shingle</b> = shingle-only deals. <b>Sit %</b> = sits ÷ appointments. Squares come from each deal's JobNimbus "# of Squares (Pitch)" + "(Flat)" as the rep typed them. <b>Contract $ / sq</b> = the whole contract (insulation, IRBADS, permit, adders included) ÷ squares, so it runs higher. Both, and Avg squares, use only deals with those fields filled in; months where reps left them blank are thin.</p>
                 <p><b>Avg squares</b> uses only deals with squares typed in. <b>Product columns</b> count a deal under each product it has, so they can add up to more than Sold. <b>Other</b> = stone coated, tile and Permalock. <b>Flat</b> = deals with a flat section (Mod bit / TPO), usually alongside metal or shingle. <b>IRBADS</b> = deals with IRBADS on them.</p>
               </div>
+              {Array.isArray(data.odd) && data.odd.length > 0 && (
+                <details className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
+                  <summary className="cursor-pointer font-semibold text-red-800">⚠️ {data.odd.length} deal{data.odd.length === 1 ? '' : 's'} with squares that can't be right, left out of the squares numbers. Fix them in JobNimbus.</summary>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-red-900"><th className="px-1">Sold</th><th className="px-1">Deal</th><th className="px-1">Rep</th><th className="px-1 text-right">Squares</th><th className="px-1 text-right">Roof price</th><th className="px-1 text-right">Contract</th><th className="px-1 text-right">$ / sq</th></tr></thead>
+                      <tbody>
+                        {[...data.odd].sort((a, b) => (a.month < b.month ? 1 : -1)).map((o) => (
+                          <tr key={o.jnid} className="border-t border-red-100">
+                            <td className="px-1">{o.month}</td>
+                            <td className="px-1"><a href={`https://app.jobnimbus.com/job/${o.jnid}`} target="_blank" rel="noreferrer" className="font-semibold text-sky-800 underline">{o.name}</a></td>
+                            <td className="px-1">{o.sales_rep}</td>
+                            <td className="px-1 text-right">{o.squares}</td>
+                            <td className="px-1 text-right">{o.roof_only ? '$' + o.roof_only.toLocaleString() : '—'}</td>
+                            <td className="px-1 text-right">${(o.contract || 0).toLocaleString()}</td>
+                            <td className="px-1 text-right font-bold text-red-700">{o.per_sq != null ? '$' + o.per_sq.toLocaleString() : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
               <div className="mt-4 rounded-lg border-2 border-amber-500 bg-amber-50 p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-base font-bold text-amber-900">💲 Price increase: before vs after</span>
