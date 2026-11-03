@@ -262,7 +262,13 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
   async function submit(e) {
     e.preventDefault()
     setError(null)
-    if (!form.region) {
+    // VIRTUAL WEEK (Neal, 2026-11-03: creating Week A for 11/9 it demanded a region, and St Pete / Miami / Orlando made
+    // no sense for an online class). A virtual class needs no region or venue: it's stored under St Pete with St Pete's
+    // usual location, exactly like every virtual class since 10/5, and shows as "🎥 Virtual" everywhere.
+    const virtualWeek = form.virtual && !form.attendance_only
+    const region = form.region || (virtualWeek ? 'St Pete' : '')
+    const locationId = form.location_id || (virtualWeek ? defaultLocationByRegion['St Pete'] || '' : '')
+    if (!region) {
       setError('Pick a region.')
       return
     }
@@ -272,8 +278,8 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
       .insert({
         week_start_date: form.week_start_date,
         week_end_date: form.week_end_date,
-        region: form.region,
-        location_id: form.location_id || null,
+        region,
+        location_id: locationId || null,
         schedule_details: form.schedule_details || null,
         attendance_only: !!form.attendance_only,
       })
@@ -349,6 +355,11 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
             </div>
           </div>
         )}
+        {form.virtual && !form.attendance_only ? (
+          <div className="sm:col-span-2 rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+            🎥 <b>Virtual week:</b> no region or address needed. Trainees join from their own link.
+          </div>
+        ) : (<>
         <label className="block text-sm font-medium text-slate-700">
           Region
           <select
@@ -385,6 +396,7 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
             ))}
           </select>
         </label>
+        </>)}
         <label className="sm:col-span-2 block text-sm font-medium text-slate-700">
           Schedule details (optional)
           <textarea
