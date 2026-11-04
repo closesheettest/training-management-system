@@ -40,6 +40,7 @@ export default function WilliamIqPayCard() {
           <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
             {money(data.plan.per_sit)} per harvested sit, plus {money(data.plan.bonus)} at each of {data.plan.tiers.join(', ')} sits in a week. Weeks run Monday–Sunday and are paid the Friday after.
             <div className="mt-1 text-emerald-800">Knock priority: IQ → No Sit Need to Reschedule → BTR Go Backs → IQ Not Interested.</div>
+            {data.plan.starts && <div className="mt-1 text-emerald-800">Counts bookings made from {fmtDay(data.plan.starts)}, {data.plan.starts.slice(0, 4)} on. Earlier bookings are on his regular commission report.</div>}
           </div>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Week
             <select value={wk} onChange={(e) => setWk(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-sm">
