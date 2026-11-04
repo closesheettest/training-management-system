@@ -511,16 +511,19 @@ export const handler = async (event) => {
   // appointment to go to?" It didn't). Text AND email, like every rep message (SMS alone misses Do Not Disturb). Added →
   // when, where, the homeowner, a map link and the senior's cell; removed → a short "you're off this one".
   const rideNote = async (ride, added) => {
-    const { data: jr } = await supabase.from('trainees').select('first_name, phone, email').eq('id', ride.junior_id).maybeSingle()
+    const { data: jr } = await supabase.from('trainees').select('first_name, last_name, phone, email').eq('id', ride.junior_id).maybeSingle()
     if (!jr) return
     const at = new Date(ride.appt_at)
     if (!added && at.getTime() < Date.now() - 3600000) return // an old one: nothing to tell them
     const when = at.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-    let seniorCell = ''
-    if (added && ride.senior_jn_id) {
-      const { data: sr } = await supabase.from('trainees').select('phone').eq('jobnimbus_id', ride.senior_jn_id).not('phone', 'is', null).limit(1)
-      seniorCell = sr?.[0]?.phone ? String(sr[0].phone).replace(/\D/g, '').slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : ''
+    const pretty = (ph) => (ph ? String(ph).replace(/\D/g, '').slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : '')
+    // The senior too (Neal, 2026-11-04: "let them know that junior rep is going to meet them at the appointment").
+    let sr = null
+    if (ride.senior_jn_id) {
+      const { data } = await supabase.from('trainees').select('first_name, phone, email').eq('jobnimbus_id', ride.senior_jn_id).not('phone', 'is', null).limit(1)
+      sr = data?.[0] || null
     }
+    const seniorCell = added ? pretty(sr?.phone) : ''
     const map = ride.address ? `https://maps.google.com/?q=${encodeURIComponent(ride.address)}` : ''
     const first = jr.first_name || 'there'
     const body = added
@@ -530,9 +533,19 @@ export const handler = async (event) => {
         '', `Set by ${ride.added_by || 'your manager'}. Be there 10 minutes early.`].filter((x) => x !== '').join('\n')
       : `Hi ${first}, change of plans: you're no longer riding along with ${ride.senior_name || 'the senior rep'} on ${when} ET${ride.homeowner ? ` (${ride.homeowner})` : ''}. ${ride.added_by ? `${ride.added_by.split(' ')[0]} will` : 'Your manager will'} let you know about the next one.`
     const subject = added ? `Ride-along: ${when} ET with ${ride.senior_name || 'a senior rep'}` : `Ride-along cancelled: ${when} ET`
+    const jrName = `${jr.first_name || ''} ${jr.last_name || ''}`.trim() || ride.junior_name || 'A junior rep'
+    const sFirst = sr?.first_name || (ride.senior_name || '').split(' ')[0] || 'there'
+    const sBody = added
+      ? [`Hi ${sFirst}, ${jrName} is riding along with you on your ${when} ET appointment${ride.homeowner ? ` (${ride.homeowner})` : ''}${ride.address ? `, ${ride.address}` : ''}.`,
+        jr.phone ? `${jrName.split(' ')[0]}'s cell: ${pretty(jr.phone)}. Reach out to plan where to meet.` : `Reach out to ${jrName.split(' ')[0]} to plan where to meet.`,
+        `Set by ${ride.added_by || 'your manager'}.`].join('\n')
+      : `Hi ${sFirst}, change of plans: ${jrName} is no longer riding along with you on ${when} ET${ride.homeowner ? ` (${ride.homeowner})` : ''}.`
+    const sSubject = added ? `${jrName} is riding along: ${when} ET` : `Ride-along cancelled: ${when} ET`
     await Promise.all([
       jr.phone ? sendSmsViaGhl(jr.phone, body, { firstName: 'Ride-along', lastName: 'Notify' }).catch(() => null) : null,
       jr.email ? sendEmail(jr.email, subject, body).catch(() => null) : null,
+      sr?.phone ? sendSmsViaGhl(sr.phone, sBody, { firstName: 'Ride-along', lastName: 'Notify' }).catch(() => null) : null,
+      sr?.email ? sendEmail(sr.email, sSubject, sBody).catch(() => null) : null,
     ])
   }
 
