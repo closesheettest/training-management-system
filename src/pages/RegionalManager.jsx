@@ -2012,12 +2012,22 @@ function RideAlongPicker({ token, item, juniors, onChanged }) {
     if (!j.ok) { window.alert(j.error || 'Could not remove the ride-along.'); return }
     onChanged && onChanged()
   }
+  async function resend(jr) {
+    const ride = jr.rides.find((r) => r.jn_job_id === item.jn_job_id)
+    if (!ride) return
+    setBusy(true)
+    const j = await juniorApi(token, { action: 'resend-ride-along', id: ride.id }).catch((e) => ({ error: e.message }))
+    setBusy(false)
+    window.alert(j.ok ? `Sent the details again to ${jr.name} and ${item.sales_rep_name || 'the senior'} (text + email).` : (j.error || 'Could not send.'))
+  }
   return (
     <div className="mt-1 flex flex-wrap items-center gap-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[12px] text-indigo-900">
       {riding.length > 0 && <span>🎓 Riding along: {riding.map((j) => (
         <span key={j.id} className="mr-1 inline-flex items-center gap-1"><b>{j.name}</b>
           <button type="button" disabled={busy} onClick={() => remove(j)} title={`Take ${j.name} off`} aria-label={`Take ${j.name} off`}
-            className="rounded border border-indigo-300 bg-white px-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">✕ Remove</button></span>))}</span>}
+            className="rounded border border-indigo-300 bg-white px-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">✕ Remove</button>
+          <button type="button" disabled={busy} onClick={() => resend(j)} title={`Text + email the details again to ${j.name} and the senior`}
+            className="rounded border border-indigo-300 bg-white px-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">📨 Resend</button></span>))}</span>}
       {choices.length > 0 && <>
         <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-indigo-200 bg-white px-1.5 py-1 text-[12px]">
           <option value="">🎓 Junior rides along…</option>

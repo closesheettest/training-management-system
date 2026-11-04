@@ -71,7 +71,7 @@ import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
 import { notifyOffboarding } from './_offboard-notify.js'
 import { zoneForCounty } from '../../src/lib/zones.js'
-import { juniorProgress, promote, updateRides } from './_junior-promote.js'
+import { juniorProgress, promote, updateRides, loadRides } from './_junior-promote.js'
 
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SECRET_KEY
@@ -567,6 +567,16 @@ export const handler = async (event) => {
     })
     if (!dupe) await rideNote(item, true).catch(() => null)
     return json(200, { ok: true, dupe, item })
+  }
+  // Send the details again (Neal, 2026-11-04: two were set before the texts existed). Same messages as when it was added.
+  if (action === 'resend-ride-along') {
+    const id = String(body.id || '')
+    const { data: mine } = await supabase.from('trainees').select('id').eq('region', region)
+    const ok = new Set((mine || []).map((t) => t.id))
+    const ride = (await loadRides(supabase)).find((x) => x.id === id && ok.has(x.junior_id))
+    if (!ride) return json(404, { ok: false, error: 'That ride-along is gone or not on your team.' })
+    await rideNote(ride, true)
+    return json(200, { ok: true })
   }
   if (action === 'remove-ride-along') {
     const id = String(body.id || '')
