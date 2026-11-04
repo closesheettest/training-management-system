@@ -2001,9 +2001,23 @@ function RideAlongPicker({ token, item, juniors, onChanged }) {
     if (!j.ok) { window.alert(j.error || 'Could not add the ride-along.'); return }
     setPick(''); onChanged && onChanged()
   }
+  // Take a junior back off (Neal, 2026-11-04: "I put Austin Wood on the 11 a.m., but he can't do it, and there's no way to
+  // take him off"). The server already had remove-ride-along; this is the button.
+  async function remove(jr) {
+    const ride = jr.rides.find((r) => r.jn_job_id === item.jn_job_id)
+    if (!ride || !window.confirm(`Take ${jr.name} off this ride-along?`)) return
+    setBusy(true)
+    const j = await juniorApi(token, { action: 'remove-ride-along', id: ride.id }).catch((e) => ({ error: e.message }))
+    setBusy(false)
+    if (!j.ok) { window.alert(j.error || 'Could not remove the ride-along.'); return }
+    onChanged && onChanged()
+  }
   return (
     <div className="mt-1 flex flex-wrap items-center gap-2 rounded-md bg-indigo-50 px-2 py-1.5 text-[12px] text-indigo-900">
-      {riding.length > 0 && <span>🎓 Riding along: <b>{riding.map((j) => j.name).join(', ')}</b></span>}
+      {riding.length > 0 && <span>🎓 Riding along: {riding.map((j) => (
+        <span key={j.id} className="mr-1 inline-flex items-center gap-1"><b>{j.name}</b>
+          <button type="button" disabled={busy} onClick={() => remove(j)} title={`Take ${j.name} off`} aria-label={`Take ${j.name} off`}
+            className="rounded border border-indigo-300 bg-white px-1.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:opacity-60">✕ Remove</button></span>))}</span>}
       {choices.length > 0 && <>
         <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-indigo-200 bg-white px-1.5 py-1 text-[12px]">
           <option value="">🎓 Junior rides along…</option>
