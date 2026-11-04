@@ -800,6 +800,20 @@ function Stage({ room, auth, isHost, micLocked = false, breakoutN = 0 }) {
   const scCam = sc ? cams.find((t) => t.participant.identity === sc.by && isTrackReference(t) && !t.publication?.isMuted) : null
   const setScripture = async (next) => { await call({ action: 'set_scripture', room: room.slug, scripture: next, identity: localParticipant?.identity, ...auth }).catch(() => {}) }
   const scriptureRoom = room.kind === 'prayer' || room.look === 'devotional'
+  // 🔇 QUIET WHILE THE SCRIPTURE IS UP (Neal, 2026-11-04: "when the host clicks scripture, everyone is muted, but people
+  // entering the room after that are not"). In the devotional, while the scripture is on screen (or the host is
+  // recording), everyone but the hosts is muted: when it goes up, AND on the way in for anyone who joins during it.
+  // After that they're like everyone else — they can unmute themselves, and taking the scripture down unmutes nobody.
+  const quiet = !isHost && scriptureRoom && (!!sc || !!rmeta.recording)
+  useEffect(() => {
+    if (!quiet || !localParticipant) return
+    localParticipant.setMicrophoneEnabled(false).catch(() => {})
+    // Just joined: the mic may still be on its way up — mute it when it lands (first 15 s only, so a later unmute sticks).
+    const t0 = Date.now()
+    const onPub = (pub) => { if (pub?.source === Track.Source.Microphone && Date.now() - t0 < 15000) localParticipant.setMicrophoneEnabled(false).catch(() => {}) }
+    localParticipant.on(ParticipantEvent.LocalTrackPublished, onPub)
+    return () => { localParticipant.off(ParticipantEvent.LocalTrackPublished, onPub) }
+  }, [quiet, localParticipant])
   // 🎭 Practice on stage: the slide full screen, presenter circle, "say hi" for the presenter.
   const pr = rmeta.practice && rmeta.practice.showing ? rmeta.practice : null
   const prCam = pr ? cams.find((t) => t.participant.identity === pr.presenter && isTrackReference(t) && !t.publication?.isMuted) : null
