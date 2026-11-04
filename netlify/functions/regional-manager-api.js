@@ -68,6 +68,7 @@ import { createClient } from '@supabase/supabase-js'
 import { runGroupSend } from './_group-send.js'
 import { recipientPhonesForEvent } from './_recipients.js'
 import { sendSmsViaGhl } from './_ghl.js'
+import { sendEmail } from './_email.js'
 import { notifyOffboarding } from './_offboard-notify.js'
 import { zoneForCounty } from '../../src/lib/zones.js'
 import { juniorProgress, promote, updateRides } from './_junior-promote.js'
@@ -506,6 +507,35 @@ export const handler = async (event) => {
     }
     return json(200, { ok: true, juniors: list })
   }
+  // 🎓 TELL THE JUNIOR (Neal, 2026-11-04: "when I assign him to ride along, does it send him the information of the
+  // appointment to go to?" It didn't). Text AND email, like every rep message (SMS alone misses Do Not Disturb). Added →
+  // when, where, the homeowner, a map link and the senior's cell; removed → a short "you're off this one".
+  const rideNote = async (ride, added) => {
+    const { data: jr } = await supabase.from('trainees').select('first_name, phone, email').eq('id', ride.junior_id).maybeSingle()
+    if (!jr) return
+    const at = new Date(ride.appt_at)
+    if (!added && at.getTime() < Date.now() - 3600000) return // an old one: nothing to tell them
+    const when = at.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    let seniorCell = ''
+    if (added && ride.senior_jn_id) {
+      const { data: sr } = await supabase.from('trainees').select('phone').eq('jobnimbus_id', ride.senior_jn_id).not('phone', 'is', null).limit(1)
+      seniorCell = sr?.[0]?.phone ? String(sr[0].phone).replace(/\D/g, '').slice(-10).replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : ''
+    }
+    const map = ride.address ? `https://maps.google.com/?q=${encodeURIComponent(ride.address)}` : ''
+    const first = jr.first_name || 'there'
+    const body = added
+      ? [`Hi ${first}, you're riding along with ${ride.senior_name || 'a senior rep'} on an appointment.`, '',
+        `When: ${when} ET`, ride.homeowner ? `Homeowner: ${ride.homeowner}` : '', ride.address ? `Where: ${ride.address}` : '', map ? `Map: ${map}` : '',
+        seniorCell ? `${(ride.senior_name || 'Your senior').split(' ')[0]}'s cell: ${seniorCell}. Call or text to plan where to meet.` : `Reach out to ${ride.senior_name || 'your senior'} to plan where to meet.`,
+        '', `Set by ${ride.added_by || 'your manager'}. Be there 10 minutes early.`].filter((x) => x !== '').join('\n')
+      : `Hi ${first}, change of plans: you're no longer riding along with ${ride.senior_name || 'the senior rep'} on ${when} ET${ride.homeowner ? ` (${ride.homeowner})` : ''}. ${ride.added_by ? `${ride.added_by.split(' ')[0]} will` : 'Your manager will'} let you know about the next one.`
+    const subject = added ? `Ride-along: ${when} ET with ${ride.senior_name || 'a senior rep'}` : `Ride-along cancelled: ${when} ET`
+    await Promise.all([
+      jr.phone ? sendSmsViaGhl(jr.phone, body, { firstName: 'Ride-along', lastName: 'Notify' }).catch(() => null) : null,
+      jr.email ? sendEmail(jr.email, subject, body).catch(() => null) : null,
+    ])
+  }
+
   if (action === 'add-ride-along') {
     const jid = String(body.junior_id || '')
     const { data: jr } = await supabase.from('trainees').select('id, first_name, last_name, region, rep_level').eq('id', jid).maybeSingle()
@@ -522,13 +552,16 @@ export const handler = async (event) => {
       dupe = items.some((x) => x.junior_id === item.junior_id && x.jn_job_id === item.jn_job_id)
       return dupe ? items : [...items, item]
     })
+    if (!dupe) await rideNote(item, true).catch(() => null)
     return json(200, { ok: true, dupe, item })
   }
   if (action === 'remove-ride-along') {
     const id = String(body.id || '')
     const { data: mine } = await supabase.from('trainees').select('id').eq('region', region)
     const ok = new Set((mine || []).map((t) => t.id))
-    await updateRides(supabase, (items) => items.filter((x) => !(x.id === id && ok.has(x.junior_id))))
+    let gone = null
+    await updateRides(supabase, (items) => items.filter((x) => { const hit = x.id === id && ok.has(x.junior_id); if (hit) gone = x; return !hit }))
+    if (gone && gone.outcome === 'pending') await rideNote(gone, false).catch(() => null)
     return json(200, { ok: true })
   }
 
