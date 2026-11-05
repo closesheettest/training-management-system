@@ -172,9 +172,14 @@ export default function NealPayCard() {
       .then((d) => { if (d && d.ok) setPayments(d.payments || {}) }).catch(() => {})
   }, [])
   const mondays = reportableMondays()
-  const [monday, setMonday] = useState(() => mondays[0] || latestReportMonday())
+  // OPENS ON THE WEEK THAT PAYS THIS WEEK (Neal, 2026-11-05: "it's going to next week's, pays November 13th. It should
+  // be pays November 6th"). The soonest payday that hasn't passed yet; once Friday is over it moves to the next one.
+  const todayEt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const ymd = (d) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const startMonday = [...mondays].reverse().find((m) => ymd(paydayFor(m)) >= todayEt) || mondays[0] || latestReportMonday()
+  const [monday, setMonday] = useState(() => startMonday)
   const months = [...new Map(mondays.map((m) => [monthKey(paydayFor(m)), m])).values()]
-  const [month, setMonth] = useState(() => monthKey(paydayFor(mondays[0] || latestReportMonday())))
+  const [month, setMonth] = useState(() => monthKey(paydayFor(startMonday)))
   const weeksInMonth = mondays.filter((m) => monthKey(paydayFor(m)) === month)
 
   // Picking a month or a pay period loads THAT week straight away (Neal,
