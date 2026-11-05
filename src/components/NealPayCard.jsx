@@ -438,14 +438,14 @@ export default function NealPayCard() {
               <Cell label="Gross sales" value={usd(gross)} sub={`running · not final until ${paydayName(monday)}`} />
               <Cell label="Band" value={band ? pct(band.rate) : '—'} sub={band ? `${band.label} · running` : 'under 500k so far'} />
               <Cell label="Override" value={usd(override)} sub={band ? `${pct(band.rate)} of gross · running` : 'nothing earned yet'} />
-              <Cell label="Would pay" value={usd(paid)} sub={`as it stands · pays ${paydayName(monday)}`} strong />
+              <Cell label="Would pay" value={usd(paid)} sub={`as it stands · pays ${paydayName(monday)} · plus the ${usd(EXTRA_WEEKLY)} a week below`} strong />
             </div>
           ) : (
           <div className="mt-3 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-4">
             <Cell label="Gross sales" value={usd(gross)} sub={weekName(monday)} />
             <Cell label="Band" value={band ? pct(band.rate) : '—'} sub={band ? band.label : 'under 500k — no override'} />
             <Cell label="Override" value={usd(override)} sub={band ? `${pct(band.rate)} of gross` : 'nothing earned'} />
-            <Cell label="Pays out" value={usd(paid)} sub={onGuarantee ? 'the guarantee' : 'the override'} strong />
+            <Cell label="Pays out" value={usd(paid)} sub={`${onGuarantee ? 'the guarantee' : 'the override'} · plus the ${usd(EXTRA_WEEKLY)} a week below`} strong />
           </div>
           )}
           {alreadyPaid && (
@@ -473,10 +473,105 @@ export default function NealPayCard() {
               reader does not act on. `drift` and `lateCapture` are still computed
               above if it ever needs to come back. */}
 
+          <WeeklyExtra payments={payments} onSaved={setPayments} />
+
           {all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
         </>
       )}
+    </div>
+  )
+}
+
+// ── THE $500 A WEEK (Neal, 2026-11-05) ───────────────────────────────────────
+// "A separate section that is $500 each week. It's not a part of the guarantee. It's separate. So whatever the pay
+// comes out to, it's plus $500." Paid on Wednesdays. Counted from this week (Wed Nov 4) forward, plus the one the
+// company missed: "They were supposed to pay me the $500 on Wednesday [Oct 28], and they never did." Neal didn't
+// remember when it started, so earlier Wednesdays aren't listed. Each Wednesday is marked paid here (PIN), stored by
+// neal-pay-payments under `_extra`.
+const EXTRA_WEEKLY = 500
+const EXTRA_FROM = '2026-11-04'
+const EXTRA_BACK = ['2026-10-28']
+
+function extraWednesdays() {
+  const out = [...EXTRA_BACK]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  for (let d = new Date(EXTRA_FROM + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= today; d = new Date(d.getTime() + 7 * DAY)) out.push(d.toISOString().slice(0, 10))
+  return out.reverse()                        // newest first
+}
+const wedName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+
+function WeeklyExtra({ payments, onSaved }) {
+  const extra = (payments && typeof payments._extra === 'object' && payments._extra) || {}
+  const days = extraWednesdays()
+  const owed = days.filter((d) => !extra[d])
+  const [editing, setEditing] = useState(null)
+  return (
+    <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="font-bold text-brand-navy">＋ {usd(EXTRA_WEEKLY)} a week <span className="text-xs font-normal text-slate-500">separate from the guarantee and override · paid Wednesdays</span></div>
+        <div className={`text-sm font-extrabold tabular-nums ${owed.length ? 'text-red-700' : 'text-emerald-700'}`}>
+          {owed.length ? `Owed: ${usd(owed.length * EXTRA_WEEKLY)}` : 'All paid'}
+        </div>
+      </div>
+      <div className="mt-2 divide-y divide-emerald-200">
+        {days.map((d) => (
+          <div key={d} className="py-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>{wedName(d)}{EXTRA_BACK.includes(d) ? <span className="ml-1 text-xs font-semibold text-red-700">· missed</span> : null}</span>
+              {extra[d] ? (
+                <button type="button" onClick={() => setEditing(editing === d ? null : d)} className="text-xs font-semibold text-emerald-700">
+                  ✓ Paid {usd(extra[d].amount)}{extra[d].date ? ` on ${wedName(extra[d].date)}` : ''}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setEditing(editing === d ? null : d)} className="text-xs font-semibold text-red-700">
+                  Not paid · mark paid
+                </button>
+              )}
+            </div>
+            {editing === d && <ExtraPaid day={d} paid={!!extra[d]} onSaved={(p) => { setEditing(null); onSaved(p) }} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ExtraPaid({ day, paid, onSaved }) {
+  const [pin, setPin] = useState('')
+  const [when, setWhen] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const send = async (clear) => {
+    setBusy(true); setErr('')
+    try {
+      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, extra_date: day, amount: clear ? '' : EXTRA_WEEKLY, date: when || undefined }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setErr(d.error || 'Could not save.'); setBusy(false); return }
+      setBusy(false); onSaved(d.payments || {})
+    } catch { setErr('Network error.'); setBusy(false) }
+  }
+  return (
+    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-white p-2">
+      {!paid && (
+        <div className="flex flex-col">
+          <label className="text-[10px] font-semibold uppercase text-slate-400">Date paid</label>
+          <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+        </div>
+      )}
+      <div className="flex flex-col">
+        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
+      </div>
+      {paid ? (
+        <button type="button" disabled={busy || !pin} onClick={() => send(true)} className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-bold text-red-700 disabled:opacity-60">{busy ? 'Saving…' : 'Mark NOT paid'}</button>
+      ) : (
+        <button type="button" disabled={busy || !pin} onClick={() => send(false)} className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60">{busy ? 'Saving…' : `Paid ${usd(EXTRA_WEEKLY)}`}</button>
+      )}
+      {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
     </div>
   )
 }
