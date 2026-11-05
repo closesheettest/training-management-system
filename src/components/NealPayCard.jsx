@@ -496,18 +496,20 @@ export default function NealPayCard() {
 
 // ── THE $500 A WEEK (Neal, 2026-11-05) ───────────────────────────────────────
 // "A separate section that is $500 each week. It's not a part of the guarantee. It's separate. So whatever the pay
-// comes out to, it's plus $500." Paid on Wednesdays. Counted from this week (Wed Nov 4) forward, plus the one the
-// company missed: "They were supposed to pay me the $500 on Wednesday [Oct 28], and they never did." Neal didn't
-// remember when it started, so earlier Wednesdays aren't listed. Each Wednesday is marked paid here (PIN), stored by
-// neal-pay-payments under `_extra`.
+// comes out to, it's plus $500." Paid FRIDAYS with the weekly pay. Counted from this week (Fri Nov 6) forward, plus
+// the one the company missed: "they forgot to pay me the Friday before the October 28th and then Nikki had said...
+// I'll pay you on Wednesday. And it was never paid." (Fri Oct 23, promised for Wed Oct 28.) Neal didn't remember when
+// it started, so earlier Fridays aren't listed. Each Friday is marked paid here (PIN), stored by neal-pay-payments
+// under `_extra`. The coming Friday shows as soon as its week starts, since it's this week's pay.
 const EXTRA_WEEKLY = 500
-const EXTRA_FROM = '2026-11-04'
-const EXTRA_BACK = ['2026-10-28']
+const EXTRA_FROM = '2026-11-06'
+const EXTRA_BACK = ['2026-10-23']
+const EXTRA_BACK_NOTE = { '2026-10-23': 'missed · promised for Wed Oct 28, never paid' }
 
 function extraWednesdays() {
   const out = [...EXTRA_BACK]
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-  for (let d = new Date(EXTRA_FROM + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= today; d = new Date(d.getTime() + 7 * DAY)) out.push(d.toISOString().slice(0, 10))
+  const horizon = new Date(Date.now() + 6 * DAY).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  for (let d = new Date(EXTRA_FROM + 'T12:00:00Z'); d.toISOString().slice(0, 10) <= horizon; d = new Date(d.getTime() + 7 * DAY)) out.push(d.toISOString().slice(0, 10))
   return out.reverse()                        // newest first
 }
 const wedName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -520,7 +522,7 @@ function WeeklyExtra({ payments, onSaved }) {
   return (
     <div className="mt-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="font-bold text-brand-navy">＋ {usd(EXTRA_WEEKLY)} a week <span className="text-xs font-normal text-slate-500">separate from the guarantee and override · paid Wednesdays</span></div>
+        <div className="font-bold text-brand-navy">＋ {usd(EXTRA_WEEKLY)} a week <span className="text-xs font-normal text-slate-500">separate from the guarantee and override · paid Fridays with the weekly pay</span></div>
         <div className={`text-sm font-extrabold tabular-nums ${owed.length ? 'text-red-700' : 'text-emerald-700'}`}>
           {owed.length ? `Owed: ${usd(owed.length * EXTRA_WEEKLY)}` : 'All paid'}
         </div>
@@ -529,7 +531,7 @@ function WeeklyExtra({ payments, onSaved }) {
         {days.map((d) => (
           <div key={d} className="py-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span>{wedName(d)}{EXTRA_BACK.includes(d) ? <span className="ml-1 text-xs font-semibold text-red-700">· missed</span> : null}</span>
+              <span>{wedName(d)}{EXTRA_BACK_NOTE[d] ? <span className="ml-1 text-xs font-semibold text-red-700">· {EXTRA_BACK_NOTE[d]}</span> : null}</span>
               {extra[d] ? (
                 <button type="button" onClick={() => setEditing(editing === d ? null : d)} className="text-xs font-semibold text-emerald-700">
                   ✓ Paid {usd(extra[d].amount)}{extra[d].date ? ` on ${wedName(extra[d].date)}` : ''}
