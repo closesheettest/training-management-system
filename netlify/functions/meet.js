@@ -944,6 +944,44 @@ export const handler = async (event) => {
     const rows = await roomsForPerson(ts, name, (r) => `${SITE}/meet/${r.slug}`)
     return json(200, { ok: true, rooms: rows.filter((r) => r.live || r.today || r.instead).map(({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, instead }) => ({ slug, title, live, open, today, next_at, topic, badge, kind, host_names, instead: instead || null, link: `${SITE}/meet/${slug}` })) })
   }
+  // 📅 MEETINGS ONTO ZILLA ASSISTANT CALENDARS (Neal, 2026-11-05: "when I'm scheduled for the 8 a.m. meeting, then the
+  // sales managers meeting, then trainings, those need to go on my calendar", for Neal, DeWayne and Nikki). CCG's
+  // zilla-meet-cal asks with the shared secret; each person gets every meeting start in the next `days` (default 14).
+  // Same rooms as their "Your meetings" list, minus other zones' team meetings an admin can see but doesn't run.
+  //   POST { action:'calendar_feed', secret, names:['Neal Scoppettuolo', …], days? }
+  //   → { ok, people: { name: [{ key, slug, title, topic, start, end, link }] } }
+  if (b.action === 'calendar_feed') {
+    if (!process.env.OUTBOUND_MEET_SECRET || b.secret !== process.env.OUTBOUND_MEET_SECRET) return json(401, { ok: false })
+    const days = Math.max(1, Math.min(21, Number(b.days) || 14))
+    const raw = await loadRooms(), people = {}
+    for (const name of (Array.isArray(b.names) ? b.names : []).slice(0, 10).map((n) => String(n || '').trim()).filter(Boolean)) {
+      const parts = name.split(/\s+/)
+      if (parts.length < 2) { people[name] = []; continue }
+      const { data: ts } = await sb.from('trainees').select('id, first_name, last_name, region, managed_region, registration_token, is_active_sales_rep, rep_level').ilike('first_name', parts[0]).ilike('last_name', parts[parts.length - 1])
+      const t = (ts || []).find((x) => x.managed_region) || (ts || [])[0] || null
+      const nm0 = name.toLowerCase()
+      const rows = await roomsForPerson(ts, name, (r, tt) => (tt?.registration_token ? `${SITE}/meet/${r.slug}?t=${tt.registration_token}` : `${SITE}/meet/${r.slug}`))
+      const out = []
+      for (const x of rows) {
+        const r = raw.find((y) => y.slug === x.slug)
+        if (!r || !hasSchedule(r)) continue
+        const hosts = (r.hosts || []).some((h) => String(h).trim().toLowerCase() === nm0)
+        if (r.kind === 'zone' && !hosts && !(t && t.managed_region === r.zone)) continue
+        const dflt = Math.max(10, Number(r.minutes) || 60), starts = []
+        for (let i = 0; i < days; i++) {
+          const day = etDay(Date.now() + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
+          for (const sl of slotsOf(r)) if (sl.day === dow) starts.push({ s: etWall(day, sl.time), m: Math.max(10, Number(sl.minutes) || dflt) })
+        }
+        for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) starts.push({ s: etWall(m[1], m[2]), m: dflt }) }
+        for (const { s, m } of starts) {
+          if (s.getTime() + m * 60e3 < Date.now() || s.getTime() > Date.now() + days * 864e5) continue
+          out.push({ key: `${x.slug}|${s.toISOString()}`, slug: x.slug, title: x.title, topic: x.topic || '', start: s.toISOString(), end: new Date(s.getTime() + m * 60e3).toISOString(), link: x.link })
+        }
+      }
+      people[name] = out.sort((a, c) => a.start.localeCompare(c.start))
+    }
+    return json(200, { ok: true, people })
+  }
   if (b.action === 'mine_by_mgr_token') {
     const tok = String(b.token || '').trim()
     if (!tok) return json(401, { ok: false })
