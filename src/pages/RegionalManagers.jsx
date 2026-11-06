@@ -12,6 +12,7 @@ import RepAttendance from '../components/RepAttendance.jsx'
 import NealPayCard from '../components/NealPayCard.jsx'
 import InspectionLookup from '../components/InspectionLookup.jsx'
 import CompanyCalendar from '../components/CompanyCalendar.jsx'
+import ApptOpenings from '../components/ApptOpenings.jsx'
 import MailResponseReport from '../components/MailResponseReport.jsx'
 import CompAgreementAudit from '../components/CompAgreementAudit.jsx'
 
@@ -152,6 +153,8 @@ export default function RegionalManagers() {
       </header>
 
       <div className="mb-4"><InspectionLookup /></div>
+
+      <ApptOpenings />
 
       <PayReports />
       <YearCompare />
