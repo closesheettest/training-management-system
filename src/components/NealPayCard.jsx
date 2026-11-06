@@ -325,6 +325,13 @@ export default function NealPayCard() {
             Sales weeks run Monday–Sunday. Effective 1 June 2026.
           </p>
         </div>
+        {/* LOAD REPORT ON THE RIGHT, like every other pay card (DeWayne + Neal, 2026-11-06: "nothing showed up …
+            there's no button on the right that says load report"). Opening the card loads the week (effect above). */}
+        {!open && (
+          <button type="button" onClick={() => setOpen(true)} className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white">
+            Load report
+          </button>
+        )}
         {open && <div className="flex items-center gap-2">
           {/* Pick a month, pick a pay period, and it loads that week — no separate
               Load press (Neal, 2026-09-10). */}
@@ -381,7 +388,7 @@ export default function NealPayCard() {
         </div>}
       </div>
       {!open && (
-        <p className="mt-1 text-xs text-slate-400">Click the title to open — it doesn't load until you do.</p>
+        <p className="mt-1 text-xs text-slate-400">Tap Load report (or the title) — it doesn't load until you do.</p>
       )}
 
       {/* The editor edits ONE schedule, so hand it the schedule in force — not the
