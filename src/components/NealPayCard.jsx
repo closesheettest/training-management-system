@@ -119,6 +119,10 @@ const money0 = (n) => (n >= 1000000 ? `${n / 1000000}mm` : `${Math.round(n / 100
 const usd = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const pct = (r) => `${(r * 100).toFixed(2).replace(/\.?0+$/, '')}%`
 
+// NO SECOND PIN (Neal, 2026-11-07: "get rid of the pin… that's stupid… I don't remember it anyways"). Saves send the
+// sign-in you already used to open this page; CCG checks it (Neal or DeWayne only).
+const signedIn = () => { try { return sessionStorage.getItem('rm_admin_ok_pin') || JSON.parse(localStorage.getItem('tms_signin') || 'null')?.cred || '' } catch { return '' } }
+
 export default function NealPayCard() {
   const [cfg, setCfg] = useState(null)
   const [ratesOpen, setRatesOpen] = useState(false)
@@ -558,7 +562,7 @@ function WeeklyExtra({ payments, onSaved }) {
 }
 
 function ExtraPaid({ day, paid, onSaved }) {
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [when, setWhen] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -582,14 +586,10 @@ function ExtraPaid({ day, paid, onSaved }) {
           <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
         </div>
       )}
-      <div className="flex flex-col">
-        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-      </div>
       {paid ? (
-        <button type="button" disabled={busy || !pin} onClick={() => send(true)} className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-bold text-red-700 disabled:opacity-60">{busy ? 'Saving…' : 'Mark NOT paid'}</button>
+        <button type="button" disabled={busy} onClick={() => send(true)} className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-bold text-red-700 disabled:opacity-60">{busy ? 'Saving…' : 'Mark NOT paid'}</button>
       ) : (
-        <button type="button" disabled={busy || !pin} onClick={() => send(false)} className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60">{busy ? 'Saving…' : `Paid ${usd(EXTRA_WEEKLY)}`}</button>
+        <button type="button" disabled={busy} onClick={() => send(false)} className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60">{busy ? 'Saving…' : `Paid ${usd(EXTRA_WEEKLY)}`}</button>
       )}
       {err && <span className="text-xs font-semibold text-red-600">{err}</span>}
     </div>
@@ -618,7 +618,7 @@ function Cell({ label, value, sub, strong }) {
 // and the PIN. Unticking clears the record, which is how a mistake gets undone.
 function MarkPaid({ weekStart, amount, date, paid, onSaved }) {
   const [open, setOpen] = useState(false)
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [amt, setAmt] = useState(String(amount ?? ''))
   const [when, setWhen] = useState(date || '')
   const [busy, setBusy] = useState(false)
@@ -633,7 +633,7 @@ function MarkPaid({ weekStart, amount, date, paid, onSaved }) {
       })
       const d = await res.json()
       if (!d.ok) { setErr(d.error || 'Could not save.'); setBusy(false); return }
-      setBusy(false); setOpen(false); setPin(''); onSaved(d.payments || {})
+      setBusy(false); setOpen(false); onSaved(d.payments || {})
     } catch { setErr('Network error.'); setBusy(false) }
   }
 
@@ -661,11 +661,6 @@ function MarkPaid({ weekStart, amount, date, paid, onSaved }) {
         <label className="text-[10px] font-semibold uppercase text-slate-400">Date paid</label>
         <input type="date" value={when} onChange={(e) => setWhen(e.target.value)}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
-      </div>
-      <div className="flex flex-col">
-        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)}
-          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
       </div>
       <button type="button" disabled={busy} onClick={() => send(false)}
         className="rounded-md bg-brand-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60">
@@ -843,7 +838,7 @@ function LedgerEditor({ onDone }) {
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const save = async () => {
@@ -876,12 +871,7 @@ function LedgerEditor({ onDone }) {
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional"
           className="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm" />
       </div>
-      <div className="flex flex-col">
-        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
-          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-      </div>
-      <button type="button" onClick={save} disabled={saving || !pin || !(Number(amount) > 0)}
+      <button type="button" onClick={save} disabled={saving || !(Number(amount) > 0)}
         className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
         {saving ? 'Saving…' : 'Save payment'}
       </button>
@@ -892,7 +882,7 @@ function LedgerEditor({ onDone }) {
 
 function LedgerDelete({ id, onDone }) {
   const [confirming, setConfirming] = useState(false)
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [saving, setSaving] = useState(false)
   const del = async () => {
     setSaving(true)
@@ -902,7 +892,7 @@ function LedgerDelete({ id, onDone }) {
         body: JSON.stringify({ pin, ledger_remove: id }),
       })
       const d = await res.json()
-      setSaving(false); setConfirming(false); setPin('')
+      setSaving(false); setConfirming(false)
       if (d.ok) onDone(d.payments || {})
     } catch { setSaving(false) }
   }
@@ -911,10 +901,8 @@ function LedgerDelete({ id, onDone }) {
   )
   return (
     <span className="flex items-center gap-1">
-      <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
-        className="w-16 rounded border border-slate-300 px-1.5 py-0.5 text-xs" />
-      <button type="button" onClick={del} disabled={saving || !pin} className="text-xs font-bold text-red-600 disabled:opacity-50">{saving ? '…' : 'Confirm'}</button>
-      <button type="button" onClick={() => { setConfirming(false); setPin('') }} className="text-xs text-slate-400">✕</button>
+      <button type="button" onClick={del} disabled={saving} className="text-xs font-bold text-red-600 disabled:opacity-50">{saving ? '…' : 'Confirm'}</button>
+      <button type="button" onClick={() => { setConfirming(false) }} className="text-xs text-slate-400">✕</button>
     </span>
   )
 }
@@ -925,7 +913,7 @@ function LedgerDelete({ id, onDone }) {
 function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone }) {
   const [amount, setAmount] = useState(rec?.amount != null ? String(rec.amount) : String(Math.round(defaultAmount || 0)))
   const [date, setDate] = useState(rec?.date || defaultDate || '')
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
@@ -956,17 +944,12 @@ function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
           className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
       </div>
-      <div className="flex flex-col">
-        <label className="text-[10px] font-semibold uppercase text-slate-400">PIN</label>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
-          className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-      </div>
-      <button type="button" onClick={() => post({ amount, date })} disabled={saving || !pin}
+      <button type="button" onClick={() => post({ amount, date })} disabled={saving}
         className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
         {saving ? 'Saving…' : 'Save'}
       </button>
       {rec && (
-        <button type="button" onClick={() => post({ amount: '' })} disabled={saving || !pin}
+        <button type="button" onClick={() => post({ amount: '' })} disabled={saving}
           className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60">
           Clear
         </button>
@@ -980,7 +963,7 @@ function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone
 // Change the guarantee or any band's rate. PIN-gated, same gate the manager
 // rates use — this is what somebody gets paid, so it should not be a free edit.
 function RatesEditor({ cfg, onSaved }) {
-  const [pin, setPin] = useState('')
+  const pin = signedIn()
   const [guarantee, setGuarantee] = useState(cfg.guarantee)
   const [bands, setBands] = useState((cfg.bands || []).map((b) => ({ ...b })))
   // Defaults to the Monday of this week: a change applies from here forward and
@@ -1061,9 +1044,7 @@ function RatesEditor({ cfg, onSaved }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN"
-          className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm" />
-        <button onClick={save} disabled={saving || !pin}
+        <button onClick={save} disabled={saving}
           className="rounded-md bg-brand-navy px-3 py-1 text-xs font-bold text-white disabled:opacity-60">
           {saving ? 'Saving…' : 'Save rates'}
         </button>
