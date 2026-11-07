@@ -478,7 +478,7 @@ export default function NealPayCard() {
           {!transition && (
             <MarkPaid weekStart={weekStart} amount={Math.round(paid * 100) / 100}
               date={paydayFor(monday).toISOString().slice(0, 10)}
-              paid={alreadyPaid} onSaved={setPayments} />
+              paid={alreadyPaid} onSaved={setPayments} payments={payments} />
           )}
           {!alreadyPaid && !dueYet && (
             <p className="mt-2 text-[11px] text-slate-500">
@@ -612,26 +612,43 @@ function Cell({ label, value, sub, strong }) {
 // paid (accurate — those went out), while THIS week forward shows "pending" until
 // its payday (the Friday after the week closes) or a real payment is entered.
 
+// ONE PAYMENT, SPLIT (Neal, 2026-11-07: paid $7,549 on Nov 6 = the $6,549 override + the two $500s for Oct 23 and Nov 6,
+// but the card filed all of it against the week and still showed both $500s owed). When a week is saved for MORE than
+// that week's pay, the extra pays the unpaid $500 Fridays, oldest first (only Fridays on or before the date paid), in
+// $500 steps; the week keeps its own pay. Anything that doesn't make a whole $500 stays on the week, so no money is lost.
+async function saveWeekPayment({ pin, weekStart, amount, date, due, payments }) {
+  const post = (body) => fetch(LB_ORIGIN + 'neal-pay-payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, ...body }) }).then((r) => r.json())
+  const amt = Number(amount)
+  let weekAmt = amt, cover = []
+  if (amount !== '' && Number.isFinite(amt) && Number(due) > 0 && amt > Number(due) + 0.5) {
+    const extra = (payments && typeof payments._extra === 'object' && payments._extra) || {}
+    const by = date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    const unpaid = extraWednesdays().filter((d) => !extra[d] && d <= by).sort()
+    cover = unpaid.slice(0, Math.min(unpaid.length, Math.floor((amt - Number(due) + 0.5) / EXTRA_WEEKLY)))
+    weekAmt = Math.round((amt - cover.length * EXTRA_WEEKLY) * 100) / 100
+  }
+  let d = await post({ week_start: weekStart, amount: amount === '' ? '' : weekAmt, date: date || undefined })
+  for (const day of cover) { if (!d.ok) break; d = await post({ extra_date: day, amount: EXTRA_WEEKLY, date: date || undefined }) }
+  return { ...d, covered: cover }
+}
+
 // Mark the week ON SCREEN as paid, from the card itself (Neal, 2026-09-10) —
 // rather than asking someone to go and record it elsewhere. Amount defaults to
 // what the week owes and the date to its payday, so the common case is one tick
 // and the PIN. Unticking clears the record, which is how a mistake gets undone.
-function MarkPaid({ weekStart, amount, date, paid, onSaved }) {
+function MarkPaid({ weekStart, amount, date, paid, onSaved, payments }) {
   const [open, setOpen] = useState(false)
   const pin = signedIn()
-  const [amt, setAmt] = useState(String(amount ?? ''))
-  const [when, setWhen] = useState(date || '')
+  const rec = payments && payments[weekStart]   // already paid → open on what was paid, not the week's pay
+  const [amt, setAmt] = useState(String(rec?.amount ?? amount ?? ''))
+  const [when, setWhen] = useState(rec?.date || date || '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const send = async (clear) => {
     setBusy(true); setErr('')
     try {
-      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, week_start: weekStart, amount: clear ? '' : Number(amt), date: when || undefined }),
-      })
-      const d = await res.json()
+      const d = await saveWeekPayment({ pin, weekStart, amount: clear ? '' : amt, date: when, due: amount, payments })
       if (!d.ok) { setErr(d.error || 'Could not save.'); setBusy(false); return }
       setBusy(false); setOpen(false); onSaved(d.payments || {})
     } catch { setErr('Network error.'); setBusy(false) }
@@ -774,7 +791,7 @@ function AllWeeks({ rows, guarantee, payments = {}, onSaved }) {
                       <td colSpan={8} className="px-3 py-2">
                         <PaymentEditor iso={iso} rec={payments[iso]} defaultAmount={r.band ? r.override : (r.guarantee ?? guarantee)}
                           defaultDate={paydayOf(r.monday).toISOString().slice(0, 10)} weekLabel={weekName(r.monday)}
-                          onDone={(p) => { if (p) onSaved && onSaved(p); setEditing(null) }} />
+                          onDone={(p) => { if (p) onSaved && onSaved(p); setEditing(null) }} payments={payments} />
                       </td>
                     </tr>
                   )}
@@ -910,7 +927,7 @@ function LedgerDelete({ id, onDone }) {
 // Record what a week actually paid, and when. PIN-gated (same gate the pay
 // schedule uses). Saving overrides the assumed base; clearing reverts a week to
 // the assumed/pending default.
-function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone }) {
+function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone, payments }) {
   const [amount, setAmount] = useState(rec?.amount != null ? String(rec.amount) : String(Math.round(defaultAmount || 0)))
   const [date, setDate] = useState(rec?.date || defaultDate || '')
   const pin = signedIn()
@@ -920,11 +937,13 @@ function PaymentEditor({ iso, rec, defaultAmount, defaultDate, weekLabel, onDone
   const post = async (payload) => {
     setSaving(true); setErr('')
     try {
-      const res = await fetch(LB_ORIGIN + 'neal-pay-payments', {
+      // A save (amount set) splits off any $500s it covers; Clear just clears the week.
+      const d = payload.amount !== '' && payload.amount != null
+        ? await saveWeekPayment({ pin, weekStart: iso, amount: payload.amount, date: payload.date, due: defaultAmount, payments })
+        : await fetch(LB_ORIGIN + 'neal-pay-payments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin, week_start: iso, ...payload }),
-      })
-      const d = await res.json()
+      }).then((r) => r.json())
       if (!d.ok) { setErr(d.error || 'Could not save.'); setSaving(false); return }
       setSaving(false); onDone(d.payments || {})
     } catch { setErr('Network error.'); setSaving(false) }
