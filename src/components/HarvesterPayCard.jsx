@@ -77,12 +77,15 @@ export default function HarvesterPayCard() {
               {w.appts.length === 0 ? <div className="text-slate-500">No appointments booked by {repFirst || 'them'} this week.</div> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
-                    <thead><tr className="text-left text-slate-500"><th className="py-1 pr-2">Appointment</th><th className="pr-2">Homeowner</th><th className="pr-2">Type</th><th className="pr-2">JobNimbus status</th><th>Sit?</th></tr></thead>
+                    <thead><tr className="text-left text-slate-500"><th className="py-1 pr-2">Booked</th><th className="pr-2">Appointment</th><th className="pr-2">Homeowner</th><th className="pr-2">Assigned to</th><th className="pr-2">Type</th><th className="pr-2">JobNimbus status</th><th>Sit?</th></tr></thead>
                     <tbody>
                       {w.appts.map((a, i) => (
                         <tr key={i} className="border-t border-slate-100">
-                          <td className="py-1 pr-2 whitespace-nowrap">{a.when}</td>
+                          {/* Booked + Assigned to (Neal, 2026-11-07): when William made it, and which rep runs it. */}
+                          <td className="py-1 pr-2 whitespace-nowrap">{a.booked_when || '—'}</td>
+                          <td className="pr-2 whitespace-nowrap">{a.when}</td>
                           <td className="pr-2">{a.customer}<div className="text-slate-400">{a.address}</div></td>
+                          <td className="pr-2 whitespace-nowrap">{a.rep || <span className="font-semibold text-amber-700">Not assigned</span>}</td>
                           <td className="pr-2">{a.source}</td>
                           <td className="pr-2">{a.status}</td>
                           <td>{a.upcoming ? <span className="text-slate-400">upcoming</span> : a.sat ? <span className="font-bold text-emerald-700">✓ Sat</span> : <span className="text-red-600">No</span>}</td>
