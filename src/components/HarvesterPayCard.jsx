@@ -61,7 +61,7 @@ export default function HarvesterPayCard() {
           </label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Week
             <select value={w?.week_start || ''} onChange={(e) => setWk(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-sm">
-              {weeks.map((x) => <option key={x.week_start} value={x.week_start}>{fmtDay(x.week_start)} – {fmtDay(x.week_end)}{x.in_progress ? ' (this week, so far)' : ''} · {x.sits} sit{x.sits === 1 ? '' : 's'} · {money(x.total)}</option>)}
+              {weeks.map((x) => <option key={x.week_start} value={x.week_start}>{fmtDay(x.week_start)} – {fmtDay(x.week_end)}{x.upcoming ? ' (next week)' : x.in_progress ? ' (this week, so far)' : ''} · {x.sits} sit{x.sits === 1 ? '' : 's'} · {money(x.total)}</option>)}
             </select>
           </label>
           </div>
@@ -86,7 +86,7 @@ export default function HarvesterPayCard() {
                         <tr key={i} className="border-t border-slate-100">
                           {/* Booked + Assigned to (Neal, 2026-11-07): when William made it, and which rep runs it. */}
                           <td className="py-1 pr-2 whitespace-nowrap">{a.booked_when || '—'}</td>
-                          <td className="pr-2 whitespace-nowrap">{a.when}</td>
+                          <td className="pr-2 whitespace-nowrap">{a.when}{a.rescheduled_to && <div className="text-amber-700">rescheduled → {a.rescheduled_to}</div>}{a.rescheduled_from && <div className="text-slate-400">rescheduled from {a.rescheduled_from}</div>}</td>
                           <td className="pr-2">{a.customer}<div className="text-slate-400">{a.address}</div></td>
                           <td className="pr-2 whitespace-nowrap">{a.rep || <span className="font-semibold text-amber-700">Not assigned</span>}</td>
                           <td className="pr-2">{a.source}</td>
