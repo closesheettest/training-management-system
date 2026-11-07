@@ -40,7 +40,10 @@ export default function HarvesterPayCard() {
     <div className="rounded-lg border border-slate-200">
       <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-slate-50 px-3 py-2 text-left">
         <span className="font-bold text-slate-800">🌾 Harvester's Pay <span className="text-xs font-normal text-slate-500">(Harvester Comp Plan)</span></span>
-        <span className="text-xs text-slate-500">{busy ? 'Loading…' : data ? (shown ? '▾' : '▸') : 'Tap to load'}</span>
+        {/* "Load report" on the right, like the other pay reports (Neal, 2026-11-07). */}
+        {data && !busy
+          ? <span className="text-xs text-slate-500">{shown ? '▾' : '▸'}</span>
+          : <span className="rounded-md bg-brand-navy px-3 py-1.5 text-sm font-bold text-white">{busy ? 'Loading…' : 'Load report'}</span>}
       </button>
       {err && <div className="px-3 py-2 text-sm text-red-700">{err}</div>}
       {data && shown && (
