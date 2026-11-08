@@ -22,7 +22,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import W9_B64 from './assets/w9-template-b64.js'
-import { renderAgreementPdf } from './_ic-agreement.js'
+import { renderAgreementPdf, isHarvesterDepts, withHarvesterFlag } from './_ic-agreement.js'
+import { sendHarvesterWelcome } from './_harvester-welcome.js'
 import { sendEmail } from './_email.js'
 import { sendSmsViaGhl as sendSms } from './_ghl.js'
 
@@ -224,7 +225,7 @@ export const handler = async (event) => {
     let w9Path = row.w9_pdf_path, agPath = row.agreement_pdf_path, err = null
     try { w9Path = await storeFile(supabase, `${traineeId}/w9_${Date.now()}.pdf`, await fillW9Pdf(row)) }
     catch (e) { err = `w9: ${e.message}` }
-    try { agPath = await storeFile(supabase, `${traineeId}/agreement_${Date.now()}.pdf`, await renderAgreementPdf(row)) }
+    try { agPath = await storeFile(supabase, `${traineeId}/agreement_${Date.now()}.pdf`, await renderAgreementPdf(await withHarvesterFlag(supabase, row))) }
     catch (e) { err = `${err ? err + '; ' : ''}agreement: ${e.message}` }
     await supabase.from('trainee_onboarding')
       .update({ w9_pdf_path: w9Path, agreement_pdf_path: agPath, pdf_error: err })
@@ -309,7 +310,7 @@ export const handler = async (event) => {
   if (!token) return cors(400, { ok: false, error: 'token required' })
   const { data: trainee } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, email, class_id, street_address, city, state, zip')
+    .select('id, first_name, last_name, phone, email, class_id, street_address, city, state, zip, departments')
     .eq('registration_token', token)
     .maybeSingle()
   if (!trainee) return cors(404, { ok: false, error: 'That link is not valid. Ask your trainer for a new one.' })
@@ -323,7 +324,10 @@ export const handler = async (event) => {
   const { data: cls } = trainee.class_id
     ? await supabase.from('classes').select('week_start_date').eq('id', trainee.class_id).maybeSingle()
     : { data: null }
-  const nextSession = nextSessionLabel(cls?.week_start_date)
+  // HARVESTER (Neal, 2026-11-08): a door-knocker who books for the reps, like William. Harvester Exhibit A, no pay
+  // documents, no class — and the script + DoorDispatcher link go out the moment they sign (_harvester-welcome.js).
+  const harvester = isHarvesterDepts(trainee.departments)
+  const nextSession = harvester ? '' : nextSessionLabel(cls?.week_start_date)
 
   if (action === 'load') {
     const safe = { ...(existing || {}) }
@@ -342,6 +346,7 @@ export const handler = async (event) => {
       // The Draw Program + Compensation Plan are part of onboarding now (Neal, 2026-10-01):
       // the page hands them straight on to /comp-agreement/<same token> once this is signed.
       comp_signed: !!existing?.comp_signed_at,
+      harvester,
       secrets_on_file: Object.fromEntries(SECRET.map((k) => [k, !!existing?.[k]])),
     })
   }
@@ -446,8 +451,20 @@ export const handler = async (event) => {
       }
     } catch { /* the office can resend; never block the rep */ }
 
-    await deliver(supabase, trainee, { ...merged, _next_session: nextSession }, { w9Path, agreementPath }).catch(() => {})
-    return cors(200, { ok: true, signed: true, pdf_error: pdfError, next_session: nextSession, countersign_sent: countersignSent })
+    await deliver(supabase, trainee, { ...merged, _harvester: harvester, _next_session: harvester ? 'Your harvesting script and DoorDispatcher link are on their way by text and email.' : nextSession }, { w9Path, agreementPath }).catch(() => {})
+    // Harvester: script + DoorDispatcher link, text AND email, right now. Best-effort — a failed send never costs
+    // the signature; the result is logged and returned so it can be re-sent.
+    let harvesterWelcome = null
+    if (harvester) {
+      try {
+        harvesterWelcome = await sendHarvesterWelcome({
+          firstName: merged.first_name || trainee.first_name, lastName: merged.last_name || trainee.last_name,
+          phone: merged.agent_phone || trainee.phone, email: merged.agent_email || trainee.email,
+        })
+      } catch (e) { harvesterWelcome = { ok: false, error: e.message } }
+      console.log('harvester welcome', trainee.id, JSON.stringify({ ...harvesterWelcome, dd_link: harvesterWelcome?.dd_link ? 'set' : null }))
+    }
+    return cors(200, { ok: true, signed: true, pdf_error: pdfError, next_session: nextSession, countersign_sent: countersignSent, harvester, harvester_welcome: harvesterWelcome ? { ok: harvesterWelcome.ok, sms: harvesterWelcome.sms, email: harvesterWelcome.email } : null })
   }
 
   return cors(400, { ok: false, error: `Unknown action: ${action}` })
@@ -493,8 +510,10 @@ async function deliver(supabase, trainee, d, { w9Path, agreementPath }) {
   const who = `${d.sign_name || trainee.first_name} ${trainee.last_name || ''}`.trim()
   const nowIso = new Date().toISOString()
 
-  if (trainee.email) {
-    await sendEmail(trainee.email, 'Your signed U.S. Shingle paperwork',
+  // A harvester may have no email on file until they type it in this form (Neal, 2026-11-08: Mark) — use that one.
+  const repEmail = trainee.email || (d._harvester ? d.agent_email : null)
+  if (repEmail) {
+    await sendEmail(repEmail, 'Your signed U.S. Shingle paperwork',
       `Hi ${trainee.first_name || 'there'},\n\nThank you — we've got everything. ${d._next_session || 'See you in class.'}\n\n` +
       // The agreement is NOT attached here any more: it is not rendered until the
       // company countersigns, so this promised a document it could not carry.

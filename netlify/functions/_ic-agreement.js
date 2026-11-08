@@ -65,6 +65,34 @@ export const EXHIBIT_A = [
   { exhibitSign: true },
 ]
 
+// HARVESTER EXHIBIT A (Neal, 2026-11-08): a harvester (door-knocker who books appointments for the reps, like William,
+// not a sales rep) signs the SAME agreement with this schedule as Exhibit A instead of the sales commission schedule,
+// and does not sign the Draw Program / Inspection Compensation Plan. Numbers = the Harvester Comp Plan Neal set
+// 2026-11-04 (CCG harvester-pay.js). Who is a harvester = "Harvester" in trainees.departments.
+// Mirrored in src/lib/agreementText.js (HARVESTER_EXHIBIT_BLOCKS) — change one, change both.
+export const HARVESTER_EXHIBIT_A = [
+  { h: 'Exhibit A: Harvester Compensation Schedule' },
+  { exhibitIntro: true },
+  { p: 'Harvester is paid $100 for each harvested sit: an appointment the Harvester booked that sat with a U.S. Shingle representative.' },
+  { p: 'Harvester also earns a $500 bonus at each of 10, 15, 20 and 25 sits in one week.' },
+  { p: 'Weeks run Monday through Sunday and are paid the Friday after.' },
+  { p: 'All payments are made via ACH or Wire. Please note your bank may charge you fees and SHINGLE is not responsible for those.' },
+  { exhibitSign: true },
+]
+
+export const isHarvesterDepts = (departments) =>
+  Array.isArray(departments) && departments.some((d) => String(d || '').trim().toLowerCase() === 'harvester')
+
+// Adds { harvester } to a trainee_onboarding row by reading the trainee's departments. Any error → not a harvester
+// (the normal sales schedule), so a lookup hiccup can never break a regular rep's agreement.
+export async function withHarvesterFlag(supabase, row) {
+  if (!row?.trainee_id) return row
+  try {
+    const { data } = await supabase.from('trainees').select('departments').eq('id', row.trainee_id).maybeSingle()
+    return { ...row, harvester: isHarvesterDepts(data?.departments) }
+  } catch { return row }
+}
+
 const M = 56               // page margin
 const W = 612, H = 792     // US Letter
 
@@ -236,7 +264,7 @@ export async function renderAgreementPdf(d) {
 
   // Exhibit A last, on its own page, as the template has it.
   page = pdf.addPage([W, H]); y = H - M
-  await draw(EXHIBIT_A)
+  await draw(d.harvester ? HARVESTER_EXHIBIT_A : EXHIBIT_A)
 
   return Buffer.from(await pdf.save()).toString('base64')
 }

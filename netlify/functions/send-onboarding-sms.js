@@ -55,7 +55,7 @@ export const handler = async (event) => {
   const supabase = createClient(SB_URL, SB_KEY)
   const { data: t, error } = await supabase
     .from('trainees')
-    .select('id, first_name, last_name, phone, email, registration_token, onboarding_sms_sent_at')
+    .select('id, first_name, last_name, phone, email, registration_token, onboarding_sms_sent_at, departments')
     .eq('id', traineeId)
     .maybeSingle()
   if (error) return json(500, { ok: false, error: error.message })
@@ -72,7 +72,13 @@ export const handler = async (event) => {
   }
 
   const firstName = t.first_name || 'there'
-  const message =
+  // HARVESTER wording (Neal, 2026-11-08): no class, and the pay schedule is the harvester one in Exhibit A.
+  const harvester = Array.isArray(t.departments) && t.departments.some((d) => String(d || '').trim().toLowerCase() === 'harvester')
+  const message = harvester
+    ? `Hi ${firstName}, welcome to U.S. Shingle! Tap here to sign your W-9 and Independent Contractor Agreement. ` +
+      `Your Harvester pay schedule is attached as Exhibit A:\n\n${linkFor(t)}\n\n` +
+      `Takes about 5 minutes. No bank details on you? Skip that part and add it later.`
+    :
     `Hi ${firstName}, welcome to your first day at U.S. Shingle! ` +
     `Tap here to sign your W-9 and Independent Contractor Agreement:\n\n${linkFor(t)}\n\n` +
     `Class doesn't start until everyone has finished, so please do it now. ` +

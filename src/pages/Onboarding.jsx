@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { AGREEMENT_BLOCKS, EXHIBIT_BLOCKS } from '../lib/agreementText.js'
+import { AGREEMENT_BLOCKS, EXHIBIT_BLOCKS, HARVESTER_EXHIBIT_BLOCKS } from '../lib/agreementText.js'
 
 // Day-1 paperwork. The rep lands here from the text + email fired when they sign
 // in at the kiosk. Everything the old HomeMaxx funnel collected is here, plus the
@@ -31,6 +31,8 @@ export default function Onboarding() {
   const [agreed, setAgreed] = useState(false)
   const [nextSession, setNextSession] = useState('')
   const [compSigned, setCompSigned] = useState(false)
+  // Harvester (Neal, 2026-11-08): harvester Exhibit A, no pay documents, no class.
+  const [harvester, setHarvester] = useState(false)
   const pad = useRef(null)
 
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }))
@@ -42,6 +44,7 @@ export default function Onboarding() {
         const b = await r.json()
         if (!b.ok) { setErr(b.error); setState('error'); return }
         setCompSigned(!!b.comp_signed)
+        setHarvester(!!b.harvester)
         if (b.signed && b.banking_done) { setState('done'); return }
         const t = b.trainee || {}
         setOnFile(b.secrets_on_file || {})
@@ -106,9 +109,10 @@ export default function Onboarding() {
         <p className="mt-2 text-emerald-800">
           Your signed W-9 and Independent Contractor Agreement have been emailed to you. Keep them for your records.
         </p>
-        {compSigned && <GoToTraining />}
+        {harvester && <p className="mt-3 font-semibold text-emerald-900">Your harvesting script and DoorDispatcher link are on their way to you by text and email.</p>}
+        {compSigned && !harvester && <GoToTraining />}
       </div>
-      {!compSigned && (
+      {!compSigned && !harvester && (
         <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-6 text-center">
           <h2 className="text-xl font-bold text-amber-900">One more step: your pay documents</h2>
           <p className="mt-2 text-amber-900">Please sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures.{back ? ' Then it takes you into training.' : ''}</p>
@@ -230,7 +234,7 @@ export default function Onboarding() {
         <>
           <Section title="Independent Contractor Agreement" note="Please read this in full — it's what you're signing.">
             <div className="max-h-80 overflow-y-auto rounded-md border border-slate-300 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
-              {[...AGREEMENT_BLOCKS, ...EXHIBIT_BLOCKS].map((b, i) =>
+              {[...AGREEMENT_BLOCKS, ...(harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
                 b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-sm font-bold text-slate-900">{b.h}</h4>
                 : b.li ? <p key={i} className="mb-2 pl-5">•&nbsp;&nbsp;{b.li}</p>
                 : <p key={i} className="mb-2">{b.n ? <strong>{b.n} </strong> : null}{b.p}</p>,

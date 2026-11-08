@@ -48,3 +48,12 @@ export const EXHIBIT_BLOCKS = [
   { p: 'All payments are made via ACH or Wire. Please note your bank may charge you fees and SHINGLE is not responsible for those.' },
 ]
 
+// Harvester version of Exhibit A (Neal, 2026-11-08). Mirrors HARVESTER_EXHIBIT_A in netlify/functions/_ic-agreement.js.
+export const HARVESTER_EXHIBIT_BLOCKS = [
+  { h: 'Exhibit A: Harvester Compensation Schedule' },
+  { exhibitIntro: true },
+  { p: 'Harvester is paid $100 for each harvested sit: an appointment the Harvester booked that sat with a U.S. Shingle representative.' },
+  { p: 'Harvester also earns a $500 bonus at each of 10, 15, 20 and 25 sits in one week.' },
+  { p: 'Weeks run Monday through Sunday and are paid the Friday after.' },
+  { p: 'All payments are made via ACH or Wire. Please note your bank may charge you fees and SHINGLE is not responsible for those.' },
+]

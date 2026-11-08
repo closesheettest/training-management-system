@@ -18,7 +18,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
-import { renderAgreementPdf, COMPANY, AGREEMENT, EXHIBIT_A } from './_ic-agreement.js'
+import { renderAgreementPdf, COMPANY, AGREEMENT, EXHIBIT_A, HARVESTER_EXHIBIT_A, withHarvesterFlag } from './_ic-agreement.js'
 
 const html = (body, code = 200) => ({ statusCode: code, headers: { 'Content-Type': 'text/html; charset=utf-8' }, body })
 const json = (code, obj) => ({ statusCode: code, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) })
@@ -55,7 +55,7 @@ function agreementHtml(row) {
   out.push(`<div class=sigblk><b>Agent / Independent Contractor</b><br>
     Signature: <i>${esc(row.sign_name || agent)}</i> &nbsp;·&nbsp; Printed: ${esc(row.sign_name || agent)}<br>
     Title: Independent Contractor &nbsp;·&nbsp; Date: ${on.toLocaleDateString('en-US')}</div>`)
-  render(EXHIBIT_A)
+  render(row.harvester ? HARVESTER_EXHIBIT_A : EXHIBIT_A)   // harvester schedule (Neal, 2026-11-08)
   return out.join('')
 }
 
@@ -247,7 +247,8 @@ export const handler = async (event) => {
     const t = String(b.t || token || '').trim()
     if (!t || !b.signature || !String(b.name || '').trim()) return json(400, { ok: false, error: 'Name and signature are both needed.' })
 
-    const { data: row } = await supabase.from('trainee_onboarding').select('*').eq('countersign_token', t).maybeSingle()
+    const { data: row0 } = await supabase.from('trainee_onboarding').select('*').eq('countersign_token', t).maybeSingle()
+    const row = await withHarvesterFlag(supabase, row0)   // harvester → harvester Exhibit A (Neal, 2026-11-08)
     if (!row) return json(404, { ok: false, error: 'This link is not valid.' })
     if (!row.signed_at) return json(400, { ok: false, error: 'The rep has not signed this yet.' })
     if (row.company_signed_at) return json(200, { ok: true, already: true })
@@ -347,10 +348,11 @@ export const handler = async (event) => {
   }
 
   if (!token) return html('<p style="font-family:system-ui;padding:24px">This link is missing its code.</p>', 400)
-  const { data: row } = await supabase
+  const { data: row0 } = await supabase
     .from('trainee_onboarding')
     .select('*')   // the page renders the full agreement, so it needs every filled field
     .eq('countersign_token', token).maybeSingle()
+  const row = await withHarvesterFlag(supabase, row0)
   if (!row) return html('<p style="font-family:system-ui;padding:24px">This link is not valid. Ask the office.</p>', 404)
 
   const agent = row.agent_legal_name || row.sign_name || 'the rep'
