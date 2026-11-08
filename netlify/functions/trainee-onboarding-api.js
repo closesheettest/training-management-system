@@ -329,6 +329,18 @@ export const handler = async (event) => {
   const harvester = isHarvesterDepts(trainee.departments)
   const nextSession = harvester ? '' : nextSessionLabel(cls?.week_start_date)
 
+  // Re-send a SIGNED harvester's script + DoorDispatcher link (Neal, 2026-11-08: Mark's first text carried a link
+  // DoorDispatcher rejected). Keyed by their own onboarding token, goes only to their own phone + email on file.
+  if (action === 'harvester_resend') {
+    if (!harvester) return cors(400, { ok: false, error: 'Not a harvester.' })
+    if (!existing?.signed_at) return cors(400, { ok: false, error: 'Not signed yet.' })
+    const w = await sendHarvesterWelcome({
+      firstName: existing.first_name || trainee.first_name, lastName: existing.last_name || trainee.last_name,
+      phone: existing.agent_phone || trainee.phone, email: existing.agent_email || trainee.email,
+    }).catch((e) => ({ ok: false, error: e.message }))
+    return cors(200, { ok: w.ok, sms: w.sms, email: w.email, error: w.error })
+  }
+
   if (action === 'load') {
     const safe = { ...(existing || {}) }
     for (const k of SECRET) if (safe[k]) safe[k] = '' // never send these back down

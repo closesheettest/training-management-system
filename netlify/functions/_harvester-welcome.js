@@ -15,7 +15,7 @@
 // `_`-prefixed helper, not an endpoint. Env: CCG_SUPABASE_URL, CCG_SUPABASE_SECRET_KEY (+ the GHL / Resend ones the
 // senders use).
 
-import { randomBytes } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { sendEmail } from './_email.js'
 import { sendSmsViaGhl as sendSms } from './_ghl.js'
 
@@ -37,6 +37,8 @@ async function ccg(path, init = {}) {
 }
 
 // → { name, harvest_token, created }
+// The token MUST be a dashed UUID: CCG harvest-pins rejects any other shape. (Was 32 bare hex; Postgres stored it
+// dashed but Mark was texted the bare form and got "This link isn't valid". Neal, 2026-11-08.)
 export async function ensureDoorDispatcherRep({ name, phone, email }) {
   const ph = digits10(phone)
   let rows = []
@@ -46,11 +48,11 @@ export async function ensureDoorDispatcherRep({ name, phone, email }) {
   if (rows.length === 1) {
     const r = rows[0]
     if (r.harvest_token) return { name: r.name, harvest_token: r.harvest_token, created: false }
-    const tok = randomBytes(16).toString('hex')
+    const tok = randomUUID()
     await ccg(`sales_reps?id=eq.${r.id}`, { method: 'PATCH', body: JSON.stringify({ harvest_token: tok }) })
     return { name: r.name, harvest_token: tok, created: false }
   }
-  const tok = randomBytes(16).toString('hex')
+  const tok = randomUUID()
   // active false like William's row: a harvester is not a sales rep, so they stay off the sales rep pickers.
   await ccg('sales_reps', {
     method: 'POST',
