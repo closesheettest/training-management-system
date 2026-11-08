@@ -132,7 +132,12 @@ export default function Onboarding() {
           {back && <div className="mt-2">It's okay if you don't have them right now. <strong>You'll need to put them in tomorrow before it lets you into training.</strong><div><GoToTraining label="Do this tomorrow, go to training →" /></div></div>}
         </div>
       ) : (
+        harvester ? (
+        // Harvester wording (Neal, 2026-11-08): no class to start.
         <p className="mb-6 text-slate-600">
+          It takes about five minutes. <strong>Don't know your bank details right now?</strong> That's okay. Leave that section blank and add it later with this same link.
+        </p>
+        ) : <p className="mb-6 text-slate-600">
           Please complete this before class starts. It takes about five minutes.
           {' '}<strong>Don't know your bank details right now?</strong> That's okay. Leave that section blank, but you'll need to put it in <strong>tomorrow before it lets you into training</strong>.
         </p>
