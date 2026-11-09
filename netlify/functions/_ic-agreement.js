@@ -55,7 +55,8 @@ export const EXHIBIT_A = [
   { h: 'Exhibit A' },
   { exhibitIntro: true },
   { p: 'Independent Contractor shall receive 50% of the following in compensation if they only have 9 or fewer sales for the calendar month. If they have 10 to 14 they will receive 100% of the following commissions. If they write 15 or more they will be bonused an additional 1% for all sales for the month.' },
-  { p: 'Sales: Agent will be paid according to the fee structure listed on AGENTS dashboard located at https://sites.google.com/shingleusa.com/repdashboard/home?pli=1&authuser=3 for all services sold. Par pricing may change from time to time based on many factors such as material and labor cost along with marketing costs and other expenses which may fluctuate over time.' },
+  // Dashboard address = the new rep dashboard (Neal, 2026-11-09, for Jen's revised docs; was the old Google Sites page).
+  { p: 'Sales: Agent will be paid according to the fee structure listed on AGENTS dashboard located at https://us-shingle-rep-dashboard.netlify.app for all services sold. Par pricing may change from time to time based on many factors such as material and labor cost along with marketing costs and other expenses which may fluctuate over time.' },
   { li: 'Agent must have prior approval before selling any and all services and/or products outside of the preset plans, packages, and offerings.' },
   { li: 'If AGENT offers extra services or materials for free as an inducement to contract, AGENT will be responsible for such costs.' },
   { p: 'Monies COLLECTED by Sunday are funded on the current Friday.' },
