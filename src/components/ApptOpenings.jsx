@@ -21,8 +21,7 @@ export default function ApptOpenings() {
   const [needPin, setNeedPin] = useState(false)
   // BY HOUR (Neal, 2026-11-09: "I need it broken down by each hour, how many is available for each time").
   // view 'day' = the original 5-day totals; 'hour' = one day, a column per appointment time.
-  const [view, setView] = useState('day')
-  const [hourDate, setHourDate] = useState('')
+  const [view, setView] = useState('hour')
 
   const load = async (p) => {
     const pin = p || (() => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } })()
@@ -42,16 +41,15 @@ export default function ApptOpenings() {
 
   const towns = (data?.towns || []).filter((t) => zone === 'All' || t.zone === zone)
   const count = (t, d) => (t.days?.[d] || []).reduce((m, s) => m + s.reps.length, 0)
-  // By-hour columns: every appointment time offered anywhere that day ("11 AM", "2 PM"…), in time order. A town
-  // missing a time has no rep free then (0). Note: a time that's full in EVERY town drops out of the columns.
-  const hDate = hourDate || data?.dates?.[0]?.date || ''
+  // BY APPOINTMENT TIME (Neal, 2026-11-09: "you have it by day, but you don't have it by appointment time"). All 5 days at
+  // once: each day splits into its appointment times ("11 AM", "2 PM"…). A town missing a time has no rep free then (0).
   const toMin = (l) => { const m = /^(\d+)(?::(\d+))?\s*(AM|PM)/i.exec(l || ''); if (!m) return 9999; return ((+m[1] % 12) + (/pm/i.test(m[3]) ? 12 : 0)) * 60 + (+m[2] || 0) }
-  // Plus the standard times for that weekday (CCG setter-availability SLOT_HOURS_DEFAULT), so a time that's full in
+  // Plus the standard times for each weekday (CCG setter-availability SLOT_HOURS_DEFAULT), so a time that's full in
   // every town still shows as a red 0 column instead of disappearing.
   const STD = { 1: ['11 AM', '2 PM', '5 PM', '7 PM'], 2: ['11 AM', '2 PM', '5 PM', '7 PM'], 3: ['11 AM', '2 PM', '5 PM', '7 PM'], 4: ['11 AM', '2 PM', '5 PM', '7 PM'], 5: ['9 AM', '12 PM', '3 PM'], 6: ['9 AM', '12 PM'] }
-  const std = hDate ? STD[new Date(`${hDate}T12:00:00Z`).getUTCDay()] || [] : []
-  const hours = [...new Set([...std, ...(data?.towns || []).flatMap((t) => (t.days?.[hDate] || []).map((s) => s.label))])].sort((a, b) => toMin(a) - toMin(b))
-  const slotAt = (t, label) => (t.days?.[hDate] || []).find((s) => s.label === label)
+  const hoursFor = (date) => [...new Set([...(STD[new Date(`${date}T12:00:00Z`).getUTCDay()] || []), ...(data?.towns || []).flatMap((t) => (t.days?.[date] || []).map((s) => s.label))])].sort((a, b) => toMin(a) - toMin(b))
+  const cols = (data?.dates || []).flatMap((d) => hoursFor(d.date).map((h) => ({ date: d.date, day: d.label, hour: h })))
+  const slotAt = (t, date, label) => (t.days?.[date] || []).find((s) => s.label === label)
   const at = data ? new Date(data.at).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : ''
 
   return (
@@ -77,55 +75,53 @@ export default function ApptOpenings() {
         <div className="mt-3">
           <div className="mb-2 flex flex-wrap items-center gap-1">
             {ZONES.map((z) => <button key={z} type="button" onClick={() => setZone(z)} className={`rounded-full px-3 py-1 text-xs font-bold ${zone === z ? 'bg-brand-navy text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{z}</button>)}
-            <span className="ml-2 text-xs text-slate-400">as of {at} ET · tap a number for {view === 'hour' ? 'who is free' : 'the times'}</span>
+            <span className="ml-2 text-xs text-slate-400">as of {at} ET · tap a number for {view === 'hour' ? 'who is free at that time' : 'the times'}</span>
             <span className="ml-auto inline-flex overflow-hidden rounded-md border border-slate-300 text-xs font-bold">
-              {[['day', 'By day'], ['hour', 'By hour']].map(([v, l]) => <button key={v} type="button" onClick={() => { setView(v); setCell(null) }} className={`px-3 py-1 ${view === v ? 'bg-brand-navy text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
+              {[['hour', 'By appointment time'], ['day', 'By day']].map(([v, l]) => <button key={v} type="button" onClick={() => { setView(v); setCell(null) }} className={`px-3 py-1 ${view === v ? 'bg-brand-navy text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>)}
             </span>
           </div>
           {view === 'hour' && (
-            <div className="mb-2 flex flex-wrap items-center gap-1">
-              {data.dates.map((d) => <button key={d.date} type="button" onClick={() => { setHourDate(d.date); setCell(null) }} className={`rounded-full px-3 py-1 text-xs font-bold ${hDate === d.date ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{d.label}</button>)}
-            </div>
-          )}
-          {view === 'hour' && (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-sm">
-                <thead><tr className="text-left text-xs text-slate-500">
-                  <th className="px-2 py-1">Town</th>
-                  {hours.map((h) => <th key={h} className="px-2 py-1 text-center">{h}</th>)}
-                  <th className="px-2 py-1 text-center">Day total</th><th className="px-2 py-1">Reps in range</th>
-                </tr></thead>
+                <thead>
+                  <tr className="text-xs text-slate-600">
+                    <th className="px-2 py-1" />
+                    {data.dates.map((d) => <th key={d.date} colSpan={hoursFor(d.date).length} className="border-l border-slate-200 px-2 py-1 text-center font-bold">{d.label}</th>)}
+                    <th className="border-l border-slate-200" /><th />
+                  </tr>
+                  <tr className="text-left text-[11px] text-slate-500">
+                    <th className="px-2 py-1">Town</th>
+                    {cols.map((c, k) => <th key={c.date + c.hour} className={`whitespace-nowrap px-1 py-1 text-center font-semibold ${k === 0 || cols[k - 1].date !== c.date ? 'border-l border-slate-200' : ''}`}>{c.hour}</th>)}
+                    <th className="border-l border-slate-200 px-2 py-1 text-center">Total</th><th className="px-2 py-1">Reps in range</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {towns.map((t, i) => {
-                    const dayTotal = count(t, hDate)
-                    return (
-                      <Fragment key={t.town}>
-                        {(i === 0 || towns[i - 1].zone !== t.zone) && <tr><td colSpan={hours.length + 3} className="bg-slate-50 px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-500">{t.zone}</td></tr>}
-                        <tr className="border-t border-slate-100">
-                          <td className="px-2 py-1.5 font-semibold text-slate-800">{t.town}<span className="ml-1 text-xs font-normal text-slate-400">{t.county}</span></td>
-                          {t.error || t.out_of_area || !t.reps?.length
-                            ? <td colSpan={hours.length + 1} className="px-2 py-1.5 text-xs font-semibold text-red-700">{t.error ? `Couldn't check: ${t.error}` : 'No rep covers this area'}</td>
-                            : <>
-                              {hours.map((h) => { const n = slotAt(t, h)?.reps.length || 0; const on = cell && cell.town === t.town && cell.date === h; return (
-                                <td key={h} className="px-1 py-1 text-center">
-                                  <button type="button" onClick={() => setCell(on ? null : { town: t.town, date: h })} className={`min-w-[2.5rem] rounded px-2 py-0.5 font-bold ${tone(n)} ${on ? 'ring-2 ring-brand-navy' : ''}`}>{n}</button>
-                                </td>) })}
-                              <td className="px-2 py-1.5 text-center font-bold text-slate-700">{dayTotal}</td>
-                            </>}
-                          <td className="px-2 py-1.5 text-xs text-slate-500">{(t.reps || []).join(', ')}</td>
-                        </tr>
-                        {cell && cell.town === t.town && hours.includes(cell.date) && (
-                          <tr><td colSpan={hours.length + 3} className="bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                            <b>{t.town} · {data.dates.find((d) => d.date === hDate)?.label} · {cell.date}:</b>{' '}
-                            {slotAt(t, cell.date)?.reps.length ? slotAt(t, cell.date).reps.join(', ') : 'nobody free (booked or blocked)'}
-                          </td></tr>
-                        )}
-                      </Fragment>
-                    )
-                  })}
+                  {towns.map((t, i) => (
+                    <Fragment key={t.town}>
+                      {(i === 0 || towns[i - 1].zone !== t.zone) && <tr><td colSpan={cols.length + 3} className="bg-slate-50 px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-500">{t.zone}</td></tr>}
+                      <tr className="border-t border-slate-100">
+                        <td className="whitespace-nowrap px-2 py-1.5 font-semibold text-slate-800">{t.town}<span className="ml-1 text-xs font-normal text-slate-400">{t.county}</span></td>
+                        {t.error || t.out_of_area || !t.reps?.length
+                          ? <td colSpan={cols.length + 1} className="px-2 py-1.5 text-xs font-semibold text-red-700">{t.error ? `Couldn't check: ${t.error}` : 'No rep covers this area'}</td>
+                          : <>
+                            {cols.map((c, k) => { const n = slotAt(t, c.date, c.hour)?.reps.length || 0; const on = cell && cell.town === t.town && cell.date === c.date && cell.hour === c.hour; return (
+                              <td key={c.date + c.hour} className={`px-0.5 py-1 text-center ${k === 0 || cols[k - 1].date !== c.date ? 'border-l border-slate-200' : ''}`}>
+                                <button type="button" onClick={() => setCell(on ? null : { town: t.town, date: c.date, hour: c.hour })} className={`min-w-[2rem] rounded px-1.5 py-0.5 font-bold ${tone(n)} ${on ? 'ring-2 ring-brand-navy' : ''}`}>{n}</button>
+                              </td>) })}
+                            <td className="border-l border-slate-200 px-2 py-1.5 text-center font-bold text-slate-700">{t.open}</td>
+                          </>}
+                        <td className="px-2 py-1.5 text-xs text-slate-500">{(t.reps || []).join(', ')}</td>
+                      </tr>
+                      {cell && cell.town === t.town && cell.hour && (
+                        <tr><td colSpan={cols.length + 3} className="bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                          <b>{t.town} · {data.dates.find((d) => d.date === cell.date)?.label} · {cell.hour}:</b>{' '}
+                          {slotAt(t, cell.date, cell.hour)?.reps.length ? slotAt(t, cell.date, cell.hour).reps.join(', ') : 'nobody free (booked or blocked)'}
+                        </td></tr>
+                      )}
+                    </Fragment>
+                  ))}
                 </tbody>
               </table>
-              {!hours.length && <div className="mt-2 text-sm text-slate-500">No open times that day.</div>}
             </div>
           )}
           {view === 'day' && <div className="overflow-x-auto">
