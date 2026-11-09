@@ -184,8 +184,31 @@ export default function NealPayCard() {
   const [monday, setMonday] = useState(() => startMonday)
   // The $500 a week still owed (WeeklyExtra), added on top so the card shows ONE total (Neal, 2026-11-05: "It should be
   // $3,000 and then what's owed is 1,000. So total is 4,000.").
-  const extraPaid = (payments && typeof payments._extra === 'object' && payments._extra) || {}
-  const extraOwed = extraWednesdays().filter((d) => !extraPaid[d]).length * EXTRA_WEEKLY
+  // A WEEK PAYMENT OVER THE WEEK'S PAY COVERS THE $500 FRIDAYS (Neal, 2026-11-09: "October 23rd and November 6th was
+  // paid on November 6th, but it's showing it's still due"). His $7,549 on Nov 6 was saved whole on the Oct 19 week
+  // (before the split-on-save fix), so the Fridays read unpaid. Worked out here from what's stored, so no re-save is
+  // needed: the week's own pay = max(guarantee, override on its frozen gross); anything above it pays unpaid Fridays
+  // dated on or before the payment date, oldest first, $500 each.
+  const extraPaid = (() => {
+    const out = { ...((payments && typeof payments._extra === 'object' && payments._extra) || {}) }
+    const weeks = Object.entries(payments || {}).filter(([k, r]) => /^\d{4}-\d{2}-\d{2}$/.test(k) && r && r.amount != null && r.date).sort((a, b) => a[1].date.localeCompare(b[1].date))
+    for (const [wk, r] of weeks) {
+      const fr = frozen[wk]
+      if (!fr) continue
+      const sch = scheduleFor(wk), b = bandIn(sch, Number(fr.gross) || 0)
+      const due = Math.max(Number(sch.guarantee) || DEFAULT_GUARANTEE, b ? (Number(fr.gross) || 0) * b.rate : 0)
+      let n = Math.floor((Number(r.amount) - due + 0.5) / EXTRA_WEEKLY)
+      if (n <= 0) continue
+      for (const d of extraWednesdays().slice().sort()) { if (n <= 0) break; if (!out[d] && d <= r.date) { out[d] = { amount: EXTRA_WEEKLY, date: r.date, via: wk }; n-- } }
+    }
+    return out
+  })()
+  // EACH PAY DATE SHOWS ITS OWN FRIDAYS (Neal, 2026-11-09: "when I was on November 6th, it should not be showing November
+  // 13th. And when I'm on November 13th, it should not be showing November 6th and October 23rd because it was paid on
+  // the 6th"). Viewing payday P: Fridays dated on or before P, minus those already paid BEFORE P.
+  const asOf = ymd(paydayFor(monday))
+  const extraDays = extraWednesdays().filter((d) => d <= asOf && !(extraPaid[d] && extraPaid[d].date && extraPaid[d].date < asOf))
+  const extraOwed = extraDays.filter((d) => !extraPaid[d]).length * EXTRA_WEEKLY
   const months = [...new Map(mondays.map((m) => [monthKey(paydayFor(m)), m])).values()]
   const [month, setMonth] = useState(() => monthKey(paydayFor(startMonday)))
   const weeksInMonth = mondays.filter((m) => monthKey(paydayFor(m)) === month)
@@ -495,7 +518,7 @@ export default function NealPayCard() {
               reader does not act on. `drift` and `lateCapture` are still computed
               above if it ever needs to come back. */}
 
-          <WeeklyExtra payments={payments} onSaved={setPayments} />
+          <WeeklyExtra payments={payments} onSaved={setPayments} days={extraDays} paidMap={extraPaid} />
 
           {all && <AllWeeks rows={all} guarantee={GUARANTEE} payments={payments} onSaved={setPayments} />}
 
@@ -525,9 +548,9 @@ function extraWednesdays() {
 }
 const wedName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-function WeeklyExtra({ payments, onSaved }) {
-  const extra = (payments && typeof payments._extra === 'object' && payments._extra) || {}
-  const days = extraWednesdays()
+function WeeklyExtra({ payments, onSaved, days: shown, paidMap }) {
+  const extra = paidMap || (payments && typeof payments._extra === 'object' && payments._extra) || {}
+  const days = shown || extraWednesdays()
   const owed = days.filter((d) => !extra[d])
   const [editing, setEditing] = useState(null)
   return (
