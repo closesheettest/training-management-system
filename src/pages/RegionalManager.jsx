@@ -1056,8 +1056,10 @@ function Leaderboard({ myZone }) {
         // WILLIAM, THE LONE WOLF (Neal, 2026-09-30): the trainer isn't on a team, so he gets
         // his own card beside the four on the inspections board — same as the rep dashboard.
         const w = d.william
-        setInsp(w ? [...d.zones, { zone: '__william__', team: 'Lone Wolf', lone: true, count: w.count || 0,
-          reps: [{ name: 'William Hernandez', count: w.count || 0 }], deals: w.deals || [] }] : d.zones)
+        // HARVESTING TEAM (Neal, 2026-11-09: "instead of lone wolf William, it needs to be harvesting team, because Mark's
+        // on that now too"). CCG still sends it as `william`; it's every harvester together, with each one's count.
+        setInsp(w ? [...d.zones, { zone: '__william__', team: 'Harvesting Team', lone: true, count: w.count || 0,
+          reps: w.reps || [{ name: 'William Hernandez', count: w.count || 0 }], deals: w.deals || [] }] : d.zones)
       }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setSales(d.zones) }).catch(() => {})
@@ -1076,7 +1078,7 @@ function Leaderboard({ myZone }) {
     const ri = (rankByZone && rankByZone[z.zone]) || { rank: z.rank, tied: false }
     const medal = LB_MEDALS[ri.rank - 1] || ''
     // Team badges, same art as the rep dashboard (Neal, 2026-09-30). Leaders get a bigger one.
-    const badge = z.lone ? '/team-badges/william.png' : ({ 'Zone 1': '/team-badges/zone1.png', 'Zone 2': '/team-badges/zone2.png', 'Zone 3': '/team-badges/zone3.png', 'Zone 4': '/team-badges/zone4.png' })[z.zone]
+    const badge = z.lone ? '/team-badges/harvesting-team.svg' : ({ 'Zone 1': '/team-badges/zone1.png', 'Zone 2': '/team-badges/zone2.png', 'Zone 3': '/team-badges/zone3.png', 'Zone 4': '/team-badges/zone4.png' })[z.zone]
     const lead = ri.rank === 1 && (z.count || 0) > 0
     const placeLabel = (ri.tied && (z.count || 0) > 0) ? `Tied for ${lbOrdinal(ri.rank)}` : `${lbOrdinal(ri.rank)} Place`
     return (
@@ -1087,7 +1089,7 @@ function Leaderboard({ myZone }) {
         {badge && <img src={badge} alt={z.team} className={`shrink-0 rounded-full object-cover ring-2 ring-white/70 ${lead ? 'h-11 w-11' : 'h-9 w-9'}`} />}
         <div className="min-w-0">
           <div className="truncate text-[10px] font-bold uppercase tracking-wide opacity-90">{medal ? medal + ' ' : ''}{placeLabel}{mine ? ' · you' : ''}</div>
-          <div className="truncate text-sm font-extrabold leading-tight">{z.lone ? 'Lone Wolf · William' : z.team}</div>
+          <div className="truncate text-sm font-extrabold leading-tight">{z.lone ? '🌾 Harvesting Team' : z.team}</div>
           <div className="truncate text-xs"><b className="text-base">{z.count}</b> {kind === 'sales' ? 'sold' : kind === 'harvest' ? 'booked' : 'signed'}{kind === 'sales' && z.total_amount ? ` · $${Math.round(z.total_amount).toLocaleString()}` : ''}</div>
         </div>
         <span className="ml-auto text-xs opacity-80">{isOpen ? '▾' : '▸'}</span>
@@ -1099,8 +1101,15 @@ function Leaderboard({ myZone }) {
   const inspDetail = (z) => {
     if (z.lone) {
       const deals = z.deals || []
-      if (!deals.length) return <div className="text-xs text-slate-300/70">No inspections signed yet.</div>
-      return <div className="divide-y divide-white/10">{deals.map((d, i) => <div key={i} className="py-1.5 text-sm">🏠 {d.label}{d.city ? `, ${d.city}` : ''}</div>)}</div>
+      // Each harvester with their count, then the houses (with who signed each).
+      return (
+        <div className="divide-y divide-white/10">
+          {(z.reps || []).map((r) => (
+            <div key={r.name} className="flex items-center justify-between py-1.5 text-sm"><span className="truncate">{r.name}</span><span className="font-bold">{r.count}</span></div>
+          ))}
+          {deals.map((d, i) => <div key={i} className="py-1.5 text-xs text-slate-300">🏠 {d.label}{d.city ? `, ${d.city}` : ''}{d.rep ? ` · ${String(d.rep).split(' ')[0]}` : ''}</div>)}
+        </div>
+      )
     }
     const reps = z.reps || []
     if (!reps.length) return <div className="text-xs text-slate-300/70">No inspections logged yet.</div>
@@ -1167,7 +1176,7 @@ function Leaderboard({ myZone }) {
         <div className={`grid grid-cols-2 gap-2 ${zones.length > 4 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>{[...zones].sort((a, b) => (b.count || 0) - (a.count || 0)).map((z, i) => card(z, i, kind, openZone, setOpen, rankByZone))}</div>
         {openZ && (
           <div className="mt-2 rounded-lg border border-white/15 bg-white/5 p-3">
-            <div className="mb-1 text-xs font-bold text-amber-200">{openZ.lone ? 'Lone Wolf · William Hernandez' : `${openZ.team} · ${openZ.zone}`}</div>
+            <div className="mb-1 text-xs font-bold text-amber-200">{openZ.lone ? '🌾 Harvesting Team' : `${openZ.team} · ${openZ.zone}`}</div>
             {detailFn(openZ)}
           </div>
         )}
