@@ -1900,7 +1900,9 @@ export const handler = async (event) => {
   }
 
   // RSVP for a one-off meeting: ✅ I'll be there / ❌ Can't make it, from their own link.
-  const outsiderOf = (key) => (room.invitees || []).find((x) => x.key && x.key === String(key || ''))
+  // ⏳ A guest link can carry an end time (until): after it, the link stops working (Neal, 2026-11-09: Mark in Zone 2's
+  // meeting "just today", not every day).
+  const outsiderOf = (key) => (room.invitees || []).find((x) => x.key && x.key === String(key || '') && !(x.until && Date.parse(x.until) < Date.now()))
   if (b.action === 'rsvp' && room.kind === 'oneoff') {
     let who = null
     if (String(b.t || '').trim()) { const t = await traineeByToken(b.t); if (t && (room.invitees || []).some((x) => x.id === t.id)) who = { id: t.id, name: fullName(t) } }
@@ -2271,7 +2273,8 @@ export const handler = async (event) => {
     const rooms = (await getSetting('meet_rooms', [])) || []
     const r = rooms.find((x) => x.slug === room.slug)
     if (!r) return json(404, { ok: false, error: 'Room not found.' })
-    r.invitees = [...(r.invitees || []), { key, name: gname, guest_invite: true, by: t ? fullName(t) : 'admin', at: new Date().toISOString() }]
+    const until = b.until && !isNaN(Date.parse(b.until)) ? new Date(b.until).toISOString() : null // ⏳ optional end time (see outsiderOf)
+    r.invitees = [...(r.invitees || []), { key, name: gname, guest_invite: true, by: t ? fullName(t) : 'admin', at: new Date().toISOString(), ...(until ? { until } : {}) }]
     await putSetting('meet_rooms', rooms)
     return json(200, { ok: true, name: gname, link: `${SITE}/meet/${room.slug}?g=${key}` })
   }
