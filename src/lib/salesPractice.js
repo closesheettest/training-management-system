@@ -269,6 +269,11 @@ export const SECTIONS = [
   // (public/sales-pitch/free-inspection-pitch.docx). No slides; the win is the
   // homeowner agreeing to the free inspection.
   { key: 'door', label: 'Door pitch: free roof inspection', desc: 'At the front door. Mailer, insurance risk, the free inspection, the 3 outcomes, get the commitment. ~5 min.', range: null, door: true },
+  // IQ PITCH AT THE DOOR (Neal, 2026-11-09: "add the IQ pitch… so when I have a harvesting meeting, I can have one of them
+  // do the pitch to the trainer"). The harvesters' script (rep dashboard → New Company Info → IQ Pitch at the Door). The
+  // homeowner got the Instant Roof Quote flyer and had a rough quote emailed; the win is a set appointment, tomorrow or
+  // the next day, to go over the estimate. door:true = no slides, front-door screens; iq:true picks the IQ script + points.
+  { key: 'iq', label: 'IQ pitch at the door: Instant Quote follow-up', desc: 'Harvesting. They got the Instant Roof Quote flyer and their rough quote by email. Not selling anything: set a time tomorrow or the next day to go over the estimate and the specials. ~3 min.', range: null, door: true, iq: true },
   // THE WARM-UP (Neal, 27 Sep): the survey sheet from the training manual is on
   // screen as the rep's notes, but the point is NOT to read it out. Find common
   // ground and their wants and needs through normal conversation, so they relax
@@ -382,6 +387,22 @@ export const DOOR_POINTS = [
   'Pre-close: if the PA finds storm damage, do they want to start right away? If yes, the PA forms need the insurance company + policy number',
   'Commitment: if the policy info is not handy, do the inspection anyway and come back for it. Leave with a yes (time kills all deals)',
 ]
+// The IQ pitch at the door (harvesting), as points. Win = a set appointment.
+export const IQ_POINTS = [
+  'Opener: their name and U.S. Shingle, and "don\'t worry, I\'m not selling anything"',
+  'Why: they got our Instant Roof Quote flyer in the mail and had their rough quote emailed to them',
+  'The hook: "I have your exact quote right here" (phone), but no time to go over it now: too many appointments today',
+  'The reason to meet: set a time tomorrow or the day after to go over the estimate AND the specials (metal for shingle, zero down no-credit financing)',
+  'The close: a choice, "what\'s better for you, tomorrow or the next day?", then lock in a specific time. Leave with an appointment, not a maybe',
+]
+// How the homeowner takes the IQ pitch, by difficulty (layered on each persona's own personality). Every level is winnable.
+export const IQ_AT_DOOR = {
+  'Very easy': 'You remember the flyer and the emailed quote: "Oh yeah, that roof quote! It was a little more than we expected." You are glad someone came. When the rep offers tomorrow or the next day, you pick one and give a time.',
+  Easy: 'You vaguely remember the flyer: "Oh, the instant quote thing? Yeah, I put our address in." You ask one simple question (how long it will take, or whether it is free). When the rep answers and gives you a choice of days, you pick one and a time.',
+  Medium: 'You want it right now: "Can\'t you just tell me the number? You\'ve got it right there." If the rep explains they don\'t have time to go over it properly today and gives you a choice of days, you agree. If they start going over the quote at the door, you take the number and say you\'ll think about it.',
+  Hard: 'You only wanted a ballpark: "I just wanted a rough idea, I\'m not ready to do anything yet." The specials (metal for the price of shingle, zero down) and the rep staying light ("I\'m not selling anything, just going over it") are what change your mind. With a clear choice of days you agree; pushed or sold to, you say no thanks.',
+  'Very hard': 'You are suspicious: "How did you get my address? I didn\'t ask anyone to come by." and "Not selling anything? Come on." You did fill in the instant quote online and forgot. You agree only if the rep stays calm and friendly, reminds you that you asked for the quote, makes the specials sound worth hearing, and gives you a simple choice of days. Then you pick one and a time.',
+}
 export const CLOSE_EXTRA = [
   'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
   'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
@@ -598,6 +619,7 @@ export function homeownerPrompt(persona, section, impulse = null) {
   const imp = impulseByKey(impulse)
   const where = {
     full: 'You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions, and you answered them with YOUR FACTS above, so the rep knows those things. Now they are starting the slide show on their iPad, then they will ask for the business. Do not expect or ask for the survey again.',
+    iq: 'You are at home and someone in an orange vest knocks on your FRONT DOOR. A few days ago you got an Instant Roof Quote flyer from U.S. Shingle, typed in your address, and had a rough quote emailed to you; you glanced at it. You were not expecting anyone. You are standing in the doorway and did not plan on a conversation. The rep is here to set a time to come back and go over your quote. Never start talking about prices yourself unless the rep does.',
     door: 'You are at home and someone knocks on your FRONT DOOR. You open it and a young roofing rep is standing there. You do not know them. You got a mailer from U.S. Shingle about your roof a few days ago but barely looked at it. You are standing in the doorway and did not plan on a conversation. The rep is here to get you to agree to a free roof inspection. Your spouse is inside the house; for a free inspection you can decide yourself, so never say you need to ask them.',
     survey: `The rep has just come into your home. You are NOT at the kitchen table yet: you are standing or sitting in the living room. Today is only the WARM-UP: getting to know you (the rep may have a customer survey, which you cannot see); the presentation comes later, at the kitchen table.
 YOU START WITH ONE-WORD ANSWERS. "Yep." "About twenty years." "It's fine." Polite, but closed, the way anyone is with a salesperson in their house. Real conversation is what opens you up, a little at a time:
@@ -616,16 +638,16 @@ Answer every question truthfully from YOUR FACTS, in your personality. Do not ru
     : '')
 
   const spouse = persona.name.split(/\s*&\s*/).map((n) => n.split(/\s+/)[0]).find((n) => n !== persona.speaker) || 'your spouse'
-  return `You are role-playing a Florida homeowner in a sales-training exercise for a roofing company called U.S. Shingle. A new sales rep is practicing ${sec.door ? 'the FRONT-DOOR pitch for a free roof inspection' : 'the in-home presentation'} on you, out loud, while their trainer watches. Stay in character the entire time. Never mention that you are an AI, never coach the rep, never break character, and never narrate stage directions.
+  return `You are role-playing a Florida homeowner in a sales-training exercise for a roofing company called U.S. Shingle. A new sales rep is practicing ${sec.iq ? 'the FRONT-DOOR follow-up on your Instant Roof Quote, to set an appointment' : sec.door ? 'the FRONT-DOOR pitch for a free roof inspection' : 'the in-home presentation'} on you, out loud, while their trainer watches. Stay in character the entire time. Never mention that you are an AI, never coach the rep, never break character, and never narrate stage directions.
 
-WHO YOU ARE: ${persona.name}. You speak as ${persona.speaker}. ${sec.door ? `Your spouse, ${spouse}, is inside the house.` : `Your spouse is sitting at the table with you. Both decision-makers are present; never say you need to ask or talk to your spouse, because they are right here. Your spouse is ${spouse}. You may occasionally relay what ${spouse} says or thinks ("${spouse}'s nodding", "${spouse} wants to know...").`}
+WHO YOU ARE: ${persona.name}. You speak as ${persona.speaker}. ${sec.iq ? `Your spouse, ${spouse}, is inside the house. You can set the appointment yourself; if the rep asks whether ${spouse} will be home for it, answer honestly and pick a time you are both home.` : sec.door ? `Your spouse, ${spouse}, is inside the house.` : `Your spouse is sitting at the table with you. Both decision-makers are present; never say you need to ask or talk to your spouse, because they are right here. Your spouse is ${spouse}. You may occasionally relay what ${spouse} says or thinks ("${spouse}'s nodding", "${spouse} wants to know...").`}
 
 YOUR FACTS (use these when the rep asks survey questions; stay consistent; if asked something not covered, invent a realistic answer that fits and stick to it):
 ${persona.facts.map((f) => '- ' + f).join('\n')}
 
 HOW YOU ACT: ${persona.behavior}
 
-${sec.door ? `AT THE DOOR: ${persona.door}` : `AT THE CLOSE: ${persona.close}`}
+${sec.iq ? `AT THE DOOR: ${IQ_AT_DOOR[persona.difficulty] || IQ_AT_DOOR.Medium}` : sec.door ? `AT THE DOOR: ${persona.door}` : `AT THE CLOSE: ${persona.close}`}
 ${imp ? `
 YOUR IMPULSE FACTOR (secret). ${imp.act}
 - This is the ONE thing driving you through the whole presentation. If your facts above suggest other motives, they are secondary to this one.

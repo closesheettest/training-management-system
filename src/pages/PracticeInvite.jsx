@@ -79,7 +79,7 @@ export default function PracticeInvite() {
         <li>Use <b>Chrome</b> on a laptop or tablet, somewhere quiet. <b>Headphones</b> work best.</li>
         <li>When Chrome asks to use the <b>microphone</b>, click <b>Allow</b>.</li>
         {section.door
-          ? <li>You’re at their <b>front door</b>: they got our mailer but weren’t expecting you. Get a yes to the free roof inspection. When you finish, click <b>End &amp; grade</b>.</li>
+          ? <li>You’re at their <b>front door</b>: {section.iq ? <>they got our Instant Roof Quote flyer and a rough quote by email, but weren’t expecting you. Set an appointment for tomorrow or the next day.</> : <>they got our mailer but weren’t expecting you. Get a yes to the free roof inspection.</>} When you finish, click <b>End &amp; grade</b>.</li>
           : <>
             <li>The slides are on screen: use <b>Next / Back</b> (or the arrow keys) as you present.</li>
             <li>Talk to them like you’re at their kitchen table. When you finish, click <b>End &amp; grade</b>.</li>

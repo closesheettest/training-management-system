@@ -106,7 +106,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
       if (section.firstSlide) setPage(section.firstSlide)
       // ON STAGE: everyone muted but the presenter, everyone sees the slide, the presenter gets
       // "say hi to start", and their mic is switched on (Neal, 2026-10-04).
-      await stage({ showing: true, presenter: presenter.identity, presenterName: presenter.name || '', homeowner: persona.name, section: section.label, door: section.key === 'door', page: section.firstSlide || 0 }, true)
+      await stage({ showing: true, presenter: presenter.identity, presenterName: presenter.name || '', homeowner: persona.name, section: section.label, door: !!section.door, page: section.firstSlide || 0 }, true)
       if (!presenter.isLocal) { try { await ctx.localParticipant.setMicrophoneEnabled(false) } catch { /* fine */ } }
       try { await ctx.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: 'unmute' })), { reliable: true, topic: 'host', destinationIdentities: [presenter.identity] }) } catch { /* they can unmute */ }
     } catch (e) {
@@ -119,7 +119,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   useEffect(() => {
     if (!page || !live.current) return
     const d = DECK.find((x) => x.page === page)
-    stage({ showing: true, presenter: presenter?.identity, presenterName: presenter?.name || '', homeowner: persona.name, section: section.label, door: section.key === 'door', page })
+    stage({ showing: true, presenter: presenter?.identity, presenterName: presenter?.name || '', homeowner: persona.name, section: section.label, door: !!section.door, page })
     live.current.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= 29)
   }, [page])
 

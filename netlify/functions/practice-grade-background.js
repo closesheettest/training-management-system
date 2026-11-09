@@ -21,7 +21,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { liveCost, gradeCost } from './_practice-prices.js'
 import { scriptForSection } from './_sales-script.js'
-import { personaByKey, sectionByKey, impulseByKey, impulseQuestionsFor, playbookFor, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
+import { personaByKey, sectionByKey, impulseByKey, impulseQuestionsFor, playbookFor, DECK, OBJECTION_METHOD, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, IQ_POINTS, CLOSE_EXTRA } from '../../src/lib/salesPractice.js'
 
 // Two audiences (Neal, 25 Sep). The REP, doing a practice from a link on their
 // own, sees only `encouragement`: no grade, all build-up. The trainer/manager
@@ -44,7 +44,7 @@ const MANAGER_PLAN_SCHEMA = {
     focus: { type: 'STRING', description: 'The ONE thing this rep most needs to work on, in a sentence' },
     assign: {
       type: 'ARRAY',
-      description: 'Up to 3 practice assignments from what this tool offers (control drill on slide N, one slide N, a section, the door pitch, an easier or harder homeowner), each with why',
+      description: 'Up to 3 practice assignments from what this tool offers (control drill on slide N, one slide N, a section, the door pitch, the IQ pitch, an easier or harder homeowner), each with why',
       items: { type: 'OBJECT', properties: { practice: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['practice', 'why'] },
     },
     ride_along: { type: 'STRING', description: 'What to watch for when the manager is next with this rep in a real home' },
@@ -192,6 +192,7 @@ export async function pointsForSection(sb, sectionKey, maxSlide = 99) {
   // Full is the slide show only: the warm-up is taken as done and never graded there.
   if (sectionKey === 'survey') out.push(block('The warm-up: purpose (weigh this most)', WARMUP_POINTS), block('Intro', INTRO_POINTS), block('Customer Survey (OPTIONAL for an experienced rep: judge whether this information came out of the conversation, never whether the questions were asked in order)', SURVEY_POINTS))
   if (sectionKey === 'door') out.push(block('The door pitch (free roof inspection)', DOOR_POINTS))
+  if (sectionKey === 'iq') out.push(block('The IQ pitch at the door (Instant Roof Quote follow-up)', IQ_POINTS))
   for (const sl of slides) if (sl.n >= range[0] && sl.n <= Math.min(range[1], maxSlide)) out.push(block(sl.label, sl.pts))
   if (range[1] >= 23 && Math.min(range[1], maxSlide) >= 22) out.push(block('Closing the deal', CLOSE_EXTRA))
   // A slide with no Slide Points row yet: grade the ideas of its script section.
@@ -418,7 +419,7 @@ export const handler = async (event) => {
   }
   // Everything except the warm-up is graded on staying on script (angle + points).
   const onScript = row.section !== 'survey'
-  const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
+  const prompt = `You are an encouraging, honest sales trainer at U.S. Shingle, a Florida roofing company. Grade a rep's practice ${section.iq ? 'IQ PITCH AT THE FRONT DOOR (harvesting: the homeowner got our Instant Roof Quote flyer and a rough quote by email, and did not expect a visit; the goal is a SET APPOINTMENT tomorrow or the next day to go over the estimate, with a specific time)' : section.door ? 'FRONT-DOOR PITCH for a free roof inspection (a homeowner who did not expect them, standing in the doorway; the goal is a yes to the free inspection)' : 'IN-HOME PRESENTATION (kitchen table, both spouses present)'}.
 
 HOW WE SELL: question-based selling. It is a conversation, not a recital. The rep's job on each part is to BRING OUT ITS POINTS so the homeowner understands and agrees with them, ideally by asking questions that let the homeowner get there themselves. Every homeowner is different, so the order, the wording and the route will differ every time.
 

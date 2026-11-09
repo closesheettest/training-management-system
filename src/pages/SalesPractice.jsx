@@ -12,7 +12,7 @@ import PracticeAudio from '../components/PracticeAudio.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, IMPULSE_PLAYBOOK, playbookFor, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, IMPULSE_PLAYBOOK, playbookFor, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, IQ_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -40,6 +40,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
   const groups = []
   if (sectionKey === 'survey') groups.push(['The warm-up: its purpose (counts the most)', WARMUP_POINTS], ['The intro', INTRO_POINTS], ['What should come out of the conversation (the survey)', SURVEY_POINTS])
   else if (sectionKey === 'door') groups.push(['The door pitch', DOOR_POINTS])
+  else if (sectionKey === 'iq') groups.push(['The IQ pitch at the door', IQ_POINTS])
   else if (sec.range && (!picker || slideN)) {
     for (const sl of slides) if (sl.n >= sec.range[0] && sl.n <= sec.range[1] && sl.pts.length) groups.push([sl.label, sl.pts])
     if (sec.range[1] >= 23) groups.push(['Closing the deal', CLOSE_EXTRA])
@@ -623,7 +624,9 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
               <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
                 <div className="text-5xl">🚪</div>
                 <div className="mt-3 text-xl font-bold text-brand-navy">At the front door</div>
-                <p className="mt-2 max-w-md text-sm text-slate-600">You just knocked. {persona.speaker} opens the door; they got our mailer about their roof but weren’t expecting you. Get them to say yes to the free roof inspection.</p>
+                <p className="mt-2 max-w-md text-sm text-slate-600">{section.iq
+                  ? <>You just knocked, orange vest on. {persona.speaker} opens the door; they got our Instant Roof Quote flyer and had a rough quote emailed, but weren’t expecting you. Set a time tomorrow or the next day to go over it.</>
+                  : <>You just knocked. {persona.speaker} opens the door; they got our mailer about their roof but weren’t expecting you. Get them to say yes to the free roof inspection.</>}</p>
               </div>
             ) : section.surveySheet ? (
               <div>

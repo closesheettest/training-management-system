@@ -462,12 +462,21 @@ You will need the insurance company and policy number to get these signed.
 When doing this, if they don't have that information available right then and there back it up and say that is fine, why don't we just do the inspection and if you have storm damage I can come back and get that information. Time kills all deals so get some kind of commitment.
 `
 
+// The IQ pitch at the door (harvesting): "IQ Pitch at the Door" on the rep dashboard → New Company Info (Neal, 2026-11-09).
+export const IQ_PITCH = `
+Hello my name is ____ with U.S. Shingle. Don't worry I'm not selling anything. I'm stopping by because you recently received our Instant Roof Quote flyer in the mail and had your rough quote emailed to you.
+I have your exact quote right here (waving your phone), I just don't have time to go over it with you, I have too many appointments to get to today.
+So, what I wanted to do is just set a time either tomorrow or the day after to go over the estimate with you and also the crazy specials we have going on right now like metal for shingle and zero down no credit financing.
+So, what's better for you tomorrow or the next day?
+`
+
 // The part of the script behind a practice section: used by the grader for
 // FACTS only (wording is never graded). Slides are cut by their headings
 // ("Slide 6", "Slide 13 and 14", "Slide 17 to 21"), so any range works.
 export function scriptForSection(sectionKey) {
   const s = SALES_SCRIPT
   const sec = sectionByKey(sectionKey)
+  if (sec.iq) return IQ_PITCH.trim()
   if (sec.door) return DOOR_PITCH.trim()
   if (!sec.range) return s.slice(0, Math.max(0, s.indexOf('Presentation:'))).trim() // intro + survey
   const [a, b] = sec.range
