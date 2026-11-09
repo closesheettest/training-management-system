@@ -1101,13 +1101,19 @@ function Leaderboard({ myZone }) {
   const inspDetail = (z) => {
     if (z.lone) {
       const deals = z.deals || []
-      // Each harvester with their count, then the houses (with who signed each).
+      // Each harvester with their count, and THEIR houses right under their name (Neal, 2026-11-09: listed after everyone,
+      // William's houses looked like Mark's).
       return (
         <div className="divide-y divide-white/10">
-          {(z.reps || []).map((r) => (
-            <div key={r.name} className="flex items-center justify-between py-1.5 text-sm"><span className="truncate">{r.name}</span><span className="font-bold">{r.count}</span></div>
-          ))}
-          {deals.map((d, i) => <div key={i} className="py-1.5 text-xs text-slate-300">🏠 {d.label}{d.city ? `, ${d.city}` : ''}{d.rep ? ` · ${String(d.rep).split(' ')[0]}` : ''}</div>)}
+          {(z.reps || []).map((r) => {
+            const mine = deals.filter((d) => d.rep === r.name)
+            return (
+              <div key={r.name} className="py-1.5">
+                <div className="flex items-center justify-between text-sm"><span className="truncate">{r.name}</span><span className="font-bold">{r.count}</span></div>
+                {mine.map((d, i) => <div key={i} className="pl-4 pt-1 text-xs text-slate-300">🏠 {d.label}{d.city ? `, ${d.city}` : ''}</div>)}
+              </div>
+            )
+          })}
         </div>
       )
     }
