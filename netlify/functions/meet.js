@@ -139,12 +139,16 @@ const slotsOf = (r) => (Array.isArray(r.slots) && r.slots.length ? r.slots
   : (Array.isArray(r.days) && /^\d{2}:\d{2}$/.test(r.time || '') ? r.days.map((d) => ({ day: d, time: r.time, minutes: r.minutes })) : []))
   .filter((x) => x && x.day >= 0 && x.day <= 6 && /^\d{2}:\d{2}$/.test(x.time || ''))
 const hasSchedule = (r) => slotsOf(r).length > 0 || (Array.isArray(r.once) && r.once.length)
+// FIRST DAY (Neal, 2026-11-09: the Harvesting Meeting, Mon–Thu 10 AM, showed on Monday 11/9 but starts Tuesday 11/10).
+// starts_on 'YYYY-MM-DD' (Eastern): weekly slots before that day don't happen. One-time meetings aren't affected.
+const slotOn = (r, day) => !/^\d{4}-\d{2}-\d{2}$/.test(r.starts_on || '') || day >= r.starts_on
 // The current or next meeting: { start, end } as Dates, or null.
 const nextMeeting = (r, now = Date.now()) => {
   const dflt = Math.max(10, Number(r.minutes) || 60), out = []
   const slots = slotsOf(r)
   for (let i = -1; i < 15; i++) {
     const day = etDay(now + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
+    if (!slotOn(r, day)) continue
     for (const sl of slots) if (sl.day === dow) out.push({ start: etWall(day, sl.time), mins: Math.max(10, Number(sl.minutes) || dflt) })
   }
   for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) out.push({ start: etWall(m[1], m[2]), mins: dflt }) }
@@ -970,6 +974,7 @@ export const handler = async (event) => {
         const dflt = Math.max(10, Number(r.minutes) || 60), starts = []
         for (let i = 0; i < days; i++) {
           const day = etDay(Date.now() + i * 864e5), dow = new Date(`${day}T12:00:00Z`).getUTCDay()
+          if (!slotOn(r, day)) continue
           for (const sl of slotsOf(r)) if (sl.day === dow) starts.push({ s: etWall(day, sl.time), m: Math.max(10, Number(sl.minutes) || dflt) })
         }
         for (const o of r.once || []) { const m = String(o).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/); if (m) starts.push({ s: etWall(m[1], m[2]), m: dflt }) }
