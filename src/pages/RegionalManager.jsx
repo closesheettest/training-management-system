@@ -1224,7 +1224,7 @@ function Leaderboard({ myZone }) {
       {board(insp, 'inspections', openInsp, setOpenInsp, inspDetail)}
       <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">💰 Sales — tap a team for the deals</div>
       {board(sales, 'sales', openSales, setOpenSales, salesDetail)}
-      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">🌾 Harvest — appointments booked from the map (IQ + No-Sit)</div>
+      <div className="mb-1 mt-3 text-xs font-semibold text-slate-200/70">🌾 Harvest — appointments booked from the map (IQ + NSR)</div>
       {board(harvest, 'harvest', openHarvest, setOpenHarvest, harvestDetail)}
     </section>
   )
