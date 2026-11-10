@@ -28,7 +28,8 @@
 //
 // See CLASS_SCHEDULE constant below for the single source of truth.
 //
-// DST note: Netlify cron is UTC-only. The 18,19,20:00 fires track EDT
+// DST (fixed 2026-11-10): now fires 18–21 UTC, so 2/3/4 PM ET are covered in EDT AND EST.
+// Old note: Netlify cron is UTC-only. The 18,19,20:00 fires tracked EDT
 // (mid-March through early November). When clocks fall back to EST in
 // November, the cron will fire 1 hour earlier than intended. To keep
 // the same ET times year-round during EST, flip the schedule below to
@@ -390,4 +391,4 @@ function json(status, body) {
 // "too early" reason in the response. Idempotent per trainee per day.
 // See header comment for DST handling — bump to '0 19,20,21 * * *' in
 // November to stay on the same ET times during EST.
-export const config = { schedule: '0 18,19,20 * * *' }
+export const config = { schedule: '0 18,19,20,21 * * *' }  // 4 fires = DST-proof (Neal 11/10)

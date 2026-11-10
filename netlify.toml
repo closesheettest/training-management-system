@@ -7,13 +7,15 @@
   node_bundler = "esbuild"
 
 # Scheduled function: homework SMS for every active training class, sent
-# right at each day's dismissal. Fires at 18:00, 19:00, 20:00 UTC (= 2:00,
-# 3:00, 4:00 PM EDT); the function self-gates each class to the fire that
-# matches its dismissal time. MUST stay in sync with export config.schedule
-# in the function file — Netlify uses THIS toml value, so a mismatch here
-# silently overrides the code. DST: bump to "0 19,20,21 * * *" during EST.
+# right at each day's dismissal. Fires at 18:00–21:00 UTC every hour, which
+# covers 2/3/4 PM ET in BOTH daylight time (2–5 PM EDT) and standard time
+# (1–4 PM EST); the function self-gates each class to its dismissal hour and
+# never sends twice. (Neal 2026-11-10: Week A got no Monday homework on 11/9 —
+# the old 18,19,20 schedule's last fire was 3 PM EST, before the 4 PM
+# dismissal.) MUST stay in sync with export config.schedule in the function
+# file — Netlify uses THIS toml value.
 [functions."cron-training-homework"]
-  schedule = "0 18,19,20 * * *"
+  schedule = "0 18,19,20,21 * * *"
 
 # Scheduled function: no-show / dropout detection. Fires every 30 min
 # from 14:00 to 22:30 UTC. The function self-gates to the 10:30 AM –
@@ -51,9 +53,10 @@
 # The full presentation audio to Week A trainees at Wednesday dismissal (2 PM
 # ET). The schedule lives here, on a thin wrapper, because Netlify 403s HTTP
 # calls to a scheduled function and the worker must stay testable.
-# 18:00 UTC = 2 PM EDT. Change to '0 19 * * 3' when EST starts in November.
+# 19:00 UTC = 2 PM EST (switched 2026-11-10, Neal; it had been firing at 1 PM since Nov 1).
+# Change back to '0 18 * * 3' when EDT starts in March.
 [functions."cron-week-a-presentation"]
-  schedule = "0 18 * * 3"
+  schedule = "0 19 * * 3"
 
 [functions."cron-week-b-confirmation"]
   schedule = "0 18 * * 5"
