@@ -1039,6 +1039,42 @@ function HarvestDetail({ z }) {
   )
 }
 
+// Harvesting Team drill-down (Neal, 2026-11-10: "put what day they were booked … a column for date booked and date
+// scheduled"). Each harvester with their count, then their appointments: the house, when it was booked, when it's for.
+// Times in Eastern.
+const lbEt = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
+function HarvestingTeamDetail({ z }) {
+  const deals = z.deals || []
+  const reps = z.reps || []
+  if (!deals.length) return <div className="text-xs text-slate-300/70">No appointments booked yet.</div>
+  return (
+    <div className="divide-y divide-white/10">
+      {reps.map((r) => {
+        const mine = deals.filter((d) => d.rep === r.name)
+        return (
+          <div key={r.name} className="py-1.5">
+            <div className="flex items-center justify-between text-sm"><span className="truncate">{r.name}</span><span className="font-bold">{r.count} {r.count === 1 ? 'appt' : 'appts'}</span></div>
+            {mine.length > 0 && (
+              <table className="mt-1 w-full text-xs text-slate-300">
+                <thead><tr className="text-left text-[10px] uppercase tracking-wide text-slate-400"><th className="py-0.5 pl-4 font-semibold">House</th><th className="py-0.5 font-semibold">Booked</th><th className="py-0.5 font-semibold">Scheduled for</th></tr></thead>
+                <tbody>
+                  {mine.map((d, i) => (
+                    <tr key={i}>
+                      <td className="py-0.5 pl-4">🏠 {d.label}{d.city ? `, ${d.city}` : ''}{d.source ? <span className="text-slate-400"> · {d.source}</span> : null}</td>
+                      <td className="py-0.5 whitespace-nowrap">{lbEt(d.booked_at)}</td>
+                      <td className="py-0.5 whitespace-nowrap">{lbEt(d.appt_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Leaderboard({ myZone }) {
   const [period, setPeriod] = useState('week')
   const [insp, setInsp] = useState(null)
@@ -1053,18 +1089,21 @@ function Leaderboard({ myZone }) {
     fetch(LB_ORIGIN + 'zone-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (cancelled || !d || !d.ok) return
-        // WILLIAM, THE LONE WOLF (Neal, 2026-09-30): the trainer isn't on a team, so he gets
-        // his own card beside the four on the inspections board — same as the rep dashboard.
-        const w = d.william
-        // HARVESTING TEAM (Neal, 2026-11-09: "instead of lone wolf William, it needs to be harvesting team, because Mark's
-        // on that now too"). CCG still sends it as `william`; it's every harvester together, with each one's count.
-        setInsp(w ? [...d.zones, { zone: '__william__', team: 'Harvesting Team', lone: true, count: w.count || 0,
-          reps: w.reps || [{ name: 'William Hernandez', count: w.count || 0 }], deals: w.deals || [] }] : d.zones)
+        // The Harvesting Team card moved OFF this board to the Harvest board (Neal, 2026-11-10: "you have them on the
+        // inspections when it should be … under the harvest section … they're not inspections, they're appointments").
+        setInsp(d.zones)
       }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-sales-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
       .then((d) => { if (!cancelled && d && d.ok) setSales(d.zones) }).catch(() => {})
     fetch(LB_ORIGIN + 'zone-harvest-leaderboard?period=' + period).then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (!cancelled && d && d.ok) setHarvest(d.zones) }).catch(() => {})
+      .then((d) => {
+        if (cancelled || !d || !d.ok) return
+        // HARVESTING TEAM (Neal, 2026-11-09 / 11-10): every _harvesters.js person's map-booked appointments, from CCG's
+        // `harvesters` block, as its own card on the Harvest board.
+        const h = d.harvesters
+        setHarvest(h ? [...d.zones, { zone: '__harvesters__', team: 'Harvesting Team', lone: true, count: h.count || 0,
+          reps: h.reps || [], deals: h.deals || [] }] : d.zones)
+      }).catch(() => {})
     return () => { cancelled = true }
   }, [period])
 
@@ -1099,24 +1138,6 @@ function Leaderboard({ myZone }) {
 
   // Inspections detail: reps + their signed counts.
   const inspDetail = (z) => {
-    if (z.lone) {
-      const deals = z.deals || []
-      // Each harvester with their count, and THEIR houses right under their name (Neal, 2026-11-09: listed after everyone,
-      // William's houses looked like Mark's).
-      return (
-        <div className="divide-y divide-white/10">
-          {(z.reps || []).map((r) => {
-            const mine = deals.filter((d) => d.rep === r.name)
-            return (
-              <div key={r.name} className="py-1.5">
-                <div className="flex items-center justify-between text-sm"><span className="truncate">{r.name}</span><span className="font-bold">{r.count}</span></div>
-                {mine.map((d, i) => <div key={i} className="pl-4 pt-1 text-xs text-slate-300">🏠 {d.label}{d.city ? `, ${d.city}` : ''}</div>)}
-              </div>
-            )
-          })}
-        </div>
-      )
-    }
     const reps = z.reps || []
     if (!reps.length) return <div className="text-xs text-slate-300/70">No inspections logged yet.</div>
     return (
@@ -1164,7 +1185,7 @@ function Leaderboard({ myZone }) {
 
   // Harvest detail: reps + how many appointments they booked. Tap a rep to
   // reveal every door (address) that accounts for their number.
-  const harvestDetail = (z) => <HarvestDetail z={z} />
+  const harvestDetail = (z) => z.lone ? <HarvestingTeamDetail z={z} /> : <HarvestDetail z={z} />
 
   const board = (zones, kind, openZone, setOpen, detailFn) => {
     if (zones === null) return <div className="text-xs text-slate-300/70">Loading…</div>
