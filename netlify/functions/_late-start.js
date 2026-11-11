@@ -24,8 +24,14 @@
 //
 // `_`-prefixed helper module — not a Netlify endpoint.
 
+// Dates kept in the code, for when the Netlify env var can't be edited from the Mac (the CLI login there has no
+// access to TMS's env). Same format as LATE_START_DATES. Old entries only match their own date, so they're harmless.
+// 2026-11-11=10.5: Week A (St Pete, week of 11/9) starts at 10:30 instead of 10 because of Neal's 10 AM harvesting
+// meeting (Neal, 2026-11-11).
+const BUILT_IN = ['2026-11-11=10.5']
+
 function entries() {
-  return String(process.env.LATE_START_DATES || '')
+  return [...BUILT_IN, String(process.env.LATE_START_DATES || '')].join(',')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -45,5 +51,5 @@ export function lateStartHourET(today) {
   const raw = hit.split('=')[1]
   if (raw == null || raw.trim() === '') return 12
   const h = Number(raw.trim())
-  return Number.isFinite(h) && h >= 0 && h <= 23 ? h : 12
+  return Number.isFinite(h) && h >= 0 && h <= 23 ? h : 12   // fractions work: 10.5 = 10:30 AM
 }
