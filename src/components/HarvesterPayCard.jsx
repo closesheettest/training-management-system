@@ -56,9 +56,6 @@ export default function HarvesterPayCard() {
       const d = await fetch(`${CCG}?weeks_back=12`).then((x) => x.json())
       if (!d.ok) throw new Error(d.error || 'Could not load')
       setData(d)
-      const first = d.reps?.[0]
-      if (first && !who) setWho(first.name)
-      if (first && !wk) { const done = first.weeks.find((w) => !w.in_progress) || first.weeks[0]; if (done) setWk(done.week_start) }
     } catch (x) { setErr(x.message || 'Could not load') }
     setBusy(false)
   }
@@ -78,7 +75,16 @@ export default function HarvesterPayCard() {
     if (!d.ok) { window.alert(d.error || 'Could not undo'); return }
     load()
   }
-  const rep = data?.reps?.find((r) => r.name === who) || data?.reps?.[0]
+  // Harvesters listed by name like the leaderboard; tap a name to open their pay below it (Neal, 2026-11-12: "instead of
+  // having the drop-down where you pick the harvester, just have the harvester's name in the report... when you click on
+  // the harvester's name, then the details drop down below it").
+  function openRep(r) {
+    if (who === r.name) { setWho(''); return }
+    setWho(r.name); setOpenRow('')
+    const done = (r.weeks || []).find((x) => !x.in_progress && !x.upcoming) || r.weeks?.[0]
+    setWk(done?.week_start || '')
+  }
+  const rep = data?.reps?.find((r) => r.name === who) || null
   const weeks = rep?.weeks || []
   const w = weeks.find((x) => x.week_start === wk) || weeks.find((x) => !x.in_progress) || weeks[0]
   const repFirst = (rep?.name || '').split(' ')[0]
@@ -98,14 +104,23 @@ export default function HarvesterPayCard() {
           <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
             {money(data.plan.per_sit)} per harvested sit, plus {money(data.plan.bonus)} at each of {data.plan.tiers.join(', ')} sits in a week. Weeks run Monday–Sunday and are paid the Friday after.
             <div className="mt-1 text-emerald-800">Knock priority: IQ → No Sit Need to Reschedule → BTR Go Backs → IQ Not Interested.</div>
-            {rep?.starts && <div className="mt-1 text-emerald-800">{repFirst}: counts bookings made from {fmtDay(rep.starts)}, {rep.starts.slice(0, 4)} on. Earlier bookings are on the regular commission report.</div>}
           </div>
+          {(data.reps || []).length === 0 && <div className="text-slate-500">No harvesters yet.</div>}
+          {(data.reps || []).map((r) => { const open = who === r.name
+            const cur = (r.weeks || []).find((x) => x.in_progress), last = (r.weeks || []).find((x) => !x.in_progress && !x.upcoming)
+            return (
+            <div key={r.name} className={`rounded-lg border ${open ? 'border-brand-navy' : 'border-slate-200'}`}>
+              <button type="button" onClick={() => openRep(r)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50">
+                <span className="font-bold text-slate-800">{open ? '▾' : '▸'} {r.name}</span>
+                <span className="flex flex-wrap gap-3 text-xs text-slate-600">
+                  <span>This week: <b>{cur?.sits ?? 0}</b> sit{(cur?.sits ?? 0) === 1 ? '' : 's'} · <b>{money(cur?.total)}</b></span>
+                  {last && <span>Last week: <b>{last.sits}</b> sit{last.sits === 1 ? '' : 's'} · <b>{money(last.total)}</b> (paid {payday(last.week_start)})</span>}
+                </span>
+              </button>
+              {open && rep && (
+              <div className="space-y-3 border-t border-slate-200 p-3">
+          {rep.starts && <div className="text-xs text-slate-500">{repFirst}: counts bookings made from {fmtDay(rep.starts)}, {rep.starts.slice(0, 4)} on. Earlier bookings are on the regular commission report.</div>}
           <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Harvester
-            <select value={rep?.name || ''} onChange={(e) => setWho(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-sm">
-              {(data.reps || []).map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
-            </select>
-          </label>
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Week
             <select value={w?.week_start || ''} onChange={(e) => setWk(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-sm">
               {weeks.map((x) => <option key={x.week_start} value={x.week_start}>{fmtDay(x.week_start)} – {fmtDay(x.week_end)}{x.upcoming ? ' (next week)' : x.in_progress ? ' (this week, so far)' : ''} · {x.sits} sit{x.sits === 1 ? '' : 's'} · {money(x.total)}</option>)}
@@ -171,6 +186,10 @@ export default function HarvesterPayCard() {
               )}
             </Fragment>
           )}
+              </div>
+              )}
+            </div>
+          ) })}
           {/* Rep no-show CHARGES moved to their own card (RepNoShowChargesCard) (Neal, 2026-11-12: "Why would it show rep
               no-show charges with William there?"). Here a harvester only sees the sit it paid them. */}
         </div>
