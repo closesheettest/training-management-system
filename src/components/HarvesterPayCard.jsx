@@ -22,6 +22,10 @@ async function ovrPost(body) {
   if (d && /PIN/i.test(d.error || '')) { try { sessionStorage.removeItem('rm_admin_ok_pin') } catch { /* */ } }
   return d
 }
+// 📝 Tap an appointment to read its JobNimbus notes (Neal, 2026-11-12: "click on each appointment, and then it would show
+// the notes that were put in the system, if any, about the appointment"). CCG deal-notes = typed notes + status changes.
+const NOTES = 'https://free-roof-inspections.netlify.app/.netlify/functions/deal-notes'
+const fmtAt = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''
 const fmtDay = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 const payday = (ymd) => { const d = new Date(`${ymd}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 11); return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`
@@ -35,6 +39,16 @@ export default function HarvesterPayCard() {
   const [shown, setShown] = useState(true)
   const [ovr, setOvr] = useState(null)   // rep no-show charges (all of them)
   const [ovBusy, setOvBusy] = useState('')
+  const [openRow, setOpenRow] = useState('')
+  const [notes, setNotes] = useState({})   // jn_job_id → { busy, list, err }
+  async function openNotes(key, jnid) {
+    if (openRow === key) { setOpenRow(''); return }
+    setOpenRow(key)
+    if (!jnid || (notes[jnid] && !notes[jnid].err)) return
+    setNotes((m) => ({ ...m, [jnid]: { busy: true } }))
+    const d = await fetch(`${NOTES}?jnid=${encodeURIComponent(jnid)}`).then((x) => x.json()).catch(() => ({ ok: false, error: 'Network error' }))
+    setNotes((m) => ({ ...m, [jnid]: d.ok ? { list: d.notes || [] } : { err: d.error || 'Could not load notes' } }))
+  }
   const toggle = () => { if (!data) { setShown(true); if (!busy) load() } else setShown((v) => !v) }
 
   async function load() {
@@ -116,8 +130,9 @@ export default function HarvesterPayCard() {
                   <table className="w-full text-xs">
                     <thead><tr className="text-left text-slate-500"><th className="py-1 pr-2">Booked</th><th className="pr-2">Appointment</th><th className="pr-2">Homeowner</th><th className="pr-2">Assigned to</th><th className="pr-2">Type</th><th className="pr-2">JobNimbus status</th><th>Sit?</th></tr></thead>
                     <tbody>
-                      {w.appts.map((a, i) => (
-                        <tr key={i} className="border-t border-slate-100">
+                      {w.appts.map((a, i) => { const key = `${w.week_start}_${i}`, nn = notes[a.jn_job_id]; return (
+                        <Fragment key={i}>
+                        <tr onClick={(e) => { if (!e.target.closest('button')) openNotes(key, a.jn_job_id) }} title="Tap to see the JobNimbus notes" className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50 ${openRow === key ? 'bg-slate-50' : ''}`}>
                           {/* Booked + Assigned to (Neal, 2026-11-07): when William made it, and which rep runs it. */}
                           <td className="py-1 pr-2 whitespace-nowrap">{a.booked_when || '—'}</td>
                           <td className="pr-2 whitespace-nowrap">{a.when}{a.rescheduled_to && <div className="text-amber-700">rescheduled → {a.rescheduled_to}</div>}{a.rescheduled_from && <div className="text-slate-400">rescheduled from {a.rescheduled_from}</div>}</td>
@@ -131,7 +146,22 @@ export default function HarvesterPayCard() {
                             : a.paid_on_override ? <span className="text-slate-400">paid earlier (rep no-show)</span>
                             : <div><span className="text-red-600">No</span>{a.jn_job_id && a.rep && <div><button type="button" disabled={!!ovBusy} onClick={() => markNoShow(a)} className="mt-0.5 whitespace-nowrap rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">{ovBusy === a.jn_job_id ? 'Saving…' : '🚫 Rep didn\'t go'}</button></div>}</div>}</td>
                         </tr>
-                      ))}
+                        {openRow === key && (
+                          <tr className="bg-slate-50"><td colSpan={7} className="px-3 pb-2 pt-1">
+                            <div className="mb-1 font-semibold text-slate-700">📝 JobNimbus notes: {a.customer}</div>
+                            {!a.jn_job_id ? <div className="text-slate-500">No JobNimbus job linked to this appointment.</div>
+                              : !nn || nn.busy ? <div className="text-slate-500">Loading notes…</div>
+                              : nn.err ? <div className="text-red-600">{nn.err}</div>
+                              : nn.list.length === 0 ? <div className="text-slate-500">No notes on this job in JobNimbus.</div>
+                              : <ul className="space-y-1">{nn.list.map((n, j) => (
+                                  <li key={j} className={n.type === 'status' ? 'text-slate-500' : 'text-slate-800'}>
+                                    <span className="whitespace-nowrap text-slate-400">{fmtAt(n.at)} · {n.by}: </span>
+                                    {n.type === 'status' ? <i>status → {n.text}</i> : n.text}
+                                  </li>))}</ul>}
+                          </td></tr>
+                        )}
+                        </Fragment>
+                      ) })}
                     </tbody>
                   </table>
                 </div>
