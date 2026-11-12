@@ -100,7 +100,9 @@ export function ScriptureCard({ sc, onClose }) {
   const [pos, setPos] = useState({ x: null, y: null })
   const [small, setSmall] = useState(false)
   const drag = useRef(null)
-  const onDown = (e) => { const r = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top }; e.currentTarget.setPointerCapture(e.pointerId) }
+  // The ✕ and – buttons live inside the drag bar. Grabbing the pointer on them swallowed their click, so ✕ never closed
+  // the card (DeWayne via Neal, 2026-11-12: "even if I hit the x it still stays"). Pressing a button doesn't start a drag.
+  const onDown = (e) => { if (e.target.closest('button')) return; const r = e.currentTarget.parentElement.getBoundingClientRect(); drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top }; e.currentTarget.setPointerCapture(e.pointerId) }
   const onMove = (e) => { if (!drag.current) return; setPos({ x: Math.max(0, Math.min(window.innerWidth - 120, e.clientX - drag.current.dx)), y: Math.max(0, Math.min(window.innerHeight - 160, e.clientY - drag.current.dy)) }) }
   const onUp = () => { drag.current = null }
   const place = pos.x == null ? { right: 14, top: 60 } : { left: pos.x, top: pos.y }
