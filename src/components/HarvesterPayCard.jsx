@@ -114,9 +114,13 @@ export default function HarvesterPayCard() {
           </div>
           {w && (
             <Fragment>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <Stat label="Booked" v={w.booked} />
                 <Stat label="Sits" v={w.sits} />
+                {/* SIT % (Neal, 2026-11-12): sits ÷ appointments that have already happened this week. Upcoming ones and
+                    ones moved to another week don't count against it. */}
+                {(() => { const ran = (w.appts || []).filter((a) => !a.upcoming && !a.rescheduled_to).length
+                  return <Stat label={`Sit % (${w.sits} of ${ran} so far)`} v={ran ? `${Math.round((100 * w.sits) / ran)}%` : '—'} /> })()}
                 <Stat label={`Sits × ${money(data.plan.per_sit)}`} v={money(w.per_sit_pay)} />
                 <Stat label={`Bonuses (${w.bonuses})`} v={money(w.bonus_pay)} />
               </div>
