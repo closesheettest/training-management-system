@@ -135,7 +135,7 @@ export default function HarvesterPayCard() {
                         <tr onClick={(e) => { if (!e.target.closest('button')) openNotes(key, a.jn_job_id) }} title="Tap to see the JobNimbus notes" className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50 ${openRow === key ? 'bg-slate-50' : ''}`}>
                           {/* Booked + Assigned to (Neal, 2026-11-07): when William made it, and which rep runs it. */}
                           <td className="py-1 pr-2 whitespace-nowrap">{a.booked_when || '—'}</td>
-                          <td className="pr-2 whitespace-nowrap">{a.when}{a.rescheduled_to && <div className="text-amber-700">rescheduled → {a.rescheduled_to}</div>}{a.rescheduled_from && <div className="text-slate-400">rescheduled from {a.rescheduled_from}</div>}{a.rebooked_by && <div className="text-amber-700">re-booked by {a.rebooked_by} (theirs, not this one)</div>}</td>
+                          <td className="pr-2 whitespace-nowrap">{a.when}{a.rescheduled_to && <div className="text-amber-700">rescheduled → {a.rescheduled_to}</div>}{a.rescheduled_from && <div className="text-slate-400">rescheduled from {a.rescheduled_from}</div>}</td>
                           <td className="pr-2">{a.customer}<div className="text-slate-400">{a.address}</div></td>
                           <td className="pr-2 whitespace-nowrap">{a.rep || <span className="font-semibold text-amber-700">Not assigned</span>}</td>
                           <td className="pr-2">{a.source}</td>
