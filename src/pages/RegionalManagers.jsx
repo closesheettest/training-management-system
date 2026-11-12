@@ -6,6 +6,7 @@ import ManagerPayReport from '../components/ManagerPayReport.jsx'
 import InspectionPayReport from '../components/InspectionPayReport.jsx'
 import WilliamPayCard from '../components/WilliamPayCard.jsx'
 import HarvesterPayCard from '../components/HarvesterPayCard.jsx'
+import RepNoShowChargesCard from '../components/RepNoShowChargesCard.jsx'
 import BtrCommissionReport from '../components/BtrCommissionReport.jsx'
 import PresentationActivity from '../components/PresentationActivity.jsx'
 import RepAttendance from '../components/RepAttendance.jsx'
@@ -2752,7 +2753,7 @@ function PayReports() {
     <section className="mb-4 rounded-xl border-2 border-emerald-700 bg-white">
       <button type="button" onClick={toggle} className="flex w-full items-center justify-between gap-2 rounded-t-lg bg-emerald-700 px-4 py-3 text-left text-white">
         <span className="text-lg font-bold">💰 Pay reports</span>
-        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Neal · Managers · Inspection · William · Harvesters · BTR'}</span>
+        <span className="text-sm opacity-90">{open ? '▾ Hide' : '▸ Neal · Managers · Inspection · William · Harvesters · Rep no-shows · BTR'}</span>
       </button>
       {open && (
         <div className="space-y-4 p-3">
@@ -2761,6 +2762,7 @@ function PayReports() {
           <InspectionPayReport />
           <WilliamPayCard />
           <HarvesterPayCard />
+          <RepNoShowChargesCard />
           <BtrCommissionReport />
         </div>
       )}

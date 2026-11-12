@@ -9,14 +9,14 @@ const CCG = 'https://free-roof-inspections.netlify.app/.netlify/functions/harves
 // 🚫 Rep no-show override (Neal, 2026-11-12: Rob Sexton never went to two of Mark's appointments. "the harvester needs to
 // get paid on those, and we're going to charge that appointment to the sales rep"). A manager marks it here: the
 // harvester gets it as a sit, the rep is charged $500, and the charge comes off by itself once that job is sold.
-const OVR = 'https://free-roof-inspections.netlify.app/.netlify/functions/rep-noshow-override'
+export const OVR = 'https://free-roof-inspections.netlify.app/.netlify/functions/rep-noshow-override'
 function adminPin() {
   let pin = ''
   try { pin = sessionStorage.getItem('rm_admin_ok_pin') || '' } catch { /* */ }
   if (!pin) { pin = window.prompt('Admin PIN:') || ''; if (pin) { try { sessionStorage.setItem('rm_admin_ok_pin', pin) } catch { /* */ } } }
   return pin
 }
-async function ovrPost(body) {
+export async function ovrPost(body) {
   const pin = adminPin(); if (!pin) return { ok: false, error: 'PIN needed' }
   const d = await fetch(OVR, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, pin }) }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Network error' }))
   if (d && /PIN/i.test(d.error || '')) { try { sessionStorage.removeItem('rm_admin_ok_pin') } catch { /* */ } }
@@ -37,7 +37,6 @@ export default function HarvesterPayCard() {
   const [err, setErr] = useState('')
   const [wk, setWk] = useState('')
   const [shown, setShown] = useState(true)
-  const [ovr, setOvr] = useState(null)   // rep no-show charges (all of them)
   const [ovBusy, setOvBusy] = useState('')
   const [openRow, setOpenRow] = useState('')
   const [notes, setNotes] = useState({})   // jn_job_id → { busy, list, err }
@@ -54,9 +53,9 @@ export default function HarvesterPayCard() {
   async function load() {
     setBusy(true); setErr('')
     try {
-      const [d, o] = await Promise.all([fetch(`${CCG}?weeks_back=12`).then((x) => x.json()), fetch(OVR).then((x) => x.json()).catch(() => null)])
+      const d = await fetch(`${CCG}?weeks_back=12`).then((x) => x.json())
       if (!d.ok) throw new Error(d.error || 'Could not load')
-      setData(d); setOvr(o && o.ok ? o : null)
+      setData(d)
       const first = d.reps?.[0]
       if (first && !who) setWho(first.name)
       if (first && !wk) { const done = first.weeks.find((w) => !w.in_progress) || first.weeks[0]; if (done) setWk(done.week_start) }
@@ -168,28 +167,8 @@ export default function HarvesterPayCard() {
               )}
             </Fragment>
           )}
-          {ovr && ovr.overrides.length > 0 && (
-            <div className="rounded border border-red-200">
-              <div className="bg-red-50 px-3 py-1.5 text-xs font-bold text-red-800">🚫 Rep no-show charges <span className="font-normal">($500 on the rep's draw; comes off when the job is sold)</span></div>
-              <table className="w-full text-xs">
-                <thead><tr className="text-left text-slate-500"><th className="px-2 py-1">Appointment</th><th className="pr-2">Rep charged</th><th className="pr-2">Homeowner</th><th className="pr-2">Harvester</th><th className="pr-2">JobNimbus now</th><th className="pr-2">Charge</th><th></th></tr></thead>
-                <tbody>
-                  {ovr.overrides.map((o) => (
-                    <tr key={o.id} className="border-t border-slate-100">
-                      <td className="px-2 py-1 whitespace-nowrap">{new Date(o.appt_iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
-                      <td className="pr-2 font-semibold">{o.rep || '—'}</td>
-                      <td className="pr-2">{o.customer}<div className="text-slate-400">{o.address}</div></td>
-                      <td className="pr-2">{o.harvester}</td>
-                      <td className="pr-2">{o.jn_status || '—'}</td>
-                      <td className="pr-2 font-bold">{o.resold ? <span className="text-emerald-700">$0 (resold)</span> : <span className="text-red-700">{money(o.charge_now)}</span>}</td>
-                      <td><button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(o.id)} className="text-[11px] text-slate-500 underline">undo</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="px-3 py-1 text-[11px] text-slate-500">Marked by {[...new Set(ovr.overrides.map((o) => o.by))].join(', ')}.</div>
-            </div>
-          )}
+          {/* Rep no-show CHARGES moved to their own card (RepNoShowChargesCard) (Neal, 2026-11-12: "Why would it show rep
+              no-show charges with William there?"). Here a harvester only sees the sit it paid them. */}
         </div>
       )}
     </div>
