@@ -60,7 +60,7 @@ export default function HarvesterPayCard() {
     setBusy(false)
   }
   async function markNoShow(a) {
-    if (!window.confirm(`${a.rep} didn't go to ${a.customer} (${a.when})?\n\n${rep?.name || 'The harvester'} gets paid it as a sit, and ${a.rep} is charged $500. The charge comes off if the job is sold.`)) return
+    if (!window.confirm(`${a.rep} didn't go to ${a.customer} (${a.when})?\n\n${rep?.display || rep?.name || 'The harvester'} gets paid it as a sit, and ${a.rep} is charged $500. The charge comes off if the job is sold.`)) return
     setOvBusy(a.jn_job_id)
     const d = await ovrPost({ action: 'add', jn_job_id: a.jn_job_id, appt_iso: a.appt_iso, harvester: rep?.name, customer: a.customer, address: a.address, rep: a.rep, rep_jn: a.rep_jn })
     setOvBusy('')
@@ -111,7 +111,7 @@ export default function HarvesterPayCard() {
             return (
             <div key={r.name} className={`rounded-lg border ${open ? 'border-brand-navy' : 'border-slate-200'}`}>
               <button type="button" onClick={() => openRep(r)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50">
-                <span className="font-bold text-slate-800">{open ? '▾' : '▸'} {r.name}</span>
+                <span className="font-bold text-slate-800">{open ? '▾' : '▸'} {r.display || r.name}</span>
                 <span className="flex flex-wrap gap-3 text-xs text-slate-600">
                   <span>This week: <b>{cur?.sits ?? 0}</b> sit{(cur?.sits ?? 0) === 1 ? '' : 's'} · <b>{money(cur?.total)}</b></span>
                   {last && <span>Last week: <b>{last.sits}</b> sit{last.sits === 1 ? '' : 's'} · <b>{money(last.total)}</b> (paid {payday(last.week_start)})</span>}

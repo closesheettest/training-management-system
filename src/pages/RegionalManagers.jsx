@@ -1807,7 +1807,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                 </div>
                 {(data.totals.hvBy || []).map((h) => (
                   <div key={h.name} className="flex flex-wrap items-center gap-x-4 gap-y-0.5 pl-6 text-xs text-lime-100/90">
-                    <span className="w-24">{h.name}</span>
+                    <span className="w-40 whitespace-nowrap">{h.name}</span>
                     <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{h.ap}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{h.sat}</b></span>
                     <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{h.sl}</b></span>
