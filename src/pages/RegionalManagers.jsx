@@ -1441,9 +1441,9 @@ function AllApptConversion() {
   const downloadCsv = () => {
     if (!data) return
     const esc = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
-    const cols = ['Zone', 'Rep', 'Level', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Insp Written', 'Go-backs', 'Go-back Apt', 'Go-back %', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Cancelled', 'Cancel %', 'Cancelled $', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %']
-    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.insp_written ?? '', r.gobacks ?? '', r.gb_appts ?? '', r.gb_pct ?? '', r.appts, r.satAp, r.satPct, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.cxl || 0, r.cxlPct || 0, r.cxlAmt || 0, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct]
-    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.insp_written ?? '', t.gobacks ?? '', t.gb_appts ?? '', t.gb_pct ?? '', t.appts, t.satAp, t.satPct, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.cxl || 0, t.cxlPct || 0, t.cxlAmt || 0, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct]
+    const cols = ['Zone', 'Rep', 'Level', 'Rep Harvest Apt', 'Rep Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Insp Written', 'Go-backs', 'Go-back Apt', 'Go-back %', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Rep Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Rep Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR Re-sat', 'NSR Sold', 'NSR %', 'Pending', 'Pend %', 'Dead', 'Cancelled', 'Cancel %', 'Cancelled $', 'Avg $/Sale', 'RB', 'RB %', 'Insul', 'Insul %', 'Harvester Apt', 'Harvester Sat', 'Harvester Sold', 'Harvester $']
+    const repRow = (zone, r) => [zone, r.rep, r.level || '', r.harvAp, r.harvSl, r.compAp, r.compSl, r.btrAp, r.btrSl, r.insp_written ?? '', r.gobacks ?? '', r.gb_appts ?? '', r.gb_pct ?? '', r.appts, r.satAp, r.satPct, r.sales, r.harvAmt, r.compAmt, r.btrAmt, r.amt, r.harvPct, r.compPct, r.btrPct, r.pct, r.grossPct, r.resitAp, r.resitSl, r.resitPct, r.pendAp, r.pendPct, r.deadAp, r.cxl || 0, r.cxlPct || 0, r.cxlAmt || 0, r.avg, r.rb, r.rb_pct, r.ins, r.ins_pct, r.hvAp ?? '', r.hvSat ?? '', r.hvSl ?? '', r.hvAmt ?? '']
+    const totRow = (label, t) => [label, '', '', t.harvAp, t.harvSl, t.compAp, t.compSl, t.btrAp, t.btrSl, t.insp_written ?? '', t.gobacks ?? '', t.gb_appts ?? '', t.gb_pct ?? '', t.appts, t.satAp, t.satPct, t.sales, t.harvAmt, t.compAmt, t.btrAmt, t.amt, t.harvPct, t.compPct, t.btrPct, t.pct, t.grossPct, t.resitAp, t.resitSl, t.resitPct, t.pendAp, t.pendPct, t.deadAp, t.cxl || 0, t.cxlPct || 0, t.cxlAmt || 0, t.avg, t.rb, t.rb_pct, t.ins, t.ins_pct, t.hvAp ?? '', t.hvSat ?? '', t.hvSl ?? '', t.hvAmt ?? '']
     const rows = [cols]
     for (const z of data.zones) {
       for (const r of z.reps) rows.push(repRow(z.zone, r))
@@ -1472,7 +1472,7 @@ function AllApptConversion() {
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const money = (n) => '$' + (Math.round(Number(n) || 0)).toLocaleString()
     const pc = (apt, v) => apt ? v + '%' : '—'
-    const HEAD = ['Rep', 'Harvest Apt', 'Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Cancel', 'Avg $/Sale', 'RB', 'Insul']
+    const HEAD = ['Rep', 'Rep Harvest Apt', 'Rep Harvest Sold', 'IQ Apt', 'IQ Sold', 'BTR Apt', 'BTR Sold', 'Total Apt', 'Sat', 'Sit %', 'Sold', 'Rep Harvest $', 'IQ $', 'BTR $', '$ Sold', 'Rep Harvest %', 'IQ %', 'BTR %', 'Net %', 'Gross %', 'NSR', 'Pending', 'Cancel', 'Avg $/Sale', 'RB', 'Insul']
     const greenSold = new Set([2, 4, 6, 8]), greenMoney = new Set([9, 10, 11, 12])
     const colgroup = '<colgroup>' + HEAD.map((_, i) => `<col${greenSold.has(i) ? ' class="g"' : greenMoney.has(i) ? ' class="g2"' : ''}/>`).join('') + '</colgroup>'
     const headRow = '<tr>' + HEAD.map((h, i) => `<th${i === 0 ? ' class="l"' : ''}>${esc(h)}</th>`).join('') + '</tr>'
@@ -1658,8 +1658,8 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                       <thead>
                         <tr className="border-t border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                           <th className="px-3 py-1.5 text-left sticky left-0 z-20 bg-slate-50 border-r border-slate-200">Rep</th>
-                          {cg.src && <th className="px-2 py-1.5 text-right">Harvest Apt</th>}
-                          {cg.src && <th className="px-2 py-1.5 text-right">Harvest Sold</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">Rep Harvest Apt</th>}
+                          {cg.src && <th className="px-2 py-1.5 text-right">Rep Harvest Sold</th>}
                           {cg.src && <th className="px-2 py-1.5 text-right">IQ Apt</th>}
                           {cg.src && <th className="px-2 py-1.5 text-right">IQ Sold</th>}
                           {cg.src && <th className="px-2 py-1.5 text-right">BTR Apt</th>}
@@ -1670,7 +1670,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('insp')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.insp ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.insp ? '▾' : '▸'} Go-back %</button></th>
                           <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('src')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.src ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.src ? '▾' : '▸'} Total Apt</button></th>
                           <th className="px-2 py-1.5 text-right">Sold</th>
-                          {cg.pct && <th className="px-2 py-1.5 text-right">Harvest %</th>}
+                          {cg.pct && <th className="px-2 py-1.5 text-right">Rep Harvest %</th>}
                           {cg.pct && <th className="px-2 py-1.5 text-right">IQ %</th>}
                           {cg.pct && <th className="px-2 py-1.5 text-right">BTR %</th>}
                           <th className="px-2 py-1.5 text-right" title="Net closing % — funded sales ÷ appointments (credit denials NOT counted)."><button type="button" onClick={() => toggleCg('pct')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.pct ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.pct ? '▾' : '▸'} Net %</button></th>
@@ -1678,7 +1678,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                           <th className="px-2 py-1.5 text-right" title="No-sit recovery: of re-booked sits (a No Sit — Need to Reschedule that got back on the calendar), how many closed. sold / re-sat · %.">NSR</th>
                           <th className="px-2 py-1.5 text-right" title="Open deals still being worked (status Sit - Pending), with pending % of appointments. High pending % = slow to close.">Pending</th>
                           <th className="px-2 py-1.5 text-right" title="Sold in this period, since CANCELLED (now Lost in JobNimbus) — count, with cancellation % of everything sold in the period. Free inspections are not counted.">Cancel</th>
-                          {cg.money && <th className="px-2 py-1.5 text-right">Harvest $</th>}
+                          {cg.money && <th className="px-2 py-1.5 text-right">Rep Harvest $</th>}
                           {cg.money && <th className="px-2 py-1.5 text-right">IQ $</th>}
                           {cg.money && <th className="px-2 py-1.5 text-right">BTR $</th>}
                           <th className="px-2 py-1.5 text-right"><button type="button" onClick={() => toggleCg('money')} className="font-bold uppercase tracking-wide text-indigo-700 hover:underline" title={cg.money ? 'Hide the breakdown' : 'Show the breakdown'}>{cg.money ? '▾' : '▸'} $ Sold</button></th>
@@ -1773,9 +1773,11 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
               <div className="mb-2 text-sm font-extrabold uppercase tracking-wide">🏢 Company total</div>
               <div className="grid gap-1 text-sm">
                 {/* Per-bucket: every column header (Apt · Sold · % · $) for Harvest, IQ, BTR */}
-                {[['Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt', 'harvAvg', 'harvSat'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt', 'compAvg', 'compSat'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt', 'btrAvg', 'btrSat']].map(([lbl, ap, sl, pc, amt, av, st]) => (
+                {/* "Harvest" renamed "Rep Harvest" (DeWayne via Neal, 2026-11-16): it's the appointments a SALES REP generated
+                    themselves. The harvesters' own line (William, Mark …) is the 🌾 Harvester line below. */}
+                {[['Rep Harvest', 'harvAp', 'harvSl', 'harvPct', 'harvAmt', 'harvAvg', 'harvSat'], ['IQ', 'compAp', 'compSl', 'compPct', 'compAmt', 'compAvg', 'compSat'], ['BTR', 'btrAp', 'btrSl', 'btrPct', 'btrAmt', 'btrAvg', 'btrSat']].map(([lbl, ap, sl, pc, amt, av, st]) => (
                   <div key={lbl} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
-                    <span className="w-16 font-bold">{lbl}</span>
+                    <span className="w-24 font-bold">{lbl}</span>
                     <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals[ap]}</b></span>
                     {/* Sit rate per lead source (Neal, 27 Sep): how many of this source's
                         appointments actually sat. The % after Sold is closes per SIT. */}
@@ -1790,11 +1792,33 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                     <span><span className="text-[10px] uppercase opacity-70">Avg/sale</span> <b>${(data.totals[av] || 0).toLocaleString()}</b></span>
                   </div>
                 ))}
+                {/* 🌾 HARVESTER (DeWayne via Neal, 2026-11-16: "add a 'harvester' line with their numbers for the week").
+                    Appointments set by our harvesters (William, Mark …), from CCG all-appt-conversion totals.hv*. An
+                    overlay like NSR: those appointments are already inside IQ / BTR above, so the rows still add up to
+                    TOTAL. One small line per harvester under it. Older cached responses have no hvAp: —. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-lime-200">
+                  <span className="w-24 font-bold">🌾 Harvester</span>
+                  <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals.hvAp ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{data.totals.hvSat ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sit %</span> <b>{data.totals.hvAp ? Math.round((100 * (data.totals.hvSat || 0)) / data.totals.hvAp) + '%' : '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.hvSl ?? '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals.hvAp != null ? (data.totals.hvPct || 0) + '%' : '—'}</b></span>
+                  <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals.hvAmt || 0).toLocaleString()}</b></span>
+                </div>
+                {(data.totals.hvBy || []).map((h) => (
+                  <div key={h.name} className="flex flex-wrap items-center gap-x-4 gap-y-0.5 pl-6 text-xs text-lime-100/90">
+                    <span className="w-24">{h.name}</span>
+                    <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{h.ap}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">Sat</span> <b>{h.sat}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{h.sl}</b></span>
+                    <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(h.amt || 0).toLocaleString()}</b></span>
+                  </div>
+                ))}
                 {/* INSPECTIONS → BTR (Neal, 2026-09-28): free inspections written, how many
                     came back Retail (each is a back-to-retail go-back), and what share of
                     those became a BTR appointment. Older frozen weeks have no counts: —. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-violet-200">
-                  <span className="w-16 font-bold">Insp</span>
+                  <span className="w-24 font-bold">Insp</span>
                   <span><span className="text-[10px] uppercase opacity-70">Written</span> <b>{data.totals.insp_written ?? '—'}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">BTR go-backs</span> <b>{data.totals.gobacks ?? data.totals.btr_gobacks ?? '—'}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">→ Retail &amp; converted apt</span> <b>{data.totals.gb_appts ?? data.totals.btr_retail_appts ?? '—'}</b></span>
@@ -1802,7 +1826,7 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                 </div>
                 {/* No-Sit recovery — an overlay (re-booked sits that closed), not a 4th bucket. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-amber-200">
-                  <span className="w-16 font-bold">NSR</span>
+                  <span className="w-24 font-bold">NSR</span>
                   <span><span className="text-[10px] uppercase opacity-70">Re-sat</span> <b>{data.totals.resitAp}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Sold</span> <b>{data.totals.resitSl}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">%</span> <b>{data.totals.resitPct}%</b></span>
@@ -1811,20 +1835,20 @@ tr.tot td{font-weight:800;border-top:2px solid #cbd5e1;background:#f8fafc}
                 </div>
                 {/* Pending — open deals still being worked (Sit - Pending), with pending %. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sky-200">
-                  <span className="w-16 font-bold">Pending</span>
+                  <span className="w-24 font-bold">Pending</span>
                   <span><span className="text-[10px] uppercase opacity-70">Still working</span> <b>{data.totals.pendAp}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Pend %</span> <b>{data.totals.pendPct}%</b></span>
                 </div>
                 {/* Cancellations — sold in this period, since cancelled (Lost in JN). Neal, 2026-10-11. */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-rose-200">
-                  <span className="w-16 font-bold">Cancel</span>
+                  <span className="w-24 font-bold">Cancel</span>
                   <span><span className="text-[10px] uppercase opacity-70">Cancelled</span> <b>{data.totals.cxl || 0}</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">Cancel %</span> <b>{data.totals.cxlPct || 0}%</b></span>
                   <span><span className="text-[10px] uppercase opacity-70">$</span> <b>${(data.totals.cxlAmt || 0).toLocaleString()}</b></span>
                 </div>
                 {/* Totals row: Total Apt · Sold · Tot % · $ Sold · Avg · RB · Insul */}
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 border-t border-white/15 pt-1.5">
-                  <span className="w-12 font-extrabold">TOTAL</span>
+                  <span className="w-24 font-extrabold">TOTAL</span>
                   <span><span className="text-[10px] uppercase opacity-70">Apt</span> <b>{data.totals.appts}</b></span>
                   {/* Sit rate — of the appointments that came due, how many actually
                       got in front of the homeowner. A no-show / no-sit / refused
