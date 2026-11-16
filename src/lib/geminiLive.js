@@ -363,6 +363,13 @@ export class LiveHomeowner {
   status(s) { if (s !== this._s) { this._s = s; this.on.status?.(s) } }
   fail(msg) { this.status('error'); this.on.error?.(msg); this.stop() }
 
+  // What has been said so far, WITHOUT stopping (Neal, 2026-11-16: Eli ran a practice from his
+  // link but it never reached the trainer screen, because nothing was kept until "End & grade").
+  // The live screen sends this as a draft every 30 seconds and when the page closes.
+  snapshot() {
+    return { entries: this.entries.filter((e) => e.text && e.text.trim()), startedAt: this.startedAt, endedAt: new Date(), closeSilence: this.closeSilence, usage: this.usage }
+  }
+
   stop() {
     this.closedByUser = true
     clearInterval(this.watchdog)

@@ -56,6 +56,13 @@ export default function PracticeInvite() {
           return d
         }}
         saveSession={(session) => call(token, { action: 'save', session })}
+        // Unfinished-run drafts (Neal, 2026-11-16). When the page is closing, a beacon is the only
+        // request the browser still lets through.
+        saveDraft={(session, beacon) => {
+          const body = JSON.stringify({ token, action: 'draft', session })
+          if (beacon && navigator.sendBeacon) { navigator.sendBeacon('/.netlify/functions/practice-invite', new Blob([body], { type: 'application/json' })); return }
+          fetch('/.netlify/functions/practice-invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {})
+        }}
         onDone={(saved) => setStage(saved === null ? 'intro' : 'report')}
       />,
     )

@@ -18,7 +18,7 @@ import { personaByKey, sectionByKey } from '../../src/lib/salesPractice.js'
 const SITE = 'https://trainingmanagementsys.netlify.app'
 const INVITE_HOURS = 48
 
-const LIST_COLS = 'id, trainee_id, trainee_name, class_id, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score, cost:report->cost'
+const LIST_COLS = 'id, trainee_id, trainee_name, class_id, trainer_name, persona_key, section, started_at, duration_sec, grade_status, score, cost:report->cost, draft:report->draft'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'POST only' })
@@ -111,6 +111,26 @@ export const handler = async (event) => {
     await fetch(`${base}/.netlify/functions/practice-grade-background`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: body.id, secret: process.env.CRON_SECRET }),
+    }).catch(() => {})
+    return json(200, { ok: true })
+  }
+
+  // GRADE AN UNFINISHED RUN (Neal, 2026-11-16): a practice link run that was never ended with
+  // "End & grade" (tab closed, phone locked, connection lost) is kept as a draft. The trainer
+  // decides to grade what was said; the link then counts as used.
+  if (body.action === 'grade_draft') {
+    const { data: row } = await sb.from('sales_practice_sessions').select('id, grade_status, transcript, report').eq('id', body.id).maybeSingle()
+    if (!row) return json(404, { ok: false, error: 'Not found' })
+    if (row.grade_status !== 'invited' || !row.report?.draft) return json(400, { ok: false, error: 'There is no unfinished run to grade.' })
+    if (!(row.transcript || []).some((t) => t.who === 'rep')) return json(400, { ok: false, error: 'Nothing the rep said was picked up.' })
+    const { draft, ...rest } = row.report
+    const report = { ...rest, unfinished: { ...draft, graded_by: who.name || null, graded_at: new Date().toISOString() }, invite: { ...(rest.invite || {}), used_at: draft.saved_at } }
+    const { error } = await sb.from('sales_practice_sessions').update({ grade_status: 'pending', grade_error: null, report }).eq('id', row.id).eq('grade_status', 'invited')
+    if (error) return json(500, { ok: false, error: error.message })
+    const base = (process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
+    await fetch(`${base}/.netlify/functions/practice-grade-background`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: row.id, secret: process.env.CRON_SECRET }),
     }).catch(() => {})
     return json(200, { ok: true })
   }

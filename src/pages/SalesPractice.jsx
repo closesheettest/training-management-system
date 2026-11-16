@@ -448,7 +448,7 @@ const trainerToken = async () => {
 
 // The live presentation. Used by the trainer page and by the practice link page
 // (src/pages/PracticeInvite.jsx), which pass their own fetchToken / saveSession.
-export function LiveSession({ persona, section, trainee, onDone, fetchToken = trainerToken, saveSession = null, impulseKey = null }) {
+export function LiveSession({ persona, section, trainee, onDone, fetchToken = trainerToken, saveSession = null, saveDraft = null, impulseKey = null }) {
   const [status, setStatus] = useState('starting')
   const [err, setErr] = useState('')
   const [entries, setEntries] = useState([])
@@ -529,18 +529,55 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
     if (!out.entries.some((e) => e.who === 'rep')) {
       if (!window.confirm('Nothing the rep said was picked up. Save it anyway? (Cancel = throw it away)')) { onDone(null); return }
     }
-    if (impulse) { setSaving(false); setGuessFor(out); return } // ask the rep first, then save
+    if (impulse) {
+      // Keep the finished run as a draft while the rep answers the impulse question, so closing
+      // the page on that last screen doesn't lose it (Neal, 2026-11-16).
+      if (saveDraft && out.entries.some((e) => e.who === 'rep')) saveDraft({ ...buildSession(out, null), run_id: runId }, false)
+      setSaving(false); setGuessFor(out); return // ask the rep first, then save
+    }
     await finish(out, null)
   }
 
+  const buildSession = (out, guess) => ({
+    trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
+    persona_key: persona.key, section: section.key,
+    started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
+    ...(impulse ? { impulse: { actual: impulse, guess: guess || 'unsure' } } : {}),
+  })
+
+  // KEEP AN UNFINISHED RUN (Neal, 2026-11-16: "Eli said he just did the sales trainer, but it
+  // doesn't even look like he's done it"). Everything said lived only in the browser until the rep
+  // pressed End & grade, so closing the tab, a phone locking or a dropped connection threw a whole
+  // run away. On a practice link we now send what's been said as a draft every 30 seconds and when
+  // the page closes, and ask before leaving. The trainer sees it and can grade it.
+  const [runId] = useState(() => Math.random().toString(36).slice(2, 10))
+  const savingRef = useRef(false)
+  useEffect(() => { savingRef.current = saving }, [saving])
+  useEffect(() => {
+    if (!saveDraft) return
+    let sentLines = -1
+    const send = (beacon) => {
+      const live = liveRef.current
+      if (!live || savingRef.current) return
+      const out = live.snapshot()
+      if (!out.entries.some((e) => e.who === 'rep')) return
+      if (!beacon && out.entries.length === sentLines) return
+      sentLines = out.entries.length
+      saveDraft({ ...buildSession(out, null), run_id: runId }, beacon)
+    }
+    const t = setInterval(() => send(false), 30000)
+    const onHide = () => send(true)
+    const onLeave = (e) => { if (liveRef.current && !savingRef.current) { e.preventDefault(); e.returnValue = '' } }
+    const onVis = () => { if (document.visibilityState === 'hidden') send(true) }
+    window.addEventListener('pagehide', onHide)
+    window.addEventListener('beforeunload', onLeave)
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(t); window.removeEventListener('pagehide', onHide); window.removeEventListener('beforeunload', onLeave); document.removeEventListener('visibilitychange', onVis) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const finish = async (out, guess) => {
     setSaving(true)
-    const session = {
-      trainee_id: trainee?.id || null, trainee_name: trainee?.name || 'Trainer try-out', class_id: trainee?.class_id || null,
-      persona_key: persona.key, section: section.key,
-      started_at: out.startedAt, ended_at: out.endedAt, transcript: out.entries, close_silence: out.closeSilence, usage: out.usage,
-      ...(impulse ? { impulse: { actual: impulse, guess: guess || 'unsure' } } : {}),
-    }
+    const session = buildSession(out, guess)
     const d = saveSession ? await saveSession(session) : await api({ action: 'save', session })
     if (!d.ok) { setErr(`Could not save: ${d.error}`); setSaving(false); return }
     onDone(d.id)
@@ -704,6 +741,14 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
   }, [id, nonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const regrade = async () => { await api({ action: 'regrade', id }); setNonce((n) => n + 1) }
+  const [grading, setGrading] = useState(false)
+  const gradeDraft = async () => {
+    setGrading(true)
+    const d = await api({ action: 'grade_draft', id })
+    setGrading(false)
+    if (!d.ok) { window.alert(d.error || 'Could not start grading.'); return }
+    setNonce((n) => n + 1)
+  }
 
   if (err) return <div className="p-6 text-red-600">{err}</div>
   if (!s) return <div className="p-6 text-slate-500">Loading…</div>
@@ -740,7 +785,23 @@ export function Report({ id, onBack, load = trainerLoad, canRegrade = true, audi
           fetchAudio={async () => { const d = await audioLoad(id); return d?.ok ? { ...d, url: d.manager } : d }} />
       )}
 
-      {s.grade_status === 'invited' && (
+      {s.grade_status === 'invited' && r.draft && (
+        <div className="mt-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-5 text-amber-900">
+          <div className="font-bold">⏸ They started this practice but never pressed “End &amp; grade”.</div>
+          <div className="mt-1 text-sm">
+            Started {fmtWhen(s.started_at)} ET · {fmtDur(s.duration_sec)} kept · {r.draft.rep_lines} things they said (last saved {fmtWhen(r.draft.saved_at)} ET).
+            The page closed, the phone locked or the connection dropped before the end. Tap “Show full transcript” below to read it.
+          </div>
+          {canRegrade && (
+            <button type="button" disabled={grading} onClick={gradeDraft}
+              className="mt-3 rounded-md bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+              {grading ? 'Starting…' : '📝 Grade what they said'}
+            </button>
+          )}
+          <div className="mt-2 text-xs text-amber-800">Their link still works until it expires; if they do it again and finish, that run replaces this one.</div>
+        </div>
+      )}
+      {s.grade_status === 'invited' && !r.draft && (
         <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-slate-700">
           📲 Practice link sent{r.invite?.phone ? ` to ${r.invite.phone}` : ''}{r.invite?.email ? `${r.invite?.phone ? ' and' : ' to'} ${r.invite.email}` : ''}.
           Waiting for them to do it{r.invite?.expires_at ? ` (link good until ${fmtWhen(r.invite.expires_at)} ET)` : ''}.
@@ -999,7 +1060,7 @@ function History({ sessions, onOpen, onDelete }) {
               <span className="block text-xs text-slate-400">{fmtWhen(s.started_at)} · {fmtDur(s.duration_sec)}{s.trainer_name ? ` · ${s.trainer_name}` : ''}</span>
             </span>
             <span className="text-right">
-              <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : s.grade_status === 'invited' ? '📲' : '—'}</span>
+              <span className={`block text-xl font-black ${scoreColor(s.score)}`}>{s.grade_status === 'done' ? (s.score ?? '—') : s.grade_status === 'pending' ? '…' : s.grade_status === 'invited' ? (s.draft ? '⏸' : '📲') : '—'}</span>
               <span className="block text-[11px] text-slate-400" title="What Google charged for the conversation and the grading">{s.cost != null ? `$${Number(s.cost).toFixed(2)}` : 'cost n/a'}</span>
             </span>
             {onDelete && (

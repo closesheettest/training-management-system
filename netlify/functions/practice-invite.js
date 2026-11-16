@@ -61,13 +61,40 @@ export const handler = async (event) => {
   // reconnects and its save must not be refused because the clock passed expires_at mid-run
   // (Neal, 2026-10-01: Chad's link ran out at 9:22 — a run started at 9:15 would have been
   // thrown away). Opening a NEW practice on an expired link is still refused.
-  const graceOpen = row.grade_status === 'invited' && Date.parse(inv.expires_at) + 2 * 3600000 > Date.now() && (body.action === 'save' || (body.action === 'live' && body.resume === true))
+  const graceOpen = row.grade_status === 'invited' && Date.parse(inv.expires_at) + 2 * 3600000 > Date.now() && (body.action === 'save' || body.action === 'draft' || (body.action === 'live' && body.resume === true))
   if (!open && !graceOpen) return json(410, { ok: false, error: status === 'expired' ? 'This practice link has expired. Ask your trainer for a new one.' : 'This practice has already been done.' })
 
   if (body.action === 'live') {
     if (!process.env.GEMINI_API_KEY) return json(500, { ok: false, error: 'Practice is not set up yet.' })
     try { return json(200, { ok: true, token: await mintToken(process.env.GEMINI_API_KEY), model: liveModel() }) }
     catch (e) { return json(502, { ok: false, error: e.message }) }
+  }
+
+  // UNFINISHED-RUN DRAFT (Neal, 2026-11-16: Eli did his practice but the trainer screen still said
+  // "waiting", because nothing was kept until End & grade). The page sends what's been said every
+  // 30 seconds and when it closes. The row stays 'invited' (the link still works and a proper
+  // End & grade replaces it); the trainer sees "started, not finished" and can grade it.
+  // A short restart never wipes a longer earlier run: a different run keeps the one with more said.
+  if (body.action === 'draft') {
+    const s = body.session || {}
+    const transcript = Array.isArray(s.transcript) ? s.transcript.slice(0, 4000) : []
+    const repLines = transcript.filter((t) => t.who === 'rep').length
+    if (!repLines) return json(200, { ok: true, kept: false })
+    const runId = String(s.run_id || '').slice(0, 20)
+    const prev = row.report?.draft
+    if (prev && prev.run_id !== runId && (prev.rep_lines || 0) > repLines) return json(200, { ok: true, kept: false })
+    const started = s.started_at ? new Date(s.started_at) : new Date()
+    const ended = s.ended_at ? new Date(s.ended_at) : new Date()
+    const { error } = await sb.from('sales_practice_sessions').update({
+      started_at: started.toISOString(), ended_at: ended.toISOString(),
+      duration_sec: Math.max(0, Math.round((ended - started) / 1000)),
+      transcript, close_silence: s.close_silence || null,
+      report: { ...(row.report || {}), draft: { run_id: runId, saved_at: new Date().toISOString(), lines: transcript.length, rep_lines: repLines },
+        ...(s.usage ? { usage: { live: s.usage }, cost: Math.round(liveCost(s.usage) * 10000) / 10000 } : {}),
+        ...(['fear', 'indifference', 'greed', 'urgency'].includes(s.impulse?.actual) ? { impulse: { actual: s.impulse.actual, guess: 'unsure' } } : {}) },
+    }).eq('id', row.id).eq('grade_status', 'invited')
+    if (error) return json(500, { ok: false, error: error.message })
+    return json(200, { ok: true, kept: true })
   }
 
   if (body.action === 'save') {
