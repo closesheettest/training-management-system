@@ -44,9 +44,20 @@ function agreementHtml(row) {
   const render = (blocks) => {
     for (const b of blocks) {
       if (b.h) { out.push(`<h3>${esc(b.h)}</h3>`); continue }
-      if (b.intro) { out.push(`<p>This agreement is entered into effective as of this ${dd} day of ${mm}, 20${yy} between ${esc(COMPANY.name)} (SHINGLE) a Florida Corporation at ${esc(COMPANY.address)} and <b>${agent}</b> (AGENT) located at ${esc(row.agent_address)} email ${esc(row.agent_email)}.</p>`); continue }
+      // v3 opening wording, word for word what the PDF prints. This page still had the OLD "a Florida Corporation"
+      // sentence, so Jen was countersigning a page that read like the old agreement (Neal via Jen, 2026-11-16).
+      if (b.intro) { out.push(`<p>This Independent Contractor Agreement (“Agreement”) is entered into as of the ${dd} day of ${mm}, 20${yy} by and between ${esc(COMPANY.name)}, a Florida limited liability company (SHINGLE) with an address at ${esc(COMPANY.address)} and <b>${agent}</b> (AGENT) whose address is ${esc(row.agent_address)} and whose email address is ${esc(row.agent_email)}.</p>`); continue }
+      // v3 Exhibit A sub-headings and its own signature block. Both were dropped here (they rendered as empty
+      // paragraphs), so Jen saw Exhibit A end with no signature block (Jen via Neal, 2026-11-16).
+      if (b.h2) { out.push(`<h4>${esc(b.h2)}</h4>`); continue }
+      if (b.exhibitSign) {
+        out.push(`<div class=sigblk>${row.agent_initials ? `Initials: <b>${esc(String(row.agent_initials).toUpperCase())}</b><br>` : ''}
+    Print Name: ${esc(row.agent_legal_name || row.sign_name || '')} &nbsp;·&nbsp; Signature: <i>${esc(row.sign_name || agent)}</i><br>
+    Date Signed: ${on.toLocaleDateString('en-US')}</div>`)
+        continue
+      }
       if (b.exhibitIntro) { out.push(`<p>This Exhibit A form is part of the Independent Contractor Partner Agreement date effective as of this ${dd} day of ${mm}, 20${yy} between ${esc(COMPANY.name)} and <b>${agent}</b> (Independent Contractor).</p>`); continue }
-      if (b.li) { out.push(`<p class=li>&bull;&nbsp;&nbsp;${esc(b.li)}</p>`); continue }
+      if (b.li) { out.push(`<p class=li>${/^[a-z]\.\s/.test(b.li) ? '' : '&bull;&nbsp;&nbsp;'}${esc(b.li)}</p>`); continue } // v3 4.a–d are lettered, as in the PDF
       if (b.n) { out.push(`<p><b>${esc(b.n)}</b>&nbsp;&nbsp;${esc(b.p)}</p>`); continue }
       out.push(`<p>${esc(b.p)}</p>`)
     }
@@ -77,6 +88,7 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
  .doc{border:1px solid #cbd5e1;border-radius:10px;padding:16px 18px;max-height:52vh;overflow-y:auto;background:#fcfcfd;font-size:13.2px;line-height:1.5}
  @supports (height:100dvh){ .doc{max-height:52dvh} }
  .doc h3{text-align:center;font-size:15px;margin:16px 0 8px}
+ .doc h4{text-align:center;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;margin:14px 0 6px}
  .doc p{margin:0 0 9px}.doc p.li{margin-left:14px}
  .sigblk{margin:14px 0;padding:10px 12px;border:1px dashed #94a3b8;border-radius:8px;background:#fff;font-size:12.5px;line-height:1.6}
  .read{font-size:12.5px;color:#b45309;font-weight:700;margin:8px 0 0}
