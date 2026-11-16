@@ -241,7 +241,9 @@ export default function Onboarding() {
             <div className="max-h-80 overflow-y-auto rounded-md border border-slate-300 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
               {[...AGREEMENT_BLOCKS, ...(harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
                 b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-sm font-bold text-slate-900">{b.h}</h4>
-                : b.li ? <p key={i} className="mb-2 pl-5">•&nbsp;&nbsp;{b.li}</p>
+                : b.h2 ? <h5 key={i} className="mb-1 mt-3 text-center text-xs font-bold uppercase tracking-wide text-slate-800">{b.h2}</h5> /* v3 Exhibit A sub-headings (2026-11-16) */
+                : (b.intro || b.exhibitIntro) ? null
+                : b.li ? <p key={i} className="mb-2 pl-5">{/^[a-z]\.\s/.test(b.li) ? null : <>•&nbsp;&nbsp;</>}{b.li}</p>
                 : <p key={i} className="mb-2">{b.n ? <strong>{b.n} </strong> : null}{b.p}</p>,
               )}
             </div>
