@@ -35,6 +35,7 @@
 // Who you are is decided HERE, never by the page: the name on your tile comes from TMS, so
 // nobody can join as someone else. Env: LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
 // SUPABASE_URL, SUPABASE_SECRET_KEY, URL.
+import { payCoveredByIca } from './_ica-v3.js'
 import { AccessToken, RoomServiceClient, TrackType, TrackSource, EgressClient, EncodedFileOutput, S3Upload, DataPacket_Kind } from 'livekit-server-sdk'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'node:crypto'
@@ -742,8 +743,9 @@ export const handler = async (event) => {
       return json(200, { ok: true, phone: nice, email: em || t.email })
     }
     const ids = (ts || []).map((x) => x.id), items = []
-    const { data: ob } = await sb.from('trainee_onboarding').select('comp_signed_at').in('trainee_id', ids)
-    if (t.registration_token && !(ob || []).some((x) => x.comp_signed_at)) items.push({ key: 'pay', label: 'Sign your pay documents (Draw Program + Inspection Compensation Plan)', link: `${SITE}/comp-agreement/${t.registration_token}` })
+    const { data: ob } = await sb.from('trainee_onboarding').select('comp_signed_at, signed_at').in('trainee_id', ids)
+    // v3 ICA signers have the pay terms in Exhibit A, so no separate pay form for them (Neal 11/16).
+    if (t.registration_token && !(ob || []).some((x) => x.comp_signed_at || payCoveredByIca(x.signed_at))) items.push({ key: 'pay', label: 'Sign your pay documents (Draw Program + Inspection Compensation Plan)', link: `${SITE}/comp-agreement/${t.registration_token}` })
     const { data: pr } = await sb.from('sales_practice_sessions').select('report, grade_status').in('trainee_id', ids).eq('grade_status', 'invited')
     for (const x of pr || []) {
       const inv = x.report?.invite
@@ -2152,7 +2154,8 @@ export const handler = async (event) => {
           }
           // PAY DOCUMENTS (Neal, 2026-10-05: onboarding = ICA + W-9 + the draw and inspection
           // commission). Signed the first two but not these → straight to them, then back in.
-          if (ob?.signed_at && !ob.comp_signed_at && String(b.t || '').trim()) {
+          // Not for v3 ICA signers: their Exhibit A already has the draw + inspection pay (Neal, 2026-11-16).
+          if (ob?.signed_at && !ob.comp_signed_at && !payCoveredByIca(ob.signed_at) && String(b.t || '').trim()) {
             await mark('paperwork', 'Pay documents')
             return json(200, { ok: false, onboarding: true, first: t.first_name || '', onboarding_url: `/comp-agreement/${String(b.t).trim()}?back=${encodeURIComponent(`/meet/${room.slug}?t=${String(b.t).trim()}`)}` })
           }

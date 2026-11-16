@@ -22,6 +22,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import W9_B64 from './assets/w9-template-b64.js'
+import { payCoveredByIca } from './_ica-v3.js'
 import { renderAgreementPdf, isHarvesterDepts, withHarvesterFlag } from './_ic-agreement.js'
 import { sendHarvesterWelcome } from './_harvester-welcome.js'
 import { sendEmail } from './_email.js'
@@ -357,7 +358,8 @@ export const handler = async (event) => {
       banking_done: !!existing?.banking_completed_at,
       // The Draw Program + Compensation Plan are part of onboarding now (Neal, 2026-10-01):
       // the page hands them straight on to /comp-agreement/<same token> once this is signed.
-      comp_signed: !!existing?.comp_signed_at,
+      // v3 ICA signers (2026-11-16 on) have the draw + inspection pay in Exhibit A: no separate form (Neal 11/16).
+      comp_signed: !!existing?.comp_signed_at || payCoveredByIca(existing?.signed_at),
       harvester,
       secrets_on_file: Object.fromEntries(SECRET.map((k) => [k, !!existing?.[k]])),
     })

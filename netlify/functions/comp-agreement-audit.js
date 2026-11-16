@@ -18,6 +18,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 
+import { payCoveredByIca } from './_ica-v3.js'
 import { createClient } from '@supabase/supabase-js'
 
 const BUCKET = 'trainee-docs'
@@ -112,7 +113,7 @@ export const handler = async () => {
 
   const { data: rows } = await supabase
     .from('trainee_onboarding')
-    .select('trainee_id, comp_opened_at, comp_draw_signed_at, comp_plan_signed_at, comp_signed_at, comp_agreement_pdf_path, comp_pdf_error')
+    .select('trainee_id, signed_at, comp_opened_at, comp_draw_signed_at, comp_plan_signed_at, comp_signed_at, comp_agreement_pdf_path, comp_pdf_error')
     .in('trainee_id', everyone.map((r) => r.id))
   const byId = new Map((rows || []).map((r) => [r.trainee_id, r]))
 
@@ -120,7 +121,9 @@ export const handler = async () => {
   for (const r of everyone) {
     const o = byId.get(r.id) || {}
     const draw = !!o.comp_draw_signed_at, plan = !!o.comp_plan_signed_at
-    const state = o.comp_signed_at ? 'signed' : (draw || plan) ? 'partial' : o.comp_opened_at ? 'opened' : 'not_opened'
+    // v3 ICA signers (2026-11-16 on) signed the draw + inspection pay inside Exhibit A, so they are not missing it (Neal 11/16).
+    const inIca = !o.comp_signed_at && payCoveredByIca(o.signed_at)
+    const state = (o.comp_signed_at || inIca) ? 'signed' : (draw || plan) ? 'partial' : o.comp_opened_at ? 'opened' : 'not_opened'
     // A signed PDF is the rep's own pay document — hand back a short-lived link
     // rather than a permanent public URL.
     let pdf = null
@@ -138,7 +141,8 @@ export const handler = async () => {
       draw_signed_at: o.comp_draw_signed_at || null,
       plan_signed_at: o.comp_plan_signed_at || null,
       opened_at: o.comp_opened_at || null,
-      signed_at: o.comp_signed_at || null,
+      signed_at: o.comp_signed_at || (inIca ? o.signed_at : null),
+      in_ica: inIca,
       pdf,
       // A signature saved with no document behind it is the failure worth seeing,
       // not hiding — it is recoverable only while somebody knows about it.

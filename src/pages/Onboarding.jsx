@@ -88,6 +88,9 @@ export default function Onboarding() {
     setSaving(false)
     if (!b.ok) { setErr(b.error || 'Something went wrong — try again.'); return }
     if (b.next_session) setNextSession(b.next_session)
+    // The agreement they just signed (v3) has the Draw + Inspection Program in Exhibit A, so the old
+    // separate pay-documents form is no longer a step after it (Neal, 2026-11-16: Jen saw new reps signing old docs).
+    setCompSigned(true)
     setState('done')
   }
 
