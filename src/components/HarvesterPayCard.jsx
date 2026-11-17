@@ -67,8 +67,18 @@ export default function HarvesterPayCard() {
     if (!d.ok) { window.alert(d.error || 'Could not save'); return }
     load()
   }
+  // ✅ PAY HARVESTER, NO CHARGE (Neal, 2026-11-17: Bob Watson, the homeowner was home but the rep chose not to present.
+  // "That should not count against the harvester, but the rep shouldn't be charged for it either.")
+  async function markHarvesterPay(a) {
+    if (!window.confirm(`Pay ${rep?.display || rep?.name || 'the harvester'} for ${a.customer} (${a.when}) as a sit?\n\nThe homeowner was home but the rep didn't present. ${a.rep || 'The rep'} is NOT charged.`)) return
+    setOvBusy(a.jn_job_id)
+    const d = await ovrPost({ action: 'add', kind: 'harvester_pay', jn_job_id: a.jn_job_id, appt_iso: a.appt_iso, harvester: rep?.name, customer: a.customer, address: a.address, rep: a.rep, rep_jn: a.rep_jn })
+    setOvBusy('')
+    if (!d.ok) { window.alert(d.error || 'Could not save'); return }
+    load()
+  }
   async function undoNoShow(id) {
-    if (!window.confirm('Undo this? The harvester loses the sit and the rep\'s $500 charge is removed.')) return
+    if (!window.confirm('Undo this? The harvester loses the sit (and any $500 charge to the rep is removed).')) return
     setOvBusy(id)
     const d = await ovrPost({ action: 'remove', id })
     setOvBusy('')
@@ -159,10 +169,10 @@ export default function HarvesterPayCard() {
                           <td className="pr-2">{a.source}</td>
                           <td className="pr-2">{a.status}</td>
                           <td>{a.upcoming ? <span className="text-slate-400">upcoming</span>
-                            : a.override ? <div><span className="font-bold text-emerald-700">✓ Paid</span><div className="text-[11px] text-red-700">rep no-show: $500 to {a.override.rep || 'rep'}</div><button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button></div>
+                            : a.override ? <div><span className="font-bold text-emerald-700">✓ Paid</span>{a.override.kind === 'harvester_pay' ? <div className="text-[11px] text-slate-600">rep didn't present · no charge</div> : <div className="text-[11px] text-red-700">rep no-show: $500 to {a.override.rep || 'rep'}</div>}<button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button></div>
                             : a.sat ? <span className="font-bold text-emerald-700">✓ Sat</span>
                             : a.paid_on_override ? <span className="text-slate-400">paid earlier (rep no-show)</span>
-                            : <div><span className="text-red-600">No</span>{a.jn_job_id && a.rep && <div><button type="button" disabled={!!ovBusy} onClick={() => markNoShow(a)} className="mt-0.5 whitespace-nowrap rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">{ovBusy === a.jn_job_id ? 'Saving…' : '🚫 Rep didn\'t go'}</button></div>}</div>}</td>
+                            : <div><span className="text-red-600">No</span>{a.jn_job_id && a.rep && <div><button type="button" disabled={!!ovBusy} onClick={() => markNoShow(a)} className="mt-0.5 whitespace-nowrap rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">{ovBusy === a.jn_job_id ? 'Saving…' : '🚫 Rep didn\'t go'}</button></div>}{a.jn_job_id && <div><button type="button" disabled={!!ovBusy} onClick={() => markHarvesterPay(a)} title="Homeowner was home, the rep didn't present: pay the harvester, no charge to the rep" className="mt-0.5 whitespace-nowrap rounded border border-emerald-300 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✅ Pay harvester</button></div>}</div>}</td>
                         </tr>
                         {openRow === key && (
                           <tr className="bg-slate-50"><td colSpan={7} className="px-3 pb-2 pt-1">

@@ -28,7 +28,8 @@ export default function RepNoShowChargesCard() {
     if (!d.ok) { window.alert(d.error || 'Could not undo'); return }
     load()
   }
-  const list = data?.overrides || []
+  // "✅ Pay harvester" marks charge the rep nothing, so they aren't rep charges (Neal, 2026-11-17)
+  const list = (data?.overrides || []).filter((o) => o.kind !== 'harvester_pay')
   const owed = list.reduce((t, o) => t + (Number(o.charge_now) || 0), 0)
   return (
     <div className="rounded-lg border border-slate-200">
