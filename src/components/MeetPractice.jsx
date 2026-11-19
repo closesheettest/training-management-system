@@ -35,7 +35,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
   const [slideN, setSlideN] = useState('')
   const [slideList, setSlideList] = useState([])
   useEffect(() => {
-    supabase.from('training_days').select('subject, title').order('position')
+    supabase.from('training_days').select('subject, title').eq('status', 'active').order('position')
       .then(({ data }) => setSlideList((data || []).filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()))))
   }, [])
   const picker = sectionKey === 'slide' || sectionKey === 'control'

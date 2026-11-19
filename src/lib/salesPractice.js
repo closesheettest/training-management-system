@@ -83,7 +83,7 @@ export const PERSONAS = [
       'Two most important qualities: being explained things honestly, and quality.',
       'Problems: roof age, insurance cost.',
     ],
-    behavior: `You are polite, curious and a little new to all this. You ask simple, genuine questions ("How does that work?", "What's the difference between shingle and metal?", "What's a radiant barrier?"), sometimes about things that come later in the presentation. You never argue or push back hard. When the rep parks a question for later, you happily wait. When something is explained well you say so ("Oh, that makes sense").`,
+    behavior: `You are polite, curious and a little new to all this. You ask simple, genuine questions ("How does that work?", "What's the difference between shingle and metal?", "What's a ZXL screw?"), sometimes about things that come later in the presentation. You never argue or push back hard. When the rep parks a question for later, you happily wait. When something is explained well you say so ("Oh, that makes sense").`,
     close: `At the close, ask "What would you recommend for us?" If the rep gives a clear recommendation and asks which option you prefer, you pick one and say yes.`,
     door: `At the door you are surprised but open: "Oh! We did get your mailer. We're first-time homeowners, so we're not really sure how any of this works." You ask one or two simple questions. If the rep explains the free inspection and the insurance angle clearly and asks, you say yes.`,
   },
@@ -115,7 +115,7 @@ export const PERSONAS = [
       'HIDDEN (only if the rep earns it with good questions): Ron\'s sister paid a roofer a large deposit in 2019 and he walked off the job. His real fear is trust, not price.',
     ],
     behavior: `You are the hardest homeowner a rep will meet. You are sharp, impatient and you fight for control of the conversation.
-- Challenge technical claims with "inside" knowledge: "My brother-in-law says peel-and-stick is a gimmick." "Metal is loud in the rain." "Why do you even need a permit for a re-roof?" "Emissivity? Come on." "Radiant barrier doesn't do much down here."
+- Challenge technical claims with "inside" knowledge: "My brother-in-law says peel-and-stick is a gimmick." "Metal is loud in the rain." "Why do you even need a permit for a re-roof?" "Emissivity? Come on."
 - Keep trying to jump ahead: "Just tell me the price." "What's your number?" Quote the three competitor prices.
 - Fire questions to take control, often two at a time.
 - You and Carol disagree: Carol (relay her in your own words, e.g. "Carol thinks we should just do it, I don't") wants it done because of the leak; you think it can wait a year and that the leak is "just flashing". A good rep brings Carol's concern in without making you feel ganged up on.
@@ -172,7 +172,7 @@ export const PERSONAS = [
       'Problems: insurance cost, energy cost, maybe mold.',
     ],
     behavior: `You are sweet and polite, but anxious about money. Whenever something sounds expensive, worry out loud: "How much is all this going to cost us?" "We're on a fixed income." "I don't want a loan hanging over us at our age." "Will this hurt our credit?" "What if we can't make the payment?" Ask the rep to explain financing slowly. You relax when the rep shows the savings (insurance and electric) that offset the payment, explains PACE / no-credit-score options, and is patient with you. If the rep is pushy or skips over your worries, say "I don't think we can afford this."`,
-    close: `At the close, focus on the monthly number: "Is that every month?" "What's the lowest it can be?" If the rep has shown you that the savings roughly cover the payment and answered your credit worries, you choose the package and say yes. Otherwise: "I just don't think we can do it right now."`,
+    close: `At the close, focus on the monthly number: "Is that every month?" "What's the lowest it can be?" If the rep has shown you that the savings roughly cover the payment and answered your credit worries, you say yes. Otherwise: "I just don't think we can do it right now."`,
     door: `At the door your worry is money: "We can't afford a new roof right now." "Is this going to cost us anything?" If the rep makes clear the inspection costs nothing, that the certificate can keep the insurance off your back, and that storm damage could be paid by insurance through a public adjuster, you relax and agree to the inspection. If it sounds like a sales pitch for a roof, you say you can't afford it.`,
   },
   {
@@ -260,7 +260,8 @@ export const personaByKey = (k) => PERSONAS.find((p) => p.key === k) || PERSONAS
 // see DECK). The page opens on the first one, the homeowner is told what came
 // before, and the grader checks the Slide Points in that range. survey has no
 // slides. "slide:N" is a single slide (Neal, 25 Sep: practise 1-5, 6-7, the
-// energy package, or one slide on its own).
+// close, or one slide on its own). The Energy Saver package (17–21) was dropped from
+// the deck and the training on 2026-11-19 (Neal), so those numbers are a gap now.
 export const SECTIONS = [
   // Full = the slide show only. The warm-up (intro + customer survey) is taken as
   // already done and is never graded here; it has its own section (Neal, 25 Sep).
@@ -281,12 +282,12 @@ export const SECTIONS = [
   { key: 'survey', label: 'Warm-up: intro + customer survey', desc: 'Turn one-word answers into a real conversation: common ground, their wants and needs, then move to the kitchen table once their mind is open. The survey is on screen for newer reps; experienced reps can just talk. ~10–15 min.', range: null, surveySheet: true },
   { key: 'slides_1_5', label: 'Slides 1–5: the company', desc: 'Company, license, insurance, “you already need a roof”, experience. ~10–15 min.', range: [1, 5] },
   // The rest of the presentation in one go — retraining / Week B day 2 homework (Neal, 2026-10-05).
-  { key: 'slides_6_23', label: 'Slides 6–23: the rest of the presentation', desc: 'Why today, products, install, warranty, energy saver and the close. ~30–45 min.', range: [6, 23] },
+  { key: 'slides_6_23', label: 'Slides 6–23: the rest of the presentation', desc: 'Why today, products, install, warranty and the close. ~25–40 min.', range: [6, 23] },
   // Retraining day 2 (Neal, 2026-10-06): the rest of the presentation WITHOUT the close.
-  { key: 'slides_6_21', label: 'Slides 6–21: the presentation, no close', desc: 'Why today, products, install, warranty and the Energy Saver package. Stops before payment options. ~25–40 min.', range: [6, 21] },
+  // Key kept as slides_6_21 so old sessions and retraining links still open; it now ends at 16 (Energy Saver removed, Neal 2026-11-19).
+  { key: 'slides_6_21', label: 'Slides 6–16: the presentation, no close', desc: 'Why today, products, install and warranty. Stops before payment options. ~20–30 min.', range: [6, 16] },
   { key: 'why_today', label: 'Slides 6–7: why today + Low Bid Match', desc: 'The savings / urgency slides. ~10 min.', range: [6, 7] },
   { key: 'slides_8_16', label: 'Slides 8–16: products, install & warranty', desc: 'What we offer, the installation process, colors, our work, jobsite prep, warranty. ~15 min.', range: [8, 16] },
-  { key: 'energy', label: 'Slides 17–21: the Energy Saver package', desc: 'Attic heat, R-38, duct sealing, radiant barrier, the savings. ~10 min.', range: [17, 21] },
   { key: 'close', label: 'The close', desc: 'Payment options, ask for the business, handle the objection. ~10 min.', range: [22, 23] },
   { key: 'slide', label: 'One slide', desc: 'Pick any one slide and drill it. ~3–5 min.', range: null, picker: true },
   // CONTROL DRILL (Neal, 25 Sep): 5 minutes, one slide, a homeowner who keeps
@@ -403,7 +404,8 @@ export const IQ_AT_DOOR = {
   'Very hard': 'You are suspicious: "How did you get my address? I didn\'t ask anyone to come by." and "Not selling anything? Come on." You did fill in the instant quote online and forgot. You agree only if the rep stays calm and friendly, reminds you that you asked for the quote, makes the specials sound worth hearing, and gives you a simple choice of days. Then you pick one and a time.',
 }
 export const CLOSE_EXTRA = [
-  'Ask for the business: roof only vs. the whole package, as a choice between two, then SILENCE until they answer',
+  // Was "roof only vs. the whole package"; the package is gone, so the close is the monthly investment then silence (Neal, 2026-11-19).
+  'Ask for the business: give them the monthly investment, then SILENCE until they answer',
   'If they want more estimates: confirm they are serious, liked you / the company / the product, get the number that earns it today, "if I can do this, will you do that?" before calling the manager',
 ]
 // THE IMPULSE FACTOR: FIGS (Neal, 27 Sep). Every homeowner buys on one impulse:
@@ -506,9 +508,6 @@ export const IMPULSE_BY_STEP = [
   { step: 'Slide 16 — Warranty', slides: [16, 16], qs: [
     { q: 'How important is it to you that the roof is covered if something goes wrong?', hear: '"Very" → F · "what does that add to the price?" → G' },
   ] },
-  { step: 'Slides 17–21 — Energy Saver package', slides: [17, 21], qs: [
-    { q: 'What does your electric bill run in the summer? How would it feel to cut that?', hear: '"I just don\'t want the AC to die" → F · "not a big deal" → I · Wants the numbers, the savings → G' },
-  ] },
   { step: 'Slides 22–23 — Payment + the ask', slides: [22, 23], qs: [
     { q: "When it comes to paying for it, what's most important: the monthly payment, the total, or getting it started?", hear: '"making sure it\'s done right" → F · Monthly / total / "the best deal" → G · "getting started" → S' },
   ], note: 'By now you should know the button. Close on it: protection (F), what waiting costs (I), the savings and value (G), or the start date (S).' },
@@ -528,7 +527,6 @@ export const IMPULSE_PLAYBOOK = {
     { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Walk the 13 steps as protection: permits, photos, re-nail to code, peel-n-stick, rotted wood replaced — nothing left to chance.' },
     { slides: [10, 15], step: 'Slides 10–15 — Colors, our work, jobsite prep', angle: 'Jobsite prep: the tarp and plywood protect your house and yard while we work.' },
     { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'This is their slide. Slow down: the free 10-year no-leak warranty, and it transfers if you sell.' },
-    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Protects the AC and the house from attic heat — less strain, fewer breakdowns.' },
     { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on protection: "Which one lets you sleep at night?"' },
   ],
   indifference: [
@@ -540,8 +538,7 @@ export const IMPULSE_PLAYBOOK = {
     { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Keep it moving; ask what part matters to them.' },
     { slides: [10, 15], step: 'Slides 10–15 — Colors, our work', angle: 'Get them choosing: "Which color do you see on this house?" — a small decision gets them invested.' },
     { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'Short: "One less thing you ever have to think about."' },
-    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Money leaving the house every month while they wait.' },
-    { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on a small decision first (the color, the package), then the date. Give them a reason to do it now.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on a small decision first (the color, the product), then the date. Give them a reason to do it now.' },
   ],
   greed: [
     { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Third-party financing: they did their homework on us — options for your money.' },
@@ -551,8 +548,7 @@ export const IMPULSE_PLAYBOOK = {
     { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Everything that is included in the 13 steps — what they get for the money.' },
     { slides: [10, 15], step: 'Slides 10–15 — Colors, our work', angle: 'Show the value in the product, not just the look.' },
     { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'A free 10-year no-leak warranty — value they get at no cost.' },
-    { slides: [17, 21], step: 'Slides 17–21 — Energy Saver', angle: 'Run the numbers with them: the monthly savings, times the years they\'ll be there.' },
-    { slides: [22, 23], step: 'Payment + the ask', angle: 'Show what the full package saves against roof-only. Close on the best value.' },
+    { slides: [22, 23], step: 'Payment + the ask', angle: 'Show the value against what they would pay elsewhere. Close on the best value.' },
   ],
   urgency: [
     { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Experienced crews who do this every day — we know how to move fast.' },
@@ -561,7 +557,7 @@ export const IMPULSE_PLAYBOOK = {
     { slides: [6, 7], step: 'Slides 6–7 — Why today + Low Bid Match', angle: 'Materials go up every year — lock it in today. The price match saves them weeks of shopping.' },
     { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Their slide. Walk the 13 steps as a timeline: permit, install day, cleanup, walkthrough — so they see exactly how soon it\'s done.' },
     { slides: [10, 15], step: 'Slides 10–15 — Colors', angle: 'Pick the color today so nothing holds up the order.' },
-    { slides: [16, 21], step: 'Slides 16–21 — Warranty + Energy Saver', angle: 'Keep it brisk; tie each to getting it done in one go.' },
+    { slides: [16, 16], step: 'Slide 16 — Warranty', angle: 'Keep it brisk; tie it to getting it done in one go.' },
     { slides: [22, 23], step: 'Payment + the ask', angle: 'Close on the start date: "Let\'s get you on the schedule."' },
   ],
 }
@@ -574,7 +570,7 @@ export function playbookFor(impulseKey, sectionKey) {
 }
 // Which practice parts give the homeowner a hidden impulse: the warm-up and every slide
 // section, not just the full presentation (Neal, 2026-10-01). Not the door or the drills.
-export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'slides_6_23', 'slides_6_21', 'why_today', 'slides_8_16', 'energy', 'close']
+export const IMPULSE_SECTIONS = ['full', 'survey', 'slides_1_5', 'slides_6_23', 'slides_6_21', 'why_today', 'slides_8_16', 'close']
 // The questions for a given section/slide range (for the grader's "try asking" and the lesson).
 export function impulseQuestionsFor(sectionKey) {
   const sec = sectionByKey(sectionKey)
@@ -631,7 +627,7 @@ THE WARM-UP IS ABOUT RAPPORT. How much you relax depends on the rep:
 - If they fire questions off a list like a form, one after another without reacting to your answers, you stay polite but short and a bit guarded, and you get impatient ("Is this going to take long?").
 Answer every question truthfully from YOUR FACTS, in your personality. Do not rush the rep toward the slides.`,
     impulse: 'You are at your kitchen table. The rep has ALREADY done the warm-up and the customer survey (you answered with YOUR FACTS above). Before showing you anything, the rep is going to ask you questions to understand what really matters to you about the roof. Answer like a real person: honestly, in your personality. Do not steer the conversation toward the presentation or prices; if the rep starts pitching, go along briefly. When the rep names back what matters to you, say plainly whether they are right ("Yeah, that\'s exactly it" or "Not really, it\'s more that…").',
-    close: 'The rep has already done the whole presentation (company, license, products, installation, warranty, the energy package). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',
+    close: 'The rep has already done the whole presentation (company, license, products, installation, warranty). You sat through all of it. Now they are on payment options and are about to give you prices and ask for your decision. The rep will say the dollar amounts; accept the numbers they give.',
   }[sec.key] || (sec.range
     ? `You are at your kitchen table. The rep has ALREADY done the warm-up and asked you all the survey questions (you answered with YOUR FACTS above, so they know those things)${sec.range[0] > 1 ? ` and has already presented slides 1–${sec.range[0] - 1}; you were fine with it so far` : ''}. Now they are presenting ${sec.range[0] === sec.range[1] ? `slide ${sec.range[0]}` : `slides ${sec.range[0]}–${sec.range[1]}`}. Do not expect or ask for the survey again.`
     : '')

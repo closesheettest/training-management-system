@@ -89,7 +89,7 @@ export const HOSTED_PAGES = [
       'three roleplay drills — Free Inspection Script, Retail Go-Back Script, and the In-Home ' +
       'Warm Up — with verbatim refreshers for each so trainees can check phrasing between rounds. ' +
       'Afternoon is the products walkthrough: framing (both energy sides equal weight), the 5 ' +
-      'shared benefits, the Energy Package upgrades, then every product family (Asphalt · GAF + ' +
+      'shared benefits, then every product family (Asphalt · GAF + ' +
       'Tamko Titan, Exposed Fastener Metal · Ultra Rib + PBR, Standing Seam · TCM Lok, Stone ' +
       'Coated Metal, Tilcor, Tile) with wind/warranty/pitch specs and the insurance ' +
       'category badge. Closes on the cheat-sheet table and the tomorrow-morning quiz reminder.',
@@ -168,8 +168,8 @@ export const HOSTED_PAGES = [
     description:
       'Day 4 = morning role-play (Slides 1–5) then an afternoon TECH block (the 3 apps + Job Nimbus). ' +
       'Tonight\'s homework: get email/Job Nimbus/RepCard set up, then run a full practice deal in Job Nimbus: ' +
-      'Contact (location=test) → Job → Appt 5:30 PM → estimate ($39,450 across Exposed Fastener / Insulation / ' +
-      'Radiant Barrier) → Edit Job fields (1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
+      'Contact (location=test) → Job → Appt 5:30 PM → estimate ($27,000, Exposed Fastener) ' +
+      '→ Edit Job fields (1 story, Black, Upgrade financing). Linked from the nightly Day 4 homework SMS.',
     created: '2026-06-17',
     category: 'Homework',
     week: 'Week A',
@@ -216,7 +216,7 @@ export const HOSTED_PAGES = [
     description:
       'The Week B deck built for teaching on Zoom (2026-09-27): Mon the warm-up (purpose, control ' +
       'points, the intro and customer survey from the manual), Tue slides 1-7, Wed slides 8-16, Thu ' +
-      'slides 17-23 plus the full run-through. Each script slide shows its Slide Points and then the ' +
+      'slides 22-23 plus the full run-through (Energy Saver slides removed 2026-11-19). Each script slide shows its Slide Points and then the ' +
       'real presentation slide. Day buttons, arrow keys and a PDF download. Taught live from the ' +
       'Keynote file on Neal\'s Mac, whose bottom-right corner is kept clear for the camera circle.',
     created: '2026-09-27',

@@ -246,7 +246,7 @@ export default function SalesPractice() {
       .eq('is_active_sales_rep', true)
       .order('first_name')
       .then(({ data }) => setReps(data || []))
-    supabase.from('training_days').select('title, subject, on_slide').order('position')
+    supabase.from('training_days').select('title, subject, on_slide').eq('status', 'active').order('position')
       .then(({ data }) => setSlidePoints((data || []).filter((d) => /^Slides?\s*\d/.test(String(d.subject || '').trim()))))
   }, [])
 

@@ -42,7 +42,11 @@ export default function SignIca() {
     const need = [['agent_legal_name', 'your legal name'], ['agent_phone', 'your phone'], ['agent_email', 'your email'],
       ['agent_dob', 'your date of birth'], ['agent_address', 'your home address'], ['agent_initials', 'your initials for Exhibit A'],
       ['sign_name', 'your printed name']].filter(([k]) => !String(f[k] || '').trim()).map(([, l]) => l)
+    // Social/EIN required (Jenn, 2026-11-19). On file from onboarding = may stay blank.
+    const tinDigits = String(f.w9_tin || '').replace(/\D/g, '')
+    if (!tinDigits && !data.tin_on_file) need.push('your Social Security Number or EIN')
     if (need.length) return setErr(`Please fill in ${need.join(', ')}.`)
+    if (tinDigits && tinDigits.length !== 9) return setErr('Your Social Security Number or EIN must be 9 digits.')
     if (!agreed) return setErr('Please tick the box confirming you have read the agreement and Exhibit A.')
     if (!signature) return setErr('Please sign in the box.')
     setSaving(true)
@@ -88,6 +92,17 @@ export default function SignIca() {
           <L t="Date of birth *"><input className={input} type="date" value={f.agent_dob || ''} onChange={set('agent_dob')} /></L>
         </div>
         <div className="mt-3"><L t="Home address *"><input className={input} value={f.agent_address || ''} onChange={set('agent_address')} /></L></div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <L t="SSN or EIN? *">
+            <select className={input} value={f.w9_tin_type || data.tin_type || 'ssn'} onChange={set('w9_tin_type')}>
+              <option value="ssn">Social Security Number</option>
+              <option value="ein">Employer ID Number (EIN)</option>
+            </select>
+          </L>
+          <L t={`${(f.w9_tin_type || data.tin_type) === 'ein' ? 'EIN' : 'Social Security Number'} *${data.tin_on_file ? ` (on file, ending ${data.tin_last4}: leave blank to keep)` : ''}`}>
+            <input className={input} inputMode="numeric" autoComplete="off" maxLength={11} value={f.w9_tin || ''} onChange={set('w9_tin')} placeholder={data.tin_on_file ? '•••••' + data.tin_last4 : '9 digits'} />
+          </L>
+        </div>
       </section>
 
       <section className="mt-5 rounded-lg border border-slate-300 bg-white p-4">

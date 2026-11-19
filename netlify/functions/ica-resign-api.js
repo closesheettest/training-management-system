@@ -74,11 +74,15 @@ export const handler = async (event) => {
     if (!rec.opened_at && !body.preview) { rec.opened_at = new Date().toISOString(); await putRec(rec) }
     // Pre-fill from what they gave us at onboarding; they can correct any of it.
     const { data: ob } = await sb.from('trainee_onboarding')
-      .select('agent_legal_name, agent_phone, agent_email, agent_dob, agent_address, agent_initials, sign_title')
+      .select('agent_legal_name, agent_phone, agent_email, agent_dob, agent_address, agent_initials, sign_title, w9_tin, w9_tin_type')
       .eq('trainee_id', t.id).maybeSingle()
     const o = ob || {}
+    // SOCIAL/EIN IS REQUIRED (Jenn, 2026-11-19: the countersigned copy printed it blank). Never sent to the
+    // browser: only whether one is on file from onboarding and its last 4, same rule as the onboarding page.
+    const tinDigits = String(o.w9_tin || '').replace(/\D/g, '')
     return json(200, {
       ok: true, rep_name: repName, harvester, test: isTest, signed_at: rec.signed_at || null,
+      tin_on_file: tinDigits.length >= 9, tin_last4: tinDigits.length >= 9 ? tinDigits.slice(-4) : '', tin_type: o.w9_tin_type || 'ssn',
       prefill: {
         agent_legal_name: o.agent_legal_name || repName,
         agent_phone: o.agent_phone || t.phone || '',
@@ -110,6 +114,23 @@ export const handler = async (event) => {
 
   const rec = (await getRec()) || {}
   if (rec.signed_at) return json(200, { ok: true, signed_at: rec.signed_at, already: true })
+
+  // Social/EIN: a new one typed here, else the one on file from onboarding. Neither → can't sign (Jenn, 2026-11-19).
+  const { data: obTin } = await sb.from('trainee_onboarding').select('trainee_id, w9_tin').eq('trainee_id', t.id).maybeSingle()
+  const typed = String(body.w9_tin || '').replace(/\D/g, '')
+  const onFile = String(obTin?.w9_tin || '').replace(/\D/g, '')
+  if (typed && typed.length !== 9) return json(400, { ok: false, error: 'Your Social Security Number or EIN must be 9 digits.' })
+  const tin = typed || (onFile.length >= 9 ? onFile : '')
+  if (!tin) return json(400, { ok: false, error: 'Please fill in your Social Security Number or EIN.' })
+  const tinType = body.w9_tin_type === 'ein' ? 'ein' : 'ssn'
+  // The full number lives only where onboarding keeps it (trainee_onboarding, server-side only), and only fills
+  // a gap there: an existing number is never overwritten from this page. This record keeps the last 4, which is
+  // all the PDF prints (•••••-1234), because app_settings is not the place for a full SSN.
+  if (typed && obTin && !onFile) {
+    await sb.from('trainee_onboarding').update({ w9_tin: typed, w9_tin_type: tinType }).eq('trainee_id', t.id)
+  }
+  f.w9_tin = tin.slice(-4)
+  f.w9_tin_type = typed ? tinType : undefined
 
   const now = new Date().toISOString()
   const ip = (event.headers['x-nf-client-connection-ip'] || event.headers['client-ip']

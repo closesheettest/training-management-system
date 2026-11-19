@@ -22,7 +22,7 @@ const LEVELS = ['Very easy', 'Easy', 'Medium', 'Hard', 'Very hard']
 // The slides a rep can pick: the same Slide Points list the trainer's one-slide picker uses (training_days rows
 // whose subject is "Slide N"), in order. Slide 12 (Permalock) isn't offered any more.
 async function slideList(sb) {
-  const { data } = await sb.from('training_days').select('title, subject, on_slide').order('position')
+  const { data } = await sb.from('training_days').select('title, subject, on_slide').eq('status', 'active').order('position')
   const out = [], seen = new Set()
   for (const d of data || []) {
     const m = String(d.subject || '').trim().match(/^Slides?\s*(\d+)/); if (!m) continue

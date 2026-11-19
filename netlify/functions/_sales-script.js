@@ -171,8 +171,7 @@ How much is your homeowner’s insurance right now?
 By taking action today that’s money every month you could be saving instead of
 throwing away to your insurance company.
 Another area that you won’t find any of our competitors talking about is helping you
-save money on your electric bill. We have a complete package to go with the roof that
-I’ll discuss more in a minute, but I would imagine you wouldn’t be opposed to the
+save money on your electric bill. I would imagine you wouldn’t be opposed to the
 electric company helping to pay for your new roof, would you? Most of our customers
 save up to 40% or more on their electric bill.
 Again choose to reroof now and keep that savings in your pocket. Wait to reroof and its
@@ -339,63 +338,6 @@ next decade, regardless of if it’s a material or labor or whatever. There is n
 surcharge or any other hidden costs with our warranty. If there’s a problem inside of the
 next decade we cover the cost and fix the problem. And if you sell the house, the
 warranty goes with it to the next customer.
-Slide 17 to 21
-
-Speaking of radiant heat, what would you say your average electric bill is in the summer? Now
-how about in the winter? Ok so then overall you’d say your average bill is about_________?
-
-I'm asking because for most of our customers we do an energy package which helps them
-cover the cost of the roof. In other words, if I could on a cash flow basis make your new roof
-nearly free you might add me to the Christmas Card list?
-
-Here let me show you what I mean. Here in Florida about 70% of your electric bill is because of
-air conditioning. So, it would stand to reason if we can keep your AC from working hard or at all
-then we can cut your bill way down, right?
-
-Well with all the pluses to living here we have some challenges too. See up north they get to
-run ductwork in the basement where it’s cool, down here we run all our duct work in the attic
-where it’s crazy hot.
-
-In the summer attic temperatures can reach 150 degrees or higher. Ever been up there in the
-summer? You have like 12 seconds and then you can’t breathe. It's so hot.
-
-Well, what that means is that you are PAYING, with your hard-earned money, to cool the air to
-50 degrees because you’re about to pipe it up into the furnace so that when it finally comes out
-over here it's 74 degrees. Yes, I know that makes zero sense but that’s the downside to how we
-build here.
-
-Now there is a solution to fix this problem, and we’ve helped LOTS of homeowners fix their
-houses already. I know what you’re thinking, “this is going to be expensive” or “money is tight
-right now I can’t afford anything”. Well don’t worry because the fix I’m going to show you isn’t
-going to cost you anymore than you are already paying right now! In fact, as I said earlier, I
-won’t ask you for a single penny ever.
-
-The solution is 3 parts. The first is to add more insulation as most homes don’t have anywhere
-near enough for our Florida heat. We installed R-38 or about this much (use your hands to show
-about 15”) compared to what most people have which is this much (use your hands to show
-about 4”) Ill pop my head up there in a minute to double check what you have.
-
-The second is to seal the ducts you have in the attic. You see neither the builder nor the guy
-who installed your AC were concerned about your electric bill were they? They were more
-interested in doing the job quickly to get paid and move on. What that means is that your ducts
-were never sealed or sealed properly which means the air you are paying to cool isn’t making
-into the house but instead getting lost up there. So, we will seal and reseal them using sealing
-mastic. The other issue with improperly sealed ducts is air quality in your home. The return ducts
-are sucking in dust, pollen, mold and anything else floating around up there.
-
-The third part which is the most CRITICAL is something called Radiant Barrier. It’s high-tech
-stuff that literally reflects 97% of the sun's radiating heat from ever entering your attic. It was
-invented by NASA for the space shuttle. So now instead of having to pay to cool your air to 50
-degrees (scroll back) you only need to cool it to about 70 degrees instead (scroll forward),
-because we will have dramatically reduced the temperature in your attic.
-
-This will not only save you up to 40% or more off your Utility bill but it will also extend the life of
-your AC system. If the AC is running half as much it's going to last longer, isn’t it?
-
-Obviously if you have it already, you’re good to go but I've only seen one home so far that had
-a radiant barrier installed. let me just check first and then I can give you the break down and the
-investment for just the roof and then what it looks like for the whole package
-
 Slide 22
 
 Obviously, we do like to get paid for what we do so we can always take cash or credit card. If
@@ -421,15 +363,7 @@ So with everything included such as
 
 (list off 6 to 10 items included in the roof product they chose)
 
-The monthly investment would be ________. Now when we combine just the roof with our
-energy saving program you get everything we just discussed PLUS you get the R38 Insulation,
-the radiant barrier to keep all the heat out eliminating those hot and cold areas as well as
-dramatically extending the life of you’re A/C plus you get the duct sealing or resealing which of
-course improves the air quality in your home for ____________ who has the allergies. So after I
-deduct the 40% of you electric bill your net effective payment for all of this is ____________.
-
-So which would you prefer, just the roof for ________ or would you prefer to have everything for
-just _____________.
+The monthly investment would be ________.
 
 (stop speaking. Do NOT speak again for ANY reason until after they do)
 `
