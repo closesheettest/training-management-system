@@ -47,7 +47,7 @@ looking for? Google reviews? Speed? Quality? Warranty? Etc etc
 
 Which of these problems do you have?
 Leaks           mold           insurance cost              damage
-Maintenance      .Energy Cost         . Quality             .
+Maintenance      . Quality             .
 
 If there was a way to save you money by starting the project sooner rather than later, would you want
 to know about the savings?
