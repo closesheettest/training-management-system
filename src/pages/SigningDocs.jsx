@@ -86,6 +86,16 @@ function DocCard({ d, call, reload }) {
     } catch (e) { setMsg(`⚠ ${e.message}`) }
     setBusy('')
   }
+  // ON HOLD (Neal, 2026-11-19): the new contractor agreement waits for the owner's OK.
+  // The server refuses every send while held; these buttons just say so up front.
+  const setHold = async (hold) => {
+    if (!hold && !window.confirm(`Release "${d.title}" for sending?\n\nOnly do this once the owner has OK'd it. Releasing sends nothing by itself; you still press Send.`)) return
+    setBusy('hold'); setMsg('')
+    try { await call({ action: 'hold', doc: d.key, hold }); setMsg(hold ? 'Back on hold. Nothing can be sent.' : 'Released. You can send it now.'); reload() }
+    catch (e) { setMsg(`⚠ ${e.message}`) }
+    setBusy('')
+  }
+  const held = !!d.held
   const saveCopyTo = async () => {
     setBusy('copy'); setMsg('')
     try {
@@ -105,6 +115,15 @@ function DocCard({ d, call, reload }) {
       </div>
       {d.blurb && <p className="text-xs text-slate-500">{d.blurb}</p>}
       {d.error && <p className="mt-2 text-sm font-semibold text-red-700">{d.error}</p>}
+      {d.held !== undefined && (
+        <div className={`mt-3 flex flex-wrap items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${held ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-emerald-400 bg-emerald-50 text-emerald-900'}`}>
+          <span className="font-bold">{held ? '🔒 ON HOLD: nothing can be sent until the owner OKs it.' : '🔓 Released for sending.'}</span>
+          <button type="button" disabled={busy === 'hold'} onClick={() => setHold(!held)}
+            className={`ml-auto rounded-md px-3 py-1 text-xs font-bold text-white ${held ? 'bg-amber-600' : 'bg-slate-600'}`}>
+            {held ? 'Owner OK’d it: release' : 'Put back on hold'}
+          </button>
+        </div>
+      )}
 
       {/* Where signed copies go */}
       <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
@@ -128,9 +147,9 @@ function DocCard({ d, call, reload }) {
         {[['out', `Still outstanding (${outstanding.length})`], ['signed', 'Signed'], ['all', 'Everyone']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFilter(k)} className={`rounded-full px-3 py-1 text-xs font-bold ${filter === k ? 'bg-brand-navy text-white' : 'border border-slate-300 text-slate-700'}`}>{l}</button>
         ))}
-        <button type="button" disabled={!outstanding.length || busy === 'send'} onClick={() => resend(outstanding)}
+        <button type="button" disabled={held || !outstanding.length || busy === 'send'} onClick={() => resend(outstanding)}
           className="ml-auto rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40">
-          {busy === 'send' ? 'Sending…' : `📨 Resend to all outstanding (${outstanding.length})`}
+          {busy === 'send' ? 'Sending…' : held ? `🔒 On hold (${outstanding.length} waiting)` : `📨 ${d.key === 'ica3' ? 'Send' : 'Resend'} to all outstanding (${outstanding.length})`}
         </button>
       </div>
       {msg && <div className="mt-2 text-xs font-semibold text-emerald-800">{msg}</div>}
@@ -148,7 +167,7 @@ function DocCard({ d, call, reload }) {
                 <span className="ml-auto flex gap-1.5">
                   <button type="button" onClick={() => smsHelp(r)} className="rounded-md border border-amber-500 px-2 py-0.5 text-xs font-bold text-amber-700">📵 Not getting texts</button>
                   <button type="button" onClick={() => setEdit(edit?.id === r.id ? null : { id: r.id, phone: r.phone || '', email: r.email || '' })} className="rounded-md border border-slate-400 px-2 py-0.5 text-xs font-bold text-slate-700">✏️ Edit</button>
-                  <button type="button" disabled={busy === 'send'} onClick={() => resend([r])} className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-bold text-emerald-700">Resend</button>
+                  <button type="button" disabled={held || busy === 'send'} onClick={() => resend([r])} className="rounded-md border border-emerald-600 px-2 py-0.5 text-xs font-bold text-emerald-700 disabled:opacity-40">{r.state === 'not_sent' ? 'Send' : 'Resend'}</button>
                 </span>
               )}
             </div>
@@ -189,7 +208,7 @@ function DocCard({ d, call, reload }) {
             )}
             {open[r.id] && (
               <div className="mt-1 pl-5 text-xs text-slate-600">
-                <div className="mb-1">{r.phone || 'no phone'} · {r.email || 'no email'}</div>
+                <div className="mb-1">{r.phone || 'no phone'} · {r.email || 'no email'}{r.link ? <> · <a href={r.link} target="_blank" rel="noreferrer" className="font-bold text-brand-navy underline">their signing page</a></> : null}</div>
                 {(r.trail || []).length ? r.trail.map((t, i) => <div key={i}><span className="inline-block w-28 text-slate-400">{when(t.at)}</span>{t.what}</div>) : <div className="text-slate-400">Nothing yet — never opened.</div>}
               </div>
             )}

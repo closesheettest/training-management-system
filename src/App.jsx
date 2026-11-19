@@ -43,6 +43,7 @@ import WelcomeLinks from './pages/WelcomeLinks.jsx'
 import Results from './pages/Results.jsx'
 import UpdateInfo from './pages/UpdateInfo.jsx'
 import CompAgreement from './pages/CompAgreement'
+import SignIca from './pages/SignIca' // current reps re-sign the v3 contractor agreement (Neal 2026-11-19)
 import GroupMessages from './pages/GroupMessages.jsx'
 import ActiveReps from './pages/ActiveReps.jsx'
 import RepMap from './pages/RepMap.jsx'
@@ -129,6 +130,7 @@ export default function App() {
             each. Uses the SAME registration_token as /update-info, so a Group
             messages blast can point {signlink} at it with no new links minted. */}
         <Route path="/comp-agreement/:token" element={<MinimalLayout><CompAgreement /></MinimalLayout>} />
+        <Route path="/sign-ica/:token" element={<MinimalLayout><SignIca /></MinimalLayout>} />
 
         {/* Public morning mini-quiz — trainees tap a link from the
             kiosk-sign-in-triggered SMS. Token-gated; questions test the

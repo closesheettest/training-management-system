@@ -7,6 +7,9 @@
 // Documents:
 //   comp        Draw Program + Inspection Compensation Plan   /comp-agreement/<token>
 //   onboarding  Day-1: W-9 + Independent Contractor Agreement  /onboarding/<token>
+//   ica3        NEW contractor agreement (v3, Exhibit A inside) for current reps  /sign-ica/<token>
+//               ON HOLD until released (app_settings signing_hold_ica3): Neal is confirming with the
+//               owner before it goes to everyone (2026-11-19). While held, every send is refused.
 //
 // Every call carries the admin PIN (the same per-person PINs as the Regional Managers
 // page, CCG regional-admin-pin) and is re-checked here: the page holds phones, emails
@@ -16,6 +19,7 @@
 //   POST { pin, action:'resend', doc, ids:[trainee_id] }       → { ok, results:[…] }
 //   POST { pin, action:'copy_to', doc, emails:[…] }            → { ok, copy_to }
 //   POST { pin, action:'contact', id, phone, email }           → { ok, contact }   (send-to override)
+//   POST { pin, action:'hold', doc:'ica3', hold:true|false }      → { ok, held }      (release / re-hold the send)
 //   POST { pin, action:'sms_help', id }                        → { ok, blocked, from_number, last }  ("not getting texts")
 //
 // Resends are logged (app_settings signing_sends) so the trail shows every send.
@@ -27,6 +31,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from './_email.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { adminVerify } from './_admin-auth.js'
+import { ICA_V3_SINCE, NOT_A_FIELD_REP } from './_ica-v3.js'
 
 const BUCKET = 'trainee-docs'
 const PIN_URL = 'https://free-roof-inspections.netlify.app/.netlify/functions/regional-admin-pin'
@@ -42,6 +47,19 @@ export const DOCS = {
     sms: (first, link, firstTime) => `Hi ${first}, this is the corporate office. ${firstTime ? 'Please sign' : 'You still need to sign'} the Draw Program and Inspection Compensation Plan — it takes two minutes and two signatures: ${link}\nYour signed copy goes to Jenn automatically.`,
     subject: 'Please sign: Draw Program + Inspection Compensation Plan',
     email: 'You still need to sign the <b>Draw Program</b> and the <b>Inspection Compensation Plan</b>. It takes two minutes and two signatures. Your signed copy goes to Jenn automatically.',
+  },
+  // The NEW Independent Contractor Agreement for reps hired before v3 went into onboarding
+  // (Neal, 2026-11-19). Exhibit A now carries the Draw Program and Inspection Program, so it
+  // replaces the separate pay documents. Held until the owner OKs a company-wide send.
+  ica3: {
+    title: 'NEW Independent Contractor Agreement (v3, with Exhibit A)',
+    blurb: 'For every active rep who signed the old agreement. Exhibit A (pay, Draw Program, Inspection Program) is built in, so the separate pay documents are no longer needed. Reps who signed v3 at onboarding (11/16 on) show as signed already.',
+    default_copy_to: ['JennV@shingleusa.com'],
+    holdable: true,
+    path: (t) => `/sign-ica/${t}`,
+    sms: (first, link, firstTime) => `Hi ${first}, this is the corporate office. ${firstTime ? 'We have' : 'Reminder: please sign'} an updated Independent Contractor Agreement. Exhibit A (your pay schedule) is now part of it. Please read and sign it here, it takes about five minutes: ${link}`,
+    subject: 'Please sign: updated Independent Contractor Agreement',
+    email: 'We have an updated <b>Independent Contractor Agreement</b>. <b>Exhibit A</b> (your pay schedule, including the Draw Program and the Inspection Program) is now part of it. Please read it and sign. It takes about five minutes.',
   },
   onboarding: {
     title: 'Day-1 paperwork: W-9 + Independent Contractor Agreement',
@@ -125,6 +143,20 @@ export const handler = async (event) => {
     } catch (e) { return json(200, { ok: false, error: `Couldn’t check GoHighLevel: ${e.message}` }) }
   }
 
+  // HOLD (Neal, 2026-11-19): a document marked holdable cannot be sent to anyone until it
+  // is released here. Missing setting = held, so it is safe by default.
+  const isHeld = async (key) => DOCS[key]?.holdable ? (await getSetting(sb, `signing_hold_${key}`, true)) !== false : false
+  if (body.action === 'hold') {
+    const doc = DOCS[body.doc]
+    if (!doc?.holdable) return json(400, { ok: false, error: 'That document cannot be held.' })
+    const held = body.hold !== false
+    await putSetting(sb, `signing_hold_${body.doc}`, held)
+    const log = await getSetting(sb, 'signing_hold_log', [])
+    log.push({ doc: body.doc, held, by: who, at: new Date().toISOString() })
+    await putSetting(sb, 'signing_hold_log', log.slice(-50))
+    return json(200, { ok: true, held })
+  }
+
   if (body.action === 'copy_to') {
     const doc = DOCS[body.doc]
     if (!doc) return json(400, { ok: false, error: 'unknown document' })
@@ -136,6 +168,7 @@ export const handler = async (event) => {
   if (body.action === 'resend') {
     const doc = DOCS[body.doc]
     if (!doc) return json(400, { ok: false, error: 'unknown document' })
+    if (await isHeld(body.doc)) return json(409, { ok: false, error: 'This document is ON HOLD. Nothing was sent. Release it first (the 🔒 button at the top of its card).' })
     const ids = (body.ids || []).map(String).slice(0, 100)
     const { data: people } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').in('id', ids)
     const results = []
@@ -195,6 +228,48 @@ export const handler = async (event) => {
     }))
     out.push({ key: 'comp', title: DOCS.comp.title, blurb: DOCS.comp.blurb, copy_to: await getSetting(sb, 'signing_copy_to_comp', DOCS.comp.default_copy_to), reps })
   } catch (e) { out.push({ key: 'comp', title: DOCS.comp.title, error: e.message, reps: [] }) }
+
+  // ICA v3 RE-SIGN — every active field rep (same office exclusions as the pay-documents
+  // audit). Already signed v3 = signed it at Day-1 onboarding on/after ICA_V3_SINCE, or here.
+  try {
+    const { data: tr } = await sb.from('trainees')
+      .select('id, first_name, last_name, phone, email, company_email, registration_token, left_company_at, dropped_out_at, declined_at')
+      .eq('is_active_sales_rep', true).order('first_name')
+    const live = (tr || []).filter((t) => !t.left_company_at && !t.dropped_out_at && !t.declined_at
+      && !NOT_A_FIELD_REP.has(`${t.first_name || ''} ${t.last_name || ''}`.trim().toLowerCase()))
+    const ids = live.map((t) => t.id)
+    const { data: ob } = ids.length ? await sb.from('trainee_onboarding').select('trainee_id, signed_at').in('trainee_id', ids) : { data: [] }
+    const obById = new Map((ob || []).map((r) => [r.trainee_id, r]))
+    const { data: rs } = await sb.from('app_settings').select('key, value').like('key', 'ica_v3_resign_%')
+    const rec = new Map()
+    for (const r of rs || []) { try { rec.set(r.key.slice('ica_v3_resign_'.length), typeof r.value === 'string' ? JSON.parse(r.value) : r.value) } catch { /* skip */ } }
+    const reps = []
+    for (const t of live) {
+      const o = rec.get(t.id) || {}
+      const atOnboarding = obById.get(t.id)?.signed_at && Date.parse(obById.get(t.id).signed_at) >= Date.parse(ICA_V3_SINCE) ? obById.get(t.id).signed_at : null
+      const sent = (sends.ica3 || {})[t.id] || []
+      const state = (o.signed_at || atOnboarding) ? 'signed' : o.opened_at ? 'opened' : sent.length ? 'not_opened' : 'not_sent'
+      let pdf = null
+      if (o.pdf_path) { const { data: su } = await sb.storage.from(BUCKET).createSignedUrl(o.pdf_path, 3600); pdf = su?.signedUrl || null }
+      reps.push({
+        id: t.id, name: `${t.first_name || ''} ${t.last_name || ''}`.trim(), group: atOnboarding && !o.signed_at ? 'Signed v3 at onboarding' : 'Field rep',
+        phone: contacts[t.id]?.phone || t.phone, email: contacts[t.id]?.email || t.company_email || t.email,
+        on_file: { phone: t.phone, email: t.company_email || t.email }, override: contacts[t.id] || null,
+        state, pdf, pdf_error: o.pdf_error || null,
+        link: t.registration_token ? `${SITE}/sign-ica/${t.registration_token}?preview=1` : null,
+        trail: [
+          ...sent.map((x) => ({ at: x.at, what: `Sent by ${x.by} (${[x.sms && `text to ${x.to_phone || '?'}`, x.email && `email to ${x.to_email || '?'}`].filter(Boolean).join(' + ') || 'failed'})` })),
+          ...(o.opened_at ? [{ at: o.opened_at, what: 'Opened the link' }] : []),
+          ...(o.signed_at ? [{ at: o.signed_at, what: 'Signed: copy emailed to the office' }] : []),
+          ...(atOnboarding ? [{ at: atOnboarding, what: 'Signed the v3 agreement at Day-1 onboarding' }] : []),
+          ...(contacts[t.id] ? [{ at: contacts[t.id].at, what: `Send-to changed by ${contacts[t.id].by}: ${[contacts[t.id].phone, contacts[t.id].email].filter(Boolean).join(' · ')}` }] : []),
+        ].sort((x, y) => String(x.at).localeCompare(String(y.at))),
+      })
+    }
+    const order = { opened: 0, not_opened: 1, not_sent: 2, signed: 3 }
+    reps.sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name))
+    out.push({ key: 'ica3', title: DOCS.ica3.title, blurb: DOCS.ica3.blurb, held: await isHeld('ica3'), copy_to: await getSetting(sb, 'signing_copy_to_ica3', DOCS.ica3.default_copy_to), reps })
+  } catch (e) { out.push({ key: 'ica3', title: DOCS.ica3.title, error: e.message, reps: [] }) }
 
   // ONBOARDING — everyone sent the Day-1 link in the last 150 days who is still with us.
   try {

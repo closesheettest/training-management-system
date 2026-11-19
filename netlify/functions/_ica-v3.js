@@ -9,3 +9,10 @@
 // `_`-prefixed helper module — not a Netlify endpoint.
 export const ICA_V3_SINCE = '2026-11-16T16:15:00Z'
 export const payCoveredByIca = (signedAt) => !!signedAt && Date.parse(signedAt) >= Date.parse(ICA_V3_SINCE)
+
+// People who carry is_active_sales_rep but are NOT field reps on the rep agreement (office, trainer,
+// setter). Moved here from comp-agreement-audit so the v3 re-sign roster on /signing-docs uses the
+// same list (Neal, 2026-11-19).
+export const NOT_A_FIELD_REP = new Set([
+  'neal scoppe', 'jennifer vongraupen', 'dewayne kohrn', 'nikki macella', 'william hernandez', 'dustin hunt',
+])

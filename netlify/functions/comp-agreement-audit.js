@@ -18,7 +18,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 
-import { payCoveredByIca } from './_ica-v3.js'
+import { payCoveredByIca, NOT_A_FIELD_REP } from './_ica-v3.js'
 import { createClient } from '@supabase/supabase-js'
 
 const BUCKET = 'trainee-docs'
@@ -38,14 +38,7 @@ const json = (code, obj) => ({
 // to sign (Neal, 2026-09-11). Excluded here so he stops counting as outstanding
 // and is never nudged; the flag itself is left alone because other reports read
 // it and turning it off would quietly change them too.
-const NOT_A_FIELD_REP = new Set([
-  'neal scoppe', 'jennifer vongraupen', 'dewayne kohrn', 'nikki macella', 'william hernandez',
-  // Dustin Hunt books inbound calls as a setter; he is not on the rep comp plan
-  // either (Neal, 2026-09-11). Six people now carry is_active_sales_rep without
-  // being field reps, which is the flag's problem rather than this list's — a
-  // separate field-rep flag would stop every future send needing this list.
-  'dustin hunt',
-])
+// NOT_A_FIELD_REP now lives in _ica-v3.js (same names: Neal, Jenn, DeWayne, Nikki, William, Dustin).
 
 export const handler = async () => {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY
@@ -116,13 +109,20 @@ export const handler = async () => {
     .select('trainee_id, signed_at, comp_opened_at, comp_draw_signed_at, comp_plan_signed_at, comp_signed_at, comp_agreement_pdf_path, comp_pdf_error')
     .in('trainee_id', everyone.map((r) => r.id))
   const byId = new Map((rows || []).map((r) => [r.trainee_id, r]))
+  // Reps who re-signed the v3 agreement from /sign-ica (Neal, 2026-11-19) have the draw + inspection
+  // pay in its Exhibit A too, so they are covered the same as a v3 onboarding signer.
+  const { data: resign } = await supabase.from('app_settings').select('key, value').like('key', 'ica_v3_resign_%')
+  const resignedAt = new Map()
+  for (const r of resign || []) {
+    try { const v = typeof r.value === 'string' ? JSON.parse(r.value) : r.value; if (v?.signed_at) resignedAt.set(r.key.slice('ica_v3_resign_'.length), v.signed_at) } catch { /* skip */ }
+  }
 
   const out = []
   for (const r of everyone) {
     const o = byId.get(r.id) || {}
     const draw = !!o.comp_draw_signed_at, plan = !!o.comp_plan_signed_at
     // v3 ICA signers (2026-11-16 on) signed the draw + inspection pay inside Exhibit A, so they are not missing it (Neal 11/16).
-    const inIca = !o.comp_signed_at && payCoveredByIca(o.signed_at)
+    const inIca = !o.comp_signed_at && (payCoveredByIca(o.signed_at) || resignedAt.has(r.id))
     const state = (o.comp_signed_at || inIca) ? 'signed' : (draw || plan) ? 'partial' : o.comp_opened_at ? 'opened' : 'not_opened'
     // A signed PDF is the rep's own pay document — hand back a short-lived link
     // rather than a permanent public URL.
@@ -141,7 +141,7 @@ export const handler = async () => {
       draw_signed_at: o.comp_draw_signed_at || null,
       plan_signed_at: o.comp_plan_signed_at || null,
       opened_at: o.comp_opened_at || null,
-      signed_at: o.comp_signed_at || (inIca ? o.signed_at : null),
+      signed_at: o.comp_signed_at || (inIca ? (payCoveredByIca(o.signed_at) ? o.signed_at : resignedAt.get(r.id)) : null),
       in_ica: inIca,
       pdf,
       // A signature saved with no document behind it is the failure worth seeing,
