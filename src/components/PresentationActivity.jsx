@@ -12,10 +12,11 @@ const etTime = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { timeZone:
 const SECTIONS = [
   ['Why U.S. Shingle', 1, 1], ['License', 2, 2], ['Insurance', 3, 3], ['Must Replace Your Roof', 4, 4],
   ['Chuck in the Truck', 5, 5], ['Why Replace Today', 6, 7], ['What We Offer', 8, 8], ['Our Installation Process', 9, 9],
-  ['Shingles & Colors', 10, 22], ['Warranty', 23, 23], ['Energy Saver Package', 24, 28], ['How Can I Pay', 29, 29],
-  ['The Big Reveal', 30, 30], ['More Estimates', 31, 31],
+  ['Shingles & Colors', 10, 22], ['Warranty', 23, 23], ['How Can I Pay', 24, 24],
+  ['The Big Reveal', 25, 25], ['More Estimates', 26, 26],
 ]
-const N = 31
+// 26 slides since the 11/18 deck (Energy Saver Package removed, Neal 2026-11-19). Sessions before then used 31.
+const N = 26
 const section = (n) => (SECTIONS.find(([, a, b]) => n >= a && n <= b) || [''])[0]
 
 // managerToken: on a regional manager's dashboard — loads through regional-manager-api,

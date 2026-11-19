@@ -327,17 +327,16 @@ export const DECK = [
   { page: 8, script: 'Slide 8', seen: 'What can we offer: asphalt shingle, tile, metal (exposed fastener and standing seam) and more.' },
   { page: 9, script: 'Slide 9', seen: 'Our installation process: permits, photos, jobsite foreman, dump trailer or dumpster, full tear-off, peel-and-stick underlayment, rotted wood, cleanup, final walk-through.' },
   { page: 10, script: 'Slide 10', seen: 'Shingle color charts (GAF Timberline HDZ).' },
-  { page: 11, script: 'Slide 11', seen: '“Wide variety of colors to choose from.”' },
-  { page: 12, script: 'Slide 11', seen: 'Metal roof color chart with emissivity ratings.' },
-  // Pages 13–21 are install photos. The script's slide 12 (Permalock) has no page:
-  // we no longer offer Permalock (Neal, 25 Sep), so it is never mentioned.
-  ...[13, 14, 15, 16, 17, 18, 19, 20, 21].map((p) => ({ page: p, script: 'Slides 13–14', seen: 'Photos of finished U.S. Shingle metal-roof installs on real homes.' })),
+  // 11/18 deck (Neal 2026-11-19): page 11 is now the metal color chart itself; pages 12–21 are install photos.
+  { page: 11, script: 'Slide 11', seen: 'Metal roof color chart: exposed fastener and standing seam colors.' },
+  // The script's slide 12 (Permalock) has no page: we no longer offer Permalock (Neal, 25 Sep), so it is never mentioned.
+  ...[12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((p) => ({ page: p, script: 'Slides 13–14', seen: 'Photos of finished U.S. Shingle metal-roof installs on real homes.' })),
   { page: 22, script: 'Slide 15', seen: 'Jobsite prep: a tarp where the dump trailer goes, plywood protecting the garage door.' },
   { page: 23, script: 'Slide 16', seen: 'Our product and company warranty: free 10-year no-leak guarantee, transfers if you sell.' },
-  ...[24, 25, 26, 27, 28].map((p) => ({ page: p, script: 'Slides 17–21', seen: 'Energy Saver Package: attic heat, ductwork in the attic, R-38 insulation, duct sealing, radiant barrier.' })),
-  { page: 29, script: 'Slide 22', seen: 'How can I pay: cash or credit card (3% fee), financing, no-credit-score options in certain areas (PACE), same-as-cash.' },
-  { page: 30, script: 'Slide 23 — Ask for the business', seen: '“Ok, here we are. Time for the big reveal.” The rep is going to the assessment sheet with prices.' },
-  { page: 31, script: 'More estimates (rep’s rebuttal)', seen: 'This slide is the rep’s own notes. Treat it as if the rep is looking at their notes; do not react to it.' },
+  // Energy Saver Package pages (old 24–28) removed from the 11/18 deck (Neal 2026-11-19).
+  { page: 24, script: 'Slide 22', seen: 'How can I pay: cash or credit card (3% fee), financing, no-credit-score options in certain areas (PACE), same-as-cash.' },
+  { page: 25, script: 'Slide 23 — Ask for the business', seen: '“Ok, here we are. Time for the big reveal.” The rep is going to the assessment sheet with prices.' },
+  { page: 26, script: 'More estimates (rep’s rebuttal)', seen: 'This slide is the rep’s own notes. Treat it as if the rep is looking at their notes; do not react to it.' },
 ]
 export const slideSrc = (page) => `/practice-slides/s-${String(page).padStart(2, '0')}.jpg`
 
