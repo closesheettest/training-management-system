@@ -85,6 +85,17 @@ export default function HarvesterPayCard() {
     if (!d.ok) { window.alert(d.error || 'Could not save'); return }
     load()
   }
+  // ✏️ EDIT THE NOTE on a credit (Neal, 2026-11-19: "I want to be able to go in here and edit the note").
+  async function editReason(o) {
+    const why = window.prompt('Why is the harvester paid on this one?', o.reason || '')
+    if (why === null || why.trim() === (o.reason || '')) return
+    if (!why.trim()) { window.alert('The note can\'t be blank.'); return }
+    setOvBusy(o.id)
+    const d = await ovrPost({ action: 'edit_reason', id: o.id, reason: why.trim() })
+    setOvBusy('')
+    if (!d.ok) { window.alert(d.error || 'Could not save'); return }
+    load()
+  }
   // ✅ PAY HARVESTER, NO CHARGE (Neal, 2026-11-17: Bob Watson, the homeowner was home but the rep chose not to present.
   // "That should not count against the harvester, but the rep shouldn't be charged for it either.")
   async function markHarvesterPay(a) {
@@ -226,7 +237,7 @@ export default function HarvesterPayCard() {
                           <td>{a.reversed ? <div><span className="font-bold text-slate-500">Reversed</span><div className="text-[11px] text-slate-500">not paid{a.override?.by ? ` · by ${a.override.by}` : ''}</div>{a.override?.id && <button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button>}</div>
                             : a.sat_earlier ? <span className="text-slate-400">{a.upcoming ? 'go-back · ' : ''}sat earlier, paid then</span>
                             : a.upcoming ? <span className="text-slate-400">upcoming</span>
-                            : a.override ? <div><span className="font-bold text-emerald-700">✓ Credited as sat</span>{a.override.kind === 'harvester_pay' ? <div className="text-[11px] text-slate-600">harvester paid · no charge to the rep</div> : <div className="text-[11px] text-red-700">rep no-show: $500 to {a.override.rep || 'rep'}</div>}{a.override.reason && <div className="max-w-[14rem] text-[11px] italic text-slate-600">💬 {a.override.reason}{a.override.by ? ` (${a.override.by})` : ''}</div>}<button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button>{revBtn(a)}</div>
+                            : a.override ? <div><span className="font-bold text-emerald-700">✓ Credited as sat</span>{a.override.kind === 'harvester_pay' ? <div className="text-[11px] text-slate-600">harvester paid · no charge to the rep</div> : <div className="text-[11px] text-red-700">rep no-show: $500 to {a.override.rep || 'rep'}</div>}{a.override.reason && <div className="max-w-[14rem] text-[11px] italic text-slate-600">💬 {a.override.reason}{a.override.by ? ` (${a.override.by})` : ''}</div>}<button type="button" disabled={!!ovBusy} onClick={() => editReason(a.override)} className="mr-2 text-[11px] text-blue-700 underline">✏️ edit note</button><button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button>{revBtn(a)}</div>
                             : a.sat ? <div><span className="font-bold text-emerald-700">✓ Sat</span>{a.sat_note && <div className="text-[11px] text-slate-500">{a.sat_note}</div>}</div>
                             : a.paid_on_override ? <span className="text-slate-400">counted as a sit earlier</span>
                             : <div><span className="text-red-600">No</span>{a.jn_job_id && a.rep && <div><button type="button" disabled={!!ovBusy} onClick={() => markNoShow(a)} className="mt-0.5 whitespace-nowrap rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">{ovBusy === a.jn_job_id ? 'Saving…' : '🚫 Rep didn\'t go'}</button></div>}{a.jn_job_id && <div><button type="button" disabled={!!ovBusy} onClick={() => markHarvesterPay(a)} title="Homeowner was home, the rep didn't present: pay the harvester, no charge to the rep" className="mt-0.5 whitespace-nowrap rounded border border-emerald-300 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✅ Pay harvester</button></div>}</div>}</td>
