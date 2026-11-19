@@ -40,6 +40,24 @@ export default function HarvesterPayCard() {
   const [ovBusy, setOvBusy] = useState('')
   const [openRow, setOpenRow] = useState('')
   const [notes, setNotes] = useState({})   // jn_job_id → { busy, list, err }
+  // ✏️ Change the JobNimbus status right here (Neal, 2026-11-18: "I want to have the ability to change the status from
+  // here"). Tap the status → the job's own statuses load from JobNimbus → pick one → saved to JobNimbus with a note.
+  const [stEdit, setStEdit] = useState(null)   // { key, jnid, busy, list, err }
+  async function openStatus(key, jnid) {
+    if (stEdit?.key === key) { setStEdit(null); return }
+    setStEdit({ key, jnid, busy: true })
+    const d = await ovrPost({ action: 'statuses', jn_job_id: jnid })
+    setStEdit(d.ok ? { key, jnid, list: d.statuses, current: d.current } : { key, jnid, err: d.error || 'Could not load the statuses' })
+  }
+  async function saveStatus(a, status) {
+    if (!status || status === stEdit?.current) { setStEdit(null); return }
+    if (!window.confirm(`Change ${a.customer || 'this job'} to "${status}" in JobNimbus?`)) return
+    setStEdit((v) => ({ ...v, busy: true }))
+    const d = await ovrPost({ action: 'set_status', jn_job_id: a.jn_job_id, status })
+    if (!d.ok) { setStEdit((v) => ({ ...v, busy: false, err: d.error || 'Could not save' })); return }
+    setStEdit(null)
+    load()
+  }
   async function openNotes(key, jnid) {
     if (openRow === key) { setOpenRow(''); return }
     setOpenRow(key)
@@ -172,14 +190,27 @@ export default function HarvesterPayCard() {
                     <tbody>
                       {w.appts.map((a, i) => { const key = `${w.week_start}_${i}`, nn = notes[a.jn_job_id]; return (
                         <Fragment key={i}>
-                        <tr onClick={(e) => { if (!e.target.closest('button')) openNotes(key, a.jn_job_id) }} title="Tap to see the JobNimbus notes" className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50 ${openRow === key ? 'bg-slate-50' : ''}`}>
+                        <tr onClick={(e) => { if (!e.target.closest('button, select')) openNotes(key, a.jn_job_id) }} title="Tap to see the JobNimbus notes" className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50 ${openRow === key ? 'bg-slate-50' : ''}`}>
                           {/* Booked + Assigned to (Neal, 2026-11-07): when William made it, and which rep runs it. */}
                           <td className="py-1 pr-2 whitespace-nowrap">{a.booked_when || '—'}</td>
                           <td className="pr-2 whitespace-nowrap">{a.when}{a.rescheduled_to && <div className="text-amber-700">rescheduled → {a.rescheduled_to}</div>}{a.rescheduled_from && <div className="text-slate-400">rescheduled from {a.rescheduled_from}</div>}</td>
                           <td className="pr-2">{a.customer}<div className="text-slate-400">{a.address}</div></td>
                           <td className="pr-2 whitespace-nowrap">{a.rep || <span className="font-semibold text-amber-700">Not assigned</span>}</td>
                           <td className="pr-2">{a.source}</td>
-                          <td className="pr-2">{a.status}</td>
+                          <td className="pr-2">
+                            {stEdit?.key === key ? (
+                              stEdit.busy ? <span className="text-slate-400">…</span>
+                              : stEdit.err ? <div><span className="text-red-600">{stEdit.err}</span> <button type="button" onClick={() => setStEdit(null)} className="text-[11px] underline">close</button></div>
+                              : <div className="flex items-center gap-1">
+                                  <select autoFocus defaultValue={stEdit.current} onChange={(e) => saveStatus(a, e.target.value)} className="max-w-[11rem] rounded border border-slate-300 px-1 py-0.5 text-xs">
+                                    {stEdit.list.map((x) => <option key={x} value={x}>{x}</option>)}
+                                  </select>
+                                  <button type="button" onClick={() => setStEdit(null)} className="text-[11px] text-slate-500 underline">cancel</button>
+                                </div>
+                            ) : (
+                              <div>{a.status}{a.jn_job_id && <div><button type="button" onClick={() => openStatus(key, a.jn_job_id)} title="Change this job's status in JobNimbus" className="mt-0.5 text-[11px] text-blue-700 underline">✏️ change</button></div>}</div>
+                            )}
+                          </td>
                           <td>{a.reversed ? <div><span className="font-bold text-slate-500">Reversed</span><div className="text-[11px] text-slate-500">not paid{a.override?.by ? ` · by ${a.override.by}` : ''}</div>{a.override?.id && <button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button>}</div>
                             : a.sat_earlier ? <span className="text-slate-400">{a.upcoming ? 'go-back · ' : ''}sat earlier, paid then</span>
                             : a.upcoming ? <span className="text-slate-400">upcoming</span>
