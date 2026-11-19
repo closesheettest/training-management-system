@@ -71,6 +71,7 @@ export default function SignIca() {
 
   return (
     <Shell>
+      {data.test && !preview && <p className="mb-4 rounded-md border-2 border-violet-400 bg-violet-50 p-3 text-sm font-bold text-violet-900">🧪 TEST: you are on the office list, so this signing is marked as a test. Jenn will be told it is a test.</p>}
       {preview && <p className="mb-4 rounded-md border-2 border-amber-400 bg-amber-50 p-3 text-sm font-bold text-amber-900">Office preview: this is what the rep sees. Nothing you do here is saved or signed.</p>}
       <p className="text-sm text-slate-700">
         {data.rep_name ? <>Hi <b>{data.rep_name.split(' ')[0]}</b>. </> : null}

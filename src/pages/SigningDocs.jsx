@@ -96,6 +96,13 @@ function DocCard({ d, call, reload }) {
     setBusy('')
   }
   const held = !!d.held
+  const testMe = async () => {
+    if (!window.confirm(`Send a TEST of "${d.title}" to YOU only (your own text + email)? No rep gets anything.`)) return
+    setBusy('test'); setMsg('')
+    try { const j = await call({ action: 'test_send', doc: d.key }); setMsg(`🧪 Test sent to you: ${[j.sms && `text to ${j.to_phone}`, j.email && `email to ${j.to_email}`].filter(Boolean).join(' + ') || 'nothing went out (no phone/email on file)'}`) }
+    catch (e) { setMsg(`⚠ ${e.message}`) }
+    setBusy('')
+  }
   const saveCopyTo = async () => {
     setBusy('copy'); setMsg('')
     try {
@@ -118,8 +125,9 @@ function DocCard({ d, call, reload }) {
       {d.held !== undefined && (
         <div className={`mt-3 flex flex-wrap items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm ${held ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-emerald-400 bg-emerald-50 text-emerald-900'}`}>
           <span className="font-bold">{held ? '🔒 ON HOLD: nothing can be sent until the owner OKs it.' : '🔓 Released for sending.'}</span>
+          <button type="button" disabled={busy === 'test'} onClick={testMe} className="ml-auto rounded-md border border-violet-500 bg-white px-3 py-1 text-xs font-bold text-violet-700">{busy === 'test' ? 'Sending…' : '🧪 Send a test to me'}</button>
           <button type="button" disabled={busy === 'hold'} onClick={() => setHold(!held)}
-            className={`ml-auto rounded-md px-3 py-1 text-xs font-bold text-white ${held ? 'bg-amber-600' : 'bg-slate-600'}`}>
+            className={`rounded-md px-3 py-1 text-xs font-bold text-white ${held ? 'bg-amber-600' : 'bg-slate-600'}`}>
             {held ? 'Owner OK’d it: release' : 'Put back on hold'}
           </button>
         </div>

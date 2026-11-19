@@ -26,6 +26,7 @@
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 import { createClient } from '@supabase/supabase-js'
 import { isHarvesterDepts } from './_ic-agreement.js'
+import { NOT_A_FIELD_REP } from './_ica-v3.js'
 import { sendSmsViaGhl as sendSms } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
@@ -56,6 +57,9 @@ export const handler = async (event) => {
 
   const repName = [t.first_name, t.last_name].filter(Boolean).join(' ')
   const harvester = isHarvesterDepts(t.departments)
+  // An office person (Neal, Jenn, DeWayne…) signing this is ALWAYS a test (Neal, 2026-11-19: "make sure
+  // that it's just a test, and if it's going to Jen, let her know"). Flagged on the record and in every message.
+  const isTest = NOT_A_FIELD_REP.has(repName.trim().toLowerCase())
   const key = resignKey(t.id)
   const getRec = async () => {
     const { data } = await sb.from('app_settings').select('value').eq('key', key).maybeSingle()
@@ -74,7 +78,7 @@ export const handler = async (event) => {
       .eq('trainee_id', t.id).maybeSingle()
     const o = ob || {}
     return json(200, {
-      ok: true, rep_name: repName, harvester, signed_at: rec.signed_at || null,
+      ok: true, rep_name: repName, harvester, test: isTest, signed_at: rec.signed_at || null,
       prefill: {
         agent_legal_name: o.agent_legal_name || repName,
         agent_phone: o.agent_phone || t.phone || '',
@@ -110,7 +114,7 @@ export const handler = async (event) => {
   const now = new Date().toISOString()
   const ip = (event.headers['x-nf-client-connection-ip'] || event.headers['client-ip']
     || String(event.headers['x-forwarded-for'] || '').split(',')[0] || '').trim() || null
-  const signed = { ...rec, ...f, signature, signed_at: now, sign_ip: ip, harvester }
+  const signed = { ...rec, ...f, signature, signed_at: now, sign_ip: ip, harvester, ...(isTest ? { test: true } : {}) }
   const { error: upErr } = await putRec(signed)
   if (upErr) return json(500, { ok: false, error: `Could not save your signature: ${upErr.message}` })
 
@@ -128,10 +132,13 @@ export const handler = async (event) => {
     // Both channels, like every other message here.
     const [smsR, emR] = await Promise.allSettled([
       sendSms(COUNTERSIGNER.phone,
-        `${repName} signed the NEW Independent Contractor Agreement (v3). It needs your signature to be complete:\n\n${link}`,
+        isTest
+          ? `🧪 TEST ONLY, nothing real: ${repName} is testing the new Independent Contractor Agreement. You can countersign to see how it works, or ignore this:\n\n${link}`
+          : `${repName} signed the NEW Independent Contractor Agreement (v3). It needs your signature to be complete:\n\n${link}`,
         { firstName: 'Training', lastName: 'System' }),
-      sendEmail(COUNTERSIGNER.email, `Countersign needed (new agreement) — ${repName}`,
-        [`${repName} has signed the new Independent Contractor Agreement (v3, with Exhibit A).`, '',
+      sendEmail(COUNTERSIGNER.email, isTest ? `🧪 TEST ONLY — new agreement test by ${repName}` : `Countersign needed (new agreement) — ${repName}`,
+        [...(isTest ? [`🧪 THIS IS A TEST. ${repName} is testing the new contractor agreement before it goes to the reps. Nothing here is real. You can countersign to see how it works, or ignore it.`, ''] : []),
+          `${repName} has signed the new Independent Contractor Agreement (v3, with Exhibit A).`, '',
           'It is not complete until U.S. Shingle signs it too, and the PDF is not created until you do.', '',
           'Sign here:', link, '', '— Training System'].join('\n')),
     ])

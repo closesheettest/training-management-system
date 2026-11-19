@@ -141,6 +141,7 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
 </style>
 <div class=c>
  <h1>Countersign for ${COMPANY.name}</h1>
+ ${row.test ? '<p style="background:#f5f3ff;border:2px solid #a78bfa;color:#4c1d95;font-weight:800;padding:10px 12px;border-radius:10px;margin:0 0 12px">🧪 TEST ONLY: this is a test of the new agreement, not a real rep. Signing it just finishes the test.</p>' : ''}
  <p class=sub><b>${agent}</b> signed ${row._kind === 'ica3' ? 'the NEW (v3) Independent Contractor Agreement' : 'their Independent Contractor Agreement'} on ${signedOn}. Read it below, then add your signature.</p>
 
  <div class=doc id=doc>${agreementHtml(row)}</div>
@@ -381,7 +382,10 @@ export const handler = async (event) => {
             already.add(String(a).toLowerCase())
             targets.push([a, `Fully executed — ${who}`, body(`${who}'s agreement is complete.`)])
           }
-          for (const [to, subject, text] of targets) {
+          for (const [to, subject0, text0] of targets) {
+            // A test signing (office person on the v3 re-sign) says so in every email (Neal, 2026-11-19).
+            const subject = row.test ? `🧪 TEST — ${subject0}` : subject0
+            const text = row.test ? `🧪 THIS IS A TEST of the new contractor agreement. Nothing here is real.\n\n${text0}` : text0
             const r = await sendEmail(to, subject, text, { attachments }).catch((e) => ({ ok: false, error: e.message }))
             if (r && r.ok) emailed.push(to)
             else console.error('countersign email failed:', to, r && r.error)

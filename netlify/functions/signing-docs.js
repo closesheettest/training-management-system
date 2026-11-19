@@ -157,6 +157,26 @@ export const handler = async (event) => {
     return json(200, { ok: true, held })
   }
 
+  // SEND A TEST TO ME (Neal, 2026-11-19). Sends this document to the signed-in admin's OWN
+  // record, even while held. Only to someone on the office list (NOT_A_FIELD_REP), so it can
+  // never reach a rep. Every message is marked TEST; the signing is flagged as a test too.
+  if (body.action === 'test_send') {
+    const doc = DOCS[body.doc]
+    if (!doc) return json(400, { ok: false, error: 'unknown document' })
+    const me = String(who || '').trim().toLowerCase()
+    if (!NOT_A_FIELD_REP.has(me)) return json(400, { ok: false, error: `Tests go only to office people, and "${who}" isn't on that list.` })
+    const { data: all } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').ilike('first_name', me.split(' ')[0])
+    const t = (all || []).find((x) => `${x.first_name || ''} ${x.last_name || ''}`.trim().toLowerCase() === me && x.registration_token)
+    if (!t) return json(400, { ok: false, error: `Couldn't find a TMS record with a link for ${who}.` })
+    const link = `${SITE}${doc.path(t.registration_token)}`
+    const first = (t.first_name || 'there').trim()
+    const sms = t.phone ? await sendSmsViaGhl(t.phone, `🧪 TEST (only you got this): ${doc.sms(first, link, true)}`, { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false }
+    const to = t.company_email || t.email
+    const html = `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5"><p style="background:#f5f3ff;border:2px solid #a78bfa;padding:10px;border-radius:8px"><b>🧪 TEST: only you got this.</b> This is exactly what reps will get.</p><p>Hi ${first},</p><p>This is the U.S. Shingle corporate office. ${doc.email}</p><p><a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Open and sign</a></p></div>`
+    const em = to ? await sendEmail(to, `🧪 TEST — ${doc.subject}`, html).catch((e) => ({ ok: false, error: e.message })) : { ok: false }
+    return json(200, { ok: true, sms: !!sms?.ok, email: !!(em && em.ok !== false), to_phone: t.phone || null, to_email: to || null })
+  }
+
   if (body.action === 'copy_to') {
     const doc = DOCS[body.doc]
     if (!doc) return json(400, { ok: false, error: 'unknown document' })
