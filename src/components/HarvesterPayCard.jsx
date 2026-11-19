@@ -110,6 +110,8 @@ export default function HarvesterPayCard() {
     if (!d.ok) { window.alert(d.error || 'Could not save'); return }
     load()
   }
+  // ↩ REVERSAL only where WE paid it (Neal, 2026-11-19: on real Sit - Pending / Sit - No Sale rows it "makes it look like
+  // we manipulated all of them"). Shown on a manual Pay harvester / Rep didn't go credit only, never on a real sit.
   const revBtn = (a) => a.jn_job_id ? <div><button type="button" disabled={!!ovBusy} onClick={() => reverse(a)} title="The office says the harvester isn't paid on this one" className="mt-0.5 whitespace-nowrap rounded border border-slate-300 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">↩ Reversal</button></div> : null
   async function undoNoShow(id) {
     if (!window.confirm('Undo this? The harvester loses the sit (and any $500 charge to the rep is removed).')) return
@@ -225,7 +227,7 @@ export default function HarvesterPayCard() {
                             : a.sat_earlier ? <span className="text-slate-400">{a.upcoming ? 'go-back · ' : ''}sat earlier, paid then</span>
                             : a.upcoming ? <span className="text-slate-400">upcoming</span>
                             : a.override ? <div><span className="font-bold text-emerald-700">✓ Credited as sat</span>{a.override.kind === 'harvester_pay' ? <div className="text-[11px] text-slate-600">harvester paid · no charge to the rep</div> : <div className="text-[11px] text-red-700">rep no-show: $500 to {a.override.rep || 'rep'}</div>}{a.override.reason && <div className="max-w-[14rem] text-[11px] italic text-slate-600">💬 {a.override.reason}{a.override.by ? ` (${a.override.by})` : ''}</div>}<button type="button" disabled={!!ovBusy} onClick={() => undoNoShow(a.override.id)} className="text-[11px] text-slate-500 underline">undo</button>{revBtn(a)}</div>
-                            : a.sat ? <div><span className="font-bold text-emerald-700">✓ Sat</span>{a.sat_note && <div className="text-[11px] text-slate-500">{a.sat_note}</div>}{revBtn(a)}</div>
+                            : a.sat ? <div><span className="font-bold text-emerald-700">✓ Sat</span>{a.sat_note && <div className="text-[11px] text-slate-500">{a.sat_note}</div>}</div>
                             : a.paid_on_override ? <span className="text-slate-400">counted as a sit earlier</span>
                             : <div><span className="text-red-600">No</span>{a.jn_job_id && a.rep && <div><button type="button" disabled={!!ovBusy} onClick={() => markNoShow(a)} className="mt-0.5 whitespace-nowrap rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">{ovBusy === a.jn_job_id ? 'Saving…' : '🚫 Rep didn\'t go'}</button></div>}{a.jn_job_id && <div><button type="button" disabled={!!ovBusy} onClick={() => markHarvesterPay(a)} title="Homeowner was home, the rep didn't present: pay the harvester, no charge to the rep" className="mt-0.5 whitespace-nowrap rounded border border-emerald-300 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">✅ Pay harvester</button></div>}</div>}</td>
                         </tr>
