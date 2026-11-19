@@ -258,9 +258,10 @@ export const handler = async (event) => {
   // audit). Already signed v3 = signed it at Day-1 onboarding on/after ICA_V3_SINCE, or here.
   try {
     const { data: tr } = await sb.from('trainees')
-      .select('id, first_name, last_name, phone, email, company_email, registration_token, left_company_at, dropped_out_at, declined_at')
+      .select('id, first_name, last_name, phone, email, company_email, registration_token, left_company_at, dropped_out_at, declined_at, rep_level')
       .eq('is_active_sales_rep', true).order('first_name')
-    const live = (tr || []).filter((t) => !t.left_company_at && !t.dropped_out_at && !t.declined_at
+    // rep_level 'non_field' = office / not a field rep (Neal, 2026-11-19: Brent Davidson "is not an active sales rep").
+    const live = (tr || []).filter((t) => !t.left_company_at && !t.dropped_out_at && !t.declined_at && t.rep_level !== 'non_field'
       && !NOT_A_FIELD_REP.has(`${t.first_name || ''} ${t.last_name || ''}`.trim().toLowerCase()))
     const ids = live.map((t) => t.id)
     const { data: ob } = ids.length ? await sb.from('trainee_onboarding').select('trainee_id, signed_at').in('trainee_id', ids) : { data: [] }
