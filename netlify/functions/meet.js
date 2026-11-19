@@ -1095,34 +1095,44 @@ export const handler = async (event) => {
       return json(200, { ok: true, people: all, contacts })
     }
     // call_start
-    const to = b.to || {}
-    let invitee = null, name = ''
-    if (to.id) {
-      const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(to.id)).maybeSingle()
-      if (!t || !t.registration_token) return json(400, { ok: false, error: "Can't call that person (no TMS link)." })
-      if (digits(t.phone).length !== 10 && !(t.company_email || t.email)) return json(400, { ok: false, error: `${fullName(t)} has no cell or email in TMS, so there's nothing to send the link to. Add their cell in TMS, or type their name + cell under "Someone else".` })
-      to.cell = digits(t.phone)
-      invitee = { id: t.id }; name = fullName(t)
-    } else {
-      name = String(to.name || '').trim().slice(0, 60)
-      if (!name || digits(to.phone).length !== 10) return json(400, { ok: false, error: 'Pick someone, or type a name and a 10-digit cell.' })
-      invitee = { key: crypto.randomBytes(6).toString('base64url'), name, phone: String(to.phone).trim().slice(0, 20), email: String(to.email || '').trim().toLowerCase().slice(0, 120) }
-      to.cell = digits(to.phone)
-      // ➕ New person + "Add to my contacts" ticked → saved to the caller's list (one per phone / email).
-      if (b.save_contact) {
-        const k = contactsKey(caller)
-        let cur = (await getSetting(k, null)) || []
-        if (!cur.length && /^neal/i.test(caller)) cur = (await getSetting('meet_contacts', [])) || []
-        const same = (c) => (invitee.email && String(c.email || '').toLowerCase() === invitee.email) || (digits(c.phone) && digits(c.phone) === to.cell)
-        if (!cur.some(same)) { cur.push({ name, phone: invitee.phone || null, email: invitee.email || null }); await putSetting(k, cur) }
+    // 👥 SEVERAL PEOPLE AT ONCE (Neal, 2026-11-19: "a meeting with Dwayne and Nikki, and we can all be hosts … it only
+    // allows you to select one person"). b.tos = up to 10 people (b.to still works for one); b.all_hosts = everyone
+    // picked gets the host controls too, not just the caller.
+    const tos = (Array.isArray(b.tos) && b.tos.length ? b.tos : [b.to || {}]).slice(0, 10)
+    const invitees = [], names = [], cells = [], hostIds = []
+    for (const to of tos) {
+      let invitee = null, name = ''
+      if (to.id) {
+        const { data: t } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').eq('id', String(to.id)).maybeSingle()
+        if (!t || !t.registration_token) return json(400, { ok: false, error: "Can't call that person (no TMS link)." })
+        if (digits(t.phone).length !== 10 && !(t.company_email || t.email)) return json(400, { ok: false, error: `${fullName(t)} has no cell or email in TMS, so there's nothing to send the link to. Add their cell in TMS, or type their name + cell under "Someone else".` })
+        to.cell = digits(t.phone)
+        invitee = { id: t.id }; name = fullName(t)
+        if (b.all_hosts) hostIds.push(t.id)
+      } else {
+        name = String(to.name || '').trim().slice(0, 60)
+        if (!name || digits(to.phone).length !== 10) return json(400, { ok: false, error: 'Pick someone, or type a name and a 10-digit cell.' })
+        invitee = { key: crypto.randomBytes(6).toString('base64url'), name, phone: String(to.phone).trim().slice(0, 20), email: String(to.email || '').trim().toLowerCase().slice(0, 120), ...(b.all_hosts ? { host: true } : {}) }
+        to.cell = digits(to.phone)
+        // ➕ New person + "Add to my contacts" ticked → saved to the caller's list (one per phone / email).
+        if (b.save_contact) {
+          const k = contactsKey(caller)
+          let cur = (await getSetting(k, null)) || []
+          if (!cur.length && /^neal/i.test(caller)) cur = (await getSetting('meet_contacts', [])) || []
+          const same = (c) => (invitee.email && String(c.email || '').toLowerCase() === invitee.email) || (digits(c.phone) && digits(c.phone) === to.cell)
+          if (!cur.some(same)) { cur.push({ name, phone: invitee.phone || null, email: invitee.email || null }); await putSetting(k, cur) }
+        }
       }
+      if (invitees.some((x) => (x.id && x.id === invitee.id) || (x.key && digits(x.phone) === to.cell))) continue
+      invitees.push(invitee); names.push(name); cells.push(to.cell || '')
     }
+    const name = names.join(', ')
     const start = new Date(Date.now() - 60000)
     const p2 = (n) => String(n).padStart(2, '0')
     const hm = start.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })
     const once = `${etDay(start.getTime())}T${hm.slice(0, 2)}:${p2(hm.slice(3, 5))}`
     const callerFirst = String(caller).split(' ')[0]
-    const room = { title: `📞 ${callerFirst} ↔ ${name.split(' ')[0]}`, kind: 'oneoff', call: true, look: 'team', topic: '', cameras_required: false, once: [once], minutes: 60, invitees: [invitee], hosts: [String(caller)],
+    const room = { title: `📞 ${callerFirst} ↔ ${names.map((n) => n.split(' ')[0]).join(' · ')}`, kind: 'oneoff', call: true, look: 'team', topic: '', cameras_required: false, once: [once], minutes: 60, invitees, hosts: [String(caller)], ...(hostIds.length ? { host_ids: hostIds } : {}),
       // ⏺ Record this call to my computer (Neal, 2026-10-06), with the file name typed on the call form.
       ...(b.record ? { recording_enabled: true, rec_where: 'host', rec_name: String(b.rec_name || '').replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 120) } : {}) }
     // Clear finished calls (over 2 days old) so Meeting Room Setup doesn't fill up with them.
@@ -1133,12 +1143,20 @@ export const handler = async (event) => {
     try {
       const saved = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'save_room', room }) })).body)
       if (!saved.ok) return json(400, saved)
+      // save_room keeps only key/name/phone/email for outside people, so their host flag goes back on here (all_hosts).
+      if (b.all_hosts && invitees.some((x) => x.key)) {
+        const all0 = await loadRooms(), rm0 = all0.find((x) => x.slug === saved.room.slug)
+        if (rm0) { const hk = new Set(invitees.filter((x) => x.key).map((x) => x.key)); rm0.invitees = (rm0.invitees || []).map((x) => (x.key && hk.has(x.key) ? { ...x, host: true } : x)); await putSetting('meet_rooms', all0) }
+      }
       // Your own words first when you typed a message (Neal, 2026-10-05), the join link under it.
       const note = String(b.note || '').trim().slice(0, 600)
       const msg = note ? `${note}\n\n📞 ${callerFirst} is calling you on video now. Tap to join: {link}` : `📞 Hi {first}, ${callerFirst} is calling you on video RIGHT NOW. Tap to join: {link}`
       const sent = JSON.parse((await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'send_links', slug: saved.room.slug, message: msg, subject: `📞 ${callerFirst} is calling you now` }) })).body)
-      const r0 = (sent.sent || [])[0] || {}
-      const cell = to.cell && to.cell.length === 10 ? `${to.cell.slice(0, 3)}-${to.cell.slice(3, 6)}-${to.cell.slice(6)}` : ''
+      const fmt = (c) => (c && c.length === 10 ? `${c.slice(0, 3)}-${c.slice(3, 6)}-${c.slice(6)}` : '')
+      // One line per person: what went out to each (the old single-person fields are the first one's).
+      const each = names.map((nm, i) => { const r = (sent.sent || []).find((x) => String(x.name || '').toLowerCase() === nm.toLowerCase()) || (sent.sent || [])[i] || {}; return { name: nm, cell: fmt(cells[i]), sms: !!r.sms, email: !!r.email } })
+      const r0 = { sms: each.some((x) => x.sms), email: each.some((x) => x.email) }
+      const cell = each.length === 1 ? each[0].cell : ''
       // A caller signed in through My Tools (not an admin PIN) gets their own seat AFTER the invite
       // went out (so they aren't texted their own call): their TMS link if they're in TMS by name,
       // else a guest key. Hosts by name, so a TMS caller is the host.
@@ -1156,7 +1174,7 @@ export const handler = async (event) => {
           await putSetting('meet_rooms', all)
         }
       }
-      return json(200, { ok: true, slug: saved.room.slug, join, name, cell, sms: !!r0.sms, email: !!r0.email })
+      return json(200, { ok: true, slug: saved.room.slug, join, name, cell, sms: !!r0.sms, email: !!r0.email, each })
     } finally { INTERNAL = false }
   }
 

@@ -27,7 +27,11 @@ function Dialer({ mt }) {
   const [tab, setTab] = useState('company')
   const [saveNew, setSaveNew] = useState(true)
   const [q, setQ] = useState('')
-  const [pick, setPick] = useState(null)
+  // 👥 Several people (Neal, 2026-11-19: "a meeting with Dwayne and Nikki … it only allows you to select one person").
+  const [picks, setPicks] = useState([])
+  const [allHosts, setAllHosts] = useState(true)
+  const has = (p) => picks.some((x) => (x.id && x.id === p.id) || (!x.id && x.name === p.name && x.phone === p.phone))
+  const toggle = (p) => { setPicks(has(p) ? picks.filter((x) => !((x.id && x.id === p.id) || (!x.id && x.name === p.name && x.phone === p.phone))) : [...picks, p].slice(0, 10)); setQ('') }
   const [other, setOther] = useState({ name: '', phone: '', email: '' })
   const [note, setNote] = useState('')
   // ⏺ Record this call to my computer + what to call the file (Neal, 2026-10-06).
@@ -39,10 +43,12 @@ function Dialer({ mt }) {
   useEffect(() => { call({ action: 'call_people', ...auth }).then((j) => (j.ok ? (setPeople(j.people), setContacts(j.contacts || [])) : setErr(j.error || 'Could not load people. Close this tab and sign in again.'))).catch(() => setErr('Network error')) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const list = (tab === 'contacts' ? contacts : (people || [])).filter((p) => !q.trim() || `${p.name} ${p.tag}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40)
   const go = async () => {
-    const to = pick ? (pick.id ? { id: pick.id } : { name: pick.name, phone: pick.phone, email: pick.email }) : { name: other.name, phone: other.phone, email: other.email }
+    const typed = other.name.trim() && other.phone.replace(/\D/g, '').length >= 10 ? [{ name: other.name, phone: other.phone, email: other.email }] : []
+    const tos = [...picks.map((p) => (p.id ? { id: p.id } : { name: p.name, phone: p.phone, email: p.email })), ...typed]
+    const to = tos[0]
     setBusy(true); setErr('')
-    const who = (pick?.name || other.name || '').trim()
-    const j = await call({ action: 'call_start', ...auth, to, note, ...(!pick && saveNew ? { save_contact: true } : {}), ...(rec ? { record: true, rec_name: recName.trim() || `Call with ${who} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}` } : {}) }).catch(() => ({ error: 'Network error. Try again.' }))
+    const who = [...picks.map((p) => p.name), ...typed.map((p) => p.name)].join(', ')
+    const j = await call({ action: 'call_start', ...auth, to, tos, all_hosts: tos.length > 1 && allHosts, note, ...(typed.length && saveNew ? { save_contact: true } : {}), ...(rec ? { record: true, rec_name: recName.trim() || `Call with ${who} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}` } : {}) }).catch(() => ({ error: 'Network error. Try again.' }))
     setBusy(false)
     if (!j.ok) { setErr(j.error || 'Could not start the call.'); return }
     // Say what went out (Neal, 2026-10-05: he couldn't tell whether Nikki had a number). Nothing
@@ -51,28 +57,32 @@ function Dialer({ mt }) {
     setDone(j)
     if (j.sms || j.email) setTimeout(() => { window.location.href = j.join || `/meet/${j.slug}` }, 2500)
   }
-  const ready = pick || (other.name.trim() && other.phone.replace(/\D/g, '').length >= 10)
+  const ready = picks.length > 0 || (other.name.trim() && other.phone.replace(/\D/g, '').length >= 10)
+  const firsts = [...picks.map((p) => p.name), ...(other.name.trim() ? [other.name.trim()] : [])].map((n) => n.split(' ')[0])
   if (done) return (
     <div className={`rounded-xl border-2 p-5 ${done.sms || done.email ? 'border-emerald-500 bg-emerald-50' : 'border-red-500 bg-red-50'}`}>
       <div className="text-lg font-extrabold">{done.sms || done.email ? `📞 Calling ${done.name}` : `⚠️ Nothing went out to ${done.name}`}</div>
-      <div className="mt-2 text-base">{done.sms ? '✅' : '❌'} Text {done.cell ? `to ${done.cell}` : '(no cell on file)'}</div>
-      <div className="text-base">{done.email ? '✅' : '❌'} Email</div>
+      {(done.each && done.each.length > 1 ? done.each : [done]).map((x) => (
+        <div key={x.name} className="mt-2 text-base">{done.each && done.each.length > 1 ? <b>{x.name}: </b> : null}{x.sms ? '✅' : '❌'} Text {x.cell ? `to ${x.cell}` : '(no cell on file)'} · {x.email ? '✅' : '❌'} Email</div>
+      ))}
       {done.sms || done.email
         ? <p className="mt-3 text-sm text-slate-600">Taking you into the room… <a href={done.join || `/meet/${done.slug}`} className="font-bold text-emerald-700 underline">go now</a></p>
         : <p className="mt-3 text-sm font-semibold text-red-700">They have no way to get the link. Add their cell in TMS, or call again with their name + cell under "Someone else".</p>}
       {!(done.sms || done.email) && <button onClick={() => setDone(null)} className="mt-3 rounded-lg bg-slate-700 px-4 py-2 text-sm font-bold text-white">Back</button>}
     </div>
   )
-  if (busy) return <p className="py-10 text-center text-lg font-bold text-brand-navy">📞 Calling {pick?.name || other.name}… opening your room</p>
+  if (busy) return <p className="py-10 text-center text-lg font-bold text-brand-navy">📞 Calling {firsts.join(', ')}… opening your room</p>
   return (
     <div>
       {err && <p className="mb-3 rounded bg-red-50 p-2 text-sm font-semibold text-red-700">{err}</p>}
-      {pick ? (
-        <div className="flex items-center gap-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4">
-          <div className="flex-1"><div className="text-lg font-bold">{pick.name}</div><div className="text-sm text-slate-600">{pick.tag} · {pick.cell ? `📱 ${pick.cell.slice(0, 3)}-${pick.cell.slice(3, 6)}-${pick.cell.slice(6)}` : <b className="text-red-600">⚠️ no cell in TMS{pick.has_email ? ': email only' : ', nothing to send to'}</b>}</div></div>
-          <button onClick={() => setPick(null)} className="text-sm font-semibold text-slate-500 underline">change</button>
+      {picks.map((p) => (
+        <div key={p.id || p.phone || p.name} className="mb-2 flex items-center gap-3 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-3">
+          <div className="flex-1"><div className="text-lg font-bold">{p.name}</div><div className="text-sm text-slate-600">{p.tag} · {p.cell ? `📱 ${p.cell.slice(0, 3)}-${p.cell.slice(3, 6)}-${p.cell.slice(6)}` : <b className="text-red-600">⚠️ no cell in TMS{p.has_email ? ': email only' : ', nothing to send to'}</b>}</div></div>
+          <button onClick={() => toggle(p)} className="text-sm font-semibold text-slate-500 underline">remove</button>
         </div>
-      ) : (
+      ))}
+      {picks.length > 0 && <p className="mb-2 text-sm font-semibold text-slate-600">➕ Add someone else below, or press Call.</p>}
+      {
         <>
           <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-200 p-1">
             {[['company', '🏢 U.S. Shingle'], ['contacts', `📇 My contacts${contacts.length ? ` (${contacts.length})` : ''}`], ['new', '➕ New']].map(([k, l]) => (
@@ -83,7 +93,8 @@ function Dialer({ mt }) {
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tab === 'contacts' ? 'Search your contacts…' : 'Who do you want to call? Type a name…'} className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base" />
           <div className="mt-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white">
             {!people ? <p className="p-3 text-sm text-slate-500">Loading people…</p> : list.length ? list.map((p) => (
-              <button key={p.id || p.phone || p.email || p.name} onClick={() => setPick(p)} className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50">
+              <button key={p.id || p.phone || p.email || p.name} onClick={() => toggle(p)} className={`flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-slate-50 ${has(p) ? 'bg-emerald-50' : ''}`}>
+                <span className="w-5 text-base">{has(p) ? '✅' : '⬜'}</span>
                 <span className="flex-1 font-semibold text-slate-900">{p.name}</span>
                 <span className={`text-xs ${p.cell ? 'text-slate-500' : 'font-bold text-red-600'}`}>{p.cell ? `📱 …${p.cell.slice(-4)}` : '⚠️ no cell'}</span>
                 <span className="text-xs text-slate-500">{p.tag}</span>
@@ -100,19 +111,20 @@ function Dialer({ mt }) {
             <label className="mt-2 flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={saveNew} onChange={(e) => setSaveNew(e.target.checked)} /> 📇 Add to my contacts</label>
           </div>}
         </>
-      )}
+      }
+      {firsts.length > 1 && <label className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={allHosts} onChange={(e) => setAllHosts(e.target.checked)} /> 👑 Make everyone a host (they all get the host controls)</label>}
       <label className="mt-4 block text-sm font-bold text-slate-700">Your message <span className="font-normal text-slate-500">(optional: it goes in the text and email, the join link is added under it)</span>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={600} placeholder="e.g. Hey Brent, jump on a quick video call with me about the Pasco jobs." className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-base font-normal" />
       </label>
       <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
-        <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={rec} onChange={(e) => { setRec(e.target.checked); if (e.target.checked && !recName) setRecName(`Call with ${(pick?.name || other.name || '').trim()} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}`.replace(/\s+/g, ' ')) }} /> ⏺ Record this call to my computer</label>
+        <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={rec} onChange={(e) => { setRec(e.target.checked); if (e.target.checked && !recName) setRecName(`Call with ${firsts.join(', ')} ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })}`.replace(/\s+/g, ' ')) }} /> ⏺ Record this call to my computer</label>
         {rec && <>
           <input value={recName} onChange={(e) => setRecName(e.target.value)} maxLength={120} placeholder="Name the recording" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <p className="mt-1 text-xs text-slate-500">In the call, press <b>⏺ Record</b> (Chrome asks which tab: pick this one, then Share). When you press Stop, a Save box opens with this name so you can pick the folder. Chrome or Edge on a computer.</p>
         </>}
       </div>
-      <button disabled={!ready} onClick={go} className={`mt-4 w-full rounded-xl py-4 text-xl font-extrabold text-white ${ready ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300'}`}>📞 Call{pick ? ` ${pick.name.split(' ')[0]}` : other.name.trim() ? ` ${other.name.trim().split(' ')[0]}` : ''}</button>
-      <p className="mt-2 text-center text-xs text-slate-500">They get a text and an email with a "join now" link. You go straight into the room as host.</p>
+      <button disabled={!ready} onClick={go} className={`mt-4 w-full rounded-xl py-4 text-xl font-extrabold text-white ${ready ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300'}`}>📞 Call{firsts.length ? ` ${firsts.join(', ')}` : ''}</button>
+      <p className="mt-2 text-center text-xs text-slate-500">{firsts.length > 1 ? 'Each of them gets their own text and email with a "join now" link.' : 'They get a text and an email with a "join now" link.'} You go straight into the room as host.</p>
     </div>
   )
 }
