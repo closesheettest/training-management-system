@@ -169,9 +169,15 @@ export default function HarvesterPayCard() {
           </div>
           {w && (
             <Fragment>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
                 <Stat label="Booked" v={w.booked} />
                 <Stat label="Sits" v={w.sits} />
+                {/* NO SITS + STILL TO COME (Neal, 2026-11-19: "put a no sit number in there too, because then it will give us an
+                    indication of how many are left for the week"). No sits = appointments already run that didn't sit;
+                    still to come = upcoming ones this week. Booked = sits + no sits + still to come + moved to another week. */}
+                {(() => { const ran = (w.appts || []).filter((a) => !a.upcoming && !a.rescheduled_to).length
+                  const left = (w.appts || []).filter((a) => a.upcoming && !a.rescheduled_to).length
+                  return <Stat label={`No sits · ${left} still to come`} v={Math.max(0, ran - w.sits)} /> })()}
                 {/* SIT % (Neal, 2026-11-12): sits ÷ appointments that have already happened this week. Upcoming ones and
                     ones moved to another week don't count against it. */}
                 {(() => { const ran = (w.appts || []).filter((a) => !a.upcoming && !a.rescheduled_to).length
