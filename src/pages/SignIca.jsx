@@ -63,7 +63,7 @@ export default function SignIca() {
         <h2 className="text-lg font-bold text-emerald-900">✅ Signed, thank you</h2>
         <p className="mt-1 text-sm text-emerald-800">
           You signed the new Independent Contractor Agreement on {new Date(done).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.
-          The office has your signed copy. You can close this page.
+          Once the company countersigns, we'll email you the completed copy with both signatures. You can close this page.
         </p>
       </div>
     </Shell>

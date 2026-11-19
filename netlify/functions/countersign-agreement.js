@@ -28,6 +28,31 @@ const COUNTERSIGNER_EMAIL = 'JennV@shingleusa.com'
 const db = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
 
 
+
+// TWO KINDS OF RECORD (Neal, 2026-11-19). Day-1 agreements live on trainee_onboarding
+// (countersign_token column). Current reps re-signing the NEW v3 agreement from
+// /sign-ica live in app_settings ica_v3_resign_<trainee_id>, and their token is
+// ica3_<trainee_id>_<random>. Both open the same page and render the same PDF.
+const ICA3 = /^ica3_([0-9a-f-]{36})_[0-9a-f]{32}$/i
+async function loadRow(supabase, t) {
+  const m = ICA3.exec(t)
+  if (!m) {
+    const { data } = await supabase.from('trainee_onboarding').select('*').eq('countersign_token', t).maybeSingle()
+    return data ? { ...(await withHarvesterFlag(supabase, data)), _kind: 'onboarding' } : null
+  }
+  const { data } = await supabase.from('app_settings').select('value').eq('key', `ica_v3_resign_${m[1]}`).maybeSingle()
+  let v = null
+  try { v = data ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : null } catch { v = null }
+  if (!v || v.countersign_token !== t) return null
+  return { ...v, trainee_id: m[1], _kind: 'ica3' }   // v.harvester was stored when the rep signed
+}
+async function saveRow(supabase, row, patch) {
+  if (row._kind !== 'ica3') return supabase.from('trainee_onboarding').update(patch).eq('countersign_token', row.countersign_token)
+  const { _kind, trainee_id, ...rest } = row
+  const value = { ...rest, ...patch }
+  return supabase.from('app_settings').upsert({ key: `ica_v3_resign_${trainee_id}`, value: JSON.stringify(value), updated_at: new Date().toISOString() }, { onConflict: 'key' })
+}
+
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 
 // The WHOLE agreement, filled in, so she can read what she is signing.
@@ -116,7 +141,7 @@ h1{font-size:19px;margin:0 0 8px;color:#166534}p{color:#475569;font-size:14.5px;
 </style>
 <div class=c>
  <h1>Countersign for ${COMPANY.name}</h1>
- <p class=sub><b>${agent}</b> signed their Independent Contractor Agreement on ${signedOn}. Read it below, then add your signature.</p>
+ <p class=sub><b>${agent}</b> signed ${row._kind === 'ica3' ? 'the NEW (v3) Independent Contractor Agreement' : 'their Independent Contractor Agreement'} on ${signedOn}. Read it below, then add your signature.</p>
 
  <div class=doc id=doc>${agreementHtml(row)}</div>
  <p class=read id=read>Scroll to the end of the agreement (or tap &ldquo;Jump to the end&rdquo;) before signing.</p>
@@ -259,8 +284,7 @@ export const handler = async (event) => {
     const t = String(b.t || token || '').trim()
     if (!t || !b.signature || !String(b.name || '').trim()) return json(400, { ok: false, error: 'Name and signature are both needed.' })
 
-    const { data: row0 } = await supabase.from('trainee_onboarding').select('*').eq('countersign_token', t).maybeSingle()
-    const row = await withHarvesterFlag(supabase, row0)   // harvester → harvester Exhibit A (Neal, 2026-11-08)
+    const row = await loadRow(supabase, t)   // Day-1 or v3 re-sign; harvester flag included (Neal, 2026-11-08 / 11-19)
     if (!row) return json(404, { ok: false, error: 'This link is not valid.' })
     if (!row.signed_at) return json(400, { ok: false, error: 'The rep has not signed this yet.' })
     if (row.company_signed_at) return json(200, { ok: true, already: true })
@@ -285,7 +309,7 @@ export const handler = async (event) => {
     let path = null, pdfError = null
     try {
       const pdf = await renderAgreementPdf(merged)
-      const name = `${row.trainee_id}/agreement_${Date.now()}.pdf`
+      const name = `${row.trainee_id}/${row._kind === 'ica3' ? 'ica-v3-resign' : 'agreement'}_${Date.now()}.pdf`
       const bytes = Buffer.from(pdf, 'base64')
       const { error } = await supabase.storage.from('trainee-docs').upload(name, bytes, { contentType: 'application/pdf', upsert: true })
       if (error) throw error
@@ -301,9 +325,11 @@ export const handler = async (event) => {
       company_sign_title: merged.company_sign_title, company_signed_at: nowIso, company_sign_ip: ip,
       ...(path ? { agreement_pdf_path: path } : {}), ...(pdfError ? { pdf_error: `agreement: ${pdfError}` } : {}),
     }
-    const { error } = await supabase.from('trainee_onboarding').update(core).eq('countersign_token', t)
+    const { error } = row._kind === 'ica3'
+      ? await saveRow(supabase, row, { ...core, company_sign_style: merged.company_sign_style, ...(path ? { pdf_path: path } : {}) })
+      : await supabase.from('trainee_onboarding').update(core).eq('countersign_token', t)
     if (error) return json(500, { ok: false, error: error.message })
-    if (merged.company_sign_style) {
+    if (row._kind !== 'ica3' && merged.company_sign_style) {
       const { error: styleErr } = await supabase.from('trainee_onboarding')
         .update({ company_sign_style: merged.company_sign_style }).eq('countersign_token', t)
       if (styleErr) console.warn('company_sign_style not stored (run sql/ic_countersign.sql):', styleErr.message)
@@ -337,7 +363,15 @@ export const handler = async (event) => {
           // 'va' is in here because Jerico handles the paperwork — he was on the
           // recipients table already, just under a role the executed agreement
           // never went to (Neal, 2026-08-25).
-          const { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin', 'va'])
+          let { data: office } = await supabase.from('notification_recipients').select('email, role, active').in('role', ['hr', 'admin', 'va'])
+          // v3 re-sign: where copies go is set on /signing-docs (signing_copy_to_ica3); unset = the same office list.
+          if (row._kind === 'ica3') {
+            try {
+              const { data: st } = await supabase.from('app_settings').select('value').eq('key', 'signing_copy_to_ica3').maybeSingle()
+              const v = st ? (typeof st.value === 'string' ? JSON.parse(st.value) : st.value) : null
+              if (Array.isArray(v) && v.length) office = v.map((email) => ({ email, active: true }))
+            } catch { /* keep the office list */ }
+          }
           // Deduped case-INSENSITIVELY, and against whoever is already a target.
           // Jennifer is JennV@ as the countersigner and jennv@ on the recipients
           // table, so she was getting two copies of every agreement.
@@ -360,11 +394,7 @@ export const handler = async (event) => {
   }
 
   if (!token) return html('<p style="font-family:system-ui;padding:24px">This link is missing its code.</p>', 400)
-  const { data: row0 } = await supabase
-    .from('trainee_onboarding')
-    .select('*')   // the page renders the full agreement, so it needs every filled field
-    .eq('countersign_token', token).maybeSingle()
-  const row = await withHarvesterFlag(supabase, row0)
+  const row = await loadRow(supabase, token)   // the page renders the full agreement, so it needs every filled field
   if (!row) return html('<p style="font-family:system-ui;padding:24px">This link is not valid. Ask the office.</p>', 404)
 
   const agent = row.agent_legal_name || row.sign_name || 'the rep'

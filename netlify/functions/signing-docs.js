@@ -53,7 +53,7 @@ export const DOCS = {
   // replaces the separate pay documents. Held until the owner OKs a company-wide send.
   ica3: {
     title: 'NEW Independent Contractor Agreement (v3, with Exhibit A)',
-    blurb: 'For every active rep who signed the old agreement. Exhibit A (pay, Draw Program, Inspection Program) is built in, so the separate pay documents are no longer needed. Reps who signed v3 at onboarding (11/16 on) show as signed already.',
+    blurb: 'For every active rep who signed the old agreement. The rep signs, then Jenn countersigns, then the PDF is made and emailed. Exhibit A (pay, Draw Program, Inspection Program) is built in, so the separate pay documents are no longer needed. Reps who signed v3 at onboarding (11/16 on) show as signed already.',
     default_copy_to: ['JennV@shingleusa.com'],
     holdable: true,
     path: (t) => `/sign-ica/${t}`,
@@ -248,7 +248,8 @@ export const handler = async (event) => {
       const o = rec.get(t.id) || {}
       const atOnboarding = obById.get(t.id)?.signed_at && Date.parse(obById.get(t.id).signed_at) >= Date.parse(ICA_V3_SINCE) ? obById.get(t.id).signed_at : null
       const sent = (sends.ica3 || {})[t.id] || []
-      const state = (o.signed_at || atOnboarding) ? 'signed' : o.opened_at ? 'opened' : sent.length ? 'not_opened' : 'not_sent'
+      // Rep signed here → waits on Jenn's countersign, like Day-1 (Neal, 2026-11-19).
+      const state = (o.company_signed_at || atOnboarding) ? 'signed' : o.signed_at ? 'countersign' : o.opened_at ? 'opened' : sent.length ? 'not_opened' : 'not_sent'
       let pdf = null
       if (o.pdf_path) { const { data: su } = await sb.storage.from(BUCKET).createSignedUrl(o.pdf_path, 3600); pdf = su?.signedUrl || null }
       reps.push({
@@ -257,16 +258,19 @@ export const handler = async (event) => {
         on_file: { phone: t.phone, email: t.company_email || t.email }, override: contacts[t.id] || null,
         state, pdf, pdf_error: o.pdf_error || null,
         link: t.registration_token ? `${SITE}/sign-ica/${t.registration_token}?preview=1` : null,
+        countersign_link: o.signed_at && !o.company_signed_at && o.countersign_token ? `${SITE}/.netlify/functions/countersign-agreement?t=${o.countersign_token}` : null,
         trail: [
           ...sent.map((x) => ({ at: x.at, what: `Sent by ${x.by} (${[x.sms && `text to ${x.to_phone || '?'}`, x.email && `email to ${x.to_email || '?'}`].filter(Boolean).join(' + ') || 'failed'})` })),
           ...(o.opened_at ? [{ at: o.opened_at, what: 'Opened the link' }] : []),
-          ...(o.signed_at ? [{ at: o.signed_at, what: 'Signed: copy emailed to the office' }] : []),
+          ...(o.signed_at ? [{ at: o.signed_at, what: 'Rep signed' }] : []),
+          ...(o.countersign_sent_at ? [{ at: o.countersign_sent_at, what: `Sent to Jenn to countersign (${[o.countersign_sent?.sms && 'text', o.countersign_sent?.email && 'email'].filter(Boolean).join(' + ') || 'send failed'})` }] : []),
+          ...(o.company_signed_at ? [{ at: o.company_signed_at, what: `Countersigned by ${o.company_sign_name || 'the company'}: complete, copies emailed` }] : []),
           ...(atOnboarding ? [{ at: atOnboarding, what: 'Signed the v3 agreement at Day-1 onboarding' }] : []),
           ...(contacts[t.id] ? [{ at: contacts[t.id].at, what: `Send-to changed by ${contacts[t.id].by}: ${[contacts[t.id].phone, contacts[t.id].email].filter(Boolean).join(' · ')}` }] : []),
         ].sort((x, y) => String(x.at).localeCompare(String(y.at))),
       })
     }
-    const order = { opened: 0, not_opened: 1, not_sent: 2, signed: 3 }
+    const order = { countersign: 0, opened: 1, not_opened: 2, not_sent: 3, signed: 4 }
     reps.sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name))
     out.push({ key: 'ica3', title: DOCS.ica3.title, blurb: DOCS.ica3.blurb, held: await isHeld('ica3'), copy_to: await getSetting(sb, 'signing_copy_to_ica3', DOCS.ica3.default_copy_to), reps })
   } catch (e) { out.push({ key: 'ica3', title: DOCS.ica3.title, error: e.message, reps: [] }) }

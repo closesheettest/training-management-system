@@ -17,19 +17,20 @@
 //
 // Record: app_settings ica_v3_resign_<trainee_id>, one key per rep, so two reps
 // signing at the same moment can never overwrite each other's row. The signature
-// is saved there FIRST and the PDF rendered after, so a PDF failure can never lose
-// a signature (the lesson from the inspection-agreement losses).
+// is saved there FIRST. The PDF is rendered only after Jenn countersigns
+// (countersign-agreement.js), with both signatures on it.
 //
 // The text the rep reads (src/lib/agreementText.js) and the PDF (_ic-agreement.js)
 // are the same v3 text that Day-1 onboarding uses.
 //
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY.
 import { createClient } from '@supabase/supabase-js'
-import { renderAgreementPdf, isHarvesterDepts } from './_ic-agreement.js'
+import { isHarvesterDepts } from './_ic-agreement.js'
+import { sendSmsViaGhl as sendSms } from './_ghl.js'
 import { sendEmail } from './_email.js'
 
 const BUCKET = 'trainee-docs'
-const DEFAULT_COPY_TO = ['JennV@shingleusa.com']
+const COUNTERSIGNER = { phone: '(941) 718-0032', email: 'JennV@shingleusa.com' }   // Jennifer VonGraupen, as in trainee-onboarding-api
 const json = (code, obj) => ({
   statusCode: code,
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
@@ -113,33 +114,31 @@ export const handler = async (event) => {
   const { error: upErr } = await putRec(signed)
   if (upErr) return json(500, { ok: false, error: `Could not save your signature: ${upErr.message}` })
 
-  let pdfPath = null, pdfError = null, buf = null
+  // JENN COUNTERSIGNS, THEN THE PDF IS MADE (Neal, 2026-11-19: "Yes, add countersign").
+  // Same rule as Day-1 onboarding: a PDF with the U.S. Shingle side blank is not an
+  // executed contract, so none is filed now. countersign-agreement.js (the page Jenn
+  // already uses) renders it with both signatures and emails it to Jenn, the rep and
+  // the copy-to list. Token = ica3_<trainee_id>_<random>, so that page knows which
+  // record to open without a new table.
+  const csToken = `ica3_${t.id}_${crypto.randomUUID().replace(/-/g, '')}`
+  await putRec({ ...signed, countersign_token: csToken })
   try {
-    // renderAgreementPdf returns base64 (that is what the onboarding emails attach).
-    buf = await renderAgreementPdf({ ...f, signature, signed_at: now, sign_ip: ip, harvester })
-    const path = `${t.id}/ica-v3-resign_${Date.now()}.pdf`
-    const { error } = await sb.storage.from(BUCKET).upload(path, Buffer.from(buf, 'base64'), { contentType: 'application/pdf', upsert: true })
-    if (error) throw error
-    pdfPath = path
-  } catch (e) { pdfError = e?.message || 'render failed' }
-  await putRec({ ...signed, pdf_path: pdfPath, pdf_error: pdfError })
+    const site = (process.env.URL || 'https://trainingmanagementsys.netlify.app').replace(/\/$/, '')
+    const link = `${site}/.netlify/functions/countersign-agreement?t=${csToken}`
+    // Both channels, like every other message here.
+    const [smsR, emR] = await Promise.allSettled([
+      sendSms(COUNTERSIGNER.phone,
+        `${repName} signed the NEW Independent Contractor Agreement (v3). It needs your signature to be complete:\n\n${link}`,
+        { firstName: 'Training', lastName: 'System' }),
+      sendEmail(COUNTERSIGNER.email, `Countersign needed (new agreement) — ${repName}`,
+        [`${repName} has signed the new Independent Contractor Agreement (v3, with Exhibit A).`, '',
+          'It is not complete until U.S. Shingle signs it too, and the PDF is not created until you do.', '',
+          'Sign here:', link, '', '— Training System'].join('\n')),
+    ])
+    const okSms = smsR.status === 'fulfilled' && smsR.value?.ok !== false
+    const okEm = emR.status === 'fulfilled' && emR.value?.ok !== false
+    await putRec({ ...signed, countersign_token: csToken, countersign_sent_at: new Date().toISOString(), countersign_sent: { sms: okSms, email: okEm } })
+  } catch (e) { console.warn('ica resign: countersign notice failed:', e?.message) }
 
-  // Copy to the office (editable on /signing-docs: app_settings signing_copy_to_ica3).
-  // Best-effort and after the signature is saved.
-  if (buf) {
-    try {
-      let copyTo = DEFAULT_COPY_TO
-      const { data: st } = await sb.from('app_settings').select('value').eq('key', 'signing_copy_to_ica3').maybeSingle()
-      const v = st ? (typeof st.value === 'string' ? JSON.parse(st.value) : st.value) : null
-      if (Array.isArray(v) && v.length) copyTo = v
-      const safe = String(repName || 'Rep').replace(/[^A-Za-z0-9]+/g, '-')
-      for (const addr of copyTo) await sendEmail(addr,
-        `Signed NEW Independent Contractor Agreement (v3) — ${repName}`,
-        `${repName} signed the new Independent Contractor Agreement with Exhibit A on ${new Date(now).toLocaleString('en-US', { timeZone: 'America/New_York' })} ET.\n\n`
-        + `Signed as: ${f.sign_name}\nInitials on Exhibit A: ${f.agent_initials}\n\nThe signed PDF is attached.`,
-        { attachments: [{ filename: `ICA-v3-${safe}.pdf`, content: buf }] })
-    } catch (e) { console.warn('ica resign: could not email the signed copy:', e?.message) }
-  }
-
-  return json(200, { ok: true, signed_at: now, pdf: !!pdfPath })
+  return json(200, { ok: true, signed_at: now })
 }

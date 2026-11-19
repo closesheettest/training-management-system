@@ -208,7 +208,7 @@ function DocCard({ d, call, reload }) {
             )}
             {open[r.id] && (
               <div className="mt-1 pl-5 text-xs text-slate-600">
-                <div className="mb-1">{r.phone || 'no phone'} · {r.email || 'no email'}{r.link ? <> · <a href={r.link} target="_blank" rel="noreferrer" className="font-bold text-brand-navy underline">their signing page</a></> : null}</div>
+                <div className="mb-1">{r.phone || 'no phone'} · {r.email || 'no email'}{r.link ? <> · <a href={r.link} target="_blank" rel="noreferrer" className="font-bold text-brand-navy underline">their signing page</a></> : null}{r.countersign_link ? <> · <a href={r.countersign_link} target="_blank" rel="noreferrer" className="font-bold text-sky-700 underline">countersign page (Jenn)</a></> : null}</div>
                 {(r.trail || []).length ? r.trail.map((t, i) => <div key={i}><span className="inline-block w-28 text-slate-400">{when(t.at)}</span>{t.what}</div>) : <div className="text-slate-400">Nothing yet — never opened.</div>}
               </div>
             )}
