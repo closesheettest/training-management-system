@@ -70,7 +70,7 @@ function GradingGuide({ sectionKey, slideN, slidePoints }) {
     'Control: whoever asks the questions is in control. A short, straight answer is fine as long as the rep leads back with a question within their next two replies.',
     'LET THEM SAY IT: a question that puts the point in the homeowner’s mouth (“It sounds like you’re trying to say experience matters?”) lands it strongest. If the homeowner says it, it’s gospel; if the rep says it, it’s up for interpretation.',
     'Objections are judged by the method: acknowledge, isolate, answer it only if it belongs on this slide (otherwise park it and get their OK), then confirm with a question. A parked concern has to be answered later.',
-    'Using what the homeowner said in the survey (insurance cost, electric bill, forever home…) counts in the rep’s favor.',
+    'Using what the homeowner said in the survey (insurance cost, forever home…) counts in the rep’s favor.',
     ...(sec.range && sec.range[1] >= 23 ? ['After asking for the business, the rep has to stay SILENT: the homeowner waits 5 seconds to see if they do.'] : []),
     'If the run stops early, only the slides the rep actually presented are graded.',
     ...(IMPULSE_SECTIONS.includes(sectionKey) ? ['IMPULSE FACTOR (FIGS): the homeowner is secretly driven by one of Fear of loss, Indifference, Greed or Sense of urgency. When the rep ends, they are asked which it was. The report shows whether they got it, where it showed, the questions that drew it out, and whether the close was tied to it.'] : []),

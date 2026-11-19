@@ -34,9 +34,6 @@ Talk to me about how you feel about your homeowner’s insurance?
 
 Do you remember what you’re paying for HO Insurance?
 
-I know this next question is going to sound like it has nothing to do with your roof but I’ll explain in a
-few minutes why it actually does. What is the highest electric bill and what’s your lowest electric bill?
-
 How long has your roof been concern?
 
 (if 1 month or more)
