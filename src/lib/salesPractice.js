@@ -421,7 +421,7 @@ export const IMPULSES = [
     act: `What drives you is INDIFFERENCE: you don't feel strongly about the roof yet. "It's been fine so far", "we'll get to it eventually", "I don't know, whatever you think". Low energy, short answers, easily sidetracked, no strong opinions on colors or options. You only warm up when the rep makes you actually CARE: helps you see what waiting costs, or connects the roof to something that matters to you.` },
   { key: 'greed', label: 'Greed', short: 'G',
     tell: `"So what's the best deal you can do for me?" / "I want the most I can get for my money. Is there a discount if I do it today?"`,
-    act: `What drives you is GREED, in the everyday sense: you want the best DEAL and the most value. You perk up at savings: the insurance discount, energy savings, the Low-Bid Price Match, anything "free", financing terms, what you get for the money. You ask about discounts and "what's the best you can do?", and you like hearing the numbers.` },
+    act: `What drives you is GREED, in the everyday sense: you want the best DEAL and the most value. You perk up at savings: the insurance discount, the Low-Bid Price Match, anything "free", financing terms, what you get for the money. You ask about discounts and "what's the best you can do?", and you like hearing the numbers.` },
   { key: 'urgency', label: 'Sense of urgency', short: 'S',
     tell: `"We need this done fast. The insurance gave us a deadline." / "How soon can you get started? We can't wait on this."`,
     act: `What drives you is a SENSE OF URGENCY: you need this done SOON. There is a deadline behind it (the insurance renewal, hurricane season, a leak getting worse, family visiting, a sale or refinance coming up). You ask "how soon can you start?", "how long does it take?", "can you get the permit fast?". Speed and scheduling matter more to you than anything else.` },
@@ -455,9 +455,9 @@ export const IMPULSE_GUIDE = {
     sell: 'Make them CARE: what waiting costs (a leak, a non-renewal, prices going up every year), and tie the roof to something that matters to them.',
   },
   greed: {
-    listen: ['"What\'s the best deal you can do?", "is there a discount?"', 'Perks up at savings: insurance discount, energy savings, anything free', 'Asks for the numbers, financing terms, "what do I get for my money?"'],
+    listen: ['"What\'s the best deal you can do?", "is there a discount?"', 'Perks up at savings: insurance discount, anything free', 'Asks for the numbers, financing terms, "what do I get for my money?"'],
     confirm: '"If I could show you how this pays for part of itself, would that matter to you?"',
-    sell: 'Value and savings: the insurance discount, energy savings up to 40%, the Low-Bid Price Match plus 10% of the difference, financing, what they get for the money.',
+    sell: 'Value and savings: the insurance discount, the Low-Bid Price Match plus 10% of the difference, financing, what they get for the money.',
   },
   urgency: {
     listen: ['A deadline: insurance renewal date, hurricane season, a sale or refinance, family visiting', '"How soon can you start?", "how long does it take?"', '"We can\'t wait on this", a leak getting worse'],
@@ -494,7 +494,7 @@ export const IMPULSE_BY_STEP = [
     { q: 'If two roofers were $1,000 apart, which one would you pick, and why?', hear: '"the one I trust" → F · "doesn\'t matter" → I · "The cheaper one" → G · "whoever starts first" → S' },
   ] },
   { step: 'Slides 6–7 — Why today + Low Bid Match', slides: [6, 7], qs: [
-    { q: 'Would knocking money off your insurance and electric bills matter to you?', hear: '"as long as I don\'t lose my coverage" → F · Lights up, asks how much → G' },
+    { q: 'Would knocking money off your insurance bill matter to you?', hear: '"as long as I don\'t lose my coverage" → F · Lights up, asks how much → G' },
     { q: 'Material prices go up every year. Is there a reason you\'d want to lock this in now rather than wait?', hear: '"we can wait" → I · "I\'d rather not pay more later" → G · "Yes, our renewal is coming" → S' },
     { q: 'If you found a lower bid, would you want us to match it and give you 10% of the difference?', hear: '"I\'d still want someone I trust" → F · Excited about the 10% → G' },
   ] },
@@ -543,7 +543,7 @@ export const IMPULSE_PLAYBOOK = {
   greed: [
     { slides: [1, 1], step: 'Slide 1 — The company', angle: 'Third-party financing: they did their homework on us — options for your money.' },
     { slides: [2, 5], step: 'Slides 2–5 — License, insurance, need, Chuck', angle: 'Frame it as value: the cheapest roof costs the most when it has to be done twice.' },
-    { slides: [6, 6], step: 'Slide 6 — Why today: the savings', angle: 'Their slide. Lead with the money: the insurance savings and energy savings up to 40%. Ask what their bills are.' },
+    { slides: [6, 6], step: 'Slide 6 — Why today: the savings', angle: 'Their slide. Lead with the money: the insurance savings and rising material costs. Ask what their insurance runs.' },
     { slides: [7, 7], step: 'Slide 7 — Low Bid Match', angle: 'Make a big deal of it: we match the lower bid AND give you 10% of the difference.' },
     { slides: [8, 9], step: 'Slides 8–9 — What we offer + installation', angle: 'Everything that is included in the 13 steps — what they get for the money.' },
     { slides: [10, 15], step: 'Slides 10–15 — Colors, our work', angle: 'Show the value in the product, not just the look.' },

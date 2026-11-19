@@ -170,12 +170,6 @@ How much is your homeowner’s insurance right now?
 (Calculate what they said at throw out the number)
 By taking action today that’s money every month you could be saving instead of
 throwing away to your insurance company.
-Another area that you won’t find any of our competitors talking about is helping you
-save money on your electric bill. I would imagine you wouldn’t be opposed to the
-electric company helping to pay for your new roof, would you? Most of our customers
-save up to 40% or more on their electric bill.
-Again choose to reroof now and keep that savings in your pocket. Wait to reroof and its
-paying 40% more than you need to, over and over again.
 Another strong reason to move forward today is the material and labor savings. Multiple
 times a year shingle and metal manufactures raise prices. The roofs we did just a short
 few years ago are almost half as much as the same roofs today. Choosing today simply
