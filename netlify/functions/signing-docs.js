@@ -163,11 +163,16 @@ export const handler = async (event) => {
   if (body.action === 'test_send') {
     const doc = DOCS[body.doc]
     if (!doc) return json(400, { ok: false, error: 'unknown document' })
-    const me = String(who || '').trim().toLowerCase()
-    if (!NOT_A_FIELD_REP.has(me)) return json(400, { ok: false, error: `Tests go only to office people, and "${who}" isn't on that list.` })
-    const { data: all } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').ilike('first_name', me.split(' ')[0])
-    const t = (all || []).find((x) => `${x.first_name || ''} ${x.last_name || ''}`.trim().toLowerCase() === me && x.registration_token)
-    if (!t) return json(400, { ok: false, error: `Couldn't find a TMS record with a link for ${who}.` })
+    // Match the sign-in name to an OFFICE person's record loosely: the PIN may sign you in as
+    // "Neal", "Neal Scoppettuolo" or "Neal Scoppe" (the first try matched exactly and found
+    // nobody, Neal 11/19). Same first name, and last names agree as a prefix either way.
+    const [mf, ...ml] = String(who || '').trim().toLowerCase().split(/\s+/)
+    const mlast = ml.join(' ')
+    const { data: all } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').ilike('first_name', mf || '-')
+    const office = (all || []).filter((x) => x.registration_token && NOT_A_FIELD_REP.has(`${x.first_name || ''} ${x.last_name || ''}`.trim().toLowerCase()))
+    const hits = office.filter((x) => { const l = String(x.last_name || '').toLowerCase(); return !mlast || l.startsWith(mlast) || mlast.startsWith(l) })
+    if (hits.length !== 1) return json(400, { ok: false, error: `Tests go only to office people, and I couldn't match your sign-in name "${who}" to one (found ${hits.length}).` })
+    const t = hits[0]
     const link = `${SITE}${doc.path(t.registration_token)}`
     const first = (t.first_name || 'there').trim()
     const sms = t.phone ? await sendSmsViaGhl(t.phone, `🧪 TEST (only you got this): ${doc.sms(first, link, true)}`, { firstName: first, lastName: t.last_name || '' }).catch((e) => ({ ok: false, error: e.message })) : { ok: false }
