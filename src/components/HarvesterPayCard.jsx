@@ -170,17 +170,18 @@ export default function HarvesterPayCard() {
               <button type="button" onClick={() => openRep(r)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50">
                 <span className="font-bold text-slate-800">{open ? '▾' : '▸'} {r.display || r.name}</span>
                 <span className="flex flex-wrap gap-3 text-xs text-slate-600">
-                  <span>This week: <b>{cur?.sits ?? 0}</b> sit{(cur?.sits ?? 0) === 1 ? '' : 's'} · <b>{money(cur?.total)}</b></span>
-                  {last && <span>Last week: <b>{last.sits}</b> sit{last.sits === 1 ? '' : 's'} · <b>{money(last.total)}</b> (paid {payday(last.week_start)})</span>}
+                  {/* Named by PAY DAY, not by the week the sits happened (Neal 2026-11-20: DeWayne was confused by "Nov 9 – Nov 15"). */}
+                  {last && <span>Paid {payday(last.week_start)}: <b>{last.sits}</b> sit{last.sits === 1 ? '' : 's'} · <b>{money(last.total)}</b></span>}
+                  {cur && <span>Paid {payday(cur.week_start)} (so far): <b>{cur.sits}</b> sit{cur.sits === 1 ? '' : 's'} · <b>{money(cur.total)}</b></span>}
                 </span>
               </button>
               {open && rep && (
               <div className="space-y-3 border-t border-slate-200 p-3">
           {rep.starts && <div className="text-xs text-slate-500">{repFirst}: counts bookings made from {fmtDay(rep.starts)}, {rep.starts.slice(0, 4)} on. Earlier bookings are on the regular commission report.</div>}
           <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Week
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">Pay day
             <select value={w?.week_start || ''} onChange={(e) => setWk(e.target.value)} className="rounded border border-slate-300 px-2 py-1 text-sm">
-              {weeks.map((x) => <option key={x.week_start} value={x.week_start}>{fmtDay(x.week_start)} – {fmtDay(x.week_end)}{x.upcoming ? ' (next week)' : x.in_progress ? ' (this week, so far)' : ''} · {x.sits} sit{x.sits === 1 ? '' : 's'} · {money(x.total)}</option>)}
+              {weeks.map((x) => <option key={x.week_start} value={x.week_start}>Paid {payday(x.week_start)}{x.upcoming ? ' (sits next week)' : x.in_progress ? ' (so far)' : ''} · {x.sits} sit{x.sits === 1 ? '' : 's'} · {money(x.total)} · sits {fmtDay(x.week_start)}–{fmtDay(x.week_end)}</option>)}
             </select>
           </label>
           </div>
