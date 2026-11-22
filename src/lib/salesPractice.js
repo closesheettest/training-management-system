@@ -330,6 +330,8 @@ export const DECK = [
   { page: 25, script: 'Slide 23 — Ask for the business', seen: '“Ok, here we are. Time for the big reveal.” The rep is going to the assessment sheet with prices.' },
   { page: 26, script: 'More estimates (rep’s rebuttal)', seen: 'This slide is the rep’s own notes. Treat it as if the rep is looking at their notes; do not react to it.' },
 ]
+// First page of the close ("Slide 23 — Ask for the business"): from here the homeowner's silence after the ask is timed.
+export const CLOSE_PAGE = (DECK.find((x) => /^Slide 23\b/.test(x.script)) || DECK[DECK.length - 1]).page
 export const slideSrc = (page) => `/practice-slides/s-${String(page).padStart(2, '0')}.jpg`
 
 // The checklist the rep is graded on. Shared: the grader uses it, and the setup

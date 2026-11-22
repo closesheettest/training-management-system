@@ -12,7 +12,7 @@ import { useParticipants, useRoomContext } from '@livekit/components-react'
 import { Room, Track } from 'livekit-client'
 import { LiveHomeowner } from '../lib/geminiLive.js'
 import { supabase } from '../lib/supabase.js'
-import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, personaByKey, sectionByKey, homeownerPrompt } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, CLOSE_PAGE, IMPULSES, IMPULSE_SECTIONS, personaByKey, sectionByKey, homeownerPrompt } from '../lib/salesPractice.js'
 
 const ORDER = { 'Very easy': -1, Easy: 0, Medium: 1, Hard: 2, 'Very hard': 3 }
 const post = async (fn, body) => (await fetch(`/.netlify/functions/${fn}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json().catch(() => ({ ok: false, error: 'Network error' }))
@@ -120,7 +120,7 @@ export default function MeetPractice({ roomSlug, pin, onClose }) {
     if (!page || !live.current) return
     const d = DECK.find((x) => x.page === page)
     stage({ showing: true, presenter: presenter?.identity, presenterName: presenter?.name || '', homeowner: persona.name, section: section.label, door: !!section.door, page })
-    live.current.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= 29)
+    live.current.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= CLOSE_PAGE)
   }, [page])
 
   const finish = async (out, guess) => {

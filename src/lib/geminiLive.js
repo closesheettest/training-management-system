@@ -200,7 +200,10 @@ export class LiveHomeowner {
       this.ready = true; this.everReady = true
       this.status('listening')
       // A slide put up before the connection was ready (the opening slide).
-      if (first && this.pendingSlide) { this.sendSlide(this.pendingSlide); this.pendingSlide = null }
+      // A slide note that waited out a reconnect goes now. A good reconnect resets the drop count, so a long run
+      // (one reconnect every ~10 min) never hits the "lost the connection" limit.
+      if (!first) this.reconnects = 0
+      if (this.pendingSlide) this.flushSlide()
       return
     }
     if (m.usageMetadata) {
@@ -237,12 +240,30 @@ export class LiveHomeowner {
   }
 
   // The slide on the rep's screen changed: tell the homeowner silently, and log it.
+  // FROZE AFTER SLIDE 11 (rep text to Neal, 2026-11-21: "stops right after the 11th slide... Bob won't respond").
+  // Every slide note is a clientContent message, and Google stops whatever the homeowner is saying when one arrives.
+  // After slide 11 come 10 install-photo pages in a row, so clicking through them cut Bob off again and again. Now:
+  // the same picture-type twice in a row isn't re-sent, the note waits until the rep stops flipping (1.2s), and it
+  // never goes out while the homeowner is talking. A note that lands during a reconnect is sent once it's back.
   showSlide(label, seen, inCloseZone) {
     this.closeZone = !!inCloseZone
     this.entries.push({ who: 'slide', text: label, at: new Date().toISOString() })
     this.on.transcript?.([...this.entries])
-    if (this.ready) this.sendSlide(seen)
-    else this.pendingSlide = seen
+    this.pendingSlide = seen
+    clearTimeout(this.slideTimer)
+    this.slideTimer = setTimeout(() => this.flushSlide(), this.everReady ? 1200 : 0)
+  }
+
+  flushSlide() {
+    clearTimeout(this.slideTimer)
+    const seen = this.pendingSlide
+    if (!seen || this.closedByUser) return
+    if (seen === this.lastSlideSent) { this.pendingSlide = null; return }
+    // Not connected, or the homeowner is mid-answer: try again shortly.
+    if (!this.ready || this.ws?.readyState !== 1 || this.playing.size || this.holding) { this.slideTimer = setTimeout(() => this.flushSlide(), 700); return }
+    this.pendingSlide = null
+    this.lastSlideSent = seen
+    this.sendSlide(seen)
   }
 
   sendSlide(seen) {
@@ -373,6 +394,7 @@ export class LiveHomeowner {
   stop() {
     this.closedByUser = true
     clearInterval(this.watchdog)
+    clearTimeout(this.slideTimer)
     try { this.ws?.close() } catch { /* ignore */ }
     this.stopPlayback()
     try { this.tap?.disconnect() } catch { /* ignore */ }

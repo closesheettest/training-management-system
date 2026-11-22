@@ -12,7 +12,7 @@ import PracticeAudio from '../components/PracticeAudio.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { LiveHomeowner } from '../lib/geminiLive.js'
-import { PERSONAS, SECTIONS, DECK, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, IMPULSE_PLAYBOOK, playbookFor, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, IQ_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
+import { PERSONAS, SECTIONS, DECK, CLOSE_PAGE, IMPULSES, IMPULSE_SECTIONS, IMPULSE_GUIDE, IMPULSE_BY_STEP, IMPULSE_PLAYBOOK, playbookFor, impulseQuestionsFor, impulseByKey, personaByKey, sectionByKey, homeownerPrompt, slideSrc, INTRO_POINTS, WARMUP_POINTS, SURVEY_POINTS, DOOR_POINTS, IQ_POINTS, CLOSE_EXTRA } from '../lib/salesPractice.js'
 
 const PIN_KEY = 'sp_admin_ok_pin'
 const readPin = () => { try { return sessionStorage.getItem(PIN_KEY) || '' } catch { return '' } }
@@ -505,7 +505,9 @@ export function LiveSession({ persona, section, trainee, onDone, fetchToken = tr
   useEffect(() => {
     if (!page) return
     const d = DECK.find((x) => x.page === page)
-    liveRef.current?.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= 29)
+    // Close zone = the "ask for the business" page onward. Was page >= 29 (the old 30-page deck), so the
+    // close-silence timer never armed on the 26-page 11/18 deck (Neal 11/22).
+    liveRef.current?.showSlide(`Slide on screen: deck page ${page} (${d?.script || ''})`, d?.seen || '', page >= CLOSE_PAGE)
   }, [page])
 
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }) }, [entries])
