@@ -1,5 +1,7 @@
 // Harvester's Pay: the Harvester Comp Plan (Neal, 2026-11-04). $100 per harvested sit (an appointment the harvester
 // booked that sat), plus $500 at each of 10, 15, 20 and 25 sits in a Monday–Sunday week, paid the Friday after.
+// NEW PLAN from the Fri 11/27 payday (Neal, 2026-11-23): $150 a sit; bonus at 10, 15, 20 and every 5 after, $500 each
+// when the week's sit rate is over 50%, $200 each at 50% or under. Each week's numbers come from CCG with its own plan.
 // Was "William IQ Pay"; renamed and listed by rep (Neal, 2026-11-05: "It's going to be harvesting pay... listed by rep.
 // Right now, William is the only harvester."). Numbers come from CCG harvester-pay.
 // Knock priority: IQ, No Sit Need to Reschedule, BTR Go Backs, IQ Not Interested.
@@ -159,7 +161,7 @@ export default function HarvesterPayCard() {
       {data && shown && (
         <div className="space-y-3 p-3 text-sm">
           <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-            {money(data.plan.per_sit)} per harvested sit, plus {money(data.plan.bonus)} at each of {data.plan.tiers.join(', ')} sits in a week. Weeks run Monday–Sunday and are paid the Friday after.
+            {money(data.plan.per_sit)} per harvested sit, plus a bonus at each of 10, 15, 20 and every 5 sits after in a week: {money(data.plan.bonus)} each when the week's sit rate is over 50%, {money(data.plan.bonus_low)} each at 50% or under. Weeks run Monday–Sunday and are paid the Friday after. (Paydays before Fri, Nov 27: $100 a sit + $500 at 10, 15, 20, 25.)
             <div className="mt-1 text-emerald-800">Knock priority: IQ → No Sit Need to Reschedule → BTR Go Backs → IQ Not Interested.</div>
           </div>
           {(data.reps || []).length === 0 && <div className="text-slate-500">No harvesters yet.</div>}
@@ -198,10 +200,12 @@ export default function HarvesterPayCard() {
                   return <Stat label={`No sits · ${left} still to come`} v={Math.max(0, ran - w.sits)} /> })()}
                 {/* SIT % (Neal, 2026-11-12): sits ÷ appointments that have already happened this week. Upcoming ones and
                     ones moved to another week don't count against it. */}
-                {(() => { const ran = (w.appts || []).filter((a) => !a.upcoming && !a.rescheduled_to).length
-                  return <Stat label={`Sit % (${w.sits} of ${ran} so far)`} v={ran ? `${Math.round((100 * w.sits) / ran)}%` : '—'} /> })()}
-                <Stat label={`Sits × ${money(data.plan.per_sit)}`} v={money(w.per_sit_pay)} />
-                <Stat label={`Bonuses (${w.bonuses})`} v={money(w.bonus_pay)} />
+                {/* Sit % now comes from CCG (Neal 11/23: it sets the bonus size, $500 over 50%, $200 at 50% or under). */}
+                {(() => { const ran = w.ran ?? (w.appts || []).filter((a) => !a.upcoming && !a.rescheduled_to).length
+                  const pct = w.sit_rate !== undefined ? (w.sit_rate == null ? null : Math.round(100 * w.sit_rate)) : (ran ? Math.round((100 * w.sits) / ran) : null)
+                  return <Stat label={`Sit % (${w.sits} of ${ran} so far)`} v={pct == null ? '—' : `${pct}%`} /> })()}
+                <Stat label={`Sits × ${money(w.plan?.per_sit ?? data.plan.per_sit)}`} v={money(w.per_sit_pay)} />
+                <Stat label={w.bonuses ? `Bonuses (${w.bonuses} × ${money(w.plan?.bonus_each ?? data.plan.bonus)})` : `Bonuses (0)${w.plan?.next_bonus_at ? ` · next at ${w.plan.next_bonus_at}` : ''}`} v={money(w.bonus_pay)} />
               </div>
               <div className="flex items-center justify-between rounded bg-slate-800 px-3 py-2 text-white">
                 <span className="font-semibold">Total{w.in_progress ? ' so far' : ''} · paid {payday(w.week_start)}</span>
