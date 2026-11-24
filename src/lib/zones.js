@@ -35,8 +35,9 @@ export const ZONE_COUNTIES = {
   //   Osceola, Indian River, Highlands, Citrus, Hernando
   // and they now sit at the end of Zone 3's list. To reopen Sit Sold, move them back here.
   'Zone 2': {
-    manager: 'Neal',
-    label: 'Merged into Zone 3 (2026-11-24)',
+    // Neal managed Sit Sold until 2026-11-24; Chad (Zone 3) manages its territory from then on.
+    manager: 'Chad',
+    label: 'Merged into Zone 3 Sharks (2026-11-24)',
     counties: [],
   },
   'Zone 3': {
