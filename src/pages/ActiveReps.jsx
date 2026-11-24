@@ -2503,7 +2503,7 @@ function CountyZoneSuggestion({ county, currentRegion, onPickZone }) {
       </div>
       {split && (
         <div className="mt-0.5 italic text-sky-700">
-          {county} is split — Rt 50 is the dividing line. North = Zone 1, South = Zone 2.
+          {county} is split — Rt 50 is the dividing line. North = Zone 1, South = Zone 3.
         </div>
       )}
       {!matches && (

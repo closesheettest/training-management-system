@@ -14,9 +14,9 @@
 // AND for flagging reps who are sitting in the wrong zone after a
 // territory rewrite like the one above.
 //
-// Brevard ** and Orange ** are split between Zone 1 and Zone 2: Rt 50
-// is the dividing line, north is Zone 1, south is Zone 2. We list them
-// in both Zone 1 and Zone 2 with the ** marker so the UI can show the
+// Brevard ** and Orange ** are split between Zone 1 and Zone 3 (Zone 2
+// until the 2026-11-24 merge): Rt 50 is the dividing line, north is Zone 1,
+// south is Zone 3. We list them in both zones with the ** marker so the UI can show the
 // split-warning text.
 
 export const ZONE_COUNTIES = {
@@ -30,14 +30,14 @@ export const ZONE_COUNTIES = {
       'Brevard **', 'Orange **',
     ],
   },
+  // Zone 2 (Sit Sold) folded into Zone 3 Sharks / Chad (Neal, 2026-11-24). Its counties were:
+  //   Orange ** (south of Rt 50), Brevard ** (south of Rt 50), Pasco, Hillsborough, Polk,
+  //   Osceola, Indian River, Highlands, Citrus, Hernando
+  // and they now sit at the end of Zone 3's list. To reopen Sit Sold, move them back here.
   'Zone 2': {
-    manager: 'Richard',
-    label: 'Central / East-Central FL',
-    counties: [
-      'Orange **', 'Brevard **', 'Pasco', 'Hillsborough', 'Polk',
-      'Osceola', 'Indian River', 'Highlands',
-      'Citrus', 'Hernando',
-    ],
+    manager: 'Neal',
+    label: 'Merged into Zone 3 (2026-11-24)',
+    counties: [],
   },
   'Zone 3': {
     manager: 'Chad',
@@ -46,6 +46,10 @@ export const ZONE_COUNTIES = {
       'Pinellas', 'Manatee', 'Sarasota', 'Charlotte', 'Lee', 'Collier',
       'Monroe', 'Hardee', 'DeSoto', 'Glades', 'Hendry',
       'St. Lucie', 'Okeechobee',
+      // from Zone 2 / Sit Sold (2026-11-24):
+      'Orange **', 'Brevard **', 'Pasco', 'Hillsborough', 'Polk',
+      'Osceola', 'Indian River', 'Highlands',
+      'Citrus', 'Hernando',
     ],
   },
   'Zone 4': {
