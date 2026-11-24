@@ -168,9 +168,14 @@ export const handler = async (event) => {
     // nobody, Neal 11/19). Same first name, and last names agree as a prefix either way.
     const [mf, ...ml] = String(who || '').trim().toLowerCase().split(/\s+/)
     const mlast = ml.join(' ')
-    const { data: all } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').ilike('first_name', mf || '-')
+    // Short names count too (Neal, 2026-11-24): Jenn signs in as "Jenn" but her record says "Jennifer", so first
+    // names match as a prefix either way, like last names.
+    const { data: all } = await sb.from('trainees').select('id, first_name, last_name, phone, email, company_email, registration_token').ilike('first_name', `${(mf || '-').slice(0, 3)}%`)
     const office = (all || []).filter((x) => x.registration_token && NOT_A_FIELD_REP.has(`${x.first_name || ''} ${x.last_name || ''}`.trim().toLowerCase()))
-    const hits = office.filter((x) => { const l = String(x.last_name || '').toLowerCase(); return !mlast || l.startsWith(mlast) || mlast.startsWith(l) })
+    const hits = office.filter((x) => {
+      const f = String(x.first_name || '').toLowerCase(); const l = String(x.last_name || '').toLowerCase()
+      return (f.startsWith(mf) || mf.startsWith(f)) && (!mlast || l.startsWith(mlast) || mlast.startsWith(l))
+    })
     if (hits.length !== 1) return json(400, { ok: false, error: `Tests go only to office people, and I couldn't match your sign-in name "${who}" to one (found ${hits.length}).` })
     const t = hits[0]
     const link = `${SITE}${doc.path(t.registration_token)}`
