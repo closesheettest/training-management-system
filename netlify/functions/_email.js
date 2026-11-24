@@ -51,12 +51,15 @@ export async function sendEmail(toAddress, subject, body, options = {}) {
   // (the 9:15 Devotional's list emails come "from" 9:15 Devotional).
   if (options.fromName) { const addr = (from.match(/<([^>]+)>/) || [null, from])[1]; from = `${String(options.fromName).replace(/[<>"]/g, '')} <${addr}>` }
 
+  // A body that is already HTML goes out as HTML (Neal, 2026-11-24: Jenn's test of the new contractor agreement
+  // showed raw <div …> code, because every body was escaped as plain text). Plain-text bodies work as before.
+  const isHtml = typeof body === 'string' && /^\s*<(div|p|table|html|!doctype|body|h[1-6])\b/i.test(body)
   const payload = {
     from,
     to: [toAddress],
     subject,
-    html: wrapHtml(body),
-    text: body,
+    html: isHtml ? body : wrapHtml(body),
+    text: isHtml ? htmlToText(body) : body,
   }
   if (Array.isArray(options.attachments) && options.attachments.length > 0) {
     payload.attachments = options.attachments.map((a) => ({
@@ -101,6 +104,16 @@ export async function getEmailStatus(emailId) {
 
 // Wrap a plain-text body in a minimal HTML shell. Newlines become <br>;
 // http(s) URLs become clickable links.
+// Readable plain-text copy of an HTML body (for mail apps that show text only).
+function htmlToText(html) {
+  return String(html)
+    .replace(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '$2: $1')
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function wrapHtml(body) {
   if (typeof body !== 'string') return ''
   const escaped = body
