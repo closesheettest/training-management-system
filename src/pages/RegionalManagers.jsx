@@ -2180,6 +2180,11 @@ function ToolsetReference() {
   )
 }
 
+// A manager who also runs a team that has no manager of its own (Neal, 2026-11-24: Sit Sold / Zone 2 was folded
+// into the Sharks and "Chad is the manager"). A person holds one managed_region, so the extra team shows as a
+// second badge on their card instead of vanishing from this page.
+const ALSO_MANAGES = { 'Zone 3': ['Zone 2'] }
+
 function ManagerCard({ m, usage }) {
   const colors = ZONE_COLORS[m.managed_region] || { deep: '#64748b', light: '#f1f5f9' }
   const dashUrl = `${window.location.origin}/regional-manager/${m.manager_access_token}`
@@ -2202,12 +2207,23 @@ function ManagerCard({ m, usage }) {
           </div>
           <div className="text-xs text-slate-500">{m.phone || 'No phone on file'}</div>
         </div>
-        <span
-          className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide"
-          style={{ background: colors.light, color: colors.deep }}
-        >
-          {teamLabel(m.managed_region)}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide"
+            style={{ background: colors.light, color: colors.deep }}
+          >
+            {teamLabel(m.managed_region)}
+          </span>
+          {(ALSO_MANAGES[m.managed_region] || []).map((z) => (
+            <span
+              key={z}
+              className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide"
+              style={{ background: ZONE_COLORS[z]?.light || '#f1f5f9', color: ZONE_COLORS[z]?.deep || '#64748b' }}
+            >
+              + {teamLabel(z)}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Are they actually using it? A dashboard nobody opens is a dashboard that
