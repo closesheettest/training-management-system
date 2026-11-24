@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
 import { useParams } from 'react-router-dom'
 import { AGREEMENT_BLOCKS, EXHIBIT_BLOCKS, HARVESTER_EXHIBIT_BLOCKS } from '../lib/agreementText.js'
+import WitnessBlock from '../components/WitnessBlock.jsx'
 
 const API = '/.netlify/functions/ica-resign-api'
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-base'
@@ -108,8 +109,9 @@ export default function SignIca() {
       <section className="mt-5 rounded-lg border border-slate-300 bg-white p-4">
         <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">Independent Contractor Agreement + Exhibit A</h2>
         <div className="mt-2 max-h-[28rem] overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-800">
-          {[...AGREEMENT_BLOCKS, ...(data.harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
-            b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-base font-bold text-slate-900">{b.h}</h4>
+          {[...AGREEMENT_BLOCKS, { witness: true }, ...(data.harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
+            b.witness ? <WitnessBlock key={i} name={f.sign_name} title={f.sign_title} phone={f.agent_phone} />
+            : b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-base font-bold text-slate-900">{b.h}</h4>
             : b.h2 ? <h5 key={i} className="mb-1 mt-3 text-center text-xs font-bold uppercase tracking-wide text-slate-800">{b.h2}</h5>
             : (b.intro || b.exhibitIntro || b.exhibitSign) ? null
             : b.li ? <p key={i} className="mb-2 pl-5">{/^[a-z]\.\s/.test(b.li) ? null : <>•&nbsp;&nbsp;</>}{b.li}</p>

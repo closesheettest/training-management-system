@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { AGREEMENT_BLOCKS, EXHIBIT_BLOCKS, HARVESTER_EXHIBIT_BLOCKS } from '../lib/agreementText.js'
+import WitnessBlock from '../components/WitnessBlock.jsx'
 
 // Day-1 paperwork. The rep lands here from the text + email fired when they sign
 // in at the kiosk. Everything the old HomeMaxx funnel collected is here, plus the
@@ -242,8 +243,9 @@ export default function Onboarding() {
         <>
           <Section title="Independent Contractor Agreement" note="Please read this in full — it's what you're signing.">
             <div className="max-h-80 overflow-y-auto rounded-md border border-slate-300 bg-slate-50 p-4 text-xs leading-relaxed text-slate-700">
-              {[...AGREEMENT_BLOCKS, ...(harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
-                b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-sm font-bold text-slate-900">{b.h}</h4>
+              {[...AGREEMENT_BLOCKS, { witness: true }, ...(harvester ? HARVESTER_EXHIBIT_BLOCKS : EXHIBIT_BLOCKS)].map((b, i) =>
+                b.witness ? <WitnessBlock key={i} name={f.sign_name} title={f.sign_title} phone={f.agent_phone} />
+                : b.h ? <h4 key={i} className="mb-2 mt-3 text-center text-sm font-bold text-slate-900">{b.h}</h4>
                 : b.h2 ? <h5 key={i} className="mb-1 mt-3 text-center text-xs font-bold uppercase tracking-wide text-slate-800">{b.h2}</h5> /* v3 Exhibit A sub-headings (2026-11-16) */
                 : (b.intro || b.exhibitIntro) ? null
                 : b.li ? <p key={i} className="mb-2 pl-5">{/^[a-z]\.\s/.test(b.li) ? null : <>•&nbsp;&nbsp;</>}{b.li}</p>
