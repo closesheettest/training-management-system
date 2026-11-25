@@ -141,7 +141,7 @@ export const handler = async (event) => {
       `Open the Provision page and click "Mark provisioning complete" when done: ${link}` +
       (zoneLine ? ` — ${zoneLine}` : '')
     const emailSubject =
-      `Create company emails for ${cls.region} — Week A, ${presentToday.length || roster.length} trainee` +
+      `Create company emails for ${cls.region} — training class, ${presentToday.length || roster.length} trainee` +
       `${(presentToday.length || roster.length) === 1 ? '' : 's'} (week of ${cls.week_start_date})`
     const emailBody =
       `${triggerLabel}\n\n` +

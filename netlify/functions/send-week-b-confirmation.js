@@ -20,6 +20,7 @@
 //      CRON_SECRET (cron path only), optional PUBLIC_SITE_URL.
 
 import { createClient } from '@supabase/supabase-js'
+import { isOneWeekClass } from './_schedule.js'
 import { lastWeekADay, finishedWeekA, heldFromWeekB } from './_week-a.js'
 import { sendSmsViaGhl } from './_ghl.js'
 import { sendEmail } from './_email.js'
@@ -88,6 +89,8 @@ export const handler = async (event) => {
       .eq('attendance_only', false)
     const results = []
     for (const cls of classes || []) {
+      // One-week classes have no Week B (Neal, 2026-11-24) — never text them "confirm Monday for Week B".
+      if (isOneWeekClass(cls)) { results.push({ class_id: cls.id, region: cls.region, skipped: 'one_week_class' }); continue }
       const full = await loadClass(supabase, cls.id)
       if (full) results.push({ class_id: cls.id, region: cls.region, ...(await sendForClass(supabase, full, siteUrl, { force })) })
     }
@@ -100,7 +103,7 @@ export const handler = async (event) => {
 async function loadClass(supabase, classId) {
   const { data } = await supabase
     .from('classes')
-    .select('id, region, week_start_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_hold, week_b_hold_reason, week_b_confirm_sent_at, confirmation_status, attendance(attendance_date, confirmed))')
+    .select('id, region, week_start_date, week_end_date, locations(name, city, state), trainees!class_id(id, first_name, last_name, phone, email, registration_token, registered, enrolled, declined_at, dropped_out_at, week_b_hold, week_b_hold_reason, week_b_confirm_sent_at, confirmation_status, attendance(attendance_date, confirmed))')
     .eq('id', classId)
     .maybeSingle()
   return data || null
@@ -108,6 +111,8 @@ async function loadClass(supabase, classId) {
 
 // Send the Week B confirmation to every eligible trainee of one class.
 async function sendForClass(supabase, cls, siteUrl, { force, onlyUnconfirmed = false, dryRun = false }) {
+  // One-week class (Neal, 2026-11-24): no Week B, so the button sends nothing either.
+  if (isOneWeekClass(cls)) return { sent: 0, skipped: 0, recipients: [], skipped_list: [], note: 'One-week class: there is no Week B.' }
   const waStart = mondayOfISO(cls.week_start_date)
   const waEnd = addDaysISO(waStart, 6)
   // "Finished Week A", not "showed up once" — see _week-a.js. Someone who came

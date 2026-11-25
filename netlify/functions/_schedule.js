@@ -27,9 +27,21 @@ import { isNoClassDate } from './_no-class.js'
 // /timetable — one row, shared with the trainee-facing pages, so the hours a
 // trainee is TOLD and the hours these crons WAIT FOR can no longer disagree.
 // If the row can't be read we use these rather than policing on wrong hours.
+// ONE-WEEK TRAINING (Neal, 2026-11-24: "we're only going to have one week of training... it's going to follow
+// week B's schedule"). From the 11/30 class on, a class is ONE week, Mon–Fri, and its hours live in the timetable's
+// "A" section (kept under that key so every page and cron that reads it keeps working):
+//   Mon 12–4 PM · Tue 10–2 · Wed 10–2 · Thu 10–2 · Fri 9–11 AM (test + graduation).
+// "B" stays only for two-week classes that started before the switch.
 const FALLBACK_START_ET = {
-  A: { 1: 14, 2: 14, 3: 10 },          // Mon 2pm · Tue 2pm · Wed 10am, then field
-  B: { 1: 11, 2: 10, 3: 13, 4: 10 },   // Mon 11am · Tue 10am · Wed 1pm · Thu 10am
+  A: { 1: 12, 2: 10, 3: 10, 4: 10, 5: 9 },   // Mon noon · Tue–Thu 10am · Fri 9am
+  B: { 1: 11, 2: 10, 3: 13, 4: 10 },         // legacy two-week classes only
+}
+
+// A class whose end date is within 6 days of its start is a one-week class: it has no Week B, so nothing
+// Week-B-shaped (the Friday "confirm Monday for Week B" text, the Saturday second-chance check) applies to it.
+export function isOneWeekClass(c) {
+  if (!c?.week_start_date || !c?.week_end_date) return false
+  return dayIndex(c.week_start_date, c.week_end_date) <= 6
 }
 
 let cached = null
@@ -62,10 +74,12 @@ const dayIndex = (fromIso, toIso) =>
   Math.floor((new Date(`${toIso}T12:00:00Z`) - new Date(`${fromIso}T12:00:00Z`)) / MS_DAY)
 
 // Which half of the cohort's two weeks is `today` in? null = outside both.
-export function phaseForDate(weekStartDate, today) {
+export function phaseForDate(weekStartDate, today, weekEndDate = null) {
   if (!weekStartDate || !today) return null
   const n = dayIndex(weekStartDate, today)
   if (n < 0 || n > 13) return null
+  // One-week class (Neal, 2026-11-24): there is no Week B to fall into.
+  if (weekEndDate && dayIndex(weekStartDate, weekEndDate) <= 6) return n <= 6 ? 'A' : null
   return n <= 6 ? 'A' : 'B'
 }
 

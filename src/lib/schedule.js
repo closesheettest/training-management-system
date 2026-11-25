@@ -1,4 +1,4 @@
-// The two-week (A / B) training timetable.
+// The training timetable (one week since 2026-11-24; was two weeks, A / B).
 //
 // ONE source of truth: app_settings.training_timetable. It used to live in three
 // places — this file, netlify/functions/_schedule.js and locations.schedule_template
@@ -11,18 +11,23 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase.js'
 
+// ONE-WEEK TRAINING (Neal, 2026-11-24): "we're only going to have one week of training. We're not going to do
+// week A and week B anymore... it's going to follow week B's schedule." The one week lives under the "A" key so
+// every page and cron that reads the timetable keeps working; "B" is kept only for two-week classes that started
+// before the switch (the last was the 11/23 class).
 export const DEFAULT_TIMETABLE = {
   A: {
-    label: 'Week A',
+    label: 'Training Week',
     days: [
-      { dow: 1, day: 'Monday', start: 14, blocks: ['2:00 – 4:00 PM · Classroom'] },
-      { dow: 2, day: 'Tuesday', start: 14, blocks: ['2:00 – 4:00 PM · Classroom', '5:00 – 8:00 PM · Field'] },
-      { dow: 3, day: 'Wednesday', start: 10, blocks: ['10:00 AM – 12:00 PM · Classroom', 'Field continues until 8:00 PM · in your home market'] },
-      { dow: null, day: 'Thursday – Saturday', start: null, blocks: ['Working in the field from home'] },
+      { dow: 1, day: 'Monday', start: 12, blocks: ['12:00 – 4:00 PM · Classroom'] },
+      { dow: 2, day: 'Tuesday', start: 10, blocks: ['10:00 AM – 2:00 PM · Classroom'] },
+      { dow: 3, day: 'Wednesday', start: 10, blocks: ['10:00 AM – 2:00 PM · Classroom'] },
+      { dow: 4, day: 'Thursday', start: 10, blocks: ['10:00 AM – 2:00 PM · Classroom'] },
+      { dow: 5, day: 'Friday', start: 9, blocks: ['9:00 – 11:00 AM · Test + graduation'] },
     ],
   },
   B: {
-    label: 'Week B',
+    label: 'Week B (old two-week classes only)',
     days: [
       { dow: 1, day: 'Monday', start: 11, blocks: ['11:00 AM – 1:00 PM · Classroom'] },
       { dow: 2, day: 'Tuesday', start: 10, blocks: ['10:00 AM – 1:00 PM · Classroom'] },
@@ -74,7 +79,7 @@ export function shortLine(phase, tt = DEFAULT_TIMETABLE) {
   return (wk?.days || []).map((d) => `${d.day.split(' – ')[0].slice(0, 3)} ${d.blocks[0].split(' · ')[0]}`).join(' · ')
 }
 
-// Week A runs Mon–Fri of week_start_date; Week B the following Mon–Thu.
+// The training week (A) runs Mon–Fri of week_start_date; a legacy Week B the following Mon–Thu.
 export function weekWindow(weekStartDate, phase, addDays) {
   return phase === 'B'
     ? { start: addDays(weekStartDate, 7), end: addDays(weekStartDate, 10) }

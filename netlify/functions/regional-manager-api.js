@@ -335,17 +335,19 @@ export const handler = async (event) => {
     // they've finished and it's blank.
     // Class start dates, fetched separately — see the note on the select above.
     const classIds = [...new Set(stillWithUs.map((r) => r.class_id).filter(Boolean))]
-    const startByClass = {}
+    const startByClass = {}, endByClass = {}
     if (classIds.length) {
-      const { data: clsRows } = await supabase.from('classes').select('id, week_start_date').in('id', classIds)
-      for (const c of clsRows || []) startByClass[c.id] = c.week_start_date
+      const { data: clsRows } = await supabase.from('classes').select('id, week_start_date, week_end_date').in('id', classIds)
+      for (const c of clsRows || []) { startByClass[c.id] = c.week_start_date; endByClass[c.id] = c.week_end_date }
     }
 
     const todayEt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
-    const trainingWeek = (start) => {
+    const trainingWeek = (start, end) => {
       if (!start) return null
       const n = Math.floor((new Date(`${todayEt}T12:00:00Z`) - new Date(`${start}T12:00:00Z`)) / 86400000)
       if (n < 0 || n > 13) return null
+      // One-week class (Neal, 2026-11-24): no Week B after its Friday.
+      if (end && Math.floor((new Date(`${end}T12:00:00Z`) - new Date(`${start}T12:00:00Z`)) / 86400000) <= 6) return n <= 6 ? 'A' : null
       return n <= 6 ? 'A' : 'B'
     }
 
@@ -353,7 +355,7 @@ export const handler = async (event) => {
       const pregrad = (r.is_field_trainee === true || r.on_class_roster === true) && r.is_active_sales_rep !== true
       return {
         ...r, pregrad,
-        training_week: pregrad ? trainingWeek(startByClass[r.class_id]) : null,
+        training_week: pregrad ? trainingWeek(startByClass[r.class_id], endByClass[r.class_id]) : null,
         // For "Activity since class" on the trainee card.
         class_start: pregrad ? (startByClass[r.class_id] || null) : null,
         rep_level: pregrad ? 'pregrad' : r.rep_level,

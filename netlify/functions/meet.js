@@ -405,7 +405,9 @@ export const handler = async (event) => {
       if (c.cancelled_at) continue
       const start = Date.parse(`${c.week_start_date}T12:00:00Z`), wkB = start + 7 * 864e5
       const inA = now >= start - lead && now < wkB - 864e5 * 2 // through Friday of week A (weekend → week B)
-      const inB = now >= wkB - lead && now <= Date.parse(`${c.week_end_date}T23:59:00Z`)
+      // One-week class (Neal, 2026-11-24): never in a Week B room, even on its Friday.
+      const oneWeek = Date.parse(`${c.week_end_date}T12:00:00Z`) - start <= 6 * 864e5
+      const inB = !oneWeek && now >= wkB - lead && now <= Date.parse(`${c.week_end_date}T23:59:00Z`)
       if (week === 'both' ? !(inA || inB) : week === 'B' ? !inB : !inA) continue
       for (const t of c.trainees || []) if (t.enrolled !== false && !t.dropped_out_at && !t.declined_at) ids.add(t.id)
     }

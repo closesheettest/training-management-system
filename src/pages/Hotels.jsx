@@ -33,7 +33,7 @@ function EmptyPhase({ phase }) {
       <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
         <span className="text-sm font-bold uppercase tracking-wide">Week {phase}</span>
         <span className="text-xs font-medium">
-          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
+          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon–Thu nights · checkout Fri · 4 nights'}
         </span>
         <span className="text-xs opacity-70">(0)</span>
       </div>
@@ -221,7 +221,7 @@ export default function Hotels() {
           _venue: cls?.locations || null,
           _phase: phase,
           _checkIn: weekMon,
-          _checkOut: addDaysISO(weekMon, phase === 'B' ? 3 : 2),
+          _checkOut: addDaysISO(weekMon, phase === 'B' ? 3 : 4), // one-week training (Neal 11/24): Mon–Thu nights, out Fri
           _checkedIn: checkedIn,
         }
       })
@@ -509,9 +509,8 @@ export default function Hotels() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Hotel rooms</h1>
         <p className="mt-2 text-slate-600">
-          One training week at a time, split into <strong>Week A</strong> (a cohort in week 1 —
-          Mon &amp; Tue nights, checkout Wed) and <strong>Week B</strong> (a cohort in week 2 —
-          Mon–Wed nights, checkout Thu). Book each room (one click uses their meeting venue and
+          One training week at a time. Training is one week now: rooms are Mon–Thu nights,
+          checkout Fri (older two-week classes may still show a <strong>Week B</strong> group). Book each room (one click uses their meeting venue and
           the right dates), then <strong>Send hotel info to everyone</strong> in one shot.
         </p>
       </header>
@@ -678,7 +677,7 @@ export default function Hotels() {
                       <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
                         <span className="text-sm font-bold uppercase tracking-wide">Week {isB ? 'B' : 'A'}</span>
                         <span className="text-xs font-medium">
-                          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon & Tue nights · checkout Wed · 2 nights'}
+                          {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon–Thu nights · checkout Fri · 4 nights'}
                           {' · '}{formatDate(t._checkIn)} → {formatDate(t._checkOut)}
                         </span>
                         <span className="text-xs opacity-70">({isB ? weekB.length : weekA.length})</span>

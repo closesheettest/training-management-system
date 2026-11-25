@@ -47,7 +47,7 @@ export default function Timetable() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight">Training timetable</h1>
         <p className="mt-2 max-w-3xl text-slate-600">
-          The two-week schedule, defined once. This drives what trainees are told on the confirm page and
+          The one-week training schedule (Mon–Fri), defined once. This drives what trainees are told on the confirm page and
           in their itinerary email, the hours on the class page — and the time the no-show automations wait
           for before flagging anyone. Set a day to <em>No classroom that day</em> and nobody is expected,
           so nobody is flagged.
@@ -62,7 +62,8 @@ export default function Timetable() {
         </div>
       )}
 
-      {['A', 'B'].map((phase) => (
+      {/* One-week training (Neal, 2026-11-24): only the training week is edited here; the old Week B is hidden. */}
+      {['A'].map((phase) => (
         <section key={phase} className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold">
             <span className={`mr-2 rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${

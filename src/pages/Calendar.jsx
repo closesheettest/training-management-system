@@ -230,12 +230,12 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
   function update(field, value) {
     setForm((prev) => {
       const next = { ...prev, [field]: value }
-      // A cohort runs TWO weeks (Week A then Week B). The hiring manager only
-      // picks the Week A start Monday — Week B is the next week, so the class end
-      // is Week A start + 11 days (Week B Friday). Auto-set it (unless it's an
-      // attendance-only one-off).
+      // Training is ONE week now, Mon–Fri (Neal, 2026-11-24: "we're only going to
+      // have one week of training. We're not going to do week A and week B
+      // anymore."). The class end is the start + 4 days (that Friday: test +
+      // graduation). Was + 11 (Week B Friday) under the old two-week model.
       if (field === 'week_start_date' && value && !prev.attendance_only) {
-        next.week_end_date = addDaysIso(value, 11)
+        next.week_end_date = addDaysIso(value, 4)
       }
       // When region changes, drop a location that doesn't belong to it, then
       // pre-fill that region's usual venue so a new week is never created as TBD

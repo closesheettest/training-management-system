@@ -179,7 +179,8 @@ export default function ClassDetail() {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     const weekB = ws && today >= addDays(mondayOf(ws), 7)
     const checkIn = ws ? (weekB ? addDays(mondayOf(ws), 7) : ws) : null
-    const checkOut = checkIn ? addDays(checkIn, weekB ? 4 : 2) : null
+    // One-week training (Neal, 2026-11-24): class runs Mon–Fri, so the room is Mon–Thu nights, checkout Fri.
+    const checkOut = checkIn ? addDays(checkIn, 4) : null
     setHotelBusyId(t.id)
     const { error: err } = await supabase.from('trainee_hotel_stays').insert({
       trainee_id: t.id,
@@ -1244,7 +1245,9 @@ export default function ClassDetail() {
               Location TBD
             </span>
           )}
-          {!cls.attendance_only && (
+          {/* One-week classes (Neal, 2026-11-24) have no Week B to switch to. */}
+          {!cls.attendance_only && cls.week_start_date && cls.week_end_date &&
+            (new Date(`${cls.week_end_date}T12:00:00Z`) - new Date(`${cls.week_start_date}T12:00:00Z`)) / 86400000 > 6 && (
             <Link
               to={`/class/${cls.id}?week=${viewWeek === 'B' ? 'A' : 'B'}`}
               className="text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-800"

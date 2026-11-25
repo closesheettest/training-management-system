@@ -688,18 +688,24 @@ autopilot. From the moment a new hire is enrolled by HR, the system handles:</p>
 </footer>
 
 </div>
-<h2>Two-week schedule &amp; the no-show automations</h2>
-<p>Training runs as <strong>Week A</strong> then <strong>Week B</strong>, and the automations follow the real timetable
-(one editable row, <strong>Settings &rarr; Training timetable</strong>):</p>
+<h2>One-week schedule &amp; the no-show automations</h2>
+<p><strong>Training is ONE week</strong> from the class of Mon Nov 30 2026 on (Neal, 2026-11-24: "we're only going to have one
+week of training. We're not going to do week A and week B anymore."). It is the old two weeks put into one, on Week B's
+pattern. The automations follow the real timetable (one editable row, <strong>Settings &rarr; Training timetable</strong>):</p>
 <ul>
-  <li><strong>Week A</strong> — Mon 2–4pm classroom · Tue 2–4pm classroom then 5–8pm field · Wed 10am–12pm classroom then field to 8pm ·
-      <strong>Thu–Sat working the field from home</strong> (no kiosk sign-in).</li>
-  <li><strong>Week B</strong> — Mon 11–1 · Tue 10–1 · Wed 1–4 · <strong>Thu 10–1, and the week ends there</strong> (no Friday).</li>
+  <li><strong>Mon</strong> 12–4 PM · <strong>Tue</strong> 10 AM–2 PM · <strong>Wed</strong> 10 AM–2 PM · <strong>Thu</strong> 10 AM–2 PM ·
+      <strong>Fri</strong> 9–11 AM test + graduation (all Eastern).</li>
+  <li>Same triggers as before: Day 1 = onboarding paperwork + scripts; Day 2 (Tue) sign-in sends the test and has IT create the
+      company email, then HR sets up JobNimbus; Wed 2 PM dismissal = the full presentation audio (text + email); homework at
+      dismissal Mon–Thu (4 PM Mon, 2 PM Tue–Thu), none Friday.</li>
+  <li>New classes end on their Friday (start + 4 days). There is no Week B: the Friday "confirm Monday for Week B" text, the
+      Week B meeting room and the Week B effort gate never apply to a one-week class.</li>
 </ul>
-<p>No-show alerts only fire on real <em>classroom</em> days, from that day's start time plus 30 minutes' grace. Field days, the
-weekend between the weeks and Week B Friday are never policed — a false no-show unenrols the trainee, has IT delete their Google
-account and cancels their hotel room. Hotels follow the same shape: <strong>Week A 2 nights</strong> (out Wed),
-<strong>Week B 3 nights</strong> (out Thu).</p>
+<p>No-show alerts only fire on real classroom days, from that day's start time plus 30 minutes' grace — a false no-show unenrols
+the trainee, has IT delete their Google account and cancels their hotel room. Hotels: <strong>Mon–Thu nights, out Fri
+(4 nights)</strong>. Virtual classes (<code>virtual_class_ids</code>) book no hotel and are not policed.</p>
+<p><em>Before 2026-11-30</em> training ran as Week A (Mon 2–4, Tue 2–4 + field, Wed 10–12 + field, Thu–Sat field from home) then
+Week B (Mon 11–1, Tue 10–1, Wed 1–4, Thu 10–1). The Week B pieces stay in the code only for those older classes.</p>
 <h2>Meeting rooms (our own Zoom)</h2>
 <p><b>Team → Meeting rooms</b> (<code>/meeting-rooms</code>, admin PIN). Video meetings on LiveKit, in place of Zoom. Each room has a permanent address <code>/meet/&lt;room&gt;</code>. Reps, trainees and managers join from <b>their own link</b> (<code>?t=</code> their TMS token), so their real name is on their tile. Nothing to install.</p>
 <ul>
@@ -729,7 +735,7 @@ make field trainee, reschedule, unenroll, dropout and delete sit behind a <stron
 irreversible ones no longer sit a slip of the mouse from Edit. The roster summary is one line, week and location share a card,
 and the provisioning workflow sits below the roster instead of above it.</p>
 <h2>Training timetable — one row, three consumers</h2>
-<p>The two-week schedule lives in <code>app_settings.training_timetable</code> and is edited at
+<p>The one-week schedule lives in <code>app_settings.training_timetable</code> (under its "A" key) and is edited at
 <strong>Settings &rarr; Training timetable</strong>. Everything reads that one row:</p>
 <ul>
   <li>what trainees are told — confirm page, itinerary email, class page header</li>

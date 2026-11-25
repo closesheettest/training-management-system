@@ -2129,7 +2129,7 @@ function NewTrainees({ reps, token, onChanged, onCount }) {
           graduate onto the team — so they shouldn't be shuffled together in one list
           (Neal, 2026-08-19). Anyone whose week can't be worked out falls to the end. */}
       {[
-        { wk: 'A', title: 'Week A — first days in the field', note: 'Just out of the classroom. They need the most hand-holding.' },
+        { wk: 'A', title: 'In training this week', note: 'One-week training (Mon–Fri). In the field from Day 2; they need the most hand-holding.' },
         { wk: 'B', title: 'Week B — final week', note: 'Graduating this week. They join the contest and your pay next week.' },
         { wk: null, title: 'In training', note: '' },
       ].map(({ wk, title, note }) => {
@@ -2148,7 +2148,7 @@ function NewTrainees({ reps, token, onChanged, onCount }) {
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="text-[15px] font-bold text-white">{r.first_name} {r.last_name}</span>
               <span className="rounded bg-amber-400/25 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-amber-100">
-                {r.training_week ? `Week ${r.training_week} training` : 'In training'}
+                {r.training_week === 'B' ? 'Week B training' : 'In training'}
               </span>
             </div>
             {(r.city || r.state) && (
