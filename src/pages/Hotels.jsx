@@ -31,7 +31,7 @@ function EmptyPhase({ phase }) {
   return (
     <li className="list-none border-0 bg-transparent p-0 shadow-none">
       <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
-        <span className="text-sm font-bold uppercase tracking-wide">Week {phase}</span>
+        <span className="text-sm font-bold uppercase tracking-wide">{phase === 'B' ? 'Week B' : 'Training'}</span>
         <span className="text-xs font-medium">
           {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon–Thu nights · checkout Fri · 4 nights'}
         </span>
@@ -41,12 +41,12 @@ function EmptyPhase({ phase }) {
         <span className="text-2xl leading-none">✅</span>
         <div>
           <div className="text-base font-bold text-emerald-900">
-            Nothing to book for Week {phase} this week
+            Nothing to book for {phase === 'B' ? 'Week B' : 'training'} this week
           </div>
           <div className="text-sm text-emerald-800">
             {isB
               ? 'None of the trainees continuing into Week B needs a room.'
-              : 'None of the trainees arriving for Week A needs a room.'}
+              : 'None of the trainees arriving for training needs a room.'}
           </div>
         </div>
       </div>
@@ -675,7 +675,7 @@ export default function Hotels() {
                   {showHeader && (
                     <li className="list-none border-0 bg-transparent p-0 shadow-none">
                       <div className={'mt-3 flex flex-wrap items-baseline gap-2 rounded-md px-3 py-2 ' + (isB ? 'bg-indigo-50 text-indigo-900' : 'bg-emerald-50 text-emerald-900')}>
-                        <span className="text-sm font-bold uppercase tracking-wide">Week {isB ? 'B' : 'A'}</span>
+                        <span className="text-sm font-bold uppercase tracking-wide">{isB ? 'Week B' : 'Training'}</span>
                         <span className="text-xs font-medium">
                           {isB ? 'Mon–Wed nights · checkout Thu · 3 nights' : 'Mon–Thu nights · checkout Fri · 4 nights'}
                           {' · '}{formatDate(t._checkIn)} → {formatDate(t._checkOut)}

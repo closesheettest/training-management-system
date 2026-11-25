@@ -12,15 +12,15 @@ import { VideoTrack } from '@livekit/components-react'
 // Only Week A Day 1 for now — the other days are being rebuilt (Neal, 2026-10-04). Add each day
 // here when it's ready (the Week B image deck works the same way: type 'images', base, count, start).
 export const DECKS = [
-  { key: 'a1', week: 'A', label: 'Week A · Day 1', type: 'reveal', url: '/day-1-slides/' },
+  { key: 'a1', week: 'A', label: 'Day 1', type: 'reveal', url: '/day-1-slides/' },
   { key: 'vf', label: 'Walkthrough: new virtual training flow', type: 'reveal', url: '/virtual-flow/' },
   // Signing a free roof inspection, start to finish — Week A (and every non-training room) (Neal, 2026-10-05).
-  { key: 'fri', week: 'A', label: 'Week A · Signing a Free Roof Inspection', type: 'images', base: '/free-inspection/s-', count: 13, start: 1 },
+  { key: 'fri', week: 'A', label: 'Signing a Free Roof Inspection', type: 'images', base: '/free-inspection/s-', count: 13, start: 1 },
   // Week B Monday (Neal, 2026-10-04): the warm-up, then Find their button (FIGS), then
   // Question-based selling. Homework: learn slides 1–7, practice 1–7 that night.
-  { key: 'b1w', week: 'B', label: 'Week B · Mon 1 · The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
-  { key: 'b1f', week: 'B', label: 'Week B · Mon 2 · Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
-  { key: 'b1q', week: 'B', label: 'Week B · Mon 3 · Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
+  { key: 'b1w', week: 'B', label: 'The Warm-Up', type: 'images', base: '/week-b-virtual/s-', count: 10, start: 1 },
+  { key: 'b1f', week: 'B', label: 'Find their button (FIGS)', type: 'images', base: '/find-their-button/s-', count: 24, start: 1 },
+  { key: 'b1q', week: 'B', label: 'Question-based selling', type: 'images', base: '/question-selling/s-', count: 19, start: 1 },
   // The in-home SALES PRESENTATION (the rep dashboard deck, public/practice-slides) — what reps practice slide by slide.
   // Also what a 🚪 breakout room shows when the host gives the rooms slides to work on (Neal, 2026-10-08).
   { key: 'pres', week: 'B', label: 'Sales presentation (the in-home deck)', type: 'images', base: '/practice-slides/s-', count: 31, start: 1 },
@@ -51,7 +51,9 @@ const roomOwn = (room) => {
   if (room?.kind === 'managers') return DECKS.filter((d) => !d.week && !d.lib)
   if (room?.kind !== 'training') return []
   const w = room.training_week
-  const list = w === 'A' || w === 'B' ? DECKS.filter((d) => d.week === w) : DECKS.filter((d) => d.week)
+  // ONE-WEEK TRAINING (Neal, 2026-11-24/25: "week a and b are combined now just one class and one week"): the
+  // training room (training_week 'A') shows every training deck, old Week A and Week B alike. A legacy 'B' room keeps its own.
+  const list = w === 'B' ? DECKS.filter((d) => d.week === 'B') : DECKS.filter((d) => d.week)
   return [...list.filter((d) => d.flow === 'new'), ...list.filter((d) => d.flow !== 'new')] // 🆕 new flow on top
 }
 // What 📊 Present lists: the presentations ATTACHED to this meeting before it started (Neal, 2026-10-18: "before the meeting

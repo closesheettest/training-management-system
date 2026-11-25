@@ -135,7 +135,7 @@ export default function Calendar() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Schedule</h1>
           <p className="mt-2 text-slate-600">
-            Each week shows the cohorts actually in the room — Week A starting, Week B continuing. Click a row to open that cohort.
+            Each week shows the class in the room that week (training is one week, Mon–Fri). Click a row to open it.
           </p>
         </div>
         {!adding && (
@@ -315,7 +315,7 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-medium text-slate-700">
-          {form.attendance_only ? 'Start date' : 'Week A start (Monday)'}
+          {form.attendance_only ? 'Start date' : 'Training start (Monday)'}
           <input
             type="date"
             required
@@ -346,11 +346,11 @@ function AddWeekForm({ locations, defaultLocationByRegion = {}, onCancel, onSave
             <div className="mt-1 space-y-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal">
               {form.week_start_date ? (
                 <>
-                  <div><span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Week A</span> <span className="text-slate-600">{formatDateRange(form.week_start_date, addDaysIso(form.week_start_date, 4))}</span></div>
+                  <div><span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Training</span> <span className="text-slate-600">{formatDateRange(form.week_start_date, addDaysIso(form.week_start_date, 4))}</span></div>
                   <div><span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-indigo-800">Week B</span> <span className="text-slate-600">{formatDateRange(addDaysIso(form.week_start_date, 7), addDaysIso(form.week_start_date, 11))}</span></div>
                 </>
               ) : (
-                <span className="text-slate-400">Pick a Week A start date above.</span>
+                <span className="text-slate-400">Pick a training start date above.</span>
               )}
             </div>
           </div>
@@ -553,7 +553,7 @@ function PhaseRow({ phase, cls, monday, todayIso }) {
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-100 px-4 py-2.5 text-sm transition hover:bg-slate-50"
     >
       <span className={`w-16 shrink-0 rounded px-1.5 py-0.5 text-center text-[11px] font-bold uppercase tracking-wide ${chip}`}>
-        {cls.attendance_only ? 'One-off' : isB ? 'Week B' : 'Week A'}
+        {cls.attendance_only ? 'One-off' : isB ? 'Week B' : 'Training'}
       </span>
       <span className="flex-1 text-slate-700">
         {cls.attendance_only ? 'Attendance only' : isB ? 'Continuing' : 'New intake'}
@@ -750,7 +750,7 @@ function ClassRow({ cls, isPast = false, onDelete }) {
           {isTwoWeekClass(cls) ? (
             <div className="mt-1 space-y-0.5 text-sm">
               <div className="flex items-center gap-2">
-                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Week A</span>
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Training</span>
                 <span className="text-slate-600">{formatDateRange(cls.week_start_date, addDaysIso(cls.week_start_date, 4))}</span>
                 <span className="text-[11px] text-slate-400">· hiring / intake</span>
               </div>

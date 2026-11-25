@@ -97,7 +97,7 @@ export default function Attendance() {
           <h1 className="text-3xl font-semibold tracking-tight">Daily Attendance</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
             <span>For HR &amp; corporate — every class active on this day.</span>
-            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-sky-600" /> Week A</span>
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-sky-600" /> Training</span>
             <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-full bg-violet-600" /> Week B</span>
           </div>
         </div>
@@ -231,7 +231,7 @@ function ClassAttendanceCard({ cls, date }) {
           class at a glance — the whole point of this page (Neal, 2026-08-31). */}
       {wk?.letter && (
         <div className={`px-5 py-2 text-sm font-bold uppercase tracking-wide text-white ${wk.letter === 'A' ? 'bg-sky-600' : 'bg-violet-600'}`}>
-          Week {wk.letter}
+          {wk.letter === 'A' ? 'Training' : 'Week B'}
           <span className="ml-2 font-medium normal-case opacity-90">
             {wk.weekday} · Day {wk.dayInWeek} of the week
           </span>
@@ -245,7 +245,7 @@ function ClassAttendanceCard({ cls, date }) {
             </h2>
             {wk?.letter && (
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white ${wk.letter === 'A' ? 'bg-sky-600' : 'bg-violet-600'}`}>
-                Week {wk.letter}
+                {wk.letter === 'A' ? 'Training' : 'Week B'}
               </span>
             )}
             {cls.region && (
